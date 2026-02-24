@@ -337,19 +337,13 @@ moon.castShadow=true;
 moon.shadow.camera.left=-90;moon.shadow.camera.right=90;
 moon.shadow.camera.top=90;moon.shadow.camera.bottom=-90;
 moon.shadow.camera.near=1;moon.shadow.camera.far=250;
-moon.shadow.mapSize.set(2048,2048);
+moon.shadow.mapSize.set(1024,1024);
 moon.shadow.bias=-0.001;
 scene.add(moon);
 
-// Secondary moonlight (opposite angle — creates cross-shadows for depth)
+// Secondary moonlight (opposite angle — fill, no shadows for perf)
 var moon2=new THREE.DirectionalLight(0x223355,0.3);
 moon2.position.set(-40,45,25);
-moon2.castShadow=true;
-moon2.shadow.camera.left=-70;moon2.shadow.camera.right=70;
-moon2.shadow.camera.top=70;moon2.shadow.camera.bottom=-70;
-moon2.shadow.camera.near=1;moon2.shadow.camera.far=200;
-moon2.shadow.mapSize.set(1024,1024);
-moon2.shadow.bias=-0.002;
 scene.add(moon2);
 
 // Secondary fill light (opposite side, warmer, no shadow — simulates ground bounce)
@@ -390,7 +384,7 @@ var composer, bloomEnabled=true;
 try{
   var renderPass=new THREE.RenderPass(scene,camera);
   var bloomPass=new THREE.UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth,window.innerHeight),
+    new THREE.Vector2(Math.floor(window.innerWidth/2),Math.floor(window.innerHeight/2)),
     0.6,   // strength — subtle dreamy glow
     0.4,   // radius — how far bloom spreads
     0.85   // threshold — only bright emissives bloom
@@ -409,29 +403,33 @@ try{
 var skyGroup=new THREE.Group();
 var SKY_R=280; // sky dome radius (beyond fog fade)
 
-// --- Star field (individual tiny spheres on sky dome surface) ---
-var starGeos=[
-  new THREE.SphereGeometry(0.3,6,4),  // dim distant
-  new THREE.SphereGeometry(0.5,8,6),  // medium
-  new THREE.SphereGeometry(0.8,10,8)  // bright
-];
+// --- Star field (single Points object — replaces 600 individual meshes) ---
 var starColors=[C.skyStarBright,C.skyStarDim,C.skyStarWarm,C.skyStarCool];
+var starSizes=[1.0,2.0,3.5]; // point sizes for dim, medium, bright tiers
+var starPositions=new Float32Array(SKY_STARS*3);
+var starColorArr=new Float32Array(SKY_STARS*3);
+var starSizeArr=new Float32Array(SKY_STARS);
 for(var si=0;si<SKY_STARS;si++){
-  // Distribute across upper hemisphere (some below horizon for immersion)
   var theta=sr()*6.28;
-  var phi=sr()*0.85*Math.PI*0.5+(si<80?sr()*0.4:0); // mostly above horizon
-  var tier=si<50?2:(si<200?1:0); // 50 bright, 150 medium, rest dim
-  var sCol=starColors[Math.floor(sr()*starColors.length)];
-  var sMat=new THREE.MeshBasicMaterial({
-    color:sCol,transparent:tier<2,opacity:tier===0?0.3+sr()*0.4:tier===1?0.5+sr()*0.4:0.85+sr()*0.15
-  });
-  var sMesh=new THREE.Mesh(starGeos[tier],sMat);
-  var sx=SKY_R*Math.cos(theta)*Math.cos(phi);
-  var sy=SKY_R*Math.sin(phi)+20; // shift upward so horizon has fewer stars
-  var sz=SKY_R*Math.sin(theta)*Math.cos(phi);
-  sMesh.position.set(sx,sy,sz);
-  skyGroup.add(sMesh);
+  var phi=sr()*0.85*Math.PI*0.5+(si<80?sr()*0.4:0);
+  var tier=si<50?2:(si<200?1:0);
+  var sCol=new THREE.Color(starColors[Math.floor(sr()*starColors.length)]);
+  // consume the sr() call that was used for opacity to keep RNG in sync
+  sr();
+  starPositions[si*3]=SKY_R*Math.cos(theta)*Math.cos(phi);
+  starPositions[si*3+1]=SKY_R*Math.sin(phi)+20;
+  starPositions[si*3+2]=SKY_R*Math.sin(theta)*Math.cos(phi);
+  starColorArr[si*3]=sCol.r;starColorArr[si*3+1]=sCol.g;starColorArr[si*3+2]=sCol.b;
+  starSizeArr[si]=starSizes[tier];
 }
+var starGeom=new THREE.BufferGeometry();
+starGeom.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
+starGeom.setAttribute('color',new THREE.BufferAttribute(starColorArr,3));
+starGeom.setAttribute('size',new THREE.BufferAttribute(starSizeArr,1));
+var starPoints=new THREE.Points(starGeom,new THREE.PointsMaterial({
+  vertexColors:true,transparent:true,opacity:0.7,sizeAttenuation:true,size:2.0
+}));
+skyGroup.add(starPoints);
 
 // --- Twinkling star cluster patches (dense star knots) ---
 for(var ci=0;ci<12;ci++){
@@ -791,69 +789,95 @@ var GEO={
   dustMote:new THREE.SphereGeometry(0.035,3,3)
 };
 
+// --- Shared tree materials (reused across all trees to cut material count) ---
+var MAT={
+  bark:new THREE.MeshStandardMaterial({color:C.bark,roughness:0.95}),
+  ridge:new THREE.MeshStandardMaterial({color:0x120a04,roughness:1.0}),
+  lichen:new THREE.MeshStandardMaterial({color:0x667755,emissive:0x223311,emissiveIntensity:0.03,roughness:0.9}),
+  root:new THREE.MeshStandardMaterial({color:0x1a0f06,roughness:0.95}),
+  knot:new THREE.MeshStandardMaterial({color:0x0a0604,roughness:1.0}),
+  debris:new THREE.MeshStandardMaterial({color:0x2a1a08,roughness:0.9,side:THREE.DoubleSide}),
+  bud:new THREE.MeshStandardMaterial({color:0x88cc66,emissive:C.leafGlow,emissiveIntensity:0.15,roughness:0.7}),
+  moss:new THREE.MeshStandardMaterial({color:0x2a5030,emissive:0x113318,emissiveIntensity:0.05,transparent:true,opacity:0.6}),
+  fungi:new THREE.MeshStandardMaterial({color:0x5a3520,emissive:0x331a08,emissiveIntensity:0.05,roughness:0.8}),
+  barkRing:new THREE.MeshStandardMaterial({color:0x1a0e05,roughness:1.0}),
+  underglow:new THREE.MeshStandardMaterial({color:C.leaf,emissive:C.leafGlow,emissiveIntensity:0.06,transparent:true,opacity:0.12}),
+  drip:new THREE.MeshStandardMaterial({color:0xaaddcc,emissive:0x88ccbb,emissiveIntensity:0.1,transparent:true,opacity:0.35,roughness:0.0}),
+  mound:new THREE.MeshStandardMaterial({color:0x121008,roughness:0.95}),
+  // Rock shared materials
+  rock:new THREE.MeshStandardMaterial({color:C.rockBase,roughness:0.85,metalness:0.05}),
+  rockLight:new THREE.MeshStandardMaterial({color:C.rockLight,roughness:0.8,metalness:0.05}),
+  rockMoss:new THREE.MeshStandardMaterial({color:C.rockMoss,emissive:C.rockMoss,emissiveIntensity:0.03,roughness:0.9}),
+  rockPeb:new THREE.MeshStandardMaterial({color:0x3a3a40,roughness:0.9}),
+  rockGrass:new THREE.MeshStandardMaterial({color:0x33aa55,emissive:C.grassTip,emissiveIntensity:0.05,roughness:0.7,side:THREE.DoubleSide}),
+  rockLichen1:new THREE.MeshStandardMaterial({color:0x887744,roughness:0.9,transparent:true,opacity:0.5}),
+  rockLichen2:new THREE.MeshStandardMaterial({color:0x998855,roughness:0.9,transparent:true,opacity:0.5}),
+  rockLichen3:new THREE.MeshStandardMaterial({color:0x667755,roughness:0.9,transparent:true,opacity:0.5}),
+  rockLichen4:new THREE.MeshStandardMaterial({color:0xaa9966,roughness:0.9,transparent:true,opacity:0.5}),
+  // Fern shared materials
+  fernFrond:new THREE.MeshStandardMaterial({color:C.fern,emissive:C.fernGlow,emissiveIntensity:0.08,roughness:0.7,side:THREE.DoubleSide}),
+  fernRoot:new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.95}),
+  fernMidrib:new THREE.MeshStandardMaterial({color:0x1a4520,roughness:0.8}),
+  fernSpore:new THREE.MeshStandardMaterial({color:0x886622,emissive:0x443311,emissiveIntensity:0.1}),
+  fernCurl:new THREE.MeshStandardMaterial({color:C.fernGlow,emissive:C.fernGlow,emissiveIntensity:0.3}),
+  fernDrop:new THREE.MeshStandardMaterial({color:0xeeffff,emissive:0x88bbdd,emissiveIntensity:0.1,transparent:true,opacity:0.5,roughness:0.0,metalness:0.5}),
+  fernDead:new THREE.MeshStandardMaterial({color:0x3a2a10,roughness:0.9,side:THREE.DoubleSide,transparent:true,opacity:0.6}),
+  fernHair:new THREE.MeshBasicMaterial({color:0x2a4020,transparent:true,opacity:0.3})
+};
+
 // --- Trees (emissive leaf glow, NO PointLights) ---
 function makeTree(x,z){
   var g=new THREE.Group();
   var h=6+sr()*10, r=0.2+sr()*0.3;
-  var tM=new THREE.MeshStandardMaterial({color:C.bark,roughness:0.95});
-  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(r*0.4,r,h,6),tM);
+  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(r*0.4,r,h,6),MAT.bark);
   trunk.position.y=h/2;trunk.castShadow=true;g.add(trunk);
 
   // Bark ridge lines (4-6 vertical strips on trunk surface)
-  var ridgeM=new THREE.MeshStandardMaterial({color:0x120a04,roughness:1.0});
   var ridgeN=4+Math.floor(sr()*3);
   for(var rdi=0;rdi<ridgeN;rdi++){
     var rdA=rdi/ridgeN*6.28+sr()*0.3;
     var rdH=h*0.4+sr()*h*0.4;
     var rdY=sr()*h*0.3;
-    var ridge=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,rdH,3),ridgeM);
+    var ridge=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,rdH,3),MAT.ridge);
     ridge.position.set(Math.cos(rdA)*r*0.72,rdY+rdH/2,Math.sin(rdA)*r*0.72);
     g.add(ridge);
   }
 
   // Lichen patches (2-4 flat discs on trunk)
-  var lichM=new THREE.MeshStandardMaterial({
-    color:0x667755,emissive:0x223311,emissiveIntensity:0.03,roughness:0.9
-  });
   var lichN=2+Math.floor(sr()*3);
   for(var li=0;li<lichN;li++){
     var la=sr()*6.28,ly=1+sr()*h*0.5;
-    var lich=new THREE.Mesh(new THREE.CircleGeometry(0.04+sr()*0.05,5),lichM);
+    var lich=new THREE.Mesh(new THREE.CircleGeometry(0.04+sr()*0.05,5),MAT.lichen);
     lich.position.set(Math.cos(la)*r*0.73,ly,Math.sin(la)*r*0.73);
     lich.rotation.y=-la;g.add(lich);
   }
 
   // Exposed roots (3-5 sprawling at base)
-  var rootM=new THREE.MeshStandardMaterial({color:0x1a0f06,roughness:0.95});
   var rootN=3+Math.floor(sr()*3);
   for(var ri=0;ri<rootN;ri++){
     var ra=ri/rootN*6.28+sr()*0.5;
     var rLen=0.8+sr()*1.5;
-    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.02,r*0.3,rLen,4),rootM);
+    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.02,r*0.3,rLen,4),MAT.root);
     root.position.set(Math.cos(ra)*r*0.5,0.08,Math.sin(ra)*r*0.5);
     root.rotation.z=ra<3.14?(1.2+sr()*0.3):-(1.2+sr()*0.3);
     root.rotation.y=ra;g.add(root);
   }
 
   // Knotholes on trunk (1-3 dark spots)
-  var knotM=new THREE.MeshStandardMaterial({color:0x0a0604,roughness:1.0});
   var knotN=1+Math.floor(sr()*3);
   for(var ki=0;ki<knotN;ki++){
     var ky=h*0.2+sr()*h*0.5;
     var ka=sr()*6.28;
-    var knot=new THREE.Mesh(new THREE.SphereGeometry(0.04+sr()*0.04,4,3),knotM);
+    var knot=new THREE.Mesh(new THREE.SphereGeometry(0.04+sr()*0.04,4,3),MAT.knot);
     knot.scale.set(1,0.6,0.3);
     knot.position.set(Math.cos(ka)*r*0.7,ky,Math.sin(ka)*r*0.7);
     knot.rotation.y=-ka;g.add(knot);
   }
 
   // Fallen leaf debris at base (3-5 tiny flat shapes)
-  var debrisM=new THREE.MeshStandardMaterial({
-    color:0x2a1a08,roughness:0.9,side:THREE.DoubleSide
-  });
   for(var dbi=0;dbi<4;dbi++){
     var dba=sr()*6.28,dbd=r+sr()*1.5;
-    var debris=new THREE.Mesh(new THREE.CircleGeometry(0.03+sr()*0.03,4),debrisM);
+    var debris=new THREE.Mesh(new THREE.CircleGeometry(0.03+sr()*0.03,4),MAT.debris);
     debris.rotation.x=-Math.PI/2+sr()*0.3;debris.rotation.z=sr()*3;
     debris.position.set(Math.cos(dba)*dbd,0.01,Math.sin(dba)*dbd);
     g.add(debris);
@@ -862,15 +886,12 @@ function makeTree(x,z){
   var bc=3+Math.floor(sr()*4);
   for(var i=0;i<bc;i++){
     var by=h*(0.4+sr()*0.5),ang=sr()*Math.PI*2,bl=1.5+sr()*3;
-    var br=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.06,bl,4),tM);
+    var br=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.06,bl,4),MAT.bark);
     br.position.set(Math.cos(ang)*0.3,by,Math.sin(ang)*0.3);
     br.rotation.z=(sr()-0.5)*1.2;br.rotation.y=ang;br.castShadow=true;g.add(br);
 
     // Branch tip bud (tiny green sphere)
-    var budM=new THREE.MeshStandardMaterial({
-      color:0x88cc66,emissive:C.leafGlow,emissiveIntensity:0.15,roughness:0.7
-    });
-    var bud=new THREE.Mesh(new THREE.SphereGeometry(0.025,3,3),budM);
+    var bud=new THREE.Mesh(new THREE.SphereGeometry(0.025,3,3),MAT.bud);
     bud.position.set(Math.cos(ang)*(0.3+bl*0.35),by+sr()*0.5,Math.sin(ang)*(0.3+bl*0.35));
     g.add(bud);
 
@@ -886,14 +907,10 @@ function makeTree(x,z){
 
     // Hanging moss strands from branches (0-2 per branch)
     if(sr()<0.5){
-      var mossMat=new THREE.MeshStandardMaterial({
-        color:0x2a5030,emissive:0x113318,emissiveIntensity:0.05,
-        transparent:true,opacity:0.6
-      });
       var mossN=1+Math.floor(sr()*2);
       for(var mi=0;mi<mossN;mi++){
         var mLen=0.3+sr()*0.8;
-        var moss=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.003,mLen,3),mossMat);
+        var moss=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.003,mLen,3),MAT.moss);
         var mOff=sr()*bl*0.4;
         moss.position.set(Math.cos(ang)*(0.3+mOff),by-mLen/2-sr()*0.3,Math.sin(ang)*(0.3+mOff));
         g.add(moss);
@@ -902,52 +919,39 @@ function makeTree(x,z){
   }
 
   // Trunk shelf fungi (0-3)
-  var fungM=new THREE.MeshStandardMaterial({
-    color:0x5a3520,emissive:0x331a08,emissiveIntensity:0.05,roughness:0.8
-  });
   var fungN=Math.floor(sr()*4);
   for(var fi=0;fi<fungN;fi++){
     var fy=1+sr()*h*0.4;
     var fa=sr()*6.28;
-    var fung=new THREE.Mesh(new THREE.SphereGeometry(0.08+sr()*0.08,5,3),fungM);
+    var fung=new THREE.Mesh(new THREE.SphereGeometry(0.08+sr()*0.08,5,3),MAT.fungi);
     fung.scale.set(1.5,0.3,1);
     fung.position.set(Math.cos(fa)*r*0.8,fy,Math.sin(fa)*r*0.8);
     fung.rotation.y=-fa;g.add(fung);
   }
 
   // Bark growth rings (2-3 torus bands around trunk at intervals)
-  var ringM=new THREE.MeshStandardMaterial({color:0x1a0e05,roughness:1.0});
   for(var bri=0;bri<3;bri++){
     var bry=h*0.15+bri*h*0.2+sr()*h*0.05;
     var brkR=r*0.72-bri*0.02;
-    var bark=new THREE.Mesh(new THREE.TorusGeometry(brkR,0.008,4,8),ringM);
+    var bark=new THREE.Mesh(new THREE.TorusGeometry(brkR,0.008,4,8),MAT.barkRing);
     bark.position.y=bry;bark.rotation.x=Math.PI/2;g.add(bark);
   }
 
   // Canopy underglow layer (dim emissive sphere below leaves)
-  var underM=new THREE.MeshStandardMaterial({
-    color:C.leaf,emissive:C.leafGlow,emissiveIntensity:0.06,
-    transparent:true,opacity:0.12
-  });
-  var under=new THREE.Mesh(new THREE.SphereGeometry(2.5+sr()*1.5,5,4),underM);
+  var under=new THREE.Mesh(new THREE.SphereGeometry(2.5+sr()*1.5,5,4),MAT.underglow);
   under.position.y=h*0.65;g.add(under);
 
   // Leaf drip tips (3-5 tiny dangling water drops under canopy)
-  var dripM=new THREE.MeshStandardMaterial({
-    color:0xaaddcc,emissive:0x88ccbb,emissiveIntensity:0.1,
-    transparent:true,opacity:0.35,roughness:0.0
-  });
   for(var dri=0;dri<4;dri++){
     var dra=sr()*6.28,drd=1+sr()*2;
-    var drip=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),dripM);
+    var drip=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),MAT.drip);
     drip.scale.set(0.7,1.5,0.7);
     drip.position.set(Math.cos(dra)*drd,h*0.35+sr()*h*0.2,Math.sin(dra)*drd);
     g.add(drip);
   }
 
   // Base soil mound (subtle rise around trunk)
-  var moundM=new THREE.MeshStandardMaterial({color:0x121008,roughness:0.95});
-  var mound=new THREE.Mesh(new THREE.SphereGeometry(r*2.5,6,3),moundM);
+  var mound=new THREE.Mesh(new THREE.SphereGeometry(r*2.5,6,3),MAT.mound);
   mound.scale.set(1,0.12,1);mound.position.y=0.02;g.add(mound);
 
   g.position.set(x,0,z);scene.add(g);
@@ -1804,19 +1808,10 @@ function makeGrassPatch(cx,cz,radius,density){
 // --- Rock Formation (Lusion-style: smooth rounded stones with moss + lichen) ---
 function makeRock(x,z){
   var g=new THREE.Group();
-  var rockMat=new THREE.MeshStandardMaterial({
-    color:C.rockBase,roughness:0.85,metalness:0.05
-  });
-  var rockLightMat=new THREE.MeshStandardMaterial({
-    color:C.rockLight,roughness:0.8,metalness:0.05
-  });
-  var mossMat=new THREE.MeshStandardMaterial({
-    color:C.rockMoss,emissive:C.rockMoss,emissiveIntensity:0.03,roughness:0.9
-  });
 
   // Main stone (large rounded form)
   var mainSz=0.3+sr()*0.5;
-  var main=new THREE.Mesh(new THREE.SphereGeometry(mainSz,8,6),sr()<0.6?rockMat:rockLightMat);
+  var main=new THREE.Mesh(new THREE.SphereGeometry(mainSz,8,6),sr()<0.6?MAT.rock:MAT.rockLight);
   main.scale.set(1+sr()*0.6,0.4+sr()*0.4,1+sr()*0.6);
   main.position.y=mainSz*0.2;
   main.rotation.set(sr()*0.5,sr()*3,sr()*0.3);
@@ -1828,7 +1823,7 @@ function makeRock(x,z){
   for(var si=0;si<secN;si++){
     var sa=sr()*6.28, sd=mainSz*0.6+sr()*mainSz*0.5;
     var sSz=mainSz*0.3+sr()*mainSz*0.4;
-    var sec=new THREE.Mesh(new THREE.SphereGeometry(sSz,5,4),sr()<0.5?rockMat:rockLightMat);
+    var sec=new THREE.Mesh(new THREE.SphereGeometry(sSz,5,4),sr()<0.5?MAT.rock:MAT.rockLight);
     sec.scale.set(1+sr()*0.5,0.3+sr()*0.4,1+sr()*0.5);
     sec.position.set(Math.cos(sa)*sd,sSz*0.15,Math.sin(sa)*sd);
     sec.rotation.set(sr()*0.8,sr()*3,sr()*0.5);
@@ -1840,33 +1835,28 @@ function makeRock(x,z){
   for(var mi=0;mi<mossN;mi++){
     var ma=sr()*6.28, md=sr()*mainSz*0.6;
     var mSz=mainSz*0.15+sr()*mainSz*0.2;
-    var moss=new THREE.Mesh(new THREE.SphereGeometry(mSz,4,3),mossMat);
+    var moss=new THREE.Mesh(new THREE.SphereGeometry(mSz,4,3),MAT.rockMoss);
     moss.scale.set(1.5,0.2,1.5);
     moss.position.set(Math.cos(ma)*md,mainSz*0.35+sr()*0.05,Math.sin(ma)*md);
     g.add(moss);
   }
 
   // Lichen spots (tiny colored patches — yellow/orange/gray)
-  var lichenColors=[0x887744,0x998855,0x667755,0xaa9966];
+  var lichenMats=[MAT.rockLichen1,MAT.rockLichen2,MAT.rockLichen3,MAT.rockLichen4];
   for(var li=0;li<3;li++){
-    var lichenMat=new THREE.MeshStandardMaterial({
-      color:lichenColors[Math.floor(sr()*lichenColors.length)],
-      roughness:0.9,transparent:true,opacity:0.5
-    });
     var la=sr()*6.28;
-    var lichen=new THREE.Mesh(new THREE.SphereGeometry(mainSz*0.06+sr()*mainSz*0.08,3,3),lichenMat);
+    var lichen=new THREE.Mesh(new THREE.SphereGeometry(mainSz*0.06+sr()*mainSz*0.08,3,3),lichenMats[Math.floor(sr()*lichenMats.length)]);
     lichen.scale.set(2,0.15,2);
     lichen.position.set(Math.cos(la)*mainSz*0.5,mainSz*0.25+sr()*0.1,Math.sin(la)*mainSz*0.5);
     g.add(lichen);
   }
 
   // Embedded pebbles at base (4-6 tiny half-buried stones)
-  var pebMat=new THREE.MeshStandardMaterial({color:0x3a3a40,roughness:0.9});
   var pebN=4+Math.floor(sr()*3);
   for(var pi=0;pi<pebN;pi++){
     var pa=sr()*6.28, pd=mainSz*0.5+sr()*mainSz*0.6;
     var pSz=0.03+sr()*0.05;
-    var peb=new THREE.Mesh(new THREE.SphereGeometry(pSz,3,3),pebMat);
+    var peb=new THREE.Mesh(new THREE.SphereGeometry(pSz,3,3),MAT.rockPeb);
     peb.scale.set(1+sr()*0.5,0.4,1+sr()*0.5);
     peb.position.set(Math.cos(pa)*pd,pSz*0.15,Math.sin(pa)*pd);
     g.add(peb);
@@ -1874,13 +1864,9 @@ function makeRock(x,z){
 
   // Tiny grass tuft growing from crevice (2-3 blades)
   if(sr()<0.6){
-    var grassMat=new THREE.MeshStandardMaterial({
-      color:0x33aa55,emissive:C.grassTip,emissiveIntensity:0.05,
-      roughness:0.7,side:THREE.DoubleSide
-    });
     for(var gi=0;gi<3;gi++){
       var ga=sr()*6.28;
-      var blade=new THREE.Mesh(new THREE.PlaneGeometry(0.015,0.08+sr()*0.06),grassMat);
+      var blade=new THREE.Mesh(new THREE.PlaneGeometry(0.015,0.08+sr()*0.06),MAT.rockGrass);
       blade.position.set(Math.cos(ga)*mainSz*0.3,mainSz*0.3,Math.sin(ga)*mainSz*0.3);
       blade.rotation.y=sr()*3;blade.rotation.x=-0.2-sr()*0.3;
       g.add(blade);
@@ -1894,21 +1880,16 @@ function makeRock(x,z){
 // --- Fern (enhanced frond compound) ---
 function makeFern(x,z){
   var g=new THREE.Group();
-  var fMat=new THREE.MeshStandardMaterial({
-    color:C.fern,emissive:C.fernGlow,emissiveIntensity:0.08,
-    roughness:0.7,side:THREE.DoubleSide
-  });
   var frondCount=3+Math.floor(sr()*2);
   var scale=0.5+sr()*0.7;
 
   // Root clump at base (dark humus mound)
-  var rootMat=new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.95});
-  var rootClump=new THREE.Mesh(new THREE.SphereGeometry(0.06,5,3),rootMat);
+  var rootClump=new THREE.Mesh(new THREE.SphereGeometry(0.06,5,3),MAT.fernRoot);
   rootClump.scale.set(1.5,0.5,1.5);rootClump.position.y=0.02;g.add(rootClump);
   // Tiny root tendrils
   for(var ri=0;ri<3;ri++){
     var ra=sr()*6.28;
-    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.002,0.08,3),rootMat);
+    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.002,0.08,3),MAT.fernRoot);
     root.position.set(Math.cos(ra)*0.06,0.01,Math.sin(ra)*0.06);
     root.rotation.z=(ra<3.14?1:-1)*1.2;root.rotation.y=ra;g.add(root);
   }
@@ -1916,20 +1897,19 @@ function makeFern(x,z){
   for(var i=0;i<frondCount;i++){
     var ang=(i/frondCount)*6.28+sr()*0.3;
     // Frond midrib (thin cylinder spine)
-    var midrib=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.006,0.55,3),
-      new THREE.MeshStandardMaterial({color:0x1a4520,roughness:0.8}));
+    var midrib=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.006,0.55,3),MAT.fernMidrib);
     midrib.position.set(Math.cos(ang)*0.15,0.25,Math.sin(ang)*0.15);
     midrib.rotation.y=-ang;midrib.rotation.x=-0.6-sr()*0.4;
     g.add(midrib);
     // Frond blade
-    var frond=new THREE.Mesh(new THREE.PlaneGeometry(0.12,0.6,1,3),fMat);
+    var frond=new THREE.Mesh(new THREE.PlaneGeometry(0.12,0.6,1,3),MAT.fernFrond);
     frond.position.set(Math.cos(ang)*0.15,0.25,Math.sin(ang)*0.15);
     frond.rotation.y=-ang;
     frond.rotation.x=-0.6-sr()*0.4;
     g.add(frond);
     // Leaflets along the frond (6 instead of 4, alternating)
     for(var j=0;j<6;j++){
-      var lf=new THREE.Mesh(new THREE.PlaneGeometry(0.07,0.06,1,1),fMat);
+      var lf=new THREE.Mesh(new THREE.PlaneGeometry(0.07,0.06,1,1),MAT.fernFrond);
       var fy=0.06+j*0.08;
       var side=(j%2===0)?1:-1;
       lf.position.set(Math.cos(ang)*(0.15+0.06),fy,Math.sin(ang)*(0.15+0.06*side));
@@ -1937,59 +1917,44 @@ function makeFern(x,z){
       g.add(lf);
     }
     // Spore dots on underside (3 per frond)
-    var sporeMat=new THREE.MeshStandardMaterial({
-      color:0x886622,emissive:0x443311,emissiveIntensity:0.1
-    });
     for(var sp=0;sp<3;sp++){
-      var spore=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),sporeMat);
+      var spore=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),MAT.fernSpore);
       var sy=0.12+sp*0.12;
       spore.position.set(Math.cos(ang)*(0.15+0.02),sy-0.01,Math.sin(ang)*(0.15+0.02));
       g.add(spore);
     }
   }
   // Center curl (fiddlehead) with spiral hint
-  var curlMat=new THREE.MeshStandardMaterial({
-    color:C.fernGlow,emissive:C.fernGlow,emissiveIntensity:0.3
-  });
-  var curl=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),curlMat);
+  var curl=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),MAT.fernCurl);
   curl.position.y=0.35;g.add(curl);
   // Spiral arm on fiddlehead
-  var spiralArm=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.003,0.06,3),curlMat);
+  var spiralArm=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.003,0.06,3),MAT.fernCurl);
   spiralArm.position.set(0.02,0.37,0);spiralArm.rotation.z=-0.8;g.add(spiralArm);
 
   // Water droplets on fronds (3-4 tiny glass beads)
-  var dropMat=new THREE.MeshStandardMaterial({
-    color:0xeeffff,emissive:0x88bbdd,emissiveIntensity:0.1,
-    transparent:true,opacity:0.5,roughness:0.0,metalness:0.5
-  });
   for(var dri=0;dri<3;dri++){
     var dra=sr()*6.28,drd=sr()*0.2;
-    var drop=new THREE.Mesh(new THREE.SphereGeometry(0.006+sr()*0.005,3,3),dropMat);
+    var drop=new THREE.Mesh(new THREE.SphereGeometry(0.006+sr()*0.005,3,3),MAT.fernDrop);
     drop.position.set(Math.cos(dra)*drd,0.12+sr()*0.2,Math.sin(dra)*drd);
     g.add(drop);
   }
 
   // Dead brown frond (one withered frond at base)
-  var deadMat=new THREE.MeshStandardMaterial({
-    color:0x3a2a10,roughness:0.9,side:THREE.DoubleSide,transparent:true,opacity:0.6
-  });
-  var deadFrond=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.4,1,2),deadMat);
+  var deadFrond=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.4,1,2),MAT.fernDead);
   var deadAng=sr()*6.28;
   deadFrond.position.set(Math.cos(deadAng)*0.12,0.05,Math.sin(deadAng)*0.12);
   deadFrond.rotation.x=-1.3;deadFrond.rotation.y=deadAng;g.add(deadFrond);
 
   // Stipe hairs (tiny fuzz on main stems)
-  var hairMat=new THREE.MeshBasicMaterial({color:0x2a4020,transparent:true,opacity:0.3});
   for(var hi=0;hi<4;hi++){
-    var hair=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.001,0.015,3),hairMat);
+    var hair=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.001,0.015,3),MAT.fernHair);
     hair.position.set((sr()-0.5)*0.08,0.08+sr()*0.15,(sr()-0.5)*0.08);
     hair.rotation.z=(sr()-0.5)*1.5;g.add(hair);
   }
 
   // Soil crumbs at base
-  var soilMat=new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.95});
   for(var sci=0;sci<3;sci++){
-    var soil=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),soilMat);
+    var soil=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),MAT.fernRoot);
     soil.position.set((sr()-0.5)*0.1,0.005,(sr()-0.5)*0.1);g.add(soil);
   }
 
@@ -3215,9 +3180,12 @@ function updatePlayer(dt){
 
   // --- Sprint FOV ---
   targetFOV=(sprinting&&moving)?78:65;
+  var prevFOV=currentFOV;
   currentFOV+=(targetFOV-currentFOV)*dt*4;
-  camera.fov=currentFOV;
-  camera.updateProjectionMatrix();
+  if(Math.abs(currentFOV-prevFOV)>0.01){
+    camera.fov=currentFOV;
+    camera.updateProjectionMatrix();
+  }
 
   // --- Landing Cushion ---
   landingDip*=Math.pow(0.04,dt); // exponential decay
@@ -3227,84 +3195,124 @@ function updatePlayer(dt){
   cameraBobY=bobOffset-landingDip;
 }
 
-// --- Firefly Pool (MeshBasicMaterial — ZERO light cost) ---
+// --- Firefly Pool (single Points object — 1 draw call for all fireflies) ---
 var flies=[];
+var flyPositions,flyColors,flyGeom,flyPoints;
 function initFlies(n){
+  flyPositions=new Float32Array(n*3);
+  flyColors=new Float32Array(n*3);
+  flyGeom=new THREE.BufferGeometry();
+  flyGeom.setAttribute('position',new THREE.BufferAttribute(flyPositions,3));
+  flyGeom.setAttribute('color',new THREE.BufferAttribute(flyColors,3));
+  var flyMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,
+    vertexColors:true,size:0.12,sizeAttenuation:true,
+    blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  flyPoints=new THREE.Points(flyGeom,flyMat);
+  flyPoints.frustumCulled=false;
+  scene.add(flyPoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({
-      color:i%3===0?C.fireflyB:C.firefly,transparent:true,opacity:0
-    });
-    var m=new THREE.Mesh(GEO.fly,mat);
-    m.visible=false;scene.add(m);
-    flies.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
-      active:false,phase:Math.random()*6.28,wander:Math.random()*6.28});
+    flyPositions[i*3]=0;flyPositions[i*3+1]=-999;flyPositions[i*3+2]=0;
+    flyColors[i*3]=0;flyColors[i*3+1]=0;flyColors[i*3+2]=0;
+    flies.push({idx:i,vel:new THREE.Vector3(),life:0,max:0,
+      active:false,phase:Math.random()*6.28,wander:Math.random()*6.28,
+      isB:i%3===0});
   }
 }
 function spawnFly(px,py,pz,life){
   var f=null;
   for(var i=0;i<flies.length;i++){if(!flies[i].active){f=flies[i];break}}
   if(!f){var best=Infinity;for(var i=0;i<flies.length;i++){if(flies[i].life<best){best=flies[i].life;f=flies[i]}}}
-  f.mesh.position.set(px,py+0.5+Math.random()*3,pz);
-  f.mesh.visible=true;f.mat.opacity=1;
+  var idx=f.idx*3;
+  flyPositions[idx]=px;flyPositions[idx+1]=py+0.5+Math.random()*3;flyPositions[idx+2]=pz;
   f.vel.set((Math.random()-.5)*2,(Math.random()-.5),( Math.random()-.5)*2);
   f.life=life;f.max=life;f.active=true;f.wander=Math.random()*6.28;
 }
 function updateFlies(dt,t){
   var ac=0;
   for(var i=0;i<flies.length;i++){
-    var f=flies[i];if(!f.active)continue;
+    var f=flies[i];
+    var idx=f.idx*3;
+    if(!f.active){
+      flyPositions[idx+1]=-999;
+      flyColors[idx]=0;flyColors[idx+1]=0;flyColors[idx+2]=0;
+      continue;
+    }
     f.life-=dt;
-    if(f.life<=0){f.active=false;f.mesh.visible=false;continue}
+    if(f.life<=0){f.active=false;flyPositions[idx+1]=-999;flyColors[idx]=0;flyColors[idx+1]=0;flyColors[idx+2]=0;continue}
     ac++;
     f.wander+=(Math.random()-0.5)*3*dt;
     f.vel.x+=Math.cos(f.wander)*1.5*dt;
     f.vel.z+=Math.sin(f.wander)*1.5*dt;
     f.vel.y+=Math.sin(t*2+f.phase)*dt;
     f.vel.multiplyScalar(0.995);
-    f.mesh.position.x+=f.vel.x*dt;
-    f.mesh.position.y+=f.vel.y*dt;
-    f.mesh.position.z+=f.vel.z*dt;
-    if(f.mesh.position.y<0.3){f.mesh.position.y=0.3;f.vel.y=Math.abs(f.vel.y)*0.5}
-    if(f.mesh.position.y>12)f.vel.y-=2*dt;
+    flyPositions[idx]+=f.vel.x*dt;
+    flyPositions[idx+1]+=f.vel.y*dt;
+    flyPositions[idx+2]+=f.vel.z*dt;
+    if(flyPositions[idx+1]<0.3){flyPositions[idx+1]=0.3;f.vel.y=Math.abs(f.vel.y)*0.5}
+    if(flyPositions[idx+1]>12)f.vel.y-=2*dt;
     var pulse=Math.sin(t*3+f.phase)*0.5+0.5;
-    var frac=f.life/f.max;
-    f.mat.opacity=frac*(0.4+pulse*0.6);
-    f.mesh.scale.setScalar(0.6+pulse*0.6);
+    var a=f.life/f.max*(0.4+pulse*0.6);
+    if(f.isB){flyColors[idx]=0.4*a;flyColors[idx+1]=1*a;flyColors[idx+2]=0.87*a}
+    else{flyColors[idx]=0.93*a;flyColors[idx+1]=1*a;flyColors[idx+2]=0.4*a}
   }
+  flyGeom.attributes.position.needsUpdate=true;
+  flyGeom.attributes.color.needsUpdate=true;
   return ac;
 }
 
-// --- Spore Pool ---
+// --- Spore Pool (single Points object) ---
 var spores=[];
+var sporePositions,sporeColors,sporeGeom,sporePoints;
+var _sporeC=new THREE.Color(C.spore);
 function initSpores(n){
+  sporePositions=new Float32Array(n*3);
+  sporeColors=new Float32Array(n*3);
+  sporeGeom=new THREE.BufferGeometry();
+  sporeGeom.setAttribute('position',new THREE.BufferAttribute(sporePositions,3));
+  sporeGeom.setAttribute('color',new THREE.BufferAttribute(sporeColors,3));
+  var sporeMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,vertexColors:true,
+    size:0.08,sizeAttenuation:true,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  sporePoints=new THREE.Points(sporeGeom,sporeMat);
+  sporePoints.frustumCulled=false;
+  scene.add(sporePoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({color:C.spore,transparent:true,opacity:0});
-    var m=new THREE.Mesh(GEO.spore,mat);m.visible=false;scene.add(m);
-    spores.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+    sporePositions[i*3]=0;sporePositions[i*3+1]=-999;sporePositions[i*3+2]=0;
+    sporeColors[i*3]=0;sporeColors[i*3+1]=0;sporeColors[i*3+2]=0;
+    spores.push({idx:i,vel:new THREE.Vector3(),life:0,max:0,active:false});
   }
 }
 function spawnSpore(px,py,pz){
   var s=null;
   for(var i=0;i<spores.length;i++){if(!spores[i].active){s=spores[i];break}}
   if(!s){var best=Infinity;for(var i=0;i<spores.length;i++){if(spores[i].life<best){best=spores[i].life;s=spores[i]}}}
-  s.mesh.position.set(px,py,pz);s.mesh.visible=true;
+  var idx=s.idx*3;
+  sporePositions[idx]=px;sporePositions[idx+1]=py;sporePositions[idx+2]=pz;
   s.vel.set((Math.random()-.5)*0.3,0.4+Math.random()*0.4,(Math.random()-.5)*0.3);
   s.life=3+Math.random()*3;s.max=s.life;s.active=true;
 }
 function updateSpores(dt){
   var ac=0;
   for(var i=0;i<spores.length;i++){
-    var s=spores[i];if(!s.active)continue;
+    var s=spores[i];
+    var idx=s.idx*3;
+    if(!s.active){sporePositions[idx+1]=-999;sporeColors[idx]=0;sporeColors[idx+1]=0;sporeColors[idx+2]=0;continue}
     s.life-=dt;
-    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
+    if(s.life<=0){s.active=false;sporePositions[idx+1]=-999;sporeColors[idx]=0;sporeColors[idx+1]=0;sporeColors[idx+2]=0;continue}
     ac++;
-    s.vel.y+=0.3*dt; // rises
+    s.vel.y+=0.3*dt;
     s.vel.multiplyScalar(0.997);
-    s.mesh.position.x+=s.vel.x*dt;
-    s.mesh.position.y+=s.vel.y*dt;
-    s.mesh.position.z+=s.vel.z*dt;
-    s.mat.opacity=(s.life/s.max)*0.7;
+    sporePositions[idx]+=s.vel.x*dt;
+    sporePositions[idx+1]+=s.vel.y*dt;
+    sporePositions[idx+2]+=s.vel.z*dt;
+    var a=(s.life/s.max)*0.7;
+    sporeColors[idx]=_sporeC.r*a;sporeColors[idx+1]=_sporeC.g*a;sporeColors[idx+2]=_sporeC.b*a;
   }
+  sporeGeom.attributes.position.needsUpdate=true;
+  sporeGeom.attributes.color.needsUpdate=true;
   return ac;
 }
 
@@ -3366,23 +3374,36 @@ function updateVegetation(dt,t){
   }
 }
 
-// --- Falling Star Motes Pool ---
+// --- Falling Star Motes Pool (single Points object) ---
+var smPositions,smColors,smGeom,smPoints;
+var _smC=new THREE.Color(C.starMote);
 function initStarMotes(n){
+  smPositions=new Float32Array(n*3);
+  smColors=new Float32Array(n*3);
+  smGeom=new THREE.BufferGeometry();
+  smGeom.setAttribute('position',new THREE.BufferAttribute(smPositions,3));
+  smGeom.setAttribute('color',new THREE.BufferAttribute(smColors,3));
+  var smMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,vertexColors:true,
+    size:0.07,sizeAttenuation:true,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  smPoints=new THREE.Points(smGeom,smMat);
+  smPoints.frustumCulled=false;
+  scene.add(smPoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({color:C.starMote,transparent:true,opacity:0});
-    var m=new THREE.Mesh(GEO.starMote,mat);m.visible=false;scene.add(m);
-    starMotes.push({mesh:m,mat:mat,life:0,max:0,active:false,vy:0,drift:0});
+    smPositions[i*3]=0;smPositions[i*3+1]=-999;smPositions[i*3+2]=0;
+    smColors[i*3]=0;smColors[i*3+1]=0;smColors[i*3+2]=0;
+    starMotes.push({idx:i,life:0,max:0,active:false,vy:0,drift:0});
   }
 }
 function spawnStarMote(){
   var s=null;
   for(var i=0;i<starMotes.length;i++){if(!starMotes[i].active){s=starMotes[i];break}}
   if(!s) return;
-  var px=player.pos.x+(Math.random()-0.5)*60;
-  var pz=player.pos.z+(Math.random()-0.5)*60;
-  var py=15+Math.random()*20;
-  s.mesh.position.set(px,py,pz);
-  s.mesh.visible=true;s.mat.opacity=0.8;
+  var idx=s.idx*3;
+  smPositions[idx]=player.pos.x+(Math.random()-0.5)*60;
+  smPositions[idx+1]=15+Math.random()*20;
+  smPositions[idx+2]=player.pos.z+(Math.random()-0.5)*60;
   s.life=6+Math.random()*6;s.max=s.life;s.active=true;
   s.vy=-0.15-Math.random()*0.3;
   s.drift=Math.random()*6.28;
@@ -3392,26 +3413,42 @@ function updateStarMotes(dt,t){
   starTimer+=dt;
   if(starTimer>0.15){starTimer=0;spawnStarMote()}
   for(var i=0;i<starMotes.length;i++){
-    var s=starMotes[i];if(!s.active)continue;
+    var s=starMotes[i];
+    var idx=s.idx*3;
+    if(!s.active){smPositions[idx+1]=-999;smColors[idx]=0;smColors[idx+1]=0;smColors[idx+2]=0;continue}
     s.life-=dt;
-    if(s.life<=0||s.mesh.position.y<0.5){s.active=false;s.mesh.visible=false;continue}
-    s.mesh.position.y+=s.vy*dt;
+    if(s.life<=0||smPositions[idx+1]<0.5){s.active=false;smPositions[idx+1]=-999;smColors[idx]=0;smColors[idx+1]=0;smColors[idx+2]=0;continue}
+    smPositions[idx+1]+=s.vy*dt;
     s.drift+=(Math.random()-0.5)*0.5*dt;
-    s.mesh.position.x+=Math.sin(s.drift)*0.1*dt;
-    s.mesh.position.z+=Math.cos(s.drift)*0.08*dt;
-    var frac=s.life/s.max;
-    var twinkle=Math.sin(t*4+i)*0.3+0.7;
-    s.mat.opacity=frac*twinkle*0.7;
-    s.mesh.scale.setScalar(0.5+twinkle*0.5);
+    smPositions[idx]+=Math.sin(s.drift)*0.1*dt;
+    smPositions[idx+2]+=Math.cos(s.drift)*0.08*dt;
+    var a=s.life/s.max*(Math.sin(t*4+i)*0.3+0.7)*0.7;
+    smColors[idx]=_smC.r*a;smColors[idx+1]=_smC.g*a;smColors[idx+2]=_smC.b*a;
   }
+  smGeom.attributes.position.needsUpdate=true;
+  smGeom.attributes.color.needsUpdate=true;
 }
 
-// --- Dust Landing Particles Pool ---
+// --- Dust Landing Particles Pool (single Points object) ---
+var dmPositions,dmColors,dmGeom,dmPoints;
+var _dmC=new THREE.Color(0x88aa77);
 function initDustMotes(n){
+  dmPositions=new Float32Array(n*3);
+  dmColors=new Float32Array(n*3);
+  dmGeom=new THREE.BufferGeometry();
+  dmGeom.setAttribute('position',new THREE.BufferAttribute(dmPositions,3));
+  dmGeom.setAttribute('color',new THREE.BufferAttribute(dmColors,3));
+  var dmMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,vertexColors:true,
+    size:0.07,sizeAttenuation:true,depthWrite:false
+  });
+  dmPoints=new THREE.Points(dmGeom,dmMat);
+  dmPoints.frustumCulled=false;
+  scene.add(dmPoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({color:0x88aa77,transparent:true,opacity:0});
-    var m=new THREE.Mesh(GEO.dustMote,mat);m.visible=false;scene.add(m);
-    dustMotes.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+    dmPositions[i*3]=0;dmPositions[i*3+1]=-999;dmPositions[i*3+2]=0;
+    dmColors[i*3]=0;dmColors[i*3+1]=0;dmColors[i*3+2]=0;
+    dustMotes.push({idx:i,vel:new THREE.Vector3(),life:0,max:0,active:false});
   }
 }
 function spawnDustBurst(px,pz,count){
@@ -3420,41 +3457,59 @@ function spawnDustBurst(px,pz,count){
     for(var i=0;i<dustMotes.length;i++){if(!dustMotes[i].active){d=dustMotes[i];break}}
     if(!d) continue;
     var a=Math.random()*6.28,spd=1+Math.random()*2;
-    d.mesh.position.set(px+Math.cos(a)*0.2,0.1,pz+Math.sin(a)*0.2);
-    d.mesh.visible=true;d.mat.opacity=0.5;
+    var idx=d.idx*3;
+    dmPositions[idx]=px+Math.cos(a)*0.2;dmPositions[idx+1]=0.1;dmPositions[idx+2]=pz+Math.sin(a)*0.2;
     d.vel.set(Math.cos(a)*spd,0.5+Math.random()*1.5,Math.sin(a)*spd);
     d.life=0.6+Math.random()*0.6;d.max=d.life;d.active=true;
   }
 }
 function updateDustMotes(dt){
   for(var i=0;i<dustMotes.length;i++){
-    var d=dustMotes[i];if(!d.active)continue;
+    var d=dustMotes[i];
+    var idx=d.idx*3;
+    if(!d.active){dmPositions[idx+1]=-999;dmColors[idx]=0;dmColors[idx+1]=0;dmColors[idx+2]=0;continue}
     d.life-=dt;
-    if(d.life<=0){d.active=false;d.mesh.visible=false;continue}
+    if(d.life<=0){d.active=false;dmPositions[idx+1]=-999;dmColors[idx]=0;dmColors[idx+1]=0;dmColors[idx+2]=0;continue}
     d.vel.y-=3*dt;d.vel.multiplyScalar(0.96);
-    d.mesh.position.x+=d.vel.x*dt;
-    d.mesh.position.y+=d.vel.y*dt;
-    d.mesh.position.z+=d.vel.z*dt;
-    if(d.mesh.position.y<0.05){d.mesh.position.y=0.05;d.vel.y=0;d.vel.x*=0.8;d.vel.z*=0.8}
-    d.mat.opacity=(d.life/d.max)*0.4;
+    dmPositions[idx]+=d.vel.x*dt;
+    dmPositions[idx+1]+=d.vel.y*dt;
+    dmPositions[idx+2]+=d.vel.z*dt;
+    if(dmPositions[idx+1]<0.05){dmPositions[idx+1]=0.05;d.vel.y=0;d.vel.x*=0.8;d.vel.z*=0.8}
+    var a=(d.life/d.max)*0.4;
+    dmColors[idx]=_dmC.r*a;dmColors[idx+1]=_dmC.g*a;dmColors[idx+2]=_dmC.b*a;
   }
+  dmGeom.attributes.position.needsUpdate=true;
+  dmGeom.attributes.color.needsUpdate=true;
 }
 
-// --- Dandelion Seed Particles Pool ---
+// --- Dandelion Seed Particles Pool (single Points object) ---
+var dsPositions,dsColors,dsGeom,dsPoints;
+var _dsC=new THREE.Color(C.dandSeed);
 function initDandSeeds(n){
+  dsPositions=new Float32Array(n*3);
+  dsColors=new Float32Array(n*3);
+  dsGeom=new THREE.BufferGeometry();
+  dsGeom.setAttribute('position',new THREE.BufferAttribute(dsPositions,3));
+  dsGeom.setAttribute('color',new THREE.BufferAttribute(dsColors,3));
+  var dsMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,vertexColors:true,
+    size:0.05,sizeAttenuation:true,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  dsPoints=new THREE.Points(dsGeom,dsMat);
+  dsPoints.frustumCulled=false;
+  scene.add(dsPoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({color:C.dandSeed,transparent:true,opacity:0});
-    var m=new THREE.Mesh(GEO.dandSeed,mat);m.visible=false;scene.add(m);
-    dandSeeds.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
-      active:false,drift:0});
+    dsPositions[i*3]=0;dsPositions[i*3+1]=-999;dsPositions[i*3+2]=0;
+    dsColors[i*3]=0;dsColors[i*3+1]=0;dsColors[i*3+2]=0;
+    dandSeeds.push({idx:i,vel:new THREE.Vector3(),life:0,max:0,active:false,drift:0});
   }
 }
 function spawnDandSeed(px,py,pz){
   var s=null;
   for(var i=0;i<dandSeeds.length;i++){if(!dandSeeds[i].active){s=dandSeeds[i];break}}
   if(!s) return;
-  s.mesh.position.set(px+(Math.random()-0.5)*0.1,py,pz+(Math.random()-0.5)*0.1);
-  s.mesh.visible=true;s.mat.opacity=0.8;
+  var idx=s.idx*3;
+  dsPositions[idx]=px+(Math.random()-0.5)*0.1;dsPositions[idx+1]=py;dsPositions[idx+2]=pz+(Math.random()-0.5)*0.1;
   var a=Math.random()*6.28;
   s.vel.set(Math.cos(a)*0.5+Math.random()*0.3,0.6+Math.random()*0.8,Math.sin(a)*0.5);
   s.life=4+Math.random()*5;s.max=s.life;s.active=true;
@@ -3462,30 +3517,47 @@ function spawnDandSeed(px,py,pz){
 }
 function updateDandSeeds(dt,t){
   for(var i=0;i<dandSeeds.length;i++){
-    var s=dandSeeds[i];if(!s.active)continue;
+    var s=dandSeeds[i];
+    var idx=s.idx*3;
+    if(!s.active){dsPositions[idx+1]=-999;dsColors[idx]=0;dsColors[idx+1]=0;dsColors[idx+2]=0;continue}
     s.life-=dt;
-    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
-    // Gentle upward drift with wind
+    if(s.life<=0){s.active=false;dsPositions[idx+1]=-999;dsColors[idx]=0;dsColors[idx+1]=0;dsColors[idx+2]=0;continue}
     s.drift+=(Math.random()-0.5)*1.5*dt;
     s.vel.x+=Math.sin(s.drift)*0.3*dt;
     s.vel.z+=Math.cos(s.drift)*0.2*dt;
-    s.vel.y+=(0.15-s.vel.y)*dt*0.5; // terminal rise speed
+    s.vel.y+=(0.15-s.vel.y)*dt*0.5;
     s.vel.multiplyScalar(0.998);
-    s.mesh.position.x+=s.vel.x*dt;
-    s.mesh.position.y+=s.vel.y*dt;
-    s.mesh.position.z+=s.vel.z*dt;
+    dsPositions[idx]+=s.vel.x*dt;
+    dsPositions[idx+1]+=s.vel.y*dt;
+    dsPositions[idx+2]+=s.vel.z*dt;
     var frac=s.life/s.max;
-    s.mat.opacity=frac*0.7*(0.6+Math.sin(t*2+i)*0.4);
-    s.mesh.scale.setScalar(0.8+Math.sin(t*3+i*0.5)*0.3);
+    var a=frac*0.7*(0.6+Math.sin(t*2+i)*0.4);
+    dsColors[idx]=_dsC.r*a;dsColors[idx+1]=_dsC.g*a;dsColors[idx+2]=_dsC.b*a;
   }
+  dsGeom.attributes.position.needsUpdate=true;
+  dsGeom.attributes.color.needsUpdate=true;
 }
 
-// --- Bubble Pop Sparkles Pool ---
+// --- Bubble Pop Sparkles Pool (single Points object) ---
+var bpPositions,bpColors,bpGeom,bpPoints;
+var _bpC=new THREE.Color(C.bubblePop);
 function initBubblePops(n){
+  bpPositions=new Float32Array(n*3);
+  bpColors=new Float32Array(n*3);
+  bpGeom=new THREE.BufferGeometry();
+  bpGeom.setAttribute('position',new THREE.BufferAttribute(bpPositions,3));
+  bpGeom.setAttribute('color',new THREE.BufferAttribute(bpColors,3));
+  var bpMat=new THREE.PointsMaterial({
+    transparent:true,opacity:1.0,vertexColors:true,
+    size:0.05,sizeAttenuation:true,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  bpPoints=new THREE.Points(bpGeom,bpMat);
+  bpPoints.frustumCulled=false;
+  scene.add(bpPoints);
   for(var i=0;i<n;i++){
-    var mat=new THREE.MeshBasicMaterial({color:C.bubblePop,transparent:true,opacity:0});
-    var m=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),mat);m.visible=false;scene.add(m);
-    bubblePops.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+    bpPositions[i*3]=0;bpPositions[i*3+1]=-999;bpPositions[i*3+2]=0;
+    bpColors[i*3]=0;bpColors[i*3+1]=0;bpColors[i*3+2]=0;
+    bubblePops.push({idx:i,vel:new THREE.Vector3(),life:0,max:0,active:false});
   }
 }
 function spawnBubblePop(px,py,pz,count){
@@ -3495,22 +3567,28 @@ function spawnBubblePop(px,py,pz,count){
     if(!p)continue;
     var a=Math.random()*6.28,elev=Math.random()*3.14;
     var spd=1+Math.random()*2;
-    p.mesh.position.set(px,py,pz);p.mesh.visible=true;p.mat.opacity=0.9;
+    var idx=p.idx*3;
+    bpPositions[idx]=px;bpPositions[idx+1]=py;bpPositions[idx+2]=pz;
     p.vel.set(Math.cos(a)*Math.sin(elev)*spd,Math.cos(elev)*spd,Math.sin(a)*Math.sin(elev)*spd);
     p.life=0.4+Math.random()*0.4;p.max=p.life;p.active=true;
   }
 }
 function updateBubblePops(dt){
   for(var i=0;i<bubblePops.length;i++){
-    var p=bubblePops[i];if(!p.active)continue;
+    var p=bubblePops[i];
+    var idx=p.idx*3;
+    if(!p.active){bpPositions[idx+1]=-999;bpColors[idx]=0;bpColors[idx+1]=0;bpColors[idx+2]=0;continue}
     p.life-=dt;
-    if(p.life<=0){p.active=false;p.mesh.visible=false;continue}
+    if(p.life<=0){p.active=false;bpPositions[idx+1]=-999;bpColors[idx]=0;bpColors[idx+1]=0;bpColors[idx+2]=0;continue}
     p.vel.y-=2*dt;p.vel.multiplyScalar(0.97);
-    p.mesh.position.x+=p.vel.x*dt;
-    p.mesh.position.y+=p.vel.y*dt;
-    p.mesh.position.z+=p.vel.z*dt;
-    p.mat.opacity=(p.life/p.max)*0.8;
+    bpPositions[idx]+=p.vel.x*dt;
+    bpPositions[idx+1]+=p.vel.y*dt;
+    bpPositions[idx+2]+=p.vel.z*dt;
+    var a=(p.life/p.max)*0.8;
+    bpColors[idx]=_bpC.r*a;bpColors[idx+1]=_bpC.g*a;bpColors[idx+2]=_bpC.b*a;
   }
+  bpGeom.attributes.position.needsUpdate=true;
+  bpGeom.attributes.color.needsUpdate=true;
 }
 
 // --- Will-o'-Wisp AI: follow player loosely, scatter on sprint, guide to orbs when idle ---
@@ -4133,6 +4211,9 @@ function initCrystalLights(){
 }
 
 var trees_data=[],mush_data=[],crys_data=[];
+// Pre-allocated crystal sort array (avoids per-frame allocation)
+var _crystSort=[];
+for(var _ci=0;_ci<CRYSTAL_N;_ci++) _crystSort.push({idx:0,dist:0});
 
 function populate(){
   // Trees
@@ -4343,17 +4424,16 @@ function director(dt,t){
 
   // Assign crystal proximity lights to nearest crystals
   // Sort crystals by distance to player, assign lights to closest
-  var sorted=[];
   for(var i=0;i<crys_data.length;i++){
     var c=crys_data[i];
     var dx=c.x-player.pos.x,dz=c.z-player.pos.z;
-    sorted.push({idx:i,dist:dx*dx+dz*dz});
+    _crystSort[i].idx=i;_crystSort[i].dist=dx*dx+dz*dz;
   }
-  sorted.sort(function(a,b){return a.dist-b.dist});
+  _crystSort.sort(function(a,b){return a.dist-b.dist});
 
   for(var i=0;i<crystalLights.length;i++){
-    if(i<sorted.length&&sorted[i].dist<2500){ // within ~50m
-      var c=crys_data[sorted[i].idx];
+    if(i<_crystSort.length&&_crystSort[i].dist<2500){ // within ~50m
+      var c=crys_data[_crystSort[i].idx];
       var p=Math.sin(t*0.6+c.phase)*0.5+0.5;
       crystalLights[i].position.set(c.x,1.5,c.z);
       crystalLights[i].intensity=1.5+p*2.0;
@@ -4392,9 +4472,13 @@ function director(dt,t){
 // ================================================================
 var hudEl=document.getElementById('hud');
 var fpsS=60;
+var hudTimer=0;
 
 function updateHUD(dt,flyC,spC){
   fpsS=fpsS*0.95+(1/Math.max(dt,0.001))*0.05;
+  hudTimer+=dt;
+  if(hudTimer<0.25) return;
+  hudTimer=0;
   var qLabel=questPhase==='SEEK'?'Seek the orbs...':
     questPhase==='RISING'?'The obelisk stirs...':
     questPhase==='COMPLETE'?'Convergence!':

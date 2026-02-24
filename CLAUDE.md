@@ -4,18 +4,18 @@
 
 Luminaries is an interactive 3D bioluminescent forest exploration experience built as a single-file HTML/JavaScript application using Three.js. Players navigate a procedurally generated nighttime forest filled with glowing flora, fauna, and collectible orbs.
 
-**Live usage:** Open `Luminaries.html` in any modern browser with WebGL support. No build step, server, or installation required.
+**Live usage:** Open `index.html` in any modern browser with WebGL support. No build step, server, or installation required.
 
 ## Repository Structure
 
 ```
 Luminaries/
-├── Luminaries.html   # Entire application (~4,530 lines: HTML + CSS + JS)
+├── index.html        # Entire application (~4,530 lines: HTML + CSS + JS)
 ├── README.md         # One-line project description
 └── CLAUDE.md         # This file
 ```
 
-This is a **monolithic single-file project**. All HTML, CSS, and JavaScript live in `Luminaries.html`. There is no build system, no package manager, and no separate source files.
+This is a **monolithic single-file project**. All HTML, CSS, and JavaScript live in `index.html`. There is no build system, no package manager, and no separate source files.
 
 ## Technology Stack
 
@@ -39,11 +39,11 @@ unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js
 
 ### Running
 
-Open `Luminaries.html` directly in a browser, or serve it locally:
+Open `index.html` directly in a browser, or serve it locally:
 
 ```sh
 python3 -m http.server 8000
-# then visit http://localhost:8000/Luminaries.html
+# then visit http://localhost:8000/index.html
 ```
 
 ### No Build / Test / Lint Tooling
@@ -52,7 +52,7 @@ There is no `package.json`, no test framework, no linter, and no CI/CD pipeline.
 
 ## Code Architecture
 
-The JavaScript inside `Luminaries.html` follows a **phased initialization** pattern:
+The JavaScript inside `index.html` follows a **phased initialization** pattern:
 
 ### Initialization Phases (top-to-bottom in file)
 

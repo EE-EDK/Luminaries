@@ -6,13 +6,13 @@ https://ee-edk.github.io/Luminaries/
 
 ## Play
 
-Open `Luminaries.html` in any modern browser with WebGL support. That's it.
+Open `index.html` in any modern browser with WebGL support. That's it.
 
 Or serve locally:
 
 ```sh
 python3 -m http.server 8000
-# visit http://localhost:8000/Luminaries.html
+# visit http://localhost:8000/index.html
 ```
 
 ## Controls
@@ -45,5 +45,5 @@ Collect all 5 golden orbs scattered across the forest. Progress is tracked in th
 - **Three.js r128** via CDN (legacy global `THREE` namespace)
 - **Post-processing** — UnrealBloomPass for the bioluminescent glow
 - **Seeded RNG** — Deterministic world generation (seed 42)
-- **Single file** — ~4,530 lines of HTML + CSS + JS in `Luminaries.html`
+- **Single file** — ~4,530 lines of HTML + CSS + JS in `index.html`
 - **No dependencies** to install — all libraries loaded from CDN

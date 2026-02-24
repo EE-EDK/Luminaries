@@ -1,0 +1,2287 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Luminaries</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:'Courier New',monospace;touch-action:none}
+canvas{display:block;cursor:crosshair}
+#hud{position:absolute;top:10px;left:10px;color:#88ffcc;background:rgba(0,8,4,.75);
+  padding:8px 12px;border-radius:6px;font-size:12px;z-index:100;pointer-events:none;
+  border:1px solid rgba(100,255,180,.2);text-shadow:0 0 4px rgba(100,255,180,.4);line-height:1.5}
+#controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#88ddbb;
+  background:rgba(0,8,4,.75);padding:8px 16px;border-radius:8px;font-size:11px;z-index:100;
+  text-align:center;pointer-events:none;border:1px solid rgba(100,255,180,.15)}
+#joy-zone{position:absolute;bottom:20px;left:20px;width:130px;height:130px;z-index:150;
+  pointer-events:auto;display:none}
+#joy-base{position:absolute;width:130px;height:130px;border-radius:50%;
+  background:rgba(100,255,180,.1);border:2px solid rgba(100,255,180,.2)}
+#joy-knob{position:absolute;width:50px;height:50px;border-radius:50%;
+  background:rgba(100,255,180,.3);border:2px solid rgba(100,255,180,.45);left:40px;top:40px}
+#btn-jump{position:absolute;bottom:25px;right:25px;width:65px;height:65px;border-radius:50%;
+  background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
+  pointer-events:auto;display:none;color:#88ffcc;font-size:11px;font-family:monospace;
+  line-height:65px;text-align:center}
+#overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
+  font-size:24px;z-index:200;text-align:center;pointer-events:none;
+  text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
+  opacity:1;transition:opacity 2s;letter-spacing:3px}
+#overlay .sub{font-size:12px;margin-top:8px;color:#66ccaa;letter-spacing:2px}
+#orb-hud{position:absolute;top:10px;right:10px;color:#ffdd55;background:rgba(20,12,0,.8);
+  padding:8px 14px;border-radius:6px;font-size:14px;z-index:100;pointer-events:none;
+  border:1px solid rgba(255,220,80,.3);text-shadow:0 0 8px rgba(255,200,50,.5);
+  font-family:'Courier New',monospace;letter-spacing:1px;display:none}
+</style></head><body>
+<div id="hud">LOADING...</div>
+<div id="controls">WASD · SPACE Jump · SHIFT Sprint · Click+Drag Look</div>
+<div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+<div id="btn-jump">JUMP</div>
+<div id="orb-hud">✦ 0 / 5</div>
+<div id="overlay">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ================================================================
+// CONSTANTS — 1.0 unit = 1.0 meter
+// ================================================================
+var GRAVITY=15, MOVE_SPEED=6, SPRINT_MULT=1.8, JUMP_IMPULSE=8;
+var GROUND_DRAG=0.85, AIR_DRAG=0.98, MOUSE_SENS=0.003;
+var WORLD_R=90, TREE_N=60, MUSH_N=45, CRYSTAL_N=10, EYE_H=1.7;
+var JELLY_N=6, PUFF_N=8, DEER_N=4, MOTH_N=5;
+var GRASS_PATCHES=50, FERN_N=35, FLOWER_N=30, REED_N=25;
+var WISP_N=3, DANDELION_N=20, FAIRY_RING_N=5, BUBBLE_N=30, STARMOTE_N=40, POND_N=6;
+var FAIRY_RING_R=2.5, FAIRY_BOUNCE=6, BUBBLE_POP_R=1.5;
+var ORB_N=5, ORB_TOUCH_R=2.5, ORB_SENSE_R=12, OBELISK_H=30, OBELISK_RISE_SPEED=4;
+
+// LIGHT BUDGET: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
+var MAX_CRYSTAL_LIGHTS=5;
+
+var C={
+  sky:0x081018, fog:0x060c14, ground:0x102818,
+  bark:0x1a120a, leaf:0x0c3014, leafGlow:0x44ffaa,
+  mushCap:0x8833ee, mushGlow:0xcc77ff, mushStem:0x2a1140,
+  crystal:0x33ffdd, crystalCore:0x88ffee,
+  firefly:0xeeff66, fireflyB:0x66ffdd, spore:0xbbff99,
+  ambient:0x223355, moon:0xbbccee,
+  // Creature palette
+  jellyBell:0x7788ff, jellyGlow:0xaaccff, jellyTent:0x6677cc,
+  puffBody:0xffddcc, puffGlow:0xffaa88, puffEye:0x222222, puffCheek:0xff8899,
+  deerBody:0xaaeeff, deerGlow:0x88ddff, deerAntler:0xccffee, deerEye:0x113344,
+  mothWing:0xaaff99, mothGlow:0xccffaa, mothBody:0x556633, mothSpot:0xffffff,
+  // Vegetation palette
+  grass1:0x1a4420, grass2:0x0d3318, grassTip:0x33aa55,
+  fern:0x1a5530, fernGlow:0x33cc66,
+  flower:0xff77cc, flowerGlow:0xff99dd, flowerStem:0x1a4420,
+  reed:0x2a5535, reedTip:0x44bb66,
+  // Quest palette
+  orbGold:0xffcc33, orbGlow:0xffeeaa, orbInner:0xfff8dd,
+  laserPink:0xff66aa, laserGlow:0xff88cc,
+  obeliskBlack:0x0a0a12, obeliskPink:0xff44aa,
+  moatBlue:0x3388cc, rainbow:[0xff3333,0xff8833,0xffee33,0x33ff66,0x3388ff,0x8833ff],
+  // New entity palette
+  wispCore:0xaaeeff, wispGlow:0xddeeff, wispTrail:0x88ccff,
+  dandStem:0x446633, dandHead:0xffffee, dandSeed:0xfff8dd, dandSeedGlow:0xffffff,
+  fairyMush:0xcc88ff, fairyGlow:0xddaaff, fairyRing:0xaa66ee,
+  bubbleIris:0xaaddff, bubbleShine:0xffffff, bubblePop:0xccffee,
+  starMote:0xffeedd, starGlow:0xffffcc,
+  pondWater:0x2266aa, pondGlow:0x3388cc, lilyPad:0x228844, lilyFlower:0xff88cc, lilyGlow:0xffaadd,
+  echoBloom:0xaaffcc, echoWave:0x88ffbb
+};
+
+// Seeded RNG (LCG — CapsuleGeometry and seededRandom unavailable in r128)
+var _s=42;
+function sr(){_s=(_s*16807)%2147483647;return(_s&0x7fffffff)/0x7fffffff}
+
+// ================================================================
+// PHASE 0 — Scaffold
+// ================================================================
+var renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'default'});
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.8;
+renderer.outputEncoding=THREE.sRGBEncoding;
+document.body.appendChild(renderer.domElement);
+
+var camera=new THREE.PerspectiveCamera(65,window.innerWidth/window.innerHeight,0.1,300);
+var clock=new THREE.Clock();
+var scene=new THREE.Scene();
+
+// ================================================================
+// PHASE I — World Anchor
+// ================================================================
+
+// Procedural ground texture via canvas
+function makeGroundTexture(){
+  var cv=document.createElement('canvas');cv.width=512;cv.height=512;
+  var ctx=cv.getContext('2d');
+  // Base color
+  ctx.fillStyle='#102818';ctx.fillRect(0,0,512,512);
+  // Layered noise for soil/moss variation
+  for(var pass=0;pass<3;pass++){
+    var size=[80,30,8][pass];
+    var alpha=[0.3,0.2,0.15][pass];
+    for(var y=0;y<512;y+=size){
+      for(var x=0;x<512;x+=size){
+        var r=Math.random();
+        if(r<0.3) ctx.fillStyle='rgba(8,20,10,'+alpha+')';      // dark patches
+        else if(r<0.6) ctx.fillStyle='rgba(25,60,30,'+alpha+')'; // moss
+        else if(r<0.8) ctx.fillStyle='rgba(15,40,20,'+alpha+')'; // mid
+        else ctx.fillStyle='rgba(40,80,45,'+alpha+')';            // bright moss
+        ctx.fillRect(x,y,size,size);
+      }
+    }
+  }
+  // Scatter tiny leaf litter dots
+  for(var i=0;i<2000;i++){
+    var lx=Math.random()*512,ly=Math.random()*512;
+    var lr=1+Math.random()*2;
+    var c=Math.random();
+    if(c<0.3) ctx.fillStyle='rgba(60,30,15,0.4)';      // brown leaf
+    else if(c<0.5) ctx.fillStyle='rgba(20,50,25,0.3)';  // green
+    else ctx.fillStyle='rgba(40,70,35,0.25)';            // light green
+    ctx.beginPath();ctx.arc(lx,ly,lr,0,6.28);ctx.fill();
+  }
+  // Thin root-like lines
+  ctx.strokeStyle='rgba(30,18,8,0.3)';ctx.lineWidth=1;
+  for(var i=0;i<40;i++){
+    var sx=Math.random()*512,sy=Math.random()*512;
+    ctx.beginPath();ctx.moveTo(sx,sy);
+    for(var j=0;j<5;j++){
+      sx+=Math.random()*40-20;sy+=Math.random()*40-20;
+      ctx.lineTo(sx,sy);
+    }
+    ctx.stroke();
+  }
+  var tex=new THREE.CanvasTexture(cv);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(12,12);
+  tex.encoding=THREE.sRGBEncoding;
+  return tex;
+}
+
+var groundTex=makeGroundTexture();
+var ground=new THREE.Mesh(
+  new THREE.CircleGeometry(WORLD_R*1.5,64),
+  new THREE.MeshStandardMaterial({
+    map:groundTex,color:0xccddcc,roughness:0.95,metalness:0.0
+  })
+);
+ground.rotation.x=-Math.PI/2;
+ground.receiveShadow=true;
+scene.add(ground);
+
+scene.add(new THREE.HemisphereLight(C.ambient,C.ground,0.7));
+
+var moon=new THREE.DirectionalLight(C.moon,0.6);
+moon.position.set(30,60,-20);
+moon.castShadow=true;
+moon.shadow.camera.left=-50;moon.shadow.camera.right=50;
+moon.shadow.camera.top=50;moon.shadow.camera.bottom=-50;
+moon.shadow.camera.near=1;moon.shadow.camera.far=180;
+moon.shadow.mapSize.set(1024,1024);
+moon.shadow.bias=-0.002;
+scene.add(moon);
+
+scene.background=new THREE.Color(C.sky);
+scene.fog=new THREE.FogExp2(C.fog,0.014);
+
+// Player carry light (always illuminates nearby)
+var playerLight=new THREE.PointLight(0x556677,0.5,18);
+scene.add(playerLight);
+
+// ================================================================
+// PHASE 1.5 — Input
+// ================================================================
+var keys={},yaw=0,pitch=0,mouseDown=false,started=false;
+var joyX=0,joyY=0,joyOn=false,joyTid=null,lookTid=null;
+var lx=0,ly=0,touchJump=false,touchSprint=false;
+
+window.addEventListener('keydown',function(e){
+  keys[e.code]=true;
+  if('Space ShiftLeft ShiftRight KeyW KeyA KeyS KeyD'.split(' ').indexOf(e.code)>=0) e.preventDefault();
+  if(!started)go();
+});
+window.addEventListener('keyup',function(e){keys[e.code]=false});
+window.addEventListener('blur',function(){for(var k in keys)keys[k]=false;mouseDown=false});
+
+renderer.domElement.addEventListener('mousedown',function(){mouseDown=true;if(!started)go()});
+window.addEventListener('mouseup',function(){mouseDown=false});
+window.addEventListener('mousemove',function(e){
+  if(!mouseDown)return;
+  yaw-=e.movementX*MOUSE_SENS;
+  pitch-=e.movementY*MOUSE_SENS;
+  pitch=Math.max(-1,Math.min(1,pitch));
+});
+
+// --- Mobile detection & joystick ---
+var mobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+var jzEl=document.getElementById('joy-zone');
+var jkEl=document.getElementById('joy-knob');
+var bjEl=document.getElementById('btn-jump');
+
+if(mobile){
+  jzEl.style.display='block';
+  bjEl.style.display='block';
+  document.getElementById('controls').textContent='Stick: Move · Drag right: Look · JUMP';
+}
+
+jzEl.addEventListener('touchstart',function(e){
+  e.preventDefault();e.stopPropagation();if(!started)go();
+  var t=e.changedTouches[0];joyTid=t.identifier;joyOn=true;updJoy(t.clientX,t.clientY);
+},{passive:false});
+jzEl.addEventListener('touchmove',function(e){
+  e.preventDefault();e.stopPropagation();
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyTid)
+      updJoy(e.changedTouches[i].clientX,e.changedTouches[i].clientY);
+  }
+},{passive:false});
+jzEl.addEventListener('touchend',function(e){
+  e.preventDefault();e.stopPropagation();
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyTid){
+      joyTid=null;joyOn=false;joyX=0;joyY=0;
+      jkEl.style.left='40px';jkEl.style.top='40px';
+    }
+  }
+},{passive:false});
+
+function updJoy(cx,cy){
+  var r=jzEl.getBoundingClientRect();
+  var dx=cx-(r.left+r.width/2),dy=cy-(r.top+r.height/2);
+  var d=Math.sqrt(dx*dx+dy*dy),maxR=52;
+  if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR}
+  joyX=dx/maxR;joyY=dy/maxR;
+  jkEl.style.left=(40+dx)+'px';jkEl.style.top=(40+dy)+'px';
+}
+
+bjEl.addEventListener('touchstart',function(e){
+  e.preventDefault();e.stopPropagation();if(!started)go();touchJump=true;
+},{passive:false});
+bjEl.addEventListener('touchend',function(e){
+  e.preventDefault();e.stopPropagation();touchJump=false;
+},{passive:false});
+
+// Right-side look
+renderer.domElement.addEventListener('touchstart',function(e){
+  e.preventDefault();if(!started)go();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(t.clientX>window.innerWidth*0.3&&lookTid===null){
+      lookTid=t.identifier;lx=t.clientX;ly=t.clientY;
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(t.identifier===lookTid){
+      yaw-=(t.clientX-lx)*MOUSE_SENS;
+      pitch-=(t.clientY-ly)*MOUSE_SENS;
+      pitch=Math.max(-1,Math.min(1,pitch));
+      lx=t.clientX;ly=t.clientY;
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchend',function(e){
+  for(var i=0;i<e.changedTouches.length;i++)
+    if(e.changedTouches[i].identifier===lookTid)lookTid=null;
+},{passive:false});
+renderer.domElement.addEventListener('touchcancel',function(e){
+  for(var i=0;i<e.changedTouches.length;i++)
+    if(e.changedTouches[i].identifier===lookTid)lookTid=null;
+},{passive:false});
+
+function getInput(){
+  var fx=0,fz=0;
+  if(keys['KeyW'])fz-=1;if(keys['KeyS'])fz+=1;
+  if(keys['KeyA'])fx-=1;if(keys['KeyD'])fx+=1;
+  if(joyOn){fx+=joyX;fz+=joyY}
+  var len=Math.sqrt(fx*fx+fz*fz);
+  if(len>1){fx/=len;fz/=len}
+  var sp=MOVE_SPEED*((keys['ShiftLeft']||keys['ShiftRight']||touchSprint)?SPRINT_MULT:1);
+  var sn=Math.sin(yaw),cs=Math.cos(yaw);
+  return{x:(fx*cs+fz*sn)*sp, z:(-fx*sn+fz*cs)*sp};
+}
+
+// ================================================================
+// PHASE II — Asset Factory (EMISSIVE ONLY — no PointLights on actors)
+// ================================================================
+var GEO={
+  mushCap:new THREE.SphereGeometry(0.5,8,5),
+  mushStem:new THREE.CylinderGeometry(0.06,0.1,0.6,5),
+  mushDot:new THREE.SphereGeometry(0.06,4,3),
+  crystal:new THREE.CylinderGeometry(0,0.35,1.8,6),
+  crystalSm:new THREE.CylinderGeometry(0,0.18,0.9,5),
+  fly:new THREE.SphereGeometry(0.06,4,3),
+  spore:new THREE.SphereGeometry(0.04,3,3),
+  dandSeed:new THREE.SphereGeometry(0.025,3,3),
+  bubble:new THREE.SphereGeometry(0.15,8,6),
+  starMote:new THREE.SphereGeometry(0.03,3,3),
+  dustMote:new THREE.SphereGeometry(0.035,3,3)
+};
+
+// --- Trees (emissive leaf glow, NO PointLights) ---
+function makeTree(x,z){
+  var g=new THREE.Group();
+  var h=6+sr()*10, r=0.2+sr()*0.3;
+  var tM=new THREE.MeshStandardMaterial({color:C.bark,roughness:0.95});
+  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(r*0.4,r,h,6),tM);
+  trunk.position.y=h/2;trunk.castShadow=true;g.add(trunk);
+
+  var bc=3+Math.floor(sr()*4);
+  for(var i=0;i<bc;i++){
+    var by=h*(0.4+sr()*0.5),ang=sr()*Math.PI*2,bl=1.5+sr()*3;
+    var br=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.06,bl,4),tM);
+    br.position.set(Math.cos(ang)*0.3,by,Math.sin(ang)*0.3);
+    br.rotation.z=(sr()-0.5)*1.2;br.rotation.y=ang;br.castShadow=true;g.add(br);
+
+    var lM=new THREE.MeshStandardMaterial({
+      color:C.leaf,emissive:C.leafGlow,emissiveIntensity:0.2+sr()*0.4,
+      roughness:0.7,transparent:true,opacity:0.85
+    });
+    var leaf=new THREE.Mesh(new THREE.SphereGeometry(1,5,4),lM);
+    leaf.scale.setScalar(1+sr()*2);
+    leaf.position.set(Math.cos(ang)*(bl*0.5),by+sr()*1.5,Math.sin(ang)*(bl*0.5));
+    g.add(leaf);
+  }
+  g.position.set(x,0,z);scene.add(g);
+  return g;
+}
+
+// --- Mushrooms (emissive pulse, NO PointLights) ---
+function makeMush(x,z){
+  var g=new THREE.Group();
+  var sc=0.4+sr()*1.2;
+  var phase=sr()*6.28, speed=0.8+sr()*1.5, base=0.5+sr()*0.8;
+
+  var stem=new THREE.Mesh(GEO.mushStem,new THREE.MeshStandardMaterial({
+    color:C.mushStem,roughness:0.7,emissive:C.mushGlow,emissiveIntensity:0.1
+  }));
+  stem.position.y=0.3;g.add(stem);
+
+  var capMat=new THREE.MeshStandardMaterial({
+    color:C.mushCap,emissive:C.mushGlow,emissiveIntensity:base,
+    roughness:0.3,transparent:true,opacity:0.9
+  });
+  var cap=new THREE.Mesh(GEO.mushCap,capMat);
+  cap.scale.set(1,0.5,1);cap.position.y=0.55;g.add(cap);
+
+  for(var i=0;i<4;i++){
+    var dM=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9});
+    var dot=new THREE.Mesh(GEO.mushDot,dM);
+    var da=sr()*6.28,dr=0.15+sr()*0.25;
+    dot.position.set(Math.cos(da)*dr,0.6+sr()*0.1,Math.sin(da)*dr);
+    g.add(dot);
+  }
+
+  g.scale.setScalar(sc);g.position.set(x,0,z);scene.add(g);
+  return{group:g,capMat:capMat,phase:phase,speed:speed,base:base,x:x,z:z};
+}
+
+// --- Crystals (emissive + SHARED proximity PointLights managed by Director) ---
+function makeCrystal(x,z){
+  var g=new THREE.Group();
+  var phase=sr()*6.28;
+  var cMat=new THREE.MeshStandardMaterial({
+    color:C.crystal,emissive:C.crystalCore,emissiveIntensity:1.5,
+    transparent:true,opacity:0.7,roughness:0.1,metalness:0.5
+  });
+  var main=new THREE.Mesh(GEO.crystal,cMat);
+  main.position.y=0.9;main.castShadow=true;g.add(main);
+
+  for(var i=0;i<3;i++){
+    var sh=new THREE.Mesh(GEO.crystalSm,cMat);
+    var a=(i/3)*6.28+sr()*0.5;
+    sh.position.set(Math.cos(a)*0.4,0.45,Math.sin(a)*0.4);
+    sh.rotation.z=(sr()-0.5)*0.8;sh.castShadow=true;g.add(sh);
+  }
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,mat:cMat,phase:phase,x:x,z:z};
+}
+
+// --- Glow Jelly (floating jellyfish — 8+ primitives) ---
+function makeJelly(x,y,z){
+  var g=new THREE.Group();
+  // Bell dome (squashed sphere)
+  var bellMat=new THREE.MeshStandardMaterial({
+    color:C.jellyBell,emissive:C.jellyGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.5,roughness:0.2,metalness:0.1,side:THREE.DoubleSide
+  });
+  var bell=new THREE.Mesh(new THREE.SphereGeometry(0.5,8,6,0,6.28,0,Math.PI/2),bellMat);
+  bell.scale.set(1,0.6,1);bell.position.y=0;g.add(bell);
+  // Inner glow orb
+  var inner=new THREE.Mesh(new THREE.SphereGeometry(0.2,6,4),new THREE.MeshBasicMaterial({
+    color:C.jellyGlow,transparent:true,opacity:0.7
+  }));
+  inner.position.y=-0.05;g.add(inner);
+  // Tentacles (6 dangling cylinders)
+  var tentMat=new THREE.MeshStandardMaterial({
+    color:C.jellyTent,emissive:C.jellyGlow,emissiveIntensity:0.4,
+    transparent:true,opacity:0.4
+  });
+  for(var i=0;i<6;i++){
+    var a=(i/6)*6.28;
+    var len=0.4+sr()*0.6;
+    var tent=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.008,len,3),tentMat);
+    tent.position.set(Math.cos(a)*0.25,-len/2-0.05,Math.sin(a)*0.25);
+    g.add(tent);
+  }
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,bellMat:bellMat,phase:sr()*6.28,driftAng:sr()*6.28,
+    homeX:x,homeZ:z,floatY:y,wobble:0.5+sr()*0.5};
+}
+
+// --- Puffling (round hopping creature — 10 primitives) ---
+function makePuff(x,z){
+  var g=new THREE.Group();
+  var bodyMat=new THREE.MeshStandardMaterial({
+    color:C.puffBody,emissive:C.puffGlow,emissiveIntensity:0.3,roughness:0.8
+  });
+  // Body (big round)
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6),bodyMat);
+  body.position.y=0.35;g.add(body);
+  // Head (slightly smaller, on top)
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.22,7,5),bodyMat);
+  head.position.y=0.65;g.add(head);
+  // Ears (2 small cones)
+  for(var i=-1;i<=1;i+=2){
+    var ear=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.15,4),bodyMat);
+    ear.position.set(i*0.13,0.85,0);
+    ear.rotation.z=i*0.3;
+    g.add(ear);
+  }
+  // Eyes (2 dark dots)
+  var eyeMat=new THREE.MeshBasicMaterial({color:C.puffEye});
+  for(var i=-1;i<=1;i+=2){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.035,4,4),eyeMat);
+    eye.position.set(i*0.09,0.68,0.18);g.add(eye);
+  }
+  // Cheeks (2 pink spots)
+  var chkMat=new THREE.MeshStandardMaterial({color:C.puffCheek,emissive:C.puffCheek,emissiveIntensity:0.3});
+  for(var i=-1;i<=1;i+=2){
+    var chk=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),chkMat);
+    chk.position.set(i*0.15,0.61,0.15);g.add(chk);
+  }
+  // Feet (2 little spheres)
+  for(var i=-1;i<=1;i+=2){
+    var foot=new THREE.Mesh(new THREE.SphereGeometry(0.07,4,3),bodyMat);
+    foot.position.set(i*0.12,0.07,0.05);foot.scale.set(1,0.5,1.3);g.add(foot);
+  }
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,phase:sr()*6.28,wanderAng:sr()*6.28,speed:0.6+sr()*0.8,
+    hopTimer:0,hopPhase:sr()*6.28,homeX:x,homeZ:z,state:'idle',idleTimer:sr()*3};
+}
+
+// --- Spirit Deer (ethereal translucent — 12+ primitives) ---
+function makeDeer(x,z){
+  var g=new THREE.Group();
+  var bMat=new THREE.MeshStandardMaterial({
+    color:C.deerBody,emissive:C.deerGlow,emissiveIntensity:0.5,
+    transparent:true,opacity:0.7,roughness:0.3
+  });
+  // Body (elongated sphere)
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.4,7,5),bMat);
+  body.scale.set(1,0.8,1.5);body.position.y=0.9;g.add(body);
+  // Neck (small cylinder, angled forward)
+  var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,0.4,5),bMat);
+  neck.position.set(0,1.2,0.35);neck.rotation.x=-0.4;g.add(neck);
+  // Head (small sphere)
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.14,6,5),bMat);
+  head.position.set(0,1.35,0.5);g.add(head);
+  // Snout
+  var snout=new THREE.Mesh(new THREE.SphereGeometry(0.07,4,3),bMat);
+  snout.scale.set(1,0.7,1.4);snout.position.set(0,1.3,0.65);g.add(snout);
+  // Eyes
+  var eyeM=new THREE.MeshBasicMaterial({color:C.deerEye});
+  for(var i=-1;i<=1;i+=2){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),eyeM);
+    eye.position.set(i*0.09,1.38,0.58);g.add(eye);
+  }
+  // Ears (2 cones)
+  for(var i=-1;i<=1;i+=2){
+    var ear=new THREE.Mesh(new THREE.ConeGeometry(0.04,0.14,4),bMat);
+    ear.position.set(i*0.1,1.5,0.45);ear.rotation.z=i*0.4;g.add(ear);
+  }
+  // Antlers (2 branching cylinders each side — 4 total)
+  var antMat=new THREE.MeshStandardMaterial({
+    color:C.deerAntler,emissive:C.deerGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.8
+  });
+  for(var i=-1;i<=1;i+=2){
+    var a1=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,0.25,3),antMat);
+    a1.position.set(i*0.08,1.55,0.42);a1.rotation.z=i*0.5;g.add(a1);
+    var a2=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.015,0.15,3),antMat);
+    a2.position.set(i*0.15,1.68,0.40);a2.rotation.z=i*0.8;g.add(a2);
+  }
+  // Legs (4 cylinders)
+  for(var li=0;li<4;li++){
+    var lx=(li<2?-1:1)*0.15, lz=(li%2===0?-1:1)*0.3;
+    var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.04,0.55,4),bMat);
+    leg.position.set(lx,0.3,lz);g.add(leg);
+  }
+  // Tail (small cone pointing up-back)
+  var tail=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.15,4),new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:C.deerGlow,emissiveIntensity:1.0,transparent:true,opacity:0.8
+  }));
+  tail.position.set(0,1.1,-0.55);tail.rotation.x=0.5;g.add(tail);
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,mat:bMat,phase:sr()*6.28,wanderAng:sr()*6.28,speed:1.0+sr()*0.8,
+    walkTimer:0,legCycle:0,homeX:x,homeZ:z,state:'walk',pauseTimer:0};
+}
+
+// --- Luna Moth (large glowing wings — 8+ primitives) ---
+function makeMoth(x,y,z){
+  var g=new THREE.Group();
+  // Body (elongated cylinder)
+  var bodyMat=new THREE.MeshStandardMaterial({
+    color:C.mothBody,emissive:C.mothGlow,emissiveIntensity:0.3,roughness:0.7
+  });
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,0.3,5),bodyMat);
+  body.rotation.x=Math.PI/2;g.add(body);
+  // Head
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.05,5,4),bodyMat);
+  head.position.z=0.18;g.add(head);
+  // Antennae (2 thin cylinders)
+  for(var i=-1;i<=1;i+=2){
+    var ant=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.15,3),bodyMat);
+    ant.position.set(i*0.03,0.03,0.22);ant.rotation.x=-0.6;ant.rotation.z=i*0.4;g.add(ant);
+  }
+  // Wings (4 flattened spheres — 2 large, 2 small hindwings)
+  var wingMat=new THREE.MeshStandardMaterial({
+    color:C.mothWing,emissive:C.mothGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.6,side:THREE.DoubleSide,roughness:0.4
+  });
+  // Pivots for wing flapping
+  g._wingPivots=[];
+  for(var i=-1;i<=1;i+=2){
+    var pivot=new THREE.Group();
+    pivot.position.set(i*0.04,0,0.02);
+    // Forewing
+    var fw=new THREE.Mesh(new THREE.SphereGeometry(0.2,6,4),wingMat);
+    fw.scale.set(1.8,0.08,1.2);fw.position.set(i*0.18,0,0.02);pivot.add(fw);
+    // Hindwing (smaller)
+    var hw=new THREE.Mesh(new THREE.SphereGeometry(0.12,5,3),wingMat);
+    hw.scale.set(1.5,0.06,1.0);hw.position.set(i*0.12,0,-0.1);pivot.add(hw);
+    // Wing spots (bright dots)
+    var spotMat=new THREE.MeshBasicMaterial({color:C.mothSpot,transparent:true,opacity:0.9});
+    var spot=new THREE.Mesh(new THREE.SphereGeometry(0.03,4,3),spotMat);
+    spot.position.set(i*0.2,0.02,0.03);pivot.add(spot);
+    g.add(pivot);
+    g._wingPivots.push({pivot:pivot,side:i});
+  }
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,wingMat:wingMat,phase:sr()*6.28,orbitAng:sr()*6.28,
+    orbitR:2+sr()*4,centerX:x,centerZ:z,floatY:y,flapSpeed:6+sr()*4};
+}
+
+// --- Grass Patch (merged blade geometry — single draw call per patch) ---
+// Vertices built in LOCAL space (origin = patch center). Mesh positioned at (cx,0,cz).
+function makeGrassPatch(cx,cz,radius,density){
+  var geo=new THREE.BufferGeometry();
+  var verts=[],colors=[];
+  var count=density||20;
+  var col1=new THREE.Color(C.grass1);
+  var col2=new THREE.Color(C.grass2);
+  var colT=new THREE.Color(C.grassTip);
+  for(var i=0;i<count;i++){
+    var ang=sr()*6.28, dist=sr()*radius;
+    var lx=Math.cos(ang)*dist, lz=Math.sin(ang)*dist; // local offset from center
+    var h=0.2+sr()*0.5;
+    var w=0.03+sr()*0.03;
+    var lean=(sr()-0.5)*0.15;
+    var leanZ=(sr()-0.5)*0.15;
+    // Triangle blade: base-left, base-right, tip (all in local space)
+    verts.push(lx-w,0.01,lz);
+    verts.push(lx+w,0.01,lz);
+    verts.push(lx+lean,h,lz+leanZ);
+    // Colors: base dark, tip bright
+    var bc=sr()<0.5?col1:col2;
+    colors.push(bc.r,bc.g,bc.b);
+    colors.push(bc.r,bc.g,bc.b);
+    colors.push(colT.r,colT.g,colT.b);
+  }
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+  var mat=new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:0.8,side:THREE.DoubleSide,
+    emissive:C.grassTip,emissiveIntensity:0.05
+  });
+  var mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(cx,0,cz);
+  scene.add(mesh);
+  return{mesh:mesh,geo:geo,cx:cx,cz:cz};
+}
+
+// --- Fern (3-4 frond compound) ---
+function makeFern(x,z){
+  var g=new THREE.Group();
+  var fMat=new THREE.MeshStandardMaterial({
+    color:C.fern,emissive:C.fernGlow,emissiveIntensity:0.08,
+    roughness:0.7,side:THREE.DoubleSide
+  });
+  var frondCount=3+Math.floor(sr()*2);
+  var scale=0.5+sr()*0.7;
+  for(var i=0;i<frondCount;i++){
+    var ang=(i/frondCount)*6.28+sr()*0.3;
+    // Frond: flat box scaled thin, arced outward
+    var frond=new THREE.Mesh(new THREE.PlaneGeometry(0.12,0.6,1,3),fMat);
+    frond.position.set(Math.cos(ang)*0.15,0.25,Math.sin(ang)*0.15);
+    frond.rotation.y=-ang;
+    frond.rotation.x=-0.6-sr()*0.4; // droop outward
+    g.add(frond);
+    // Leaflets along the frond
+    for(var j=0;j<4;j++){
+      var lf=new THREE.Mesh(new THREE.PlaneGeometry(0.08,0.08,1,1),fMat);
+      var fy=0.1+j*0.12;
+      var side=(j%2===0)?1:-1;
+      lf.position.set(Math.cos(ang)*(0.15+0.06),fy,Math.sin(ang)*(0.15+0.06*side));
+      lf.rotation.y=-ang;lf.rotation.x=-0.8;lf.rotation.z=side*0.5;
+      g.add(lf);
+    }
+  }
+  // Center curl (fiddlehead)
+  var curl=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),new THREE.MeshStandardMaterial({
+    color:C.fernGlow,emissive:C.fernGlow,emissiveIntensity:0.3
+  }));
+  curl.position.y=0.35;g.add(curl);
+  g.scale.setScalar(scale);
+  g.position.set(x,0,z);
+  scene.add(g);
+  return{group:g,phase:sr()*6.28};
+}
+
+// --- Glowing Flower (stem + petals + glowing center) ---
+function makeFlower(x,z){
+  var g=new THREE.Group();
+  var h=0.25+sr()*0.4;
+  var stemMat=new THREE.MeshStandardMaterial({color:C.flowerStem,roughness:0.8});
+  // Stem
+  var stem=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.015,h,4),stemMat);
+  stem.position.y=h/2;g.add(stem);
+  // Leaf on stem
+  var leafMat=new THREE.MeshStandardMaterial({color:C.fern,roughness:0.7,side:THREE.DoubleSide});
+  var leaf=new THREE.Mesh(new THREE.PlaneGeometry(0.06,0.04),leafMat);
+  leaf.position.set(0.03,h*0.3,0);leaf.rotation.z=-0.5;g.add(leaf);
+  // Petals (5 around center)
+  var petalMat=new THREE.MeshStandardMaterial({
+    color:C.flower,emissive:C.flowerGlow,emissiveIntensity:0.4+sr()*0.4,
+    transparent:true,opacity:0.85,side:THREE.DoubleSide
+  });
+  for(var i=0;i<5;i++){
+    var pa=(i/5)*6.28;
+    var petal=new THREE.Mesh(new THREE.PlaneGeometry(0.05,0.04),petalMat);
+    petal.position.set(Math.cos(pa)*0.03,h+0.01,Math.sin(pa)*0.03);
+    petal.rotation.x=-0.8;petal.rotation.y=-pa;
+    g.add(petal);
+  }
+  // Glowing center
+  var centerMat=new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:C.flowerGlow,emissiveIntensity:1.2
+  });
+  var center=new THREE.Mesh(new THREE.SphereGeometry(0.02,4,3),centerMat);
+  center.position.y=h+0.02;g.add(center);
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,petalMat:petalMat,phase:sr()*6.28,baseH:h};
+}
+
+// --- Reed cluster (tall thin swaying tubes) ---
+function makeReed(x,z){
+  var g=new THREE.Group();
+  var reedMat=new THREE.MeshStandardMaterial({
+    color:C.reed,emissive:C.reedTip,emissiveIntensity:0.05,roughness:0.7
+  });
+  var tipMat=new THREE.MeshStandardMaterial({
+    color:C.reedTip,emissive:C.reedTip,emissiveIntensity:0.15
+  });
+  var count=3+Math.floor(sr()*4);
+  for(var i=0;i<count;i++){
+    var h=0.6+sr()*1.0;
+    var ox=(sr()-0.5)*0.2,oz=(sr()-0.5)*0.2;
+    var stalk=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.015,h,4),reedMat);
+    stalk.position.set(ox,h/2,oz);g.add(stalk);
+    // Tip tuft
+    var tip=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),tipMat);
+    tip.scale.set(0.8,1.5,0.8);tip.position.set(ox,h+0.02,oz);g.add(tip);
+  }
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,phase:sr()*6.28,swayAmp:0.03+sr()*0.04};
+}
+
+// --- Will-o'-Wisp (luminous companion — 4 primitives each) ---
+function makeWisp(x,y,z){
+  var g=new THREE.Group();
+  // Core bright sphere
+  var coreMat=new THREE.MeshBasicMaterial({color:C.wispCore});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(0.08,6,4),coreMat);
+  g.add(core);
+  // Inner glow shell
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.wispGlow,transparent:true,opacity:0.5
+  });
+  var glow=new THREE.Mesh(new THREE.SphereGeometry(0.18,6,4),glowMat);
+  g.add(glow);
+  // Outer haze
+  var hazeMat=new THREE.MeshBasicMaterial({
+    color:C.wispTrail,transparent:true,opacity:0.15
+  });
+  var haze=new THREE.Mesh(new THREE.SphereGeometry(0.35,5,4),hazeMat);
+  g.add(haze);
+  // Tiny sparkle orbiter
+  var sparkMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8});
+  var spark=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),sparkMat);
+  spark.position.set(0.15,0,0);
+  g.add(spark);
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,glowMat:glowMat,hazeMat:hazeMat,phase:sr()*6.28,
+    targetX:x,targetY:y,targetZ:z,velX:0,velY:0,velZ:0,scatter:0};
+}
+
+// --- Dandelion Puff (stem + seed head, dispersible — 6+ primitives) ---
+function makeDandelion(x,z){
+  var g=new THREE.Group();
+  var h=0.35+sr()*0.45;
+  // Stem
+  var stemMat=new THREE.MeshStandardMaterial({color:C.dandStem,roughness:0.8});
+  var stem=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.012,h,4),stemMat);
+  stem.position.y=h/2;g.add(stem);
+  // Leaf at base
+  var leafMat=new THREE.MeshStandardMaterial({color:C.fern,roughness:0.7,side:THREE.DoubleSide});
+  var leaf=new THREE.Mesh(new THREE.PlaneGeometry(0.07,0.03),leafMat);
+  leaf.position.set(0.03,h*0.15,0);leaf.rotation.z=-0.4;g.add(leaf);
+  // Seed head (fluffy sphere of tiny spikes)
+  var headMat=new THREE.MeshStandardMaterial({
+    color:C.dandHead,emissive:C.dandSeedGlow,emissiveIntensity:0.2,
+    transparent:true,opacity:0.85
+  });
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.07,6,5),headMat);
+  head.position.y=h+0.05;g.add(head);
+  // Individual seed tufts (6 tiny cones radiating outward)
+  var tuftMat=new THREE.MeshBasicMaterial({color:C.dandSeed,transparent:true,opacity:0.7});
+  for(var i=0;i<6;i++){
+    var ta=(i/6)*6.28+sr()*0.3;
+    var tuft=new THREE.Mesh(new THREE.ConeGeometry(0.015,0.05,3),tuftMat);
+    tuft.position.set(Math.cos(ta)*0.06,h+0.05+sr()*0.04,Math.sin(ta)*0.06);
+    tuft.rotation.x=(sr()-0.5)*0.6;tuft.rotation.z=(sr()-0.5)*0.6;
+    g.add(tuft);
+  }
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,headMat:headMat,x:x,z:z,h:h,dispersed:false,phase:sr()*6.28,
+    seedCount:6,regrowTimer:0};
+}
+
+// --- Fairy Ring (circle of small mushrooms + glow ring — 10+ primitives) ---
+function makeFairyRing(x,z){
+  var g=new THREE.Group();
+  var ringR=FAIRY_RING_R;
+  var mushCount=8+Math.floor(sr()*5);
+  var mushMat=new THREE.MeshStandardMaterial({
+    color:C.fairyMush,emissive:C.fairyGlow,emissiveIntensity:0.2,roughness:0.5
+  });
+  var stemMat=new THREE.MeshStandardMaterial({
+    color:C.mushStem,roughness:0.7,emissive:C.fairyGlow,emissiveIntensity:0.05
+  });
+  for(var i=0;i<mushCount;i++){
+    var a=(i/mushCount)*6.28+sr()*0.15;
+    var mr=ringR+sr()*0.3-0.15;
+    var sc=0.15+sr()*0.2;
+    // Mini mushroom stem
+    var s=new THREE.Mesh(GEO.mushStem,stemMat);
+    s.scale.setScalar(sc);s.position.set(Math.cos(a)*mr,sc*0.3,Math.sin(a)*mr);g.add(s);
+    // Mini cap
+    var cap=new THREE.Mesh(GEO.mushCap,mushMat);
+    cap.scale.set(sc,sc*0.4,sc);cap.position.set(Math.cos(a)*mr,sc*0.55,Math.sin(a)*mr);g.add(cap);
+  }
+  // Central glow disc (flat ring on ground)
+  var discMat=new THREE.MeshBasicMaterial({
+    color:C.fairyRing,transparent:true,opacity:0.0,side:THREE.DoubleSide
+  });
+  var disc=new THREE.Mesh(new THREE.RingGeometry(0.3,ringR-0.3,16),discMat);
+  disc.rotation.x=-Math.PI/2;disc.position.y=0.02;g.add(disc);
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,mushMat:mushMat,discMat:discMat,x:x,z:z,phase:sr()*6.28,
+    glowIntensity:0,active:false};
+}
+
+// --- Bubble Sprite (drifting iridescent — 3 primitives) ---
+function makeBubble(x,y,z){
+  var g=new THREE.Group();
+  // Main sphere
+  var shellMat=new THREE.MeshStandardMaterial({
+    color:C.bubbleIris,emissive:C.bubbleIris,emissiveIntensity:0.15,
+    transparent:true,opacity:0.25,roughness:0.0,metalness:0.6
+  });
+  var shell=new THREE.Mesh(GEO.bubble,shellMat);
+  g.add(shell);
+  // Highlight spot (fake specular)
+  var shineMat=new THREE.MeshBasicMaterial({
+    color:C.bubbleShine,transparent:true,opacity:0.5
+  });
+  var shine=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),shineMat);
+  shine.position.set(0.05,0.07,0.08);g.add(shine);
+  // Inner rainbow tint
+  var innerMat=new THREE.MeshBasicMaterial({
+    color:0xffeeff,transparent:true,opacity:0.08
+  });
+  var inner=new THREE.Mesh(new THREE.SphereGeometry(0.12,5,4),innerMat);
+  g.add(inner);
+  var sc=0.6+sr()*0.8;
+  g.scale.setScalar(sc);
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,shellMat:shellMat,phase:sr()*6.28,
+    driftAng:sr()*6.28,driftSpeed:0.3+sr()*0.5,floatY:y,
+    homeX:x,homeZ:z,bobAmp:0.3+sr()*0.4,popped:false,popTimer:0,sc:sc};
+}
+
+// --- Pond Lily (water patch + lily pads + flower — 8+ primitives) ---
+function makePond(x,z){
+  var g=new THREE.Group();
+  var pondR=1.5+sr()*1.0;
+  // Water surface disc
+  var waterMat=new THREE.MeshStandardMaterial({
+    color:C.pondWater,emissive:C.pondGlow,emissiveIntensity:0.2,
+    transparent:true,opacity:0.55,roughness:0.05,metalness:0.4
+  });
+  var water=new THREE.Mesh(new THREE.CircleGeometry(pondR,12),waterMat);
+  water.rotation.x=-Math.PI/2;water.position.y=0.03;g.add(water);
+  // Lily pads (3-4 flat discs)
+  var padMat=new THREE.MeshStandardMaterial({
+    color:C.lilyPad,roughness:0.6,side:THREE.DoubleSide
+  });
+  var padCount=3+Math.floor(sr()*2);
+  var pads=[];
+  for(var i=0;i<padCount;i++){
+    var pa=sr()*6.28,pd=sr()*pondR*0.6;
+    var padSize=0.15+sr()*0.15;
+    var pad=new THREE.Mesh(new THREE.CircleGeometry(padSize,8),padMat);
+    pad.rotation.x=-Math.PI/2;
+    pad.position.set(Math.cos(pa)*pd,0.05,Math.sin(pa)*pd);
+    g.add(pad);
+    pads.push({mesh:pad,phase:sr()*6.28});
+  }
+  // Lily flower on one pad
+  var flMat=new THREE.MeshStandardMaterial({
+    color:C.lilyFlower,emissive:C.lilyGlow,emissiveIntensity:0.4,
+    transparent:true,opacity:0.85,side:THREE.DoubleSide
+  });
+  var flowerY=0.08;
+  for(var i=0;i<5;i++){
+    var fa=(i/5)*6.28;
+    var petal=new THREE.Mesh(new THREE.PlaneGeometry(0.06,0.05),flMat);
+    petal.position.set(pads[0].mesh.position.x+Math.cos(fa)*0.05,flowerY,
+      pads[0].mesh.position.z+Math.sin(fa)*0.05);
+    petal.rotation.x=-1.0;petal.rotation.y=-fa;g.add(petal);
+  }
+  // Flower center
+  var fcMat=new THREE.MeshStandardMaterial({
+    color:0xffffaa,emissive:C.lilyGlow,emissiveIntensity:0.8
+  });
+  var fc=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),fcMat);
+  fc.position.set(pads[0].mesh.position.x,flowerY+0.02,pads[0].mesh.position.z);
+  g.add(fc);
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,waterMat:waterMat,flMat:flMat,pads:pads,x:x,z:z,
+    phase:sr()*6.28,pondR:pondR};
+}
+
+// ================================================================
+// QUEST OBJECTS — Orbs, Obelisk, Lasers, Finale
+// ================================================================
+var orbsFound=0, questPhase='SEEK'; // SEEK → RISING → COMPLETE → FINALE
+var obeliskY=-OBELISK_H; // starts buried
+var finaleTimer=0;
+var orbHudEl=document.getElementById('orb-hud');
+
+// --- Golden Orb (multi-shell glow, ≥4 primitives) ---
+function makeOrb(x,z){
+  var g=new THREE.Group();
+  // Core sphere
+  var coreMat=new THREE.MeshBasicMaterial({color:C.orbGold});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8),coreMat);
+  g.add(core);
+  // Inner glow shell
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.orbGlow,transparent:true,opacity:0.5
+  });
+  var glow=new THREE.Mesh(new THREE.SphereGeometry(0.35,8,6),glowMat);
+  g.add(glow);
+  // Outer haze shell
+  var hazeMat=new THREE.MeshBasicMaterial({
+    color:C.orbInner,transparent:true,opacity:0.15
+  });
+  var haze=new THREE.Mesh(new THREE.SphereGeometry(0.6,8,5),hazeMat);
+  g.add(haze);
+  // Orbiting sparkle ring (small dots)
+  for(var i=0;i<6;i++){
+    var sp=new THREE.Mesh(new THREE.SphereGeometry(0.03,4,3),
+      new THREE.MeshBasicMaterial({color:0xffffff}));
+    var a=(i/6)*6.28;
+    sp.position.set(Math.cos(a)*0.4,Math.sin(a*2)*0.1,Math.sin(a)*0.4);
+    g.add(sp);
+  }
+  g.position.set(x,1.0,z);
+  scene.add(g);
+  return{group:g,coreMat:coreMat,glowMat:glowMat,hazeMat:hazeMat,
+    x:x,z:z,found:false,flyUp:false,flyY:1.0,phase:sr()*6.28,
+    laserLine:null,laserMat:null};
+}
+
+// --- Obelisk (tall dark monolith at world center) ---
+var obeliskGroup=null,obeliskMat=null,obeliskGlowMat=null;
+function makeObelisk(){
+  var g=new THREE.Group();
+  // Main shaft — tapered box
+  var mat=new THREE.MeshStandardMaterial({
+    color:C.obeliskBlack,roughness:0.2,metalness:0.8,
+    emissive:C.obeliskPink,emissiveIntensity:0
+  });
+  obeliskMat=mat;
+  // Use CylinderGeometry with 4 sides for obelisk shape
+  var shaft=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.8,OBELISK_H,4),mat);
+  shaft.position.y=OBELISK_H/2;shaft.rotation.y=Math.PI/4;
+  shaft.castShadow=true;g.add(shaft);
+  // Capstone (pyramid tip)
+  var capMat=new THREE.MeshStandardMaterial({
+    color:C.obeliskBlack,roughness:0.1,metalness:0.9,
+    emissive:C.obeliskPink,emissiveIntensity:0
+  });
+  obeliskGlowMat=capMat;
+  var cap=new THREE.Mesh(new THREE.ConeGeometry(1.3,3,4),capMat);
+  cap.position.y=OBELISK_H+1.5;cap.rotation.y=Math.PI/4;g.add(cap);
+  // Etched rings
+  for(var i=0;i<5;i++){
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(1.85-i*0.02,0.04,6,4),
+      new THREE.MeshBasicMaterial({color:0x222233}));
+    ring.position.y=4+i*5;ring.rotation.x=Math.PI/2;g.add(ring);
+  }
+  g.position.set(0,-OBELISK_H,0); // starts buried
+  scene.add(g);
+  obeliskGroup=g;
+}
+
+// --- Laser beam (from orb float position to obelisk top) ---
+function makeLaser(fromX,fromZ,floatY){
+  var topY=OBELISK_H+2; // obelisk tip
+  var points=[
+    new THREE.Vector3(fromX,floatY,fromZ),
+    new THREE.Vector3(0,topY,0)
+  ];
+  var geo=new THREE.BufferGeometry().setFromPoints(points);
+  var mat=new THREE.MeshBasicMaterial({
+    color:C.laserPink,transparent:true,opacity:0.8
+  });
+  // Use a thin tube for visible width
+  var path=new THREE.LineCurve3(points[0],points[1]);
+  var tubeGeo=new THREE.TubeGeometry(path,1,0.08,6,false);
+  var tube=new THREE.Mesh(tubeGeo,mat);
+  scene.add(tube);
+  // Outer glow tube
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.laserGlow,transparent:true,opacity:0.25
+  });
+  var glowTube=new THREE.Mesh(new THREE.TubeGeometry(path,1,0.25,6,false),glowMat);
+  scene.add(glowTube);
+  return{tube:tube,glow:glowTube,mat:mat,glowMat:glowMat};
+}
+
+// --- Moat (ring of water around obelisk) ---
+var moatMesh=null,moatMat=null;
+function makeMoat(){
+  var mat=new THREE.MeshStandardMaterial({
+    color:C.moatBlue,emissive:0x1155aa,emissiveIntensity:0.3,
+    transparent:true,opacity:0,roughness:0.1,metalness:0.3
+  });
+  moatMat=mat;
+  // Ring shape: outer=6m, inner=3m
+  var shape=new THREE.Shape();
+  shape.absarc(0,0,6,0,6.28,false);
+  var hole=new THREE.Path();
+  hole.absarc(0,0,3,0,6.28,true);
+  shape.holes.push(hole);
+  var geo=new THREE.ShapeGeometry(shape,24);
+  var mesh=new THREE.Mesh(geo,mat);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.position.y=0.05;
+  scene.add(mesh);
+  moatMesh=mesh;
+}
+
+// --- Rainbow arcs (curved tubes arcing over obelisk) ---
+var rainbowArcs=[];
+function makeRainbows(){
+  for(var i=0;i<6;i++){
+    var col=C.rainbow[i];
+    var ang=(i/6)*6.28;
+    var r=5+i*0.5;
+    var h=OBELISK_H+5+i*2;
+    // Create arc as CatmullRomCurve3
+    var pts=[];
+    for(var j=0;j<=12;j++){
+      var frac=j/12;
+      var a=ang+frac*Math.PI; // half circle
+      var px=Math.cos(a)*r;
+      var pz=Math.sin(a)*r;
+      var py=Math.sin(frac*Math.PI)*h; // parabolic arc
+      pts.push(new THREE.Vector3(px,py,pz));
+    }
+    var curve=new THREE.CatmullRomCurve3(pts);
+    var mat=new THREE.MeshBasicMaterial({
+      color:col,transparent:true,opacity:0
+    });
+    var tubeGeo=new THREE.TubeGeometry(curve,20,0.12-i*0.008,5,false);
+    var mesh=new THREE.Mesh(tubeGeo,mat);
+    scene.add(mesh);
+    rainbowArcs.push({mesh:mesh,mat:mat,targetOpacity:0});
+  }
+}
+
+// --- Orb proximity light (single pooled — light budget +1) ---
+var orbLight=new THREE.PointLight(C.orbGold,0,15);
+scene.add(orbLight);
+
+var orbs=[];
+
+// --- Player ---
+var player={pos:new THREE.Vector3(0,EYE_H,0),vel:new THREE.Vector3(),onGround:true};
+
+// ================================================================
+// PHASE III — Kinematic Kernel
+// ================================================================
+function updatePlayer(dt){
+  var inp=getInput();
+  var sprinting=keys['ShiftLeft']||keys['ShiftRight']||touchSprint;
+  player.vel.x=inp.x;
+  player.vel.z=inp.z;
+  player.vel.y-=GRAVITY*dt;
+  if((keys['Space']||touchJump)&&player.onGround){
+    player.vel.y=JUMP_IMPULSE;player.onGround=false;touchJump=false;
+  }
+  // Track pre-landing velocity for cushion
+  if(!player.onGround) landingVelY=player.vel.y;
+  player.pos.x+=player.vel.x*dt;
+  player.pos.y+=player.vel.y*dt;
+  player.pos.z+=player.vel.z*dt;
+  if(player.pos.y<=EYE_H){player.pos.y=EYE_H;player.vel.y=0;
+    // Landing detection
+    if(!wasOnGround&&landingVelY<-3){
+      var impactStrength=Math.min(Math.abs(landingVelY)/JUMP_IMPULSE,1);
+      landingDip=impactStrength*0.15;
+      spawnDustBurst(player.pos.x,player.pos.z,Math.floor(3+impactStrength*5));
+    }
+    player.onGround=true;
+  }
+  wasOnGround=player.onGround;
+  if(player.onGround){player.vel.x*=GROUND_DRAG;player.vel.z*=GROUND_DRAG}
+  else{player.vel.x*=AIR_DRAG;player.vel.z*=AIR_DRAG}
+  var d=Math.sqrt(player.pos.x*player.pos.x+player.pos.z*player.pos.z);
+  if(d>WORLD_R){var a=Math.atan2(player.pos.z,player.pos.x);
+    player.pos.x=Math.cos(a)*WORLD_R;player.pos.z=Math.sin(a)*WORLD_R}
+  playerLight.position.copy(player.pos);
+
+  // --- Head Bob ---
+  var speed=Math.sqrt(inp.x*inp.x+inp.z*inp.z);
+  var moving=speed>0.5&&player.onGround;
+  var bobTarget=moving?(sprinting?0.06:0.035):0;
+  headBobAmp+=(bobTarget-headBobAmp)*dt*6;
+  if(moving) headBobPhase+=dt*(sprinting?12:8);
+  var bobOffset=Math.sin(headBobPhase)*headBobAmp;
+
+  // --- Sprint FOV ---
+  targetFOV=(sprinting&&moving)?78:65;
+  currentFOV+=(targetFOV-currentFOV)*dt*4;
+  camera.fov=currentFOV;
+  camera.updateProjectionMatrix();
+
+  // --- Landing Cushion ---
+  landingDip*=Math.pow(0.04,dt); // exponential decay
+  if(landingDip<0.001) landingDip=0;
+
+  // Apply combined camera Y offset
+  player.pos.y+=bobOffset-landingDip;
+}
+
+// --- Firefly Pool (MeshBasicMaterial — ZERO light cost) ---
+var flies=[];
+function initFlies(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({
+      color:i%3===0?C.fireflyB:C.firefly,transparent:true,opacity:0
+    });
+    var m=new THREE.Mesh(GEO.fly,mat);
+    m.visible=false;scene.add(m);
+    flies.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
+      active:false,phase:Math.random()*6.28,wander:Math.random()*6.28});
+  }
+}
+function spawnFly(px,py,pz,life){
+  var f=null;
+  for(var i=0;i<flies.length;i++){if(!flies[i].active){f=flies[i];break}}
+  if(!f){var best=Infinity;for(var i=0;i<flies.length;i++){if(flies[i].life<best){best=flies[i].life;f=flies[i]}}}
+  f.mesh.position.set(px,py+0.5+Math.random()*3,pz);
+  f.mesh.visible=true;f.mat.opacity=1;
+  f.vel.set((Math.random()-.5)*2,(Math.random()-.5),( Math.random()-.5)*2);
+  f.life=life;f.max=life;f.active=true;f.wander=Math.random()*6.28;
+}
+function updateFlies(dt,t){
+  var ac=0;
+  for(var i=0;i<flies.length;i++){
+    var f=flies[i];if(!f.active)continue;
+    f.life-=dt;
+    if(f.life<=0){f.active=false;f.mesh.visible=false;continue}
+    ac++;
+    f.wander+=(Math.random()-0.5)*3*dt;
+    f.vel.x+=Math.cos(f.wander)*1.5*dt;
+    f.vel.z+=Math.sin(f.wander)*1.5*dt;
+    f.vel.y+=Math.sin(t*2+f.phase)*dt;
+    f.vel.multiplyScalar(0.995);
+    f.mesh.position.x+=f.vel.x*dt;
+    f.mesh.position.y+=f.vel.y*dt;
+    f.mesh.position.z+=f.vel.z*dt;
+    if(f.mesh.position.y<0.3){f.mesh.position.y=0.3;f.vel.y=Math.abs(f.vel.y)*0.5}
+    if(f.mesh.position.y>12)f.vel.y-=2*dt;
+    var pulse=Math.sin(t*3+f.phase)*0.5+0.5;
+    var frac=f.life/f.max;
+    f.mat.opacity=frac*(0.4+pulse*0.6);
+    f.mesh.scale.setScalar(0.6+pulse*0.6);
+  }
+  return ac;
+}
+
+// --- Spore Pool ---
+var spores=[];
+function initSpores(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.spore,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.spore,mat);m.visible=false;scene.add(m);
+    spores.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnSpore(px,py,pz){
+  var s=null;
+  for(var i=0;i<spores.length;i++){if(!spores[i].active){s=spores[i];break}}
+  if(!s){var best=Infinity;for(var i=0;i<spores.length;i++){if(spores[i].life<best){best=spores[i].life;s=spores[i]}}}
+  s.mesh.position.set(px,py,pz);s.mesh.visible=true;
+  s.vel.set((Math.random()-.5)*0.3,0.4+Math.random()*0.4,(Math.random()-.5)*0.3);
+  s.life=3+Math.random()*3;s.max=s.life;s.active=true;
+}
+function updateSpores(dt){
+  var ac=0;
+  for(var i=0;i<spores.length;i++){
+    var s=spores[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
+    ac++;
+    s.vel.y+=0.3*dt; // rises
+    s.vel.multiplyScalar(0.997);
+    s.mesh.position.x+=s.vel.x*dt;
+    s.mesh.position.y+=s.vel.y*dt;
+    s.mesh.position.z+=s.vel.z*dt;
+    s.mat.opacity=(s.life/s.max)*0.7;
+  }
+  return ac;
+}
+
+// --- Creature arrays ---
+var jellies=[],puffs=[],deers=[],moths=[];
+// --- Vegetation arrays ---
+var grassPatches=[],ferns=[],flowers=[],reeds=[];
+// New entity arrays
+var wisps=[],dandelions=[],fairyRings=[],bubbles=[],ponds=[];
+// Falling star motes pool
+var starMotes=[];
+// Dust landing particles pool
+var dustMotes=[];
+// Dandelion seed particles pool
+var dandSeeds=[];
+// Bubble pop sparkles pool
+var bubblePops=[];
+
+// --- Head bob / Sprint FOV / Landing Cushion state ---
+var headBobPhase=0, headBobAmp=0;
+var currentFOV=65, targetFOV=65;
+var landingDip=0, wasOnGround=true, landingVelY=0;
+// Echo bloom state
+var echoBloomTimer=0, echoBloomCenter=null, echoBloomRadius=0;
+
+// --- Vegetation sway (wind effect) ---
+function updateVegetation(dt,t){
+  // Grass patch sway via rotation
+  for(var i=0;i<grassPatches.length;i++){
+    var gp=grassPatches[i];
+    var wind=Math.sin(t*0.7+gp.cx*0.05)*0.04+Math.sin(t*1.3+gp.cz*0.08)*0.02;
+    gp.mesh.rotation.z=wind;
+    gp.mesh.rotation.x=Math.sin(t*0.9+gp.cz*0.06)*0.03;
+  }
+  // Fern gentle sway
+  for(var i=0;i<ferns.length;i++){
+    var f=ferns[i];
+    f.group.rotation.z=Math.sin(t*0.8+f.phase)*0.03;
+    f.group.rotation.x=Math.sin(t*0.6+f.phase+1)*0.02;
+  }
+  // Flower pulse
+  for(var i=0;i<flowers.length;i++){
+    var fl=flowers[i];
+    var p=Math.sin(t*1.0+fl.phase)*0.5+0.5;
+    fl.petalMat.emissiveIntensity=0.3+p*0.5;
+    fl.group.rotation.z=Math.sin(t*0.9+fl.phase)*0.04;
+  }
+  // Reed sway
+  for(var i=0;i<reeds.length;i++){
+    var r=reeds[i];
+    r.group.rotation.z=Math.sin(t*1.1+r.phase)*r.swayAmp;
+    r.group.rotation.x=Math.sin(t*0.8+r.phase+2)*r.swayAmp*0.5;
+  }
+}
+
+// --- Falling Star Motes Pool ---
+function initStarMotes(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.starMote,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.starMote,mat);m.visible=false;scene.add(m);
+    starMotes.push({mesh:m,mat:mat,life:0,max:0,active:false,vy:0,drift:0});
+  }
+}
+function spawnStarMote(){
+  var s=null;
+  for(var i=0;i<starMotes.length;i++){if(!starMotes[i].active){s=starMotes[i];break}}
+  if(!s) return;
+  var px=player.pos.x+(Math.random()-0.5)*60;
+  var pz=player.pos.z+(Math.random()-0.5)*60;
+  var py=15+Math.random()*20;
+  s.mesh.position.set(px,py,pz);
+  s.mesh.visible=true;s.mat.opacity=0.8;
+  s.life=6+Math.random()*6;s.max=s.life;s.active=true;
+  s.vy=-0.15-Math.random()*0.3;
+  s.drift=Math.random()*6.28;
+}
+var starTimer=0;
+function updateStarMotes(dt,t){
+  starTimer+=dt;
+  if(starTimer>0.15){starTimer=0;spawnStarMote()}
+  for(var i=0;i<starMotes.length;i++){
+    var s=starMotes[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0||s.mesh.position.y<0.5){s.active=false;s.mesh.visible=false;continue}
+    s.mesh.position.y+=s.vy*dt;
+    s.drift+=(Math.random()-0.5)*0.5*dt;
+    s.mesh.position.x+=Math.sin(s.drift)*0.1*dt;
+    s.mesh.position.z+=Math.cos(s.drift)*0.08*dt;
+    var frac=s.life/s.max;
+    var twinkle=Math.sin(t*4+i)*0.3+0.7;
+    s.mat.opacity=frac*twinkle*0.7;
+    s.mesh.scale.setScalar(0.5+twinkle*0.5);
+  }
+}
+
+// --- Dust Landing Particles Pool ---
+function initDustMotes(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:0x88aa77,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.dustMote,mat);m.visible=false;scene.add(m);
+    dustMotes.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnDustBurst(px,pz,count){
+  for(var c=0;c<count;c++){
+    var d=null;
+    for(var i=0;i<dustMotes.length;i++){if(!dustMotes[i].active){d=dustMotes[i];break}}
+    if(!d) continue;
+    var a=Math.random()*6.28,spd=1+Math.random()*2;
+    d.mesh.position.set(px+Math.cos(a)*0.2,0.1,pz+Math.sin(a)*0.2);
+    d.mesh.visible=true;d.mat.opacity=0.5;
+    d.vel.set(Math.cos(a)*spd,0.5+Math.random()*1.5,Math.sin(a)*spd);
+    d.life=0.6+Math.random()*0.6;d.max=d.life;d.active=true;
+  }
+}
+function updateDustMotes(dt){
+  for(var i=0;i<dustMotes.length;i++){
+    var d=dustMotes[i];if(!d.active)continue;
+    d.life-=dt;
+    if(d.life<=0){d.active=false;d.mesh.visible=false;continue}
+    d.vel.y-=3*dt;d.vel.multiplyScalar(0.96);
+    d.mesh.position.x+=d.vel.x*dt;
+    d.mesh.position.y+=d.vel.y*dt;
+    d.mesh.position.z+=d.vel.z*dt;
+    if(d.mesh.position.y<0.05){d.mesh.position.y=0.05;d.vel.y=0;d.vel.x*=0.8;d.vel.z*=0.8}
+    d.mat.opacity=(d.life/d.max)*0.4;
+  }
+}
+
+// --- Dandelion Seed Particles Pool ---
+function initDandSeeds(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.dandSeed,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.dandSeed,mat);m.visible=false;scene.add(m);
+    dandSeeds.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
+      active:false,drift:0});
+  }
+}
+function spawnDandSeed(px,py,pz){
+  var s=null;
+  for(var i=0;i<dandSeeds.length;i++){if(!dandSeeds[i].active){s=dandSeeds[i];break}}
+  if(!s) return;
+  s.mesh.position.set(px+(Math.random()-0.5)*0.1,py,pz+(Math.random()-0.5)*0.1);
+  s.mesh.visible=true;s.mat.opacity=0.8;
+  var a=Math.random()*6.28;
+  s.vel.set(Math.cos(a)*0.5+Math.random()*0.3,0.6+Math.random()*0.8,Math.sin(a)*0.5);
+  s.life=4+Math.random()*5;s.max=s.life;s.active=true;
+  s.drift=Math.random()*6.28;
+}
+function updateDandSeeds(dt,t){
+  for(var i=0;i<dandSeeds.length;i++){
+    var s=dandSeeds[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
+    // Gentle upward drift with wind
+    s.drift+=(Math.random()-0.5)*1.5*dt;
+    s.vel.x+=Math.sin(s.drift)*0.3*dt;
+    s.vel.z+=Math.cos(s.drift)*0.2*dt;
+    s.vel.y+=(0.15-s.vel.y)*dt*0.5; // terminal rise speed
+    s.vel.multiplyScalar(0.998);
+    s.mesh.position.x+=s.vel.x*dt;
+    s.mesh.position.y+=s.vel.y*dt;
+    s.mesh.position.z+=s.vel.z*dt;
+    var frac=s.life/s.max;
+    s.mat.opacity=frac*0.7*(0.6+Math.sin(t*2+i)*0.4);
+    s.mesh.scale.setScalar(0.8+Math.sin(t*3+i*0.5)*0.3);
+  }
+}
+
+// --- Bubble Pop Sparkles Pool ---
+function initBubblePops(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.bubblePop,transparent:true,opacity:0});
+    var m=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),mat);m.visible=false;scene.add(m);
+    bubblePops.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnBubblePop(px,py,pz,count){
+  for(var c=0;c<count;c++){
+    var p=null;
+    for(var i=0;i<bubblePops.length;i++){if(!bubblePops[i].active){p=bubblePops[i];break}}
+    if(!p)continue;
+    var a=Math.random()*6.28,elev=Math.random()*3.14;
+    var spd=1+Math.random()*2;
+    p.mesh.position.set(px,py,pz);p.mesh.visible=true;p.mat.opacity=0.9;
+    p.vel.set(Math.cos(a)*Math.sin(elev)*spd,Math.cos(elev)*spd,Math.sin(a)*Math.sin(elev)*spd);
+    p.life=0.4+Math.random()*0.4;p.max=p.life;p.active=true;
+  }
+}
+function updateBubblePops(dt){
+  for(var i=0;i<bubblePops.length;i++){
+    var p=bubblePops[i];if(!p.active)continue;
+    p.life-=dt;
+    if(p.life<=0){p.active=false;p.mesh.visible=false;continue}
+    p.vel.y-=2*dt;p.vel.multiplyScalar(0.97);
+    p.mesh.position.x+=p.vel.x*dt;
+    p.mesh.position.y+=p.vel.y*dt;
+    p.mesh.position.z+=p.vel.z*dt;
+    p.mat.opacity=(p.life/p.max)*0.8;
+  }
+}
+
+// --- Will-o'-Wisp AI: follow player loosely, scatter on sprint ---
+function updateWisps(dt,t){
+  var sprinting=keys['ShiftLeft']||keys['ShiftRight']||touchSprint;
+  for(var i=0;i<wisps.length;i++){
+    var w=wisps[i];
+    // Determine target position: orbit around player
+    var orbitAng=t*0.5+w.phase+(i/WISP_N)*6.28;
+    var orbitR=sprinting?4+i*2:1.5+i*0.8;
+    var orbitY=sprinting?3+i:1.2+Math.sin(t*0.7+w.phase)*0.5;
+    w.targetX=player.pos.x+Math.cos(orbitAng)*orbitR;
+    w.targetY=player.pos.y-EYE_H+orbitY;
+    w.targetZ=player.pos.z+Math.sin(orbitAng)*orbitR;
+    // Scatter effect: if sprinting, push outward faster
+    var followRate=sprinting?0.8:2.5;
+    // Smooth approach via velocity
+    w.velX+=(w.targetX-w.group.position.x)*followRate*dt;
+    w.velY+=(w.targetY-w.group.position.y)*followRate*dt;
+    w.velZ+=(w.targetZ-w.group.position.z)*followRate*dt;
+    w.velX*=0.92;w.velY*=0.92;w.velZ*=0.92;
+    w.group.position.x+=w.velX*dt*4;
+    w.group.position.y+=w.velY*dt*4;
+    w.group.position.z+=w.velZ*dt*4;
+    // Pulse glow
+    var p=Math.sin(t*2+w.phase)*0.5+0.5;
+    w.glowMat.opacity=0.3+p*0.4;
+    w.hazeMat.opacity=0.08+p*0.12;
+    // Orbit sparkle child
+    var ch=w.group.children[3];
+    var sa=t*3+w.phase;
+    ch.position.set(Math.cos(sa)*0.18,Math.sin(sa*1.5)*0.06,Math.sin(sa)*0.18);
+  }
+}
+
+// --- Dandelion dispersal: walk-through triggers seed burst ---
+function updateDandelions(dt,t){
+  for(var i=0;i<dandelions.length;i++){
+    var d=dandelions[i];
+    if(!d.dispersed){
+      // Check player proximity
+      var dx=d.x-player.pos.x,dz=d.z-player.pos.z;
+      if(dx*dx+dz*dz<1.2){
+        d.dispersed=true;
+        // Burst seeds
+        for(var s=0;s<8;s++) spawnDandSeed(d.x,d.h+0.05,d.z);
+        // Hide the seed head and tufts
+        for(var c=2;c<d.group.children.length;c++){
+          d.group.children[c].visible=false;
+        }
+        d.regrowTimer=15+Math.random()*10;
+      }else{
+        // Gentle sway
+        d.group.rotation.z=Math.sin(t*0.9+d.phase)*0.04;
+        // Head glow pulse
+        d.headMat.emissiveIntensity=0.15+Math.sin(t*1.2+d.phase)*0.1;
+      }
+    }else{
+      // Regrow timer
+      d.regrowTimer-=dt;
+      if(d.regrowTimer<=0){
+        d.dispersed=false;
+        for(var c=2;c<d.group.children.length;c++){
+          d.group.children[c].visible=true;
+        }
+      }
+      d.group.rotation.z=Math.sin(t*0.9+d.phase)*0.02;
+    }
+  }
+}
+
+// --- Fairy Ring: proximity glow + bounce on jump ---
+function updateFairyRings(dt,t){
+  for(var i=0;i<fairyRings.length;i++){
+    var fr=fairyRings[i];
+    var dx=fr.x-player.pos.x,dz=fr.z-player.pos.z;
+    var dist2=dx*dx+dz*dz;
+    var inRing=dist2<(FAIRY_RING_R+0.5)*(FAIRY_RING_R+0.5);
+    // Glow on proximity
+    var targetGlow=inRing?1.0:0.0;
+    fr.glowIntensity+=(targetGlow-fr.glowIntensity)*dt*3;
+    fr.discMat.opacity=fr.glowIntensity*0.25*(0.6+Math.sin(t*2+fr.phase)*0.4);
+    fr.mushMat.emissiveIntensity=0.2+fr.glowIntensity*0.8;
+    // Bounce: if player just jumped while in ring — boost upward
+    // (onGround is already false when director runs, so detect fresh jump velocity)
+    if(inRing&&player.vel.y>0&&player.vel.y<=JUMP_IMPULSE+0.5){
+      player.vel.y=JUMP_IMPULSE+FAIRY_BOUNCE;
+      fr.glowIntensity=1.5; // flash
+    }
+  }
+}
+
+// --- Bubble Sprites: drift, pop on player collision ---
+function updateBubbles(dt,t){
+  for(var i=0;i<bubbles.length;i++){
+    var b=bubbles[i];
+    if(b.popped){
+      b.popTimer-=dt;
+      if(b.popTimer<=0){
+        // Respawn
+        b.popped=false;
+        b.group.visible=true;
+        var a=sr()*6.28,d=8+sr()*WORLD_R*0.5;
+        b.homeX=Math.cos(a)*d;b.homeZ=Math.sin(a)*d;
+        b.floatY=0.5+sr()*4;
+        b.group.position.set(b.homeX,b.floatY,b.homeZ);
+      }
+      continue;
+    }
+    // Drift gently
+    b.driftAng+=dt*0.2;
+    var tx=b.homeX+Math.sin(b.driftAng)*3;
+    var tz=b.homeZ+Math.cos(b.driftAng*0.7)*3;
+    b.group.position.x+=(tx-b.group.position.x)*dt*0.5;
+    b.group.position.z+=(tz-b.group.position.z)*dt*0.5;
+    b.group.position.y=b.floatY+Math.sin(t*0.6+b.phase)*b.bobAmp;
+    // Iridescent color shift
+    var hue=(t*0.1+b.phase)%1;
+    var r=Math.sin(hue*6.28)*0.15+0.7;
+    var g2=Math.sin(hue*6.28+2.09)*0.15+0.7;
+    var bl=Math.sin(hue*6.28+4.19)*0.15+0.8;
+    b.shellMat.color.setRGB(r,g2,bl);
+    // Pulse opacity
+    b.shellMat.opacity=0.18+Math.sin(t*1.5+b.phase)*0.08;
+    // Check player collision
+    var dx=b.group.position.x-player.pos.x;
+    var dy=b.group.position.y-player.pos.y;
+    var dz=b.group.position.z-player.pos.z;
+    if(dx*dx+dy*dy+dz*dz<BUBBLE_POP_R*BUBBLE_POP_R*b.sc*b.sc){
+      // Pop!
+      b.popped=true;b.popTimer=8+Math.random()*8;
+      b.group.visible=false;
+      spawnBubblePop(b.group.position.x,b.group.position.y,b.group.position.z,6);
+    }
+  }
+}
+
+// --- Pond Lilies: bob pads, pulse flower ---
+function updatePonds(dt,t){
+  for(var i=0;i<ponds.length;i++){
+    var po=ponds[i];
+    // Pad bobbing
+    for(var j=0;j<po.pads.length;j++){
+      var pad=po.pads[j];
+      pad.mesh.position.y=0.05+Math.sin(t*0.8+pad.phase)*0.015;
+    }
+    // Water shimmer
+    po.waterMat.emissiveIntensity=0.15+Math.sin(t*1.0+po.phase)*0.1;
+    // Flower pulse
+    var fp=Math.sin(t*1.2+po.phase)*0.5+0.5;
+    po.flMat.emissiveIntensity=0.3+fp*0.5;
+  }
+}
+
+// --- Echo Bloom: cascade glow through nearby vegetation near crystals ---
+function updateEchoBloom(dt,t){
+  // Trigger near crystals
+  echoBloomTimer-=dt;
+  if(echoBloomTimer<=0){
+    echoBloomTimer=0.5; // check interval
+    for(var i=0;i<crys_data.length;i++){
+      var c=crys_data[i];
+      var dx=c.x-player.pos.x,dz=c.z-player.pos.z;
+      if(dx*dx+dz*dz<36){ // within 6m
+        echoBloomCenter={x:c.x,z:c.z};
+        echoBloomRadius=0;
+        break;
+      }
+    }
+  }
+  if(!echoBloomCenter) return;
+  echoBloomRadius+=dt*12; // expands at 12 m/s
+  if(echoBloomRadius>30){echoBloomCenter=null;echoBloomRadius=0;return}
+  var wave=echoBloomRadius;
+  var waveW=4.0; // ring width
+  // Boost nearby mushrooms
+  for(var i=0;i<mush_data.length;i++){
+    var m=mush_data[i];
+    var dx=m.x-echoBloomCenter.x,dz=m.z-echoBloomCenter.z;
+    var d=Math.sqrt(dx*dx+dz*dz);
+    var inWave=Math.abs(d-wave)<waveW;
+    if(inWave){
+      var waveFrac=1-Math.abs(d-wave)/waveW;
+      m.capMat.emissiveIntensity=Math.max(m.capMat.emissiveIntensity,m.base+waveFrac*2.0);
+    }
+  }
+  // Boost nearby flowers
+  for(var i=0;i<flowers.length;i++){
+    var fl=flowers[i];
+    var fx=fl.group.position.x-echoBloomCenter.x;
+    var fz=fl.group.position.z-echoBloomCenter.z;
+    var d=Math.sqrt(fx*fx+fz*fz);
+    var inWave=Math.abs(d-wave)<waveW;
+    if(inWave){
+      var waveFrac=1-Math.abs(d-wave)/waveW;
+      fl.petalMat.emissiveIntensity=Math.max(fl.petalMat.emissiveIntensity,0.3+waveFrac*1.5);
+    }
+  }
+}
+
+// --- Jelly AI: gentle drift + vertical bob ---
+function updateJellies(dt,t){
+  for(var i=0;i<jellies.length;i++){
+    var j=jellies[i];
+    // Drift in slow circles
+    j.driftAng+=dt*0.15;
+    var radius=8+Math.sin(t*0.1+j.phase)*4;
+    var tx=j.homeX+Math.cos(j.driftAng)*radius;
+    var tz=j.homeZ+Math.sin(j.driftAng)*radius;
+    var g=j.group;
+    g.position.x+=(tx-g.position.x)*dt*0.3;
+    g.position.z+=(tz-g.position.z)*dt*0.3;
+    // Vertical bob
+    g.position.y=j.floatY+Math.sin(t*j.wobble+j.phase)*1.5;
+    // Pulse glow
+    var p=Math.sin(t*1.2+j.phase)*0.5+0.5;
+    j.bellMat.emissiveIntensity=0.4+p*0.8;
+    j.bellMat.opacity=0.35+p*0.25;
+    // Gentle rotation
+    g.rotation.y+=dt*0.2;
+    // Tentacle sway (wiggle children 2-7)
+    for(var ti=2;ti<g.children.length;ti++){
+      g.children[ti].rotation.x=Math.sin(t*2+ti+j.phase)*0.15;
+      g.children[ti].rotation.z=Math.sin(t*1.5+ti*0.7+j.phase)*0.1;
+    }
+  }
+}
+
+// --- Puffling AI: idle → hop → idle ---
+function updatePuffs(dt,t){
+  for(var i=0;i<puffs.length;i++){
+    var p=puffs[i],g=p.group;
+    if(p.state==='idle'){
+      p.idleTimer-=dt;
+      // Cute idle bobble
+      g.position.y=Math.sin(t*2+p.phase)*0.02;
+      g.rotation.y+=Math.sin(t*0.5+p.phase)*dt*0.3;
+      if(p.idleTimer<=0){
+        p.state='hop';
+        p.wanderAng+=((Math.random()-0.5)*1.5);
+        p.hopTimer=0;
+      }
+    }else{
+      p.hopTimer+=dt;
+      // Hop cycle: ~1.2 seconds
+      var hopDur=1.2;
+      var frac=p.hopTimer/hopDur;
+      if(frac>=1.0){
+        p.state='idle';
+        p.idleTimer=1.5+Math.random()*3;
+        g.position.y=0;
+      }else{
+        // Parabolic hop arc
+        var arc=Math.sin(frac*Math.PI)*0.3;
+        g.position.y=arc;
+        // Move forward
+        g.position.x+=Math.sin(p.wanderAng)*p.speed*dt;
+        g.position.z+=Math.cos(p.wanderAng)*p.speed*dt;
+        // Squash and stretch
+        var sq=1.0-Math.sin(frac*Math.PI)*0.15;
+        var st=1.0+Math.sin(frac*Math.PI)*0.2;
+        g.scale.set(sq,st,sq);
+        // Face movement direction
+        g.rotation.y=p.wanderAng;
+      }
+      // Keep in bounds
+      var d=Math.sqrt(g.position.x*g.position.x+g.position.z*g.position.z);
+      if(d>WORLD_R*0.85) p.wanderAng+=Math.PI;
+    }
+  }
+}
+
+// --- Deer AI: graceful walk with pauses ---
+function updateDeers(dt,t){
+  for(var i=0;i<deers.length;i++){
+    var d=deers[i],g=d.group;
+    if(d.state==='pause'){
+      d.pauseTimer-=dt;
+      if(d.pauseTimer<=0){d.state='walk';d.wanderAng+=(Math.random()-0.5)*1.0}
+    }else{
+      d.walkTimer+=dt;
+      // Walk forward
+      g.position.x+=Math.sin(d.wanderAng)*d.speed*dt;
+      g.position.z+=Math.cos(d.wanderAng)*d.speed*dt;
+      g.rotation.y=d.wanderAng+Math.PI;
+      // Leg animation: subtle bob
+      d.legCycle+=dt*d.speed*4;
+      g.position.y=Math.abs(Math.sin(d.legCycle))*0.04;
+      // Gentle head bob via whole group tilt
+      g.rotation.x=Math.sin(d.legCycle*0.5)*0.02;
+      // Periodic pause
+      if(d.walkTimer>3+Math.random()*4){
+        d.state='pause';d.pauseTimer=2+Math.random()*3;d.walkTimer=0;
+      }
+      // Keep in bounds
+      var dist=Math.sqrt(g.position.x*g.position.x+g.position.z*g.position.z);
+      if(dist>WORLD_R*0.85) d.wanderAng+=Math.PI*0.8;
+    }
+    // Ethereal pulse on body material
+    var pulse=Math.sin(t*0.8+d.phase)*0.5+0.5;
+    d.mat.emissiveIntensity=0.3+pulse*0.4;
+    d.mat.opacity=0.55+pulse*0.2;
+  }
+}
+
+// --- Moth AI: orbit a point, flap wings ---
+function updateMoths(dt,t){
+  for(var i=0;i<moths.length;i++){
+    var m=moths[i],g=m.group;
+    // Orbit in a circle
+    m.orbitAng+=dt*0.4;
+    var tx=m.centerX+Math.cos(m.orbitAng)*m.orbitR;
+    var tz=m.centerZ+Math.sin(m.orbitAng)*m.orbitR;
+    g.position.x+=(tx-g.position.x)*dt*1.5;
+    g.position.z+=(tz-g.position.z)*dt*1.5;
+    g.position.y=m.floatY+Math.sin(t*0.7+m.phase)*0.8;
+    // Face direction of travel
+    g.rotation.y=m.orbitAng+Math.PI/2;
+    // Wing flap — rotate wing pivots
+    var flap=Math.sin(t*m.flapSpeed+m.phase)*0.4;
+    for(var w=0;w<g._wingPivots.length;w++){
+      var wp=g._wingPivots[w];
+      wp.pivot.rotation.z=flap*wp.side;
+    }
+    // Glow pulse
+    var pulse=Math.sin(t*1.5+m.phase)*0.5+0.5;
+    m.wingMat.emissiveIntensity=0.5+pulse*0.6;
+    m.wingMat.opacity=0.45+pulse*0.25;
+  }
+}
+
+// --- Quest Update System ---
+function updateQuest(dt,t){
+  // Orb proximity light — find nearest unfound orb
+  var nearestOrb=null,nearestD=Infinity;
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];if(o.found)continue;
+    var dx=o.x-player.pos.x,dz=o.z-player.pos.z;
+    var d=dx*dx+dz*dz;
+    if(d<nearestD){nearestD=d;nearestOrb=o}
+  }
+  // Proximity light on nearest unfound orb
+  if(nearestOrb&&nearestD<ORB_SENSE_R*ORB_SENSE_R){
+    var p=Math.sin(t*2+nearestOrb.phase)*0.5+0.5;
+    orbLight.position.set(nearestOrb.x,1.0,nearestOrb.z);
+    orbLight.intensity=1.0+p*2.0;
+    orbLight.distance=ORB_SENSE_R;
+  }else{
+    orbLight.intensity=0;
+  }
+
+  // Animate all orbs
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];
+    if(o.found&&!o.flyUp)continue; // fully ascended, laser handles the rest
+
+    if(!o.found){
+      // Idle animation: bob + sparkle orbit + pulse
+      var p=Math.sin(t*1.5+o.phase)*0.5+0.5;
+      o.group.position.y=1.0+Math.sin(t*0.8+o.phase)*0.3;
+      o.glowMat.opacity=0.3+p*0.4;
+      o.hazeMat.opacity=0.08+p*0.12;
+      // Rotate sparkle ring
+      for(var s=3;s<o.group.children.length;s++){
+        var ch=o.group.children[s];
+        var sa=((s-3)/6)*6.28+t*1.5;
+        ch.position.x=Math.cos(sa)*0.4;
+        ch.position.z=Math.sin(sa)*0.4;
+        ch.position.y=Math.sin(sa*2+t)*0.1;
+      }
+      // Touch detection
+      var dx=o.x-player.pos.x,dz=o.z-player.pos.z;
+      if(dx*dx+dz*dz<ORB_TOUCH_R*ORB_TOUCH_R){
+        o.found=true;o.flyUp=true;o.flyY=o.group.position.y;
+        orbsFound++;
+        orbHudEl.innerHTML='✦ '+orbsFound+' / '+ORB_N;
+        // Start obelisk rising on first orb
+        if(questPhase==='SEEK')questPhase='RISING';
+      }
+    }
+
+    if(o.flyUp){
+      // Fly upward toward obelisk tip height
+      var targetY=OBELISK_H+5;
+      o.flyY+=(targetY-o.flyY)*dt*0.8;
+      o.group.position.y=o.flyY;
+      // Shrink as it rises
+      var frac=Math.min((o.flyY-1)/(targetY-1),1);
+      o.group.scale.setScalar(1.0-frac*0.6);
+      o.glowMat.opacity=0.8-frac*0.5;
+      // When high enough, lock in place and create laser
+      if(o.flyY>targetY-1&&!o.laserLine){
+        o.flyUp=false;
+        o.group.visible=false; // hide orb, laser takes over
+        o.laserLine=makeLaser(o.x,o.z,targetY);
+      }
+    }
+  }
+
+  // Obelisk rising
+  if(questPhase==='RISING'){
+    if(obeliskY<0){
+      obeliskY+=OBELISK_RISE_SPEED*dt;
+      if(obeliskY>0)obeliskY=0;
+      obeliskGroup.position.y=obeliskY;
+    }
+    // Check completion
+    if(orbsFound>=ORB_N&&obeliskY>=0){
+      questPhase='COMPLETE';
+      finaleTimer=0;
+    }
+  }
+
+  // Obelisk subtle rotation
+  if(obeliskGroup)obeliskGroup.rotation.y+=dt*0.03;
+
+  // Laser pulse
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];
+    if(!o.laserLine)continue;
+    var p=Math.sin(t*3+i)*0.5+0.5;
+    o.laserLine.mat.opacity=0.5+p*0.4;
+    o.laserLine.glowMat.opacity=0.15+p*0.15;
+  }
+
+  // === FINALE ===
+  if(questPhase==='COMPLETE'){
+    finaleTimer+=dt;
+
+    // Phase 1 (0-3s): Obelisk glows bright pink
+    var glowRamp=Math.min(finaleTimer/3,1);
+    obeliskMat.emissiveIntensity=glowRamp*1.5;
+    obeliskGlowMat.emissiveIntensity=glowRamp*2.5;
+
+    // Phase 2 (1-6s): Moat fades in
+    if(finaleTimer>1&&moatMat){
+      var moatFade=Math.min((finaleTimer-1)/4,1);
+      moatMat.opacity=moatFade*0.6;
+      // Animate moat surface ripple via subtle Y oscillation
+      if(moatMesh) moatMesh.position.y=0.05+Math.sin(t*3)*0.02*moatFade;
+    }
+
+    // Phase 3 (2-8s): Rainbows appear
+    if(finaleTimer>2){
+      var rbFade=Math.min((finaleTimer-2)/5,1);
+      for(var i=0;i<rainbowArcs.length;i++){
+        var delay=i*0.3;
+        var arcFade=Math.min(Math.max((finaleTimer-2-delay)/2,0),1);
+        rainbowArcs[i].mat.opacity=arcFade*0.55;
+        // Gentle rotation
+        rainbowArcs[i].mesh.rotation.y+=dt*0.1*(i+1)*0.3;
+      }
+    }
+
+    // Phase 4 (1s+): All creatures migrate toward center
+    if(finaleTimer>1){
+      var gatherStrength=Math.min((finaleTimer-1)/6,1)*2.0;
+      // Deer
+      for(var i=0;i<deers.length;i++){
+        var d=deers[i],g=d.group;
+        var tx=-g.position.x,tz=-g.position.z;
+        var dist=Math.sqrt(tx*tx+tz*tz);
+        if(dist>8){
+          d.wanderAng=Math.atan2(-g.position.x,-g.position.z);
+          d.state='walk';d.speed=1.5*gatherStrength;
+          g.position.x+=tx/dist*d.speed*dt;
+          g.position.z+=tz/dist*d.speed*dt;
+          g.rotation.y=d.wanderAng+Math.PI;
+        }else{d.state='pause'}
+      }
+      // Pufflings
+      for(var i=0;i<puffs.length;i++){
+        var p=puffs[i],g=p.group;
+        var tx=-g.position.x,tz=-g.position.z;
+        var dist=Math.sqrt(tx*tx+tz*tz);
+        if(dist>8){
+          p.wanderAng=Math.atan2(-g.position.x,-g.position.z);
+          p.state='hop';p.hopTimer=p.hopTimer%1.2;
+          g.position.x+=tx/dist*1.5*gatherStrength*dt;
+          g.position.z+=tz/dist*1.5*gatherStrength*dt;
+        }
+      }
+      // Jellies float toward center
+      for(var i=0;i<jellies.length;i++){
+        var j=jellies[i],g=j.group;
+        g.position.x+=(0-g.position.x)*dt*0.15*gatherStrength;
+        g.position.z+=(0-g.position.z)*dt*0.15*gatherStrength;
+      }
+      // Moths spiral inward
+      for(var i=0;i<moths.length;i++){
+        var m=moths[i];
+        m.centerX+=(0-m.centerX)*dt*0.2*gatherStrength;
+        m.centerZ+=(0-m.centerZ)*dt*0.2*gatherStrength;
+        m.orbitR=Math.max(m.orbitR-dt*0.3*gatherStrength,2);
+      }
+    }
+
+    // Transition to FINALE state after everything is in place
+    if(finaleTimer>10)questPhase='FINALE';
+  }
+
+  // Sustain finale state — keep everything animating
+  if(questPhase==='FINALE'){
+    obeliskMat.emissiveIntensity=1.5+Math.sin(t*0.5)*0.3;
+    obeliskGlowMat.emissiveIntensity=2.5+Math.sin(t*0.7)*0.5;
+    if(moatMesh) moatMesh.position.y=0.05+Math.sin(t*3)*0.02;
+    for(var i=0;i<rainbowArcs.length;i++){
+      rainbowArcs[i].mesh.rotation.y+=dt*0.1*(i+1)*0.3;
+      rainbowArcs[i].mat.opacity=0.45+Math.sin(t+i)*0.1;
+    }
+  }
+}
+
+// ================================================================
+// PHASE IV — Director
+// ================================================================
+
+// Crystal proximity lights — pooled, moved to nearest crystals each frame
+var crystalLights=[];
+function initCrystalLights(){
+  for(var i=0;i<MAX_CRYSTAL_LIGHTS;i++){
+    var pl=new THREE.PointLight(C.crystal,0,16);
+    scene.add(pl);
+    crystalLights.push(pl);
+  }
+}
+
+var trees_data=[],mush_data=[],crys_data=[];
+
+function populate(){
+  // Trees
+  for(var i=0;i<TREE_N;i++){
+    var x,z,ok=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=5+sr()*(WORLD_R-10);
+      x=Math.cos(ang)*d;z=Math.sin(ang)*d;ok=true;
+      for(var j=0;j<trees_data.length;j++){
+        var dx=trees_data[j].x-x,dz=trees_data[j].z-z;
+        if(dx*dx+dz*dz<9){ok=false;break}
+      }
+      if(ok)break;
+    }
+    if(ok){var g=makeTree(x,z);trees_data.push({group:g,x:x,z:z})}
+  }
+  // Mushrooms near trees
+  for(var i=0;i<MUSH_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    var ang=sr()*6.28,d=1+sr()*4;
+    var mx=ref.x+Math.cos(ang)*d,mz=ref.z+Math.sin(ang)*d;
+    mush_data.push(makeMush(mx,mz));
+  }
+  // Crystals
+  for(var i=0;i<CRYSTAL_N;i++){
+    var ang=sr()*6.28,d=8+sr()*WORLD_R*0.6;
+    crys_data.push(makeCrystal(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Jellies — floating between trees
+  for(var i=0;i<JELLY_N;i++){
+    var ang=sr()*6.28,d=10+sr()*WORLD_R*0.5;
+    jellies.push(makeJelly(Math.cos(ang)*d,3+sr()*5,Math.sin(ang)*d));
+  }
+  // Pufflings — near mushroom clusters
+  for(var i=0;i<PUFF_N;i++){
+    var ref=mush_data[Math.floor(sr()*mush_data.length)];
+    var ang=sr()*6.28,d=1+sr()*5;
+    puffs.push(makePuff(ref.x+Math.cos(ang)*d,ref.z+Math.sin(ang)*d));
+  }
+  // Spirit Deer — open areas
+  for(var i=0;i<DEER_N;i++){
+    var ang=sr()*6.28,d=12+sr()*WORLD_R*0.5;
+    deers.push(makeDeer(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Luna Moths — orbiting near trees with canopy glow
+  for(var i=0;i<MOTH_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    moths.push(makeMoth(ref.x,2+sr()*4,ref.z));
+  }
+  // Grass patches — scattered everywhere
+  for(var i=0;i<GRASS_PATCHES;i++){
+    var ang=sr()*6.28,d=2+sr()*(WORLD_R*0.9);
+    var gx=Math.cos(ang)*d,gz=Math.sin(ang)*d;
+    grassPatches.push(makeGrassPatch(gx,gz,1.5+sr()*2,15+Math.floor(sr()*15)));
+  }
+  // Ferns — near trees, understory
+  for(var i=0;i<FERN_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    var ang=sr()*6.28,d=1+sr()*5;
+    ferns.push(makeFern(ref.x+Math.cos(ang)*d,ref.z+Math.sin(ang)*d));
+  }
+  // Glowing flowers — scattered in open areas and near mushrooms
+  for(var i=0;i<FLOWER_N;i++){
+    var ang=sr()*6.28,d=3+sr()*(WORLD_R*0.7);
+    flowers.push(makeFlower(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Reed clusters — scattered
+  for(var i=0;i<REED_N;i++){
+    var ang=sr()*6.28,d=4+sr()*(WORLD_R*0.8);
+    reeds.push(makeReed(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Golden orbs — hidden at medium-far distances, avoid center
+  for(var i=0;i<ORB_N;i++){
+    var ox,oz,ok=false;
+    for(var a=0;a<30;a++){
+      var ang=sr()*6.28,d=20+sr()*(WORLD_R*0.6);
+      ox=Math.cos(ang)*d;oz=Math.sin(ang)*d;ok=true;
+      // Must be >15m from other orbs and >10m from center
+      for(var j=0;j<orbs.length;j++){
+        var ddx=orbs[j].x-ox,ddz=orbs[j].z-oz;
+        if(ddx*ddx+ddz*ddz<225){ok=false;break}
+      }
+      if(ok)break;
+    }
+    if(ok) orbs.push(makeOrb(ox,oz));
+  }
+  // Will-o'-wisps — spawn near player start
+  for(var i=0;i<WISP_N;i++){
+    var wa=sr()*6.28,wd=2+sr()*3;
+    wisps.push(makeWisp(Math.cos(wa)*wd,1.0+sr()*0.5,Math.sin(wa)*wd));
+  }
+  // Dandelion puffs — scattered in open areas
+  for(var i=0;i<DANDELION_N;i++){
+    var ang=sr()*6.28,d=4+sr()*(WORLD_R*0.7);
+    dandelions.push(makeDandelion(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Fairy rings — in clearings away from trees
+  for(var i=0;i<FAIRY_RING_N;i++){
+    var fx,fz,ok2=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=10+sr()*(WORLD_R*0.6);
+      fx=Math.cos(ang)*d;fz=Math.sin(ang)*d;ok2=true;
+      for(var j=0;j<trees_data.length;j++){
+        var ddx=trees_data[j].x-fx,ddz=trees_data[j].z-fz;
+        if(ddx*ddx+ddz*ddz<36){ok2=false;break}
+      }
+      if(ok2)break;
+    }
+    if(ok2) fairyRings.push(makeFairyRing(fx,fz));
+  }
+  // Bubble sprites — drifting through the canopy
+  for(var i=0;i<BUBBLE_N;i++){
+    var ang=sr()*6.28,d=5+sr()*WORLD_R*0.6;
+    var by=0.5+sr()*5;
+    bubbles.push(makeBubble(Math.cos(ang)*d,by,Math.sin(ang)*d));
+  }
+  // Ponds with lily pads
+  for(var i=0;i<POND_N;i++){
+    var px,pz,ok3=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=8+sr()*(WORLD_R*0.6);
+      px=Math.cos(ang)*d;pz=Math.sin(ang)*d;ok3=true;
+      for(var j=0;j<trees_data.length;j++){
+        var ddx=trees_data[j].x-px,ddz=trees_data[j].z-pz;
+        if(ddx*ddx+ddz*ddz<16){ok3=false;break}
+      }
+      if(ok3)break;
+    }
+    if(ok3) ponds.push(makePond(px,pz));
+  }
+}
+
+// State machine
+var state='EXPLORE';
+var ffTimer=0,spTimer=0;
+
+function director(dt,t){
+  // Check crystal proximity
+  var nearCrys=false;
+  for(var i=0;i<crys_data.length;i++){
+    var dx=crys_data[i].x-player.pos.x,dz=crys_data[i].z-player.pos.z;
+    if(dx*dx+dz*dz<64){nearCrys=true;break}
+  }
+  state=nearCrys?'NEAR_CRYSTAL':'EXPLORE';
+
+  // Firefly spawning
+  ffTimer+=dt;
+  var ffRate=state==='NEAR_CRYSTAL'?0.08:0.25;
+  var ffMax=state==='NEAR_CRYSTAL'?120:100;
+  if(ffTimer>ffRate){
+    ffTimer=0;
+    var flyCount=0;for(var i=0;i<flies.length;i++)if(flies[i].active)flyCount++;
+    if(flyCount<ffMax){
+      if(state==='NEAR_CRYSTAL'){
+        for(var i=0;i<crys_data.length;i++){
+          var dx=crys_data[i].x-player.pos.x,dz=crys_data[i].z-player.pos.z;
+          if(dx*dx+dz*dz<100)
+            spawnFly(crys_data[i].x,1,crys_data[i].z,3+Math.random()*4);
+        }
+      }else{
+        var a=Math.random()*6.28,d=5+Math.random()*25;
+        spawnFly(player.pos.x+Math.cos(a)*d,0,player.pos.z+Math.sin(a)*d,6+Math.random()*10);
+      }
+    }
+  }
+
+  // Spore emission from nearby mushrooms
+  spTimer+=dt;
+  if(spTimer>0.2){
+    spTimer=0;
+    for(var i=0;i<mush_data.length;i++){
+      var m=mush_data[i];
+      var dx=m.x-player.pos.x,dz=m.z-player.pos.z;
+      if(dx*dx+dz*dz<200&&Math.random()<0.15)
+        spawnSpore(m.x,0.6*m.group.scale.x,m.z);
+    }
+  }
+
+  // Update mushroom glow pulse
+  for(var i=0;i<mush_data.length;i++){
+    var m=mush_data[i];
+    var p=Math.sin(t*m.speed+m.phase)*0.5+0.5;
+    m.capMat.emissiveIntensity=m.base*(0.5+p*0.8);
+  }
+
+  // Update crystal glow pulse + rotation
+  for(var i=0;i<crys_data.length;i++){
+    var c=crys_data[i];
+    var p=Math.sin(t*0.6+c.phase)*0.5+0.5;
+    c.mat.emissiveIntensity=1.0+p*1.5;
+    c.group.children[0].rotation.y+=dt*0.15;
+  }
+
+  // Assign crystal proximity lights to nearest crystals
+  // Sort crystals by distance to player, assign lights to closest
+  var sorted=[];
+  for(var i=0;i<crys_data.length;i++){
+    var c=crys_data[i];
+    var dx=c.x-player.pos.x,dz=c.z-player.pos.z;
+    sorted.push({idx:i,dist:dx*dx+dz*dz});
+  }
+  sorted.sort(function(a,b){return a.dist-b.dist});
+
+  for(var i=0;i<crystalLights.length;i++){
+    if(i<sorted.length&&sorted[i].dist<2500){ // within ~50m
+      var c=crys_data[sorted[i].idx];
+      var p=Math.sin(t*0.6+c.phase)*0.5+0.5;
+      crystalLights[i].position.set(c.x,1.5,c.z);
+      crystalLights[i].intensity=1.5+p*2.0;
+      crystalLights[i].distance=16;
+      crystalLights[i].color.setHex(C.crystal);
+    }else{
+      crystalLights[i].intensity=0;
+    }
+  }
+
+  // Update creatures
+  updateJellies(dt,t);
+  updatePuffs(dt,t);
+  updateDeers(dt,t);
+  updateMoths(dt,t);
+  // Update vegetation sway
+  updateVegetation(dt,t);
+  // Update new entities
+  updateWisps(dt,t);
+  updateDandelions(dt,t);
+  updateFairyRings(dt,t);
+  updateBubbles(dt,t);
+  updatePonds(dt,t);
+  updateStarMotes(dt,t);
+  updateDandSeeds(dt,t);
+  updateDustMotes(dt);
+  updateBubblePops(dt);
+  updateEchoBloom(dt,t);
+  // Update quest system
+  updateQuest(dt,t);
+}
+
+// ================================================================
+// HUD
+// ================================================================
+var hudEl=document.getElementById('hud');
+var fpsS=60;
+
+function updateHUD(dt,flyC,spC){
+  fpsS=fpsS*0.95+(1/Math.max(dt,0.001))*0.05;
+  var qLabel=questPhase==='SEEK'?'Seek the orbs...':
+    questPhase==='RISING'?'The obelisk stirs...':
+    questPhase==='COMPLETE'?'Convergence!':
+    'Luminaries';
+  hudEl.innerHTML='<b>'+qLabel+'</b> · FPS:'+Math.round(fpsS)+
+    '<br>Pos:'+player.pos.x.toFixed(0)+','+player.pos.z.toFixed(0);
+}
+
+// ================================================================
+// Animate
+// ================================================================
+var elapsed=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  var dt=Math.min(clock.getDelta(),0.1);
+  elapsed+=dt;
+
+  if(!started){
+    yaw+=dt*0.08;
+    camera.position.set(0,EYE_H,0);
+    camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=0;
+    // Still pulse mushrooms + crystals
+    for(var i=0;i<mush_data.length;i++){
+      var m=mush_data[i];
+      var p=Math.sin(elapsed*m.speed+m.phase)*0.5+0.5;
+      m.capMat.emissiveIntensity=m.base*(0.5+p*0.8);
+    }
+    for(var i=0;i<crys_data.length;i++){
+      var c=crys_data[i];
+      c.mat.emissiveIntensity=1.0+Math.sin(elapsed*0.6+c.phase)*0.5*1.5+0.75;
+    }
+    updateJellies(dt,elapsed);
+    updatePuffs(dt,elapsed);
+    updateDeers(dt,elapsed);
+    updateMoths(dt,elapsed);
+    updateVegetation(dt,elapsed);
+    // Idle updates for new entities
+    updateStarMotes(dt,elapsed);
+    for(var i=0;i<bubbles.length;i++){
+      if(!bubbles[i].popped){
+        bubbles[i].group.position.y=bubbles[i].floatY+Math.sin(elapsed*0.6+bubbles[i].phase)*bubbles[i].bobAmp;
+      }
+    }
+    for(var i=0;i<ponds.length;i++){
+      for(var j=0;j<ponds[i].pads.length;j++){
+        ponds[i].pads[j].mesh.position.y=0.05+Math.sin(elapsed*0.8+ponds[i].pads[j].phase)*0.015;
+      }
+    }
+    // Idle orb pulse
+    for(var i=0;i<orbs.length;i++){
+      var o=orbs[i];
+      var p=Math.sin(elapsed*1.5+o.phase)*0.5+0.5;
+      o.group.position.y=1.0+Math.sin(elapsed*0.8+o.phase)*0.3;
+      o.glowMat.opacity=0.3+p*0.4;
+    }
+    renderer.render(scene,camera);
+    return;
+  }
+
+  updatePlayer(dt);
+  director(dt,elapsed);
+  var flyC=updateFlies(dt,elapsed);
+  var spC=updateSpores(dt);
+
+  camera.position.copy(player.pos);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  updateHUD(dt,flyC,spC);
+  renderer.render(scene,camera);
+}
+
+// ================================================================
+// Resize
+// ================================================================
+window.addEventListener('resize',function(){
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// ================================================================
+// Start
+// ================================================================
+function go(){
+  if(started)return;started=true;
+  var o=document.getElementById('overlay');
+  if(o){o.style.opacity='0';setTimeout(function(){try{o.remove()}catch(e){}},2500)}
+  orbHudEl.style.display='block';
+}
+
+// ================================================================
+// Init
+// ================================================================
+try{
+  populate();
+  initFlies(150);
+  initSpores(60);
+  initCrystalLights();
+  initStarMotes(STARMOTE_N);
+  initDustMotes(20);
+  initDandSeeds(40);
+  initBubblePops(30);
+  makeObelisk();
+  makeMoat();
+  makeRainbows();
+  // Seed initial fireflies
+  for(var i=0;i<50;i++){
+    var a=Math.random()*6.28,d=3+Math.random()*WORLD_R*0.7;
+    spawnFly(Math.cos(a)*d,0,Math.sin(a)*d,8+Math.random()*12);
+  }
+  console.log('✓ Init: trees='+trees_data.length+' mush='+mush_data.length+
+    ' crystals='+crys_data.length+' orbs='+orbs.length+
+    ' creatures='+(jellies.length+puffs.length+deers.length+moths.length)+
+    ' wisps='+wisps.length+' dandelions='+dandelions.length+
+    ' fairyRings='+fairyRings.length+' bubbles='+bubbles.length+
+    ' ponds='+ponds.length+
+    ' scene='+scene.children.length);
+  animate();
+}catch(err){
+  console.error('INIT FAILED:',err);
+  document.body.innerHTML='<div style="color:red;padding:30px;font-family:monospace">'+
+    '<h2>Init Failed</h2><pre>'+(err.stack||err.message)+'</pre></div>';
+}
+</script></body></html>

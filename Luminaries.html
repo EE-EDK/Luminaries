@@ -1,0 +1,4532 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Luminaries</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:'Courier New',monospace;touch-action:none}
+canvas{display:block;cursor:crosshair}
+#hud{position:absolute;top:10px;left:10px;color:#88ffcc;background:rgba(0,8,4,.75);
+  padding:8px 12px;border-radius:6px;font-size:12px;z-index:100;pointer-events:none;
+  border:1px solid rgba(100,255,180,.2);text-shadow:0 0 4px rgba(100,255,180,.4);line-height:1.5}
+#controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#88ddbb;
+  background:rgba(0,8,4,.75);padding:8px 16px;border-radius:8px;font-size:11px;z-index:100;
+  text-align:center;pointer-events:none;border:1px solid rgba(100,255,180,.15)}
+#joy-zone{position:absolute;bottom:20px;left:20px;width:130px;height:130px;z-index:150;
+  pointer-events:auto;display:none}
+#joy-base{position:absolute;width:130px;height:130px;border-radius:50%;
+  background:rgba(100,255,180,.1);border:2px solid rgba(100,255,180,.2)}
+#joy-knob{position:absolute;width:50px;height:50px;border-radius:50%;
+  background:rgba(100,255,180,.3);border:2px solid rgba(100,255,180,.45);left:40px;top:40px}
+#btn-jump{position:absolute;bottom:25px;right:25px;width:65px;height:65px;border-radius:50%;
+  background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
+  pointer-events:auto;display:none;color:#88ffcc;font-size:11px;font-family:monospace;
+  line-height:65px;text-align:center}
+#overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
+  font-size:24px;z-index:200;text-align:center;pointer-events:none;
+  text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
+  opacity:1;transition:opacity 2s;letter-spacing:3px}
+#overlay .sub{font-size:12px;margin-top:8px;color:#66ccaa;letter-spacing:2px}
+#orb-hud{position:absolute;top:10px;right:10px;color:#ffdd55;background:rgba(20,12,0,.8);
+  padding:8px 14px;border-radius:6px;font-size:14px;z-index:100;pointer-events:none;
+  border:1px solid rgba(255,220,80,.3);text-shadow:0 0 8px rgba(255,200,50,.5);
+  font-family:'Courier New',monospace;letter-spacing:1px;display:none}
+</style></head><body>
+<div id="hud">LOADING...</div>
+<div id="controls">WASD · SPACE Jump · SHIFT Sprint · Click+Drag Look</div>
+<div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+<div id="btn-jump">JUMP</div>
+<div id="orb-hud">✦ 0 / 5</div>
+<div id="overlay">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script>
+// ================================================================
+// CONSTANTS — 1.0 unit = 1.0 meter
+// ================================================================
+var GRAVITY=15, MOVE_SPEED=6, SPRINT_MULT=1.8, JUMP_IMPULSE=8;
+var GROUND_DRAG=0.85, AIR_DRAG=0.98, MOUSE_SENS=0.003;
+var WORLD_R=90, TREE_N=60, MUSH_N=45, CRYSTAL_N=10, EYE_H=1.7;
+var JELLY_N=6, PUFF_N=8, DEER_N=4, MOTH_N=5;
+var GRASS_PATCHES=80, FERN_N=35, FLOWER_N=30, REED_N=25, ROCK_N=60;
+var WISP_N=3, DANDELION_N=20, FAIRY_RING_N=5, BUBBLE_N=30, STARMOTE_N=40, POND_N=6;
+var SKY_STARS=600, SKY_GALAXY_N=3, SKY_NEBULA_N=5, SKY_CONSTELLATION_N=8, SKY_ANOMALY_N=6;
+var FAIRY_RING_R=2.5, FAIRY_BOUNCE=6, BUBBLE_POP_R=1.5;
+var ORB_N=5, ORB_TOUCH_R=2.5, ORB_SENSE_R=12, OBELISK_H=30, OBELISK_RISE_SPEED=4;
+
+// LIGHT BUDGET: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
+var MAX_CRYSTAL_LIGHTS=5;
+
+var C={
+  sky:0x081018, fog:0x060c14, ground:0x102818,
+  bark:0x1a120a, leaf:0x0c3014, leafGlow:0x44ffaa,
+  mushCap:0x8833ee, mushGlow:0xcc77ff, mushStem:0x2a1140,
+  crystal:0x33ffdd, crystalCore:0x88ffee,
+  firefly:0xeeff66, fireflyB:0x66ffdd, spore:0xbbff99,
+  ambient:0x223355, moon:0xbbccee,
+  // Creature palette
+  jellyBell:0x7788ff, jellyGlow:0xaaccff, jellyTent:0x6677cc,
+  puffBody:0xffddcc, puffGlow:0xffaa88, puffEye:0x222222, puffCheek:0xff8899,
+  deerBody:0xaaeeff, deerGlow:0x88ddff, deerAntler:0xccffee, deerEye:0x113344,
+  mothWing:0xaaff99, mothGlow:0xccffaa, mothBody:0x556633, mothSpot:0xffffff,
+  // Vegetation palette
+  grass1:0x1a4420, grass2:0x0d3318, grassTip:0x33aa55,
+  fern:0x1a5530, fernGlow:0x33cc66,
+  flower:0xff77cc, flowerGlow:0xff99dd, flowerStem:0x1a4420,
+  reed:0x2a5535, reedTip:0x44bb66,
+  // Quest palette
+  orbGold:0xffcc33, orbGlow:0xffeeaa, orbInner:0xfff8dd,
+  laserPink:0xff66aa, laserGlow:0xff88cc,
+  obeliskBlack:0x0a0a12, obeliskPink:0xff44aa,
+  moatBlue:0x3388cc, rainbow:[0xff3333,0xff8833,0xffee33,0x33ff66,0x3388ff,0x8833ff],
+  // New entity palette
+  wispCore:0xaaeeff, wispGlow:0xddeeff, wispTrail:0x88ccff,
+  dandStem:0x446633, dandHead:0xffffee, dandSeed:0xfff8dd, dandSeedGlow:0xffffff,
+  fairyMush:0xcc88ff, fairyGlow:0xddaaff, fairyRing:0xaa66ee,
+  bubbleIris:0xaaddff, bubbleShine:0xffffff, bubblePop:0xccffee,
+  starMote:0xffeedd, starGlow:0xffffcc,
+  pondWater:0x2266aa, pondGlow:0x3388cc, lilyPad:0x228844, lilyFlower:0xff88cc, lilyGlow:0xffaadd,
+  echoBloom:0xaaffcc, echoWave:0x88ffbb,
+  // Rock palette
+  rockBase:0x2a2a32, rockMoss:0x1a4422, rockLight:0x3a3a45,
+  // Sky palette
+  skyDeep:0x030610, skyNeb1:0x220833, skyNeb2:0x081833, skyNeb3:0x1a0828,
+  skyNeb4:0x0a1a22, skyNeb5:0x180a28,
+  skyStarBright:0xffffff, skyStarDim:0x8899bb, skyStarWarm:0xffddaa, skyStarCool:0xaaccff,
+  skyGalaxy:0x665588, skyAnomaly:[0xff4488,0x44ffcc,0xffaa22,0x8844ff,0x22ddff,0xff6644],
+  skyConstLine:0x334466
+};
+
+// Seeded RNG (LCG — CapsuleGeometry and seededRandom unavailable in r128)
+var _s=42;
+function sr(){_s=(_s*16807)%2147483647;return(_s&0x7fffffff)/0x7fffffff}
+
+// ================================================================
+// PHASE 0 — Scaffold
+// ================================================================
+var renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'default'});
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=2.0;
+renderer.outputEncoding=THREE.sRGBEncoding;
+document.body.appendChild(renderer.domElement);
+
+var camera=new THREE.PerspectiveCamera(65,window.innerWidth/window.innerHeight,0.1,300);
+var clock=new THREE.Clock();
+var scene=new THREE.Scene();
+
+// ================================================================
+// PHASE I — World Anchor
+// ================================================================
+
+// Procedural ground texture via canvas (fantasy organic — spirals, loops, no grid)
+function makeGroundTexture(){
+  var S=1024;
+  var cv=document.createElement('canvas');cv.width=S;cv.height=S;
+  var ctx=cv.getContext('2d');
+  // Base color
+  ctx.fillStyle='#0c2014';ctx.fillRect(0,0,S,S);
+
+  // === TILE-BREAKING: paint edges that wrap seamlessly ===
+  // Large soft blobs crossing all four edges to mask tile seams
+  for(var ei=0;ei<20;ei++){
+    var ex=Math.random()*S,ey=Math.random()*S;
+    var er=40+Math.random()*80;
+    var eGrad=ctx.createRadialGradient(ex,ey,0,ex,ey,er);
+    var ec=Math.random();
+    if(ec<0.4){
+      eGrad.addColorStop(0,'rgba(15,35,18,0.2)');
+      eGrad.addColorStop(1,'rgba(10,25,12,0)');
+    } else if(ec<0.7){
+      eGrad.addColorStop(0,'rgba(25,20,10,0.15)');
+      eGrad.addColorStop(1,'rgba(12,18,10,0)');
+    } else {
+      eGrad.addColorStop(0,'rgba(20,50,25,0.18)');
+      eGrad.addColorStop(1,'rgba(10,30,15,0)');
+    }
+    ctx.fillStyle=eGrad;
+    // Paint at position AND at all wrapped positions to ensure seamless tiling
+    for(var wx=-1;wx<=1;wx++){
+      for(var wy=-1;wy<=1;wy++){
+        ctx.beginPath();ctx.arc(ex+wx*S,ey+wy*S,er,0,6.28);ctx.fill();
+      }
+    }
+  }
+
+  // Layered organic noise (variable cell sizes, not grid-aligned)
+  for(var pass=0;pass<3;pass++){
+    var cellN=[60,200,600][pass];
+    var alpha=[0.18,0.12,0.08][pass];
+    var cellR=[30,12,5][pass];
+    for(var ci=0;ci<cellN;ci++){
+      var cx=Math.random()*S,cy=Math.random()*S;
+      var r=Math.random();
+      if(r<0.25) ctx.fillStyle='rgba(8,16,8,'+alpha+')';
+      else if(r<0.5) ctx.fillStyle='rgba(20,45,25,'+alpha+')';
+      else if(r<0.75) ctx.fillStyle='rgba(30,55,28,'+alpha+')';
+      else ctx.fillStyle='rgba(28,22,12,'+alpha+')';
+      ctx.beginPath();ctx.arc(cx,cy,cellR+Math.random()*cellR*0.5,0,6.28);ctx.fill();
+    }
+  }
+
+  // === FANTASY SPIRALS (the key organic break-up element) ===
+  for(var spi=0;spi<12;spi++){
+    var spx=Math.random()*S,spy=Math.random()*S;
+    var spR=30+Math.random()*60;
+    var spTurns=1.5+Math.random()*3;
+    var spDir=Math.random()<0.5?1:-1;
+    var spSteps=Math.floor(40+Math.random()*40);
+    var spCol=Math.random();
+    if(spCol<0.4) ctx.strokeStyle='rgba(35,65,30,0.1)';
+    else if(spCol<0.7) ctx.strokeStyle='rgba(25,50,35,0.08)';
+    else ctx.strokeStyle='rgba(45,35,20,0.07)';
+    ctx.lineWidth=1+Math.random()*2;
+    ctx.beginPath();
+    for(var si=0;si<spSteps;si++){
+      var t=si/spSteps;
+      var a=t*spTurns*6.28*spDir;
+      var r=t*spR;
+      var px=spx+Math.cos(a)*r;
+      var py=spy+Math.sin(a)*r;
+      if(si===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    // Spiral glow halo
+    var spGrad=ctx.createRadialGradient(spx,spy,0,spx,spy,spR*0.6);
+    spGrad.addColorStop(0,'rgba(30,60,35,0.06)');
+    spGrad.addColorStop(1,'rgba(15,30,15,0)');
+    ctx.fillStyle=spGrad;
+    ctx.beginPath();ctx.arc(spx,spy,spR*0.6,0,6.28);ctx.fill();
+  }
+
+  // === FANTASY LOOPS / CIRCLES (fairy ring patterns in the soil) ===
+  for(var li=0;li<8;li++){
+    var lx=Math.random()*S,ly=Math.random()*S;
+    var lr=15+Math.random()*35;
+    ctx.strokeStyle='rgba(35,55,30,'+(0.06+Math.random()*0.06)+')';
+    ctx.lineWidth=1.5+Math.random()*2;
+    ctx.beginPath();ctx.arc(lx,ly,lr,0,6.28);ctx.stroke();
+    // Inner concentric ring
+    if(Math.random()<0.6){
+      ctx.strokeStyle='rgba(40,65,35,0.04)';
+      ctx.beginPath();ctx.arc(lx,ly,lr*0.6,0,6.28);ctx.stroke();
+    }
+  }
+
+  // === FLOWING CURVES (organic vein networks) ===
+  for(var vi=0;vi<15;vi++){
+    var vx=Math.random()*S,vy=Math.random()*S;
+    ctx.strokeStyle='rgba(22,40,18,'+(0.08+Math.random()*0.08)+')';
+    ctx.lineWidth=0.8+Math.random()*1.5;
+    ctx.beginPath();ctx.moveTo(vx,vy);
+    var vAng=Math.random()*6.28;
+    for(var vj=0;vj<20;vj++){
+      vAng+=Math.sin(vj*0.5)*0.4+(Math.random()-0.5)*0.3; // smooth curve
+      vx+=Math.cos(vAng)*(5+Math.random()*8);
+      vy+=Math.sin(vAng)*(5+Math.random()*8);
+      ctx.lineTo(vx,vy);
+    }
+    ctx.stroke();
+  }
+
+  // Scatter tiny leaf litter dots
+  for(var i=0;i<4000;i++){
+    var lx=Math.random()*S,ly=Math.random()*S;
+    var lr=1+Math.random()*2.5;
+    var c=Math.random();
+    if(c<0.25) ctx.fillStyle='rgba(50,28,10,0.3)';
+    else if(c<0.4) ctx.fillStyle='rgba(65,40,18,0.22)';
+    else if(c<0.6) ctx.fillStyle='rgba(18,45,22,0.25)';
+    else if(c<0.8) ctx.fillStyle='rgba(35,60,30,0.2)';
+    else ctx.fillStyle='rgba(45,32,15,0.18)';
+    ctx.beginPath();ctx.arc(lx,ly,lr,0,6.28);ctx.fill();
+  }
+  // Pebble scatter
+  for(var pi=0;pi<600;pi++){
+    var px=Math.random()*S,py=Math.random()*S;
+    var pr=1.5+Math.random()*3;
+    var pg=Math.floor(25+Math.random()*40);
+    ctx.fillStyle='rgba('+pg+','+(pg-3)+','+(pg-8)+',0.25)';
+    ctx.beginPath();ctx.arc(px,py,pr,0,6.28);ctx.fill();
+  }
+  // Twig marks
+  ctx.lineWidth=0.8;
+  for(var twi=0;twi<100;twi++){
+    var tx=Math.random()*S,ty=Math.random()*S;
+    var tLen=3+Math.random()*16;
+    var tAng=Math.random()*6.28;
+    ctx.strokeStyle='rgba(20,10,4,0.2)';
+    ctx.beginPath();ctx.moveTo(tx,ty);
+    ctx.lineTo(tx+Math.cos(tAng)*tLen,ty+Math.sin(tAng)*tLen);
+    ctx.stroke();
+  }
+  // Tiny fantasy rune dots (faint glowing specks)
+  var runeColors=['rgba(80,200,120,0.06)','rgba(120,80,180,0.05)','rgba(180,120,60,0.04)',
+    'rgba(60,150,180,0.05)','rgba(150,100,200,0.04)'];
+  for(var ri=0;ri<200;ri++){
+    var rx=Math.random()*S,ry=Math.random()*S;
+    ctx.fillStyle=runeColors[Math.floor(Math.random()*runeColors.length)];
+    ctx.beginPath();ctx.arc(rx,ry,0.8+Math.random()*1.5,0,6.28);ctx.fill();
+  }
+  // Moss cluster blobs
+  for(var mci=0;mci<30;mci++){
+    var mx=Math.random()*S,my=Math.random()*S;
+    var mrad=12+Math.random()*25;
+    var grad=ctx.createRadialGradient(mx,my,0,mx,my,mrad);
+    if(Math.random()<0.6){
+      grad.addColorStop(0,'rgba(28,60,30,0.1)');
+      grad.addColorStop(1,'rgba(15,35,18,0)');
+    } else {
+      grad.addColorStop(0,'rgba(38,50,22,0.08)');
+      grad.addColorStop(1,'rgba(20,30,12,0)');
+    }
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.arc(mx,my,mrad,0,6.28);ctx.fill();
+  }
+  // Dew highlights
+  for(var dsi=0;dsi<120;dsi++){
+    var dx=Math.random()*S,dy=Math.random()*S;
+    ctx.fillStyle='rgba(100,160,110,0.06)';
+    ctx.beginPath();ctx.arc(dx,dy,0.5+Math.random()*1,0,6.28);ctx.fill();
+  }
+  // Root veins (curving organic lines)
+  ctx.lineWidth=1;
+  for(var i=0;i<40;i++){
+    ctx.strokeStyle='rgba(25,14,5,0.18)';
+    var sx=Math.random()*S,sy=Math.random()*S;
+    var ang=Math.random()*6.28;
+    ctx.beginPath();ctx.moveTo(sx,sy);
+    for(var j=0;j<8;j++){
+      ang+=Math.sin(j*0.7)*0.5+(Math.random()-0.5)*0.4;
+      sx+=Math.cos(ang)*(10+Math.random()*15);
+      sy+=Math.sin(ang)*(10+Math.random()*15);
+      ctx.lineTo(sx,sy);
+    }
+    ctx.stroke();
+  }
+  var tex=new THREE.CanvasTexture(cv);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(6,6); // fewer repeats on larger canvas = less visible tiling
+  tex.encoding=THREE.sRGBEncoding;
+  return tex;
+}
+
+var groundTex=makeGroundTexture();
+var ground=new THREE.Mesh(
+  new THREE.CircleGeometry(WORLD_R*1.5,64),
+  new THREE.MeshStandardMaterial({
+    map:groundTex,color:0xccddcc,roughness:0.95,metalness:0.0
+  })
+);
+ground.rotation.x=-Math.PI/2;
+ground.receiveShadow=true;
+scene.add(ground);
+
+scene.add(new THREE.HemisphereLight(C.ambient,C.ground,0.5));
+
+// Primary moonlight (directional with shadows)
+var moon=new THREE.DirectionalLight(C.moon,0.85);
+moon.position.set(30,60,-20);
+moon.castShadow=true;
+moon.shadow.camera.left=-90;moon.shadow.camera.right=90;
+moon.shadow.camera.top=90;moon.shadow.camera.bottom=-90;
+moon.shadow.camera.near=1;moon.shadow.camera.far=250;
+moon.shadow.mapSize.set(2048,2048);
+moon.shadow.bias=-0.001;
+scene.add(moon);
+
+// Secondary moonlight (opposite angle — creates cross-shadows for depth)
+var moon2=new THREE.DirectionalLight(0x223355,0.3);
+moon2.position.set(-40,45,25);
+moon2.castShadow=true;
+moon2.shadow.camera.left=-70;moon2.shadow.camera.right=70;
+moon2.shadow.camera.top=70;moon2.shadow.camera.bottom=-70;
+moon2.shadow.camera.near=1;moon2.shadow.camera.far=200;
+moon2.shadow.mapSize.set(1024,1024);
+moon2.shadow.bias=-0.002;
+scene.add(moon2);
+
+// Secondary fill light (opposite side, warmer, no shadow — simulates ground bounce)
+var fillLight=new THREE.DirectionalLight(0x223344,0.25);
+fillLight.position.set(-25,15,30);
+scene.add(fillLight);
+
+// Warm uplight from ground (simulates bioluminescent glow bouncing up)
+var groundGlow=new THREE.PointLight(0x224433,0.4,80);
+groundGlow.position.set(0,0.5,0);
+scene.add(groundGlow);
+
+// Atmospheric colored accent lights (placed at key locations for mood)
+var accentConfigs=[
+  {pos:[15,3,15],  col:0x3366aa, int:0.6, dist:25},  // cool blue pool
+  {pos:[-20,4,-10],col:0x664488, int:0.5, dist:20},  // purple mystic
+  {pos:[0,5,30],   col:0x228866, int:0.5, dist:22},   // emerald glow
+  {pos:[-15,3,20], col:0x448899, int:0.4, dist:18},   // teal accent
+  {pos:[25,3,-20], col:0x996644, int:0.3, dist:15}    // warm amber
+];
+for(var ali=0;ali<accentConfigs.length;ali++){
+  var ac=accentConfigs[ali];
+  var aLight=new THREE.PointLight(ac.col,ac.int,ac.dist);
+  aLight.position.set(ac.pos[0],ac.pos[1],ac.pos[2]);
+  scene.add(aLight);
+}
+
+// Rim light from behind (backlight silhouette effect on trees)
+var rimLight=new THREE.DirectionalLight(0x334466,0.3);
+rimLight.position.set(-10,25,40);
+scene.add(rimLight);
+
+scene.background=new THREE.Color(C.skyDeep);
+scene.fog=new THREE.FogExp2(C.fog,0.014);
+
+// --- Bloom Post-Processing ---
+var composer, bloomEnabled=true;
+try{
+  var renderPass=new THREE.RenderPass(scene,camera);
+  var bloomPass=new THREE.UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth,window.innerHeight),
+    0.6,   // strength — subtle dreamy glow
+    0.4,   // radius — how far bloom spreads
+    0.85   // threshold — only bright emissives bloom
+  );
+  composer=new THREE.EffectComposer(renderer);
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
+}catch(e){
+  console.warn('Bloom unavailable, falling back to direct render:',e.message);
+  bloomEnabled=false;
+}
+
+// ================================================================
+// SPACE SKY DOME — stars, galaxies, gas clouds, constellations, anomalies
+// ================================================================
+var skyGroup=new THREE.Group();
+var SKY_R=280; // sky dome radius (beyond fog fade)
+
+// --- Star field (individual tiny spheres on sky dome surface) ---
+var starGeos=[
+  new THREE.SphereGeometry(0.3,6,4),  // dim distant
+  new THREE.SphereGeometry(0.5,8,6),  // medium
+  new THREE.SphereGeometry(0.8,10,8)  // bright
+];
+var starColors=[C.skyStarBright,C.skyStarDim,C.skyStarWarm,C.skyStarCool];
+for(var si=0;si<SKY_STARS;si++){
+  // Distribute across upper hemisphere (some below horizon for immersion)
+  var theta=sr()*6.28;
+  var phi=sr()*0.85*Math.PI*0.5+(si<80?sr()*0.4:0); // mostly above horizon
+  var tier=si<50?2:(si<200?1:0); // 50 bright, 150 medium, rest dim
+  var sCol=starColors[Math.floor(sr()*starColors.length)];
+  var sMat=new THREE.MeshBasicMaterial({
+    color:sCol,transparent:tier<2,opacity:tier===0?0.3+sr()*0.4:tier===1?0.5+sr()*0.4:0.85+sr()*0.15
+  });
+  var sMesh=new THREE.Mesh(starGeos[tier],sMat);
+  var sx=SKY_R*Math.cos(theta)*Math.cos(phi);
+  var sy=SKY_R*Math.sin(phi)+20; // shift upward so horizon has fewer stars
+  var sz=SKY_R*Math.sin(theta)*Math.cos(phi);
+  sMesh.position.set(sx,sy,sz);
+  skyGroup.add(sMesh);
+}
+
+// --- Twinkling star cluster patches (dense star knots) ---
+for(var ci=0;ci<12;ci++){
+  var ca=sr()*6.28, cph=0.3+sr()*0.5;
+  var ccx=SKY_R*0.95*Math.cos(ca)*Math.cos(cph);
+  var ccy=SKY_R*0.95*Math.sin(cph)+30;
+  var ccz=SKY_R*0.95*Math.sin(ca)*Math.cos(cph);
+  var clusterMat=new THREE.MeshBasicMaterial({
+    color:starColors[Math.floor(sr()*starColors.length)],transparent:true,opacity:0.15+sr()*0.2
+  });
+  var cluster=new THREE.Mesh(new THREE.SphereGeometry(8+sr()*12,16,12),clusterMat);
+  cluster.position.set(ccx,ccy,ccz);skyGroup.add(cluster);
+}
+
+// --- Galaxy spirals (flat spiral arm formations) ---
+function makeGalaxy(gx,gy,gz,radius,armN,color){
+  var gg=new THREE.Group();
+  // Core bright center
+  var coreMat=new THREE.MeshBasicMaterial({color:0xeeddcc,transparent:true,opacity:0.4});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(radius*0.15,14,10),coreMat);
+  gg.add(core);
+  // Core glow halo
+  var haloMat=new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.15});
+  var halo=new THREE.Mesh(new THREE.SphereGeometry(radius*0.4,14,10),haloMat);
+  gg.add(halo);
+  // Spiral arms (particle strings)
+  var armMat=new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.22});
+  var dotMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.5});
+  for(var ai=0;ai<armN;ai++){
+    var baseAng=(ai/armN)*6.28;
+    for(var si=0;si<18;si++){
+      var t=si/18;
+      var r=radius*0.1+t*radius;
+      var a=baseAng+t*3.5; // spiral winding
+      var dx=r*Math.cos(a)+(sr()-0.5)*radius*0.08;
+      var dz=r*Math.sin(a)+(sr()-0.5)*radius*0.08;
+      var dy=(sr()-0.5)*radius*0.03;
+      var sz=0.3+sr()*0.6;
+      var dot=new THREE.Mesh(new THREE.SphereGeometry(sz,8,6),si%3===0?dotMat:armMat);
+      dot.position.set(dx,dy,dz);gg.add(dot);
+    }
+  }
+  // Dust lane (thin dark band through center)
+  var dustMat=new THREE.MeshBasicMaterial({
+    color:0x030308,transparent:true,opacity:0.08,side:THREE.DoubleSide
+  });
+  var dust=new THREE.Mesh(new THREE.SphereGeometry(radius*0.75,14,8),dustMat);
+  dust.scale.set(1,0.02,0.2); // very thin disc
+  dust.rotation.z=sr()*1;gg.add(dust);
+  gg.position.set(gx,gy,gz);
+  // Random tilt
+  gg.rotation.set(sr()*1.5,sr()*3,sr()*0.8);
+  return gg;
+}
+// Place galaxies in the sky
+var galaxyPositions=[
+  {a:0.8,ph:0.6,r:SKY_R*0.88,sz:20,arms:2,col:0x7766aa},
+  {a:3.2,ph:0.45,r:SKY_R*0.92,sz:15,arms:3,col:0x6688aa},
+  {a:5.1,ph:0.7,r:SKY_R*0.85,sz:25,arms:2,col:0x886677}
+];
+for(var gi=0;gi<galaxyPositions.length;gi++){
+  var gp=galaxyPositions[gi];
+  var gx=gp.r*Math.cos(gp.a)*Math.cos(gp.ph);
+  var gy=gp.r*Math.sin(gp.ph)+20;
+  var gz=gp.r*Math.sin(gp.a)*Math.cos(gp.ph);
+  skyGroup.add(makeGalaxy(gx,gy,gz,gp.sz,gp.arms,gp.col));
+}
+
+// --- Gas clouds / Nebulae (bright wispy multi-blob clouds) ---
+var nebBrightColors=[0x9955cc,0x5588dd,0xcc44aa,0x4499aa,0xaa6688];
+for(var ni=0;ni<SKY_NEBULA_N;ni++){
+  var na=sr()*6.28, nph=0.15+sr()*0.65;
+  var nd=SKY_R*0.75+sr()*SKY_R*0.15;
+  var nx=nd*Math.cos(na)*Math.cos(nph);
+  var ny=nd*Math.sin(nph)+15;
+  var nz=nd*Math.sin(na)*Math.cos(nph);
+  var nebR=20+sr()*30;
+  var nebCol=nebBrightColors[ni%nebBrightColors.length];
+  // 5 overlapping cloud layers (increasing opacity toward center)
+  for(var nl=0;nl<5;nl++){
+    var layerR=nebR*(1-nl*0.15);
+    var nebMat=new THREE.MeshBasicMaterial({
+      color:nebCol,transparent:true,opacity:0.025+nl*0.012,side:THREE.DoubleSide
+    });
+    var neb=new THREE.Mesh(new THREE.SphereGeometry(layerR,20,14),nebMat);
+    neb.position.set(nx+(sr()-0.5)*nebR*0.2,ny+(sr()-0.5)*nebR*0.15,nz+(sr()-0.5)*nebR*0.2);
+    neb.scale.set(1+sr()*0.8,0.4+sr()*0.4,1+sr()*0.6);
+    skyGroup.add(neb);
+  }
+  // 4-6 wispy sub-blobs scattered around core (gives cloudy edges)
+  var subN=4+Math.floor(sr()*3);
+  for(var sbi=0;sbi<subN;sbi++){
+    var sbAng=sr()*6.28, sbDist=nebR*0.3+sr()*nebR*0.5;
+    var sbR=nebR*0.2+sr()*nebR*0.3;
+    var sbMat=new THREE.MeshBasicMaterial({
+      color:nebCol,transparent:true,opacity:0.02+sr()*0.02,side:THREE.DoubleSide
+    });
+    var sb=new THREE.Mesh(new THREE.SphereGeometry(sbR,12,8),sbMat);
+    sb.position.set(
+      nx+Math.cos(sbAng)*sbDist+(sr()-0.5)*5,
+      ny+(sr()-0.5)*nebR*0.3,
+      nz+Math.sin(sbAng)*sbDist+(sr()-0.5)*5
+    );
+    sb.scale.set(1+sr()*0.5,0.3+sr()*0.4,1+sr()*0.5);
+    skyGroup.add(sb);
+  }
+  // Bright core glow (inner hot spot)
+  var filMat=new THREE.MeshBasicMaterial({color:nebCol,transparent:true,opacity:0.1});
+  var fil=new THREE.Mesh(new THREE.SphereGeometry(nebR*0.15,10,8),filMat);
+  fil.position.set(nx,ny,nz);
+  skyGroup.add(fil);
+}
+
+// --- Constellations (connected star patterns with faint lines) ---
+var constellationDefs=[
+  // Each: array of [theta_offset, phi_offset] pairs relative to anchor
+  [[0,0],[0.04,0.03],[0.08,0.01],[0.08,0.05],[0.12,0.03]], // pentagon-ish
+  [[0,0],[0.03,0.04],[0.06,0],[0.06,0.06],[0.09,0.03]], // diamond
+  [[0,0],[0.02,0.05],[0.05,0.02],[0.08,0.06],[0.1,0]], // zigzag
+  [[0,0],[0.04,0.02],[0.02,0.05],[0.06,0.05]], // triangle+tail
+  [[0,0],[0.03,0.01],[0.06,0.03],[0.04,0.06],[0.01,0.04]], // pentagon
+  [[0,0],[0.05,0],[0.025,0.04]], // simple triangle
+  [[0,0],[0.04,0.03],[0.08,0],[0.12,0.03],[0.08,0.06]], // arrow
+  [[0,0],[0.03,0.02],[0.06,0.04],[0.09,0.02],[0.12,0]] // wave
+];
+var conLineMat=new THREE.LineBasicMaterial({color:C.skyConstLine,transparent:true,opacity:0.15});
+var conStarMat=new THREE.MeshBasicMaterial({color:C.skyStarBright,transparent:true,opacity:0.85});
+for(var ci=0;ci<SKY_CONSTELLATION_N;ci++){
+  var def=constellationDefs[ci%constellationDefs.length];
+  var anchorTheta=sr()*6.28;
+  var anchorPhi=0.2+sr()*0.55;
+  var cg=new THREE.Group();
+  var pts=[];
+  for(var di=0;di<def.length;di++){
+    var ct=anchorTheta+def[di][0]*6;
+    var cp=anchorPhi+def[di][1]*3;
+    var cx=SKY_R*0.93*Math.cos(ct)*Math.cos(cp);
+    var cy=SKY_R*0.93*Math.sin(cp)+20;
+    var cz=SKY_R*0.93*Math.sin(ct)*Math.cos(cp);
+    pts.push(new THREE.Vector3(cx,cy,cz));
+    // Star at each vertex
+    var cStar=new THREE.Mesh(new THREE.SphereGeometry(0.6+sr()*0.4,4,3),conStarMat);
+    cStar.position.set(cx,cy,cz);cg.add(cStar);
+  }
+  // Connect with lines
+  for(var li=0;li<pts.length-1;li++){
+    var lineGeo=new THREE.BufferGeometry().setFromPoints([pts[li],pts[li+1]]);
+    var line=new THREE.Line(lineGeo,conLineMat);
+    cg.add(line);
+  }
+  skyGroup.add(cg);
+}
+
+// --- Colorful distant anomalies (bright glowing objects) ---
+for(var ai=0;ai<SKY_ANOMALY_N;ai++){
+  var aa=sr()*6.28, aph=0.2+sr()*0.6;
+  var ad=SKY_R*0.8+sr()*SKY_R*0.1;
+  var ax=ad*Math.cos(aa)*Math.cos(aph);
+  var ay=ad*Math.sin(aph)+20;
+  var az=ad*Math.sin(aa)*Math.cos(aph);
+  var aCol=C.skyAnomaly[ai%C.skyAnomaly.length];
+  var ag=new THREE.Group();
+  // Bright core
+  var aCoreMat=new THREE.MeshBasicMaterial({color:aCol});
+  var aCore=new THREE.Mesh(new THREE.SphereGeometry(1.2,12,10),aCoreMat);
+  ag.add(aCore);
+  // Glow shell
+  var aGlowMat=new THREE.MeshBasicMaterial({color:aCol,transparent:true,opacity:0.45});
+  var aGlow=new THREE.Mesh(new THREE.SphereGeometry(3,12,10),aGlowMat);
+  ag.add(aGlow);
+  // Haze shell
+  var aHazeMat=new THREE.MeshBasicMaterial({color:aCol,transparent:true,opacity:0.12});
+  var aHaze=new THREE.Mesh(new THREE.SphereGeometry(6+sr()*4,14,10),aHazeMat);
+  ag.add(aHaze);
+  // Pulse ring
+  var aRingMat=new THREE.MeshBasicMaterial({color:aCol,transparent:true,opacity:0.12});
+  var aRing=new THREE.Mesh(new THREE.TorusGeometry(4,0.15,8,24),aRingMat);
+  aRing.rotation.set(sr()*3,sr()*3,0);ag.add(aRing);
+  ag.position.set(ax,ay,az);
+  skyGroup.add(ag);
+}
+
+// --- Milky band (broad luminous streak across sky — many soft ellipsoids) ---
+var milkyMat=new THREE.MeshBasicMaterial({
+  color:0x667788,transparent:true,opacity:0.035,side:THREE.DoubleSide
+});
+// Main band blobs
+for(var mi=0;mi<14;mi++){
+  var mAng=mi*0.25+sr()*0.1;
+  var mPhi=0.38+sr()*0.18;
+  var mx=SKY_R*0.9*Math.cos(mAng)*Math.cos(mPhi);
+  var my=SKY_R*0.9*Math.sin(mPhi)+20;
+  var mz=SKY_R*0.9*Math.sin(mAng)*Math.cos(mPhi);
+  var bSize=15+sr()*20;
+  var band=new THREE.Mesh(new THREE.SphereGeometry(bSize,14,10),milkyMat);
+  band.position.set(mx,my,mz);
+  band.scale.set(1.5+sr()*1.0,0.12+sr()*0.1,0.5+sr()*0.4);
+  band.lookAt(0,25,0);
+  band.rotation.z=sr()*0.5;skyGroup.add(band);
+}
+// Scattered bright star knots along band
+var milkyKnotMat=new THREE.MeshBasicMaterial({
+  color:0x8899aa,transparent:true,opacity:0.06
+});
+for(var mk=0;mk<8;mk++){
+  var mkAng=mk*0.4+sr()*0.15;
+  var mkPhi=0.38+sr()*0.12;
+  var mkx=SKY_R*0.88*Math.cos(mkAng)*Math.cos(mkPhi);
+  var mky=SKY_R*0.88*Math.sin(mkPhi)+22;
+  var mkz=SKY_R*0.88*Math.sin(mkAng)*Math.cos(mkPhi);
+  var knot=new THREE.Mesh(new THREE.SphereGeometry(5+sr()*8,10,8),milkyKnotMat);
+  knot.position.set(mkx,mky,mkz);
+  skyGroup.add(knot);
+}
+
+scene.add(skyGroup);
+
+// Disable fog on ALL sky materials so they render at full brightness beyond fog range
+skyGroup.traverse(function(child){
+  if(child.material) child.material.fog=false;
+});
+
+// Player carry light (always illuminates nearby)
+var playerLight=new THREE.PointLight(0x556677,0.5,18);
+scene.add(playerLight);
+
+// ================================================================
+// PHASE 1.5 — Input
+// ================================================================
+var keys={},yaw=0,pitch=0,mouseDown=false,started=false;
+var joyX=0,joyY=0,joyOn=false,joyTid=null,lookTid=null;
+var lx=0,ly=0,touchJump=false,touchSprint=false;
+
+window.addEventListener('keydown',function(e){
+  keys[e.code]=true;
+  if('Space ShiftLeft ShiftRight KeyW KeyA KeyS KeyD'.split(' ').indexOf(e.code)>=0) e.preventDefault();
+  if(!started)go();
+});
+window.addEventListener('keyup',function(e){keys[e.code]=false});
+window.addEventListener('blur',function(){for(var k in keys)keys[k]=false;mouseDown=false});
+
+renderer.domElement.addEventListener('mousedown',function(){mouseDown=true;if(!started)go()});
+window.addEventListener('mouseup',function(){mouseDown=false});
+window.addEventListener('mousemove',function(e){
+  if(!mouseDown)return;
+  yaw-=e.movementX*MOUSE_SENS;
+  pitch-=e.movementY*MOUSE_SENS;
+  pitch=Math.max(-1,Math.min(1,pitch));
+});
+
+// --- Mobile detection & joystick ---
+var mobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+var jzEl=document.getElementById('joy-zone');
+var jkEl=document.getElementById('joy-knob');
+var bjEl=document.getElementById('btn-jump');
+
+if(mobile){
+  jzEl.style.display='block';
+  bjEl.style.display='block';
+  document.getElementById('controls').textContent='Stick: Move · Drag right: Look · JUMP';
+}
+
+jzEl.addEventListener('touchstart',function(e){
+  e.preventDefault();e.stopPropagation();if(!started)go();
+  var t=e.changedTouches[0];joyTid=t.identifier;joyOn=true;updJoy(t.clientX,t.clientY);
+},{passive:false});
+jzEl.addEventListener('touchmove',function(e){
+  e.preventDefault();e.stopPropagation();
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyTid)
+      updJoy(e.changedTouches[i].clientX,e.changedTouches[i].clientY);
+  }
+},{passive:false});
+jzEl.addEventListener('touchend',function(e){
+  e.preventDefault();e.stopPropagation();
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyTid){
+      joyTid=null;joyOn=false;joyX=0;joyY=0;
+      jkEl.style.left='40px';jkEl.style.top='40px';
+    }
+  }
+},{passive:false});
+
+function updJoy(cx,cy){
+  var r=jzEl.getBoundingClientRect();
+  var dx=cx-(r.left+r.width/2),dy=cy-(r.top+r.height/2);
+  var d=Math.sqrt(dx*dx+dy*dy),maxR=52;
+  if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR}
+  joyX=dx/maxR;joyY=dy/maxR;
+  jkEl.style.left=(40+dx)+'px';jkEl.style.top=(40+dy)+'px';
+}
+
+bjEl.addEventListener('touchstart',function(e){
+  e.preventDefault();e.stopPropagation();if(!started)go();touchJump=true;
+},{passive:false});
+bjEl.addEventListener('touchend',function(e){
+  e.preventDefault();e.stopPropagation();touchJump=false;
+},{passive:false});
+
+// Right-side look
+renderer.domElement.addEventListener('touchstart',function(e){
+  e.preventDefault();if(!started)go();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(t.clientX>window.innerWidth*0.3&&lookTid===null){
+      lookTid=t.identifier;lx=t.clientX;ly=t.clientY;
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(t.identifier===lookTid){
+      yaw-=(t.clientX-lx)*MOUSE_SENS;
+      pitch-=(t.clientY-ly)*MOUSE_SENS;
+      pitch=Math.max(-1,Math.min(1,pitch));
+      lx=t.clientX;ly=t.clientY;
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchend',function(e){
+  for(var i=0;i<e.changedTouches.length;i++)
+    if(e.changedTouches[i].identifier===lookTid)lookTid=null;
+},{passive:false});
+renderer.domElement.addEventListener('touchcancel',function(e){
+  for(var i=0;i<e.changedTouches.length;i++)
+    if(e.changedTouches[i].identifier===lookTid)lookTid=null;
+},{passive:false});
+
+function getInput(){
+  var fx=0,fz=0;
+  if(keys['KeyW'])fz-=1;if(keys['KeyS'])fz+=1;
+  if(keys['KeyA'])fx-=1;if(keys['KeyD'])fx+=1;
+  if(joyOn){fx+=joyX;fz+=joyY}
+  var len=Math.sqrt(fx*fx+fz*fz);
+  if(len>1){fx/=len;fz/=len}
+  var sp=MOVE_SPEED*((keys['ShiftLeft']||keys['ShiftRight']||touchSprint)?SPRINT_MULT:1);
+  var sn=Math.sin(yaw),cs=Math.cos(yaw);
+  return{x:(fx*cs+fz*sn)*sp, z:(-fx*sn+fz*cs)*sp};
+}
+
+// ================================================================
+// PHASE II — Asset Factory (EMISSIVE ONLY — no PointLights on actors)
+// ================================================================
+var GEO={
+  mushCap:new THREE.SphereGeometry(0.5,8,5),
+  mushStem:new THREE.CylinderGeometry(0.06,0.1,0.6,5),
+  mushDot:new THREE.SphereGeometry(0.06,4,3),
+  crystal:new THREE.CylinderGeometry(0,0.35,1.8,6),
+  crystalSm:new THREE.CylinderGeometry(0,0.18,0.9,5),
+  fly:new THREE.SphereGeometry(0.06,4,3),
+  spore:new THREE.SphereGeometry(0.04,3,3),
+  dandSeed:new THREE.SphereGeometry(0.025,3,3),
+  bubble:new THREE.SphereGeometry(0.15,8,6),
+  starMote:new THREE.SphereGeometry(0.03,3,3),
+  dustMote:new THREE.SphereGeometry(0.035,3,3)
+};
+
+// --- Trees (emissive leaf glow, NO PointLights) ---
+function makeTree(x,z){
+  var g=new THREE.Group();
+  var h=6+sr()*10, r=0.2+sr()*0.3;
+  var tM=new THREE.MeshStandardMaterial({color:C.bark,roughness:0.95});
+  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(r*0.4,r,h,6),tM);
+  trunk.position.y=h/2;trunk.castShadow=true;g.add(trunk);
+
+  // Bark ridge lines (4-6 vertical strips on trunk surface)
+  var ridgeM=new THREE.MeshStandardMaterial({color:0x120a04,roughness:1.0});
+  var ridgeN=4+Math.floor(sr()*3);
+  for(var rdi=0;rdi<ridgeN;rdi++){
+    var rdA=rdi/ridgeN*6.28+sr()*0.3;
+    var rdH=h*0.4+sr()*h*0.4;
+    var rdY=sr()*h*0.3;
+    var ridge=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,rdH,3),ridgeM);
+    ridge.position.set(Math.cos(rdA)*r*0.72,rdY+rdH/2,Math.sin(rdA)*r*0.72);
+    g.add(ridge);
+  }
+
+  // Lichen patches (2-4 flat discs on trunk)
+  var lichM=new THREE.MeshStandardMaterial({
+    color:0x667755,emissive:0x223311,emissiveIntensity:0.03,roughness:0.9
+  });
+  var lichN=2+Math.floor(sr()*3);
+  for(var li=0;li<lichN;li++){
+    var la=sr()*6.28,ly=1+sr()*h*0.5;
+    var lich=new THREE.Mesh(new THREE.CircleGeometry(0.04+sr()*0.05,5),lichM);
+    lich.position.set(Math.cos(la)*r*0.73,ly,Math.sin(la)*r*0.73);
+    lich.rotation.y=-la;g.add(lich);
+  }
+
+  // Exposed roots (3-5 sprawling at base)
+  var rootM=new THREE.MeshStandardMaterial({color:0x1a0f06,roughness:0.95});
+  var rootN=3+Math.floor(sr()*3);
+  for(var ri=0;ri<rootN;ri++){
+    var ra=ri/rootN*6.28+sr()*0.5;
+    var rLen=0.8+sr()*1.5;
+    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.02,r*0.3,rLen,4),rootM);
+    root.position.set(Math.cos(ra)*r*0.5,0.08,Math.sin(ra)*r*0.5);
+    root.rotation.z=ra<3.14?(1.2+sr()*0.3):-(1.2+sr()*0.3);
+    root.rotation.y=ra;g.add(root);
+  }
+
+  // Knotholes on trunk (1-3 dark spots)
+  var knotM=new THREE.MeshStandardMaterial({color:0x0a0604,roughness:1.0});
+  var knotN=1+Math.floor(sr()*3);
+  for(var ki=0;ki<knotN;ki++){
+    var ky=h*0.2+sr()*h*0.5;
+    var ka=sr()*6.28;
+    var knot=new THREE.Mesh(new THREE.SphereGeometry(0.04+sr()*0.04,4,3),knotM);
+    knot.scale.set(1,0.6,0.3);
+    knot.position.set(Math.cos(ka)*r*0.7,ky,Math.sin(ka)*r*0.7);
+    knot.rotation.y=-ka;g.add(knot);
+  }
+
+  // Fallen leaf debris at base (3-5 tiny flat shapes)
+  var debrisM=new THREE.MeshStandardMaterial({
+    color:0x2a1a08,roughness:0.9,side:THREE.DoubleSide
+  });
+  for(var dbi=0;dbi<4;dbi++){
+    var dba=sr()*6.28,dbd=r+sr()*1.5;
+    var debris=new THREE.Mesh(new THREE.CircleGeometry(0.03+sr()*0.03,4),debrisM);
+    debris.rotation.x=-Math.PI/2+sr()*0.3;debris.rotation.z=sr()*3;
+    debris.position.set(Math.cos(dba)*dbd,0.01,Math.sin(dba)*dbd);
+    g.add(debris);
+  }
+
+  var bc=3+Math.floor(sr()*4);
+  for(var i=0;i<bc;i++){
+    var by=h*(0.4+sr()*0.5),ang=sr()*Math.PI*2,bl=1.5+sr()*3;
+    var br=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.06,bl,4),tM);
+    br.position.set(Math.cos(ang)*0.3,by,Math.sin(ang)*0.3);
+    br.rotation.z=(sr()-0.5)*1.2;br.rotation.y=ang;br.castShadow=true;g.add(br);
+
+    // Branch tip bud (tiny green sphere)
+    var budM=new THREE.MeshStandardMaterial({
+      color:0x88cc66,emissive:C.leafGlow,emissiveIntensity:0.15,roughness:0.7
+    });
+    var bud=new THREE.Mesh(new THREE.SphereGeometry(0.025,3,3),budM);
+    bud.position.set(Math.cos(ang)*(0.3+bl*0.35),by+sr()*0.5,Math.sin(ang)*(0.3+bl*0.35));
+    g.add(bud);
+
+    var lM=new THREE.MeshStandardMaterial({
+      color:C.leaf,emissive:C.leafGlow,emissiveIntensity:0.2+sr()*0.4,
+      roughness:0.7,transparent:true,opacity:0.85
+    });
+    var leaf=new THREE.Mesh(new THREE.SphereGeometry(1,7,5),lM);
+    leaf.scale.setScalar(1+sr()*2);
+    leaf.position.set(Math.cos(ang)*(bl*0.5),by+sr()*1.5,Math.sin(ang)*(bl*0.5));
+    leaf.castShadow=true;leaf.receiveShadow=true;
+    g.add(leaf);
+
+    // Hanging moss strands from branches (0-2 per branch)
+    if(sr()<0.5){
+      var mossMat=new THREE.MeshStandardMaterial({
+        color:0x2a5030,emissive:0x113318,emissiveIntensity:0.05,
+        transparent:true,opacity:0.6
+      });
+      var mossN=1+Math.floor(sr()*2);
+      for(var mi=0;mi<mossN;mi++){
+        var mLen=0.3+sr()*0.8;
+        var moss=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.003,mLen,3),mossMat);
+        var mOff=sr()*bl*0.4;
+        moss.position.set(Math.cos(ang)*(0.3+mOff),by-mLen/2-sr()*0.3,Math.sin(ang)*(0.3+mOff));
+        g.add(moss);
+      }
+    }
+  }
+
+  // Trunk shelf fungi (0-3)
+  var fungM=new THREE.MeshStandardMaterial({
+    color:0x5a3520,emissive:0x331a08,emissiveIntensity:0.05,roughness:0.8
+  });
+  var fungN=Math.floor(sr()*4);
+  for(var fi=0;fi<fungN;fi++){
+    var fy=1+sr()*h*0.4;
+    var fa=sr()*6.28;
+    var fung=new THREE.Mesh(new THREE.SphereGeometry(0.08+sr()*0.08,5,3),fungM);
+    fung.scale.set(1.5,0.3,1);
+    fung.position.set(Math.cos(fa)*r*0.8,fy,Math.sin(fa)*r*0.8);
+    fung.rotation.y=-fa;g.add(fung);
+  }
+
+  // Bark growth rings (2-3 torus bands around trunk at intervals)
+  var ringM=new THREE.MeshStandardMaterial({color:0x1a0e05,roughness:1.0});
+  for(var bri=0;bri<3;bri++){
+    var bry=h*0.15+bri*h*0.2+sr()*h*0.05;
+    var brkR=r*0.72-bri*0.02;
+    var bark=new THREE.Mesh(new THREE.TorusGeometry(brkR,0.008,4,8),ringM);
+    bark.position.y=bry;bark.rotation.x=Math.PI/2;g.add(bark);
+  }
+
+  // Canopy underglow layer (dim emissive sphere below leaves)
+  var underM=new THREE.MeshStandardMaterial({
+    color:C.leaf,emissive:C.leafGlow,emissiveIntensity:0.06,
+    transparent:true,opacity:0.12
+  });
+  var under=new THREE.Mesh(new THREE.SphereGeometry(2.5+sr()*1.5,5,4),underM);
+  under.position.y=h*0.65;g.add(under);
+
+  // Leaf drip tips (3-5 tiny dangling water drops under canopy)
+  var dripM=new THREE.MeshStandardMaterial({
+    color:0xaaddcc,emissive:0x88ccbb,emissiveIntensity:0.1,
+    transparent:true,opacity:0.35,roughness:0.0
+  });
+  for(var dri=0;dri<4;dri++){
+    var dra=sr()*6.28,drd=1+sr()*2;
+    var drip=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),dripM);
+    drip.scale.set(0.7,1.5,0.7);
+    drip.position.set(Math.cos(dra)*drd,h*0.35+sr()*h*0.2,Math.sin(dra)*drd);
+    g.add(drip);
+  }
+
+  // Base soil mound (subtle rise around trunk)
+  var moundM=new THREE.MeshStandardMaterial({color:0x121008,roughness:0.95});
+  var mound=new THREE.Mesh(new THREE.SphereGeometry(r*2.5,6,3),moundM);
+  mound.scale.set(1,0.12,1);mound.position.y=0.02;g.add(mound);
+
+  g.position.set(x,0,z);scene.add(g);
+  return g;
+}
+
+// --- Mushrooms (emissive pulse, NO PointLights) ---
+function makeMush(x,z){
+  var g=new THREE.Group();
+  var sc=0.4+sr()*1.2;
+  var phase=sr()*6.28, speed=0.8+sr()*1.5, base=0.5+sr()*0.8;
+
+  var stem=new THREE.Mesh(GEO.mushStem,new THREE.MeshStandardMaterial({
+    color:C.mushStem,roughness:0.7,emissive:C.mushGlow,emissiveIntensity:0.1
+  }));
+  stem.position.y=0.3;g.add(stem);
+
+  // Stem collar ring
+  var collarMat=new THREE.MeshStandardMaterial({color:C.mushStem,emissive:C.mushGlow,emissiveIntensity:0.15,roughness:0.6});
+  var collar=new THREE.Mesh(new THREE.TorusGeometry(0.09,0.012,4,8),collarMat);
+  collar.position.y=0.42;collar.rotation.x=Math.PI/2;g.add(collar);
+
+  var capMat=new THREE.MeshStandardMaterial({
+    color:C.mushCap,emissive:C.mushGlow,emissiveIntensity:base,
+    roughness:0.3,transparent:true,opacity:0.9
+  });
+  var cap=new THREE.Mesh(GEO.mushCap,capMat);
+  cap.scale.set(1,0.5,1);cap.position.y=0.55;cap.castShadow=true;cap.receiveShadow=true;g.add(cap);
+
+  // Gill lines under cap (thin radial planes)
+  var gillMat=new THREE.MeshStandardMaterial({
+    color:0x6622aa,emissive:C.mushGlow,emissiveIntensity:0.3,
+    transparent:true,opacity:0.5,side:THREE.DoubleSide
+  });
+  for(var gi=0;gi<8;gi++){
+    var ga=(gi/8)*6.28;
+    var gill=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.08),gillMat);
+    gill.position.set(Math.cos(ga)*0.15,0.48,Math.sin(ga)*0.15);
+    gill.rotation.y=-ga;gill.rotation.x=0.1;
+    g.add(gill);
+  }
+
+  // Dots on cap (original)
+  for(var i=0;i<4;i++){
+    var dM=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9});
+    var dot=new THREE.Mesh(GEO.mushDot,dM);
+    var da=sr()*6.28,dr=0.15+sr()*0.25;
+    dot.position.set(Math.cos(da)*dr,0.6+sr()*0.1,Math.sin(da)*dr);
+    g.add(dot);
+  }
+
+  // Dew drops (2-3 tiny glass spheres on cap)
+  var dewMat=new THREE.MeshStandardMaterial({
+    color:0xeeffff,emissive:0xaaddff,emissiveIntensity:0.2,
+    transparent:true,opacity:0.6,roughness:0.0,metalness:0.5
+  });
+  var dewN=2+Math.floor(sr()*2);
+  for(var di=0;di<dewN;di++){
+    var dew=new THREE.Mesh(new THREE.SphereGeometry(0.015+sr()*0.015,4,3),dewMat);
+    var dewA=sr()*6.28,dewR=0.1+sr()*0.2;
+    dew.position.set(Math.cos(dewA)*dewR,0.63+sr()*0.08,Math.sin(dewA)*dewR);
+    g.add(dew);
+  }
+
+  // Mycelium threads at base (thin radiating lines)
+  var mycMat=new THREE.MeshStandardMaterial({
+    color:0x4422aa,emissive:C.mushGlow,emissiveIntensity:0.15,
+    transparent:true,opacity:0.35
+  });
+  for(var mi=0;mi<4;mi++){
+    var ma=sr()*6.28,mLen=0.15+sr()*0.25;
+    var myc=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.002,mLen,3),mycMat);
+    myc.position.set(Math.cos(ma)*0.12,0.01,Math.sin(ma)*0.12);
+    myc.rotation.z=1.3*((ma<3.14)?1:-1);myc.rotation.y=ma;
+    g.add(myc);
+  }
+
+  // Cap edge fringe (slightly translucent rim ring)
+  var fringeMat=new THREE.MeshStandardMaterial({
+    color:C.mushCap,emissive:C.mushGlow,emissiveIntensity:base*0.6,
+    transparent:true,opacity:0.4
+  });
+  var fringe=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.01,4,12),fringeMat);
+  fringe.position.y=0.49;fringe.rotation.x=Math.PI/2;g.add(fringe);
+
+  // Stem base volva bulb (swollen base)
+  var volvaMat=new THREE.MeshStandardMaterial({
+    color:C.mushStem,emissive:C.mushGlow,emissiveIntensity:0.08,roughness:0.7
+  });
+  var volva=new THREE.Mesh(new THREE.SphereGeometry(0.08,5,3),volvaMat);
+  volva.scale.set(1,0.5,1);volva.position.y=0.04;g.add(volva);
+
+  // Substrate debris (tiny bark/soil bits around base)
+  var subMat=new THREE.MeshStandardMaterial({color:0x1a1008,roughness:0.95});
+  for(var si=0;si<3;si++){
+    var sa=sr()*6.28,sd=0.1+sr()*0.12;
+    var sub=new THREE.Mesh(new THREE.SphereGeometry(0.008+sr()*0.008,3,3),subMat);
+    sub.position.set(Math.cos(sa)*sd,0.005,Math.sin(sa)*sd);g.add(sub);
+  }
+
+  // Micro spore cloud (tiny dots drifting below cap)
+  var sporeMicroMat=new THREE.MeshBasicMaterial({
+    color:C.mushGlow,transparent:true,opacity:0.2
+  });
+  for(var spi=0;spi<4;spi++){
+    var spore=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),sporeMicroMat);
+    spore.position.set((sr()-0.5)*0.2,0.35+sr()*0.1,(sr()-0.5)*0.2);
+    g.add(spore);
+  }
+
+  // Cap wart bumps (3-5 raised spots on cap surface)
+  var wartMat=new THREE.MeshStandardMaterial({
+    color:0xaa66dd,emissive:C.mushGlow,emissiveIntensity:base*0.3,roughness:0.5
+  });
+  var wartN=3+Math.floor(sr()*3);
+  for(var wi=0;wi<wartN;wi++){
+    var wa=sr()*6.28,wd=sr()*0.25;
+    var wart=new THREE.Mesh(new THREE.SphereGeometry(0.015+sr()*0.015,3,3),wartMat);
+    wart.position.set(Math.cos(wa)*wd,0.58+sr()*0.06,Math.sin(wa)*wd);
+    g.add(wart);
+  }
+
+  // Ground moisture ring (dark damp circle at base)
+  var dampMat=new THREE.MeshStandardMaterial({
+    color:0x0a0808,transparent:true,opacity:0.2,roughness:0.95,side:THREE.DoubleSide
+  });
+  var damp=new THREE.Mesh(new THREE.CircleGeometry(0.18,8),dampMat);
+  damp.rotation.x=-Math.PI/2;damp.position.y=0.005;g.add(damp);
+
+  g.scale.setScalar(sc);g.position.set(x,0,z);scene.add(g);
+  return{group:g,capMat:capMat,phase:phase,speed:speed,base:base,x:x,z:z};
+}
+
+// --- Crystals (emissive + SHARED proximity PointLights managed by Director) ---
+function makeCrystal(x,z){
+  var g=new THREE.Group();
+  var phase=sr()*6.28;
+  var cMat=new THREE.MeshStandardMaterial({
+    color:C.crystal,emissive:C.crystalCore,emissiveIntensity:1.5,
+    transparent:true,opacity:0.7,roughness:0.1,metalness:0.5
+  });
+  var main=new THREE.Mesh(GEO.crystal,cMat);
+  main.position.y=0.9;main.castShadow=true;g.add(main);
+
+  for(var i=0;i<3;i++){
+    var sh=new THREE.Mesh(GEO.crystalSm,cMat);
+    var a=(i/3)*6.28+sr()*0.5;
+    sh.position.set(Math.cos(a)*0.4,0.45,Math.sin(a)*0.4);
+    sh.rotation.z=(sr()-0.5)*0.8;sh.castShadow=true;g.add(sh);
+  }
+
+  // Base rock cluster (3-5 dark stones)
+  var rockMat=new THREE.MeshStandardMaterial({color:0x1a1a22,roughness:0.9,metalness:0.1});
+  var rockN=3+Math.floor(sr()*3);
+  for(var ri=0;ri<rockN;ri++){
+    var ra=sr()*6.28,rd=0.2+sr()*0.5;
+    var rSz=0.08+sr()*0.12;
+    var rock=new THREE.Mesh(new THREE.SphereGeometry(rSz,4,3),rockMat);
+    rock.scale.set(1+sr()*0.5,0.5+sr()*0.4,1+sr()*0.5);
+    rock.position.set(Math.cos(ra)*rd,rSz*0.3,Math.sin(ra)*rd);
+    rock.rotation.set(sr(),sr(),sr());g.add(rock);
+  }
+
+  // Inner fracture veins (thin bright lines inside main crystal)
+  var veinMat=new THREE.MeshBasicMaterial({
+    color:C.crystalCore,transparent:true,opacity:0.5
+  });
+  for(var vi=0;vi<3;vi++){
+    var vLen=0.4+sr()*0.8;
+    var vein=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,vLen,3),veinMat);
+    vein.position.set((sr()-0.5)*0.15,0.5+sr()*0.7,(sr()-0.5)*0.15);
+    vein.rotation.set((sr()-0.5)*0.8,(sr()-0.5)*0.5,(sr()-0.5)*0.8);
+    g.add(vein);
+  }
+
+  // Ambient floating motes near crystal (tiny static sparkles)
+  var moteMat=new THREE.MeshBasicMaterial({color:0xaaffee,transparent:true,opacity:0.6});
+  for(var mi=0;mi<5;mi++){
+    var mote=new THREE.Mesh(new THREE.SphereGeometry(0.012,3,3),moteMat);
+    mote.position.set((sr()-0.5)*1.0,0.3+sr()*1.5,(sr()-0.5)*1.0);
+    g.add(mote);
+  }
+
+  // Micro-crystal shards (tiny spikes on base rocks)
+  var shardMat=new THREE.MeshStandardMaterial({
+    color:C.crystal,emissive:C.crystalCore,emissiveIntensity:0.8,
+    transparent:true,opacity:0.5
+  });
+  for(var sci=0;sci<4;sci++){
+    var sa=sr()*6.28,sd=0.3+sr()*0.3;
+    var shard=new THREE.Mesh(new THREE.CylinderGeometry(0,0.015,0.12+sr()*0.1,3),shardMat);
+    shard.position.set(Math.cos(sa)*sd,0.06+sr()*0.1,Math.sin(sa)*sd);
+    shard.rotation.z=(sr()-0.5)*0.6;g.add(shard);
+  }
+
+  // Mineral stain rings on base rocks (flat colored circles)
+  var stainMat=new THREE.MeshStandardMaterial({
+    color:0x335566,emissive:0x112233,emissiveIntensity:0.05,roughness:0.9,side:THREE.DoubleSide
+  });
+  for(var sti=0;sti<2;sti++){
+    var sta=sr()*6.28,std=0.2+sr()*0.3;
+    var stain=new THREE.Mesh(new THREE.CircleGeometry(0.04+sr()*0.03,5),stainMat);
+    stain.rotation.x=-Math.PI/2+sr()*0.4;
+    stain.position.set(Math.cos(sta)*std,0.05,Math.sin(sta)*std);g.add(stain);
+  }
+
+  // Energy filament wisps (curved lines connecting crystal tips)
+  var filMat=new THREE.MeshBasicMaterial({
+    color:C.crystalCore,transparent:true,opacity:0.2
+  });
+  for(var fli=0;fli<2;fli++){
+    var fil=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.003,0.6+sr()*0.4,3),filMat);
+    fil.position.set((sr()-0.5)*0.3,0.7+sr()*0.5,(sr()-0.5)*0.3);
+    fil.rotation.set((sr()-0.5)*1.0,sr(),(sr()-0.5)*1.0);g.add(fil);
+  }
+
+  // Surface inclusions (tiny darker spots inside crystal body)
+  var inclMat=new THREE.MeshStandardMaterial({
+    color:0x115544,emissive:0x113322,emissiveIntensity:0.3,
+    transparent:true,opacity:0.25
+  });
+  for(var ii=0;ii<4;ii++){
+    var incl=new THREE.Mesh(new THREE.SphereGeometry(0.02+sr()*0.02,3,3),inclMat);
+    incl.position.set((sr()-0.5)*0.15,0.4+sr()*0.6,(sr()-0.5)*0.15);
+    g.add(incl);
+  }
+
+  // Prismatic halo ring (rainbow tint torus around main crystal)
+  var prismMat=new THREE.MeshBasicMaterial({
+    color:0xaaffee,transparent:true,opacity:0.06
+  });
+  var prism=new THREE.Mesh(new THREE.TorusGeometry(0.35,0.02,4,10),prismMat);
+  prism.position.y=0.6;prism.rotation.x=Math.PI/2+sr()*0.3;g.add(prism);
+
+  // Ground glow stain (emissive circle on floor beneath crystal)
+  var groundGlowMat=new THREE.MeshBasicMaterial({
+    color:C.crystal,transparent:true,opacity:0.06,side:THREE.DoubleSide
+  });
+  var groundGlow=new THREE.Mesh(new THREE.CircleGeometry(0.8,8),groundGlowMat);
+  groundGlow.rotation.x=-Math.PI/2;groundGlow.position.y=0.01;g.add(groundGlow);
+
+  g.position.set(x,0,z);scene.add(g);
+  // Crystal casts local colored light onto surroundings
+  var crystLight=new THREE.PointLight(C.crystal,0.5,8);
+  crystLight.position.set(x,1.2,z);
+  scene.add(crystLight);
+  return{group:g,mat:cMat,phase:phase,x:x,z:z,light:crystLight};
+}
+
+// --- Glow Jelly (floating jellyfish — enhanced detail) ---
+function makeJelly(x,y,z){
+  var g=new THREE.Group();
+  // Bell dome (squashed sphere)
+  var bellMat=new THREE.MeshStandardMaterial({
+    color:C.jellyBell,emissive:C.jellyGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.5,roughness:0.2,metalness:0.1,side:THREE.DoubleSide
+  });
+  var bell=new THREE.Mesh(new THREE.SphereGeometry(0.5,8,6,0,6.28,0,Math.PI/2),bellMat);
+  bell.scale.set(1,0.6,1);bell.position.y=0;g.add(bell);
+
+  // Bell rim torus (thickened edge)
+  var rimMat=new THREE.MeshStandardMaterial({
+    color:C.jellyBell,emissive:C.jellyGlow,emissiveIntensity:1.0,
+    transparent:true,opacity:0.6
+  });
+  var rim=new THREE.Mesh(new THREE.TorusGeometry(0.48,0.025,5,12),rimMat);
+  rim.rotation.x=Math.PI/2;rim.position.y=-0.02;g.add(rim);
+
+  // Inner glow orb
+  var inner=new THREE.Mesh(new THREE.SphereGeometry(0.2,6,4),new THREE.MeshBasicMaterial({
+    color:C.jellyGlow,transparent:true,opacity:0.7
+  }));
+  inner.position.y=-0.05;g.add(inner);
+
+  // Internal organ shapes (2 small elongated forms)
+  var organMat=new THREE.MeshBasicMaterial({
+    color:0xbbddff,transparent:true,opacity:0.3
+  });
+  for(var oi=-1;oi<=1;oi+=2){
+    var organ=new THREE.Mesh(new THREE.SphereGeometry(0.06,4,3),organMat);
+    organ.scale.set(0.6,1.5,0.6);
+    organ.position.set(oi*0.08,-0.03,0);g.add(organ);
+  }
+
+  // Bioluminescent spots on bell surface (4-6)
+  var spotMat=new THREE.MeshBasicMaterial({
+    color:0xeeffff,transparent:true,opacity:0.7
+  });
+  for(var si=0;si<5;si++){
+    var sa=sr()*6.28,sel=sr()*0.8;
+    var spot=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),spotMat);
+    spot.position.set(Math.cos(sa)*sel*0.35,0.1-sel*0.15,Math.sin(sa)*sel*0.35);
+    g.add(spot);
+  }
+
+  // Tentacles (6 dangling cylinders) with tip bulbs
+  var tentMat=new THREE.MeshStandardMaterial({
+    color:C.jellyTent,emissive:C.jellyGlow,emissiveIntensity:0.4,
+    transparent:true,opacity:0.4
+  });
+  var tipMat=new THREE.MeshBasicMaterial({
+    color:C.jellyGlow,transparent:true,opacity:0.6
+  });
+  for(var i=0;i<6;i++){
+    var a=(i/6)*6.28;
+    var len=0.4+sr()*0.6;
+    var tent=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.008,len,3),tentMat);
+    tent.position.set(Math.cos(a)*0.25,-len/2-0.05,Math.sin(a)*0.25);
+    g.add(tent);
+    // Tip bulb
+    var tipB=new THREE.Mesh(new THREE.SphereGeometry(0.012,3,3),tipMat);
+    tipB.position.set(Math.cos(a)*0.25,-len-0.06,Math.sin(a)*0.25);
+    g.add(tipB);
+  }
+
+  // Nerve net radial lines on bell surface (8 faint lines)
+  var nerveMat=new THREE.MeshBasicMaterial({
+    color:C.jellyGlow,transparent:true,opacity:0.12
+  });
+  for(var ni=0;ni<8;ni++){
+    var na=(ni/8)*6.28;
+    var nerve=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.4,3),nerveMat);
+    nerve.position.set(Math.cos(na)*0.2,0.05,Math.sin(na)*0.2);
+    nerve.rotation.z=Math.PI/2-0.3;nerve.rotation.y=-na;g.add(nerve);
+  }
+
+  // Bell margin lappets (tiny frilly bumps at rim edge)
+  var lappetMat=new THREE.MeshStandardMaterial({
+    color:C.jellyBell,emissive:C.jellyGlow,emissiveIntensity:0.6,
+    transparent:true,opacity:0.4
+  });
+  for(var lpi=0;lpi<10;lpi++){
+    var la=(lpi/10)*6.28;
+    var lappet=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),lappetMat);
+    lappet.scale.set(1,0.5,0.8);
+    lappet.position.set(Math.cos(la)*0.46,-0.04,Math.sin(la)*0.46);
+    g.add(lappet);
+  }
+
+  // Oral arm (central thicker feeding tentacle)
+  var oralMat=new THREE.MeshStandardMaterial({
+    color:C.jellyTent,emissive:C.jellyGlow,emissiveIntensity:0.5,
+    transparent:true,opacity:0.35
+  });
+  var oral=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.01,0.35,4),oralMat);
+  oral.position.y=-0.2;g.add(oral);
+
+  // Mucus drip beads (3 tiny spheres on tentacle tips)
+  var mucusMat=new THREE.MeshBasicMaterial({
+    color:0xddffff,transparent:true,opacity:0.4
+  });
+  for(var mui=0;mui<3;mui++){
+    var mua=(mui/3)*6.28;
+    var mucus=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),mucusMat);
+    mucus.position.set(Math.cos(mua)*0.25,-0.55-sr()*0.3,Math.sin(mua)*0.25);
+    g.add(mucus);
+  }
+
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,bellMat:bellMat,phase:sr()*6.28,driftAng:sr()*6.28,
+    homeX:x,homeZ:z,floatY:y,wobble:0.5+sr()*0.5};
+}
+
+// --- Puffling (round hopping creature — enhanced detail) ---
+function makePuff(x,z){
+  var g=new THREE.Group();
+  var bodyMat=new THREE.MeshStandardMaterial({
+    color:C.puffBody,emissive:C.puffGlow,emissiveIntensity:0.3,roughness:0.8
+  });
+  // Body (big round)
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6),bodyMat);
+  body.position.y=0.35;g.add(body);
+  // Belly patch (lighter toned oval on front)
+  var bellyMat=new THREE.MeshStandardMaterial({
+    color:0xfff0e0,emissive:C.puffGlow,emissiveIntensity:0.15,roughness:0.9
+  });
+  var belly=new THREE.Mesh(new THREE.SphereGeometry(0.18,6,4),bellyMat);
+  belly.scale.set(0.7,0.9,0.3);belly.position.set(0,0.32,0.2);g.add(belly);
+  // Head (slightly smaller, on top)
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.22,7,5),bodyMat);
+  head.position.y=0.65;g.add(head);
+  // Ears (2 small cones)
+  for(var i=-1;i<=1;i+=2){
+    var ear=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.15,4),bodyMat);
+    ear.position.set(i*0.13,0.85,0);
+    ear.rotation.z=i*0.3;
+    g.add(ear);
+    // Inner ear (pink)
+    var innerEar=new THREE.Mesh(new THREE.ConeGeometry(0.03,0.08,4),
+      new THREE.MeshStandardMaterial({color:C.puffCheek,emissive:C.puffCheek,emissiveIntensity:0.2}));
+    innerEar.position.set(i*0.13,0.84,0.01);innerEar.rotation.z=i*0.3;g.add(innerEar);
+  }
+  // Eyes (2 dark dots)
+  var eyeMat=new THREE.MeshBasicMaterial({color:C.puffEye});
+  for(var i=-1;i<=1;i+=2){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.035,4,4),eyeMat);
+    eye.position.set(i*0.09,0.68,0.18);g.add(eye);
+    // Eye highlight (white catch light)
+    var hlMat=new THREE.MeshBasicMaterial({color:0xffffff});
+    var hl=new THREE.Mesh(new THREE.SphereGeometry(0.012,3,3),hlMat);
+    hl.position.set(i*0.09+i*0.015,0.695,0.2);g.add(hl);
+  }
+  // Nose (tiny dark dot)
+  var noseMat=new THREE.MeshBasicMaterial({color:0x443333});
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(0.015,3,3),noseMat);
+  nose.position.set(0,0.63,0.22);g.add(nose);
+  // Cheeks (2 pink spots)
+  var chkMat=new THREE.MeshStandardMaterial({color:C.puffCheek,emissive:C.puffCheek,emissiveIntensity:0.3});
+  for(var i=-1;i<=1;i+=2){
+    var chk=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),chkMat);
+    chk.position.set(i*0.15,0.61,0.15);g.add(chk);
+  }
+  // Whisker nubs (4 tiny cylinders)
+  var whiskMat=new THREE.MeshBasicMaterial({color:0xeeddcc,transparent:true,opacity:0.5});
+  for(var i=-1;i<=1;i+=2){
+    for(var j=0;j<2;j++){
+      var wh=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.06,3),whiskMat);
+      wh.position.set(i*0.12,0.62-j*0.03,0.2);
+      wh.rotation.z=i*0.7+j*i*0.2;wh.rotation.x=-0.1;g.add(wh);
+    }
+  }
+  // Feet (2 little spheres) with toe beans
+  for(var i=-1;i<=1;i+=2){
+    var foot=new THREE.Mesh(new THREE.SphereGeometry(0.07,4,3),bodyMat);
+    foot.position.set(i*0.12,0.07,0.05);foot.scale.set(1,0.5,1.3);g.add(foot);
+    // Toe bean pads (3 tiny pink dots on sole)
+    var beanMat=new THREE.MeshStandardMaterial({color:0xffaaaa,emissive:0xff8888,emissiveIntensity:0.1});
+    for(var bi=0;bi<3;bi++){
+      var ba=bi/3*6.28;
+      var bean=new THREE.Mesh(new THREE.SphereGeometry(0.012,3,3),beanMat);
+      bean.position.set(i*0.12+Math.cos(ba)*0.03,0.03,0.05+Math.sin(ba)*0.03);
+      g.add(bean);
+    }
+  }
+  // Tail pom (fluffy ball on back)
+  var tailMat=new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:C.puffGlow,emissiveIntensity:0.4,roughness:0.9
+  });
+  var tail=new THREE.Mesh(new THREE.SphereGeometry(0.06,5,4),tailMat);
+  tail.position.set(0,0.38,-0.28);g.add(tail);
+
+  // Fur tuft dots (tiny surface bumps on body)
+  var furMat=new THREE.MeshStandardMaterial({
+    color:C.puffBody,emissive:C.puffGlow,emissiveIntensity:0.2,roughness:1.0
+  });
+  for(var fi=0;fi<6;fi++){
+    var fa=sr()*6.28,fEl=sr()*1.2;
+    var fur=new THREE.Mesh(new THREE.SphereGeometry(0.01,3,3),furMat);
+    fur.position.set(Math.cos(fa)*0.28,0.25+fEl*0.2,Math.sin(fa)*0.28);
+    g.add(fur);
+  }
+
+  // Brow marks (tiny arched lines above eyes)
+  var browMat=new THREE.MeshBasicMaterial({color:C.puffBody});
+  for(var i=-1;i<=1;i+=2){
+    var brow=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.003,0.04,3),browMat);
+    brow.position.set(i*0.09,0.72,0.17);brow.rotation.z=i*0.3;g.add(brow);
+  }
+
+  // Tiny mouth line (faint smile)
+  var mouthMat=new THREE.MeshBasicMaterial({color:0x553344,transparent:true,opacity:0.5});
+  var mouth=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.03,3),mouthMat);
+  mouth.position.set(0,0.59,0.22);mouth.rotation.z=Math.PI/2;g.add(mouth);
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,phase:sr()*6.28,wanderAng:sr()*6.28,speed:0.6+sr()*0.8,
+    hopTimer:0,hopPhase:sr()*6.28,homeX:x,homeZ:z,state:'idle',idleTimer:sr()*3};
+}
+
+// --- Spirit Deer (ethereal translucent — enhanced detail) ---
+function makeDeer(x,z){
+  var g=new THREE.Group();
+  var bMat=new THREE.MeshStandardMaterial({
+    color:C.deerBody,emissive:C.deerGlow,emissiveIntensity:0.5,
+    transparent:true,opacity:0.7,roughness:0.3
+  });
+  // Body (elongated sphere) — faces +Z locally
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.4,7,5),bMat);
+  body.scale.set(1,0.8,1.5);body.position.y=0.9;g.add(body);
+  // Chest marking
+  var chestMat=new THREE.MeshStandardMaterial({
+    color:0xccf0ff,emissive:C.deerGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.5
+  });
+  var chest=new THREE.Mesh(new THREE.SphereGeometry(0.15,5,4),chestMat);
+  chest.scale.set(0.8,0.6,0.5);chest.position.set(0,0.78,0.25);g.add(chest);
+
+  // === HEAD/NECK PIVOT (rotates for look + bob) ===
+  var neckPivot=new THREE.Group();
+  neckPivot.position.set(0,1.15,0.3); // pivot at base of neck
+  // Neck
+  var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,0.4,5),bMat);
+  neck.position.set(0,0.1,0.08);neck.rotation.x=-0.4;neckPivot.add(neck);
+  // Head
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.14,6,5),bMat);
+  head.position.set(0,0.22,0.2);neckPivot.add(head);
+  // Snout
+  var snout=new THREE.Mesh(new THREE.SphereGeometry(0.07,4,3),bMat);
+  snout.scale.set(1,0.7,1.4);snout.position.set(0,0.17,0.35);neckPivot.add(snout);
+  // Nose tip
+  var noseMat=new THREE.MeshBasicMaterial({color:0x224455});
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),noseMat);
+  nose.position.set(0,0.17,0.43);neckPivot.add(nose);
+  // Eyes
+  var eyeM=new THREE.MeshBasicMaterial({color:C.deerEye});
+  for(var i=-1;i<=1;i+=2){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),eyeM);
+    eye.position.set(i*0.09,0.25,0.28);neckPivot.add(eye);
+    var ehl=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),
+      new THREE.MeshBasicMaterial({color:0xffffff}));
+    ehl.position.set(i*0.085,0.26,0.29);neckPivot.add(ehl);
+    var lashMat=new THREE.MeshBasicMaterial({color:C.deerBody,transparent:true,opacity:0.5});
+    var lash=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.03,3),lashMat);
+    lash.position.set(i*0.1,0.27,0.28);lash.rotation.z=i*0.6;neckPivot.add(lash);
+  }
+  // Ears
+  for(var i=-1;i<=1;i+=2){
+    var ear=new THREE.Mesh(new THREE.ConeGeometry(0.04,0.14,4),bMat);
+    ear.position.set(i*0.1,0.37,0.15);ear.rotation.z=i*0.4;neckPivot.add(ear);
+  }
+  // Antlers
+  var antMat=new THREE.MeshStandardMaterial({
+    color:C.deerAntler,emissive:C.deerGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.8
+  });
+  for(var i=-1;i<=1;i+=2){
+    var a1=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,0.25,3),antMat);
+    a1.position.set(i*0.08,0.42,0.12);a1.rotation.z=i*0.5;neckPivot.add(a1);
+    var a2=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.015,0.15,3),antMat);
+    a2.position.set(i*0.15,0.55,0.10);a2.rotation.z=i*0.8;neckPivot.add(a2);
+    var a3=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.012,0.1,3),antMat);
+    a3.position.set(i*0.11,0.50,0.16);a3.rotation.z=i*0.3;a3.rotation.x=-0.5;neckPivot.add(a3);
+    var tipGlow=new THREE.Mesh(new THREE.SphereGeometry(0.012,3,3),
+      new THREE.MeshBasicMaterial({color:C.deerGlow,transparent:true,opacity:0.8}));
+    tipGlow.position.set(i*0.18,0.61,0.09);neckPivot.add(tipGlow);
+  }
+  // Jawline
+  var jawMat=new THREE.MeshStandardMaterial({
+    color:C.deerBody,emissive:C.deerGlow,emissiveIntensity:0.3,
+    transparent:true,opacity:0.5
+  });
+  var jaw=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.02,0.1,3),jawMat);
+  jaw.position.set(0,0.11,0.28);jaw.rotation.x=0.3;neckPivot.add(jaw);
+  // Nostrils
+  var nostrilMat=new THREE.MeshBasicMaterial({color:0x112222});
+  for(var ni=-1;ni<=1;ni+=2){
+    var nostril=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),nostrilMat);
+    nostril.position.set(ni*0.02,0.16,0.42);neckPivot.add(nostril);
+  }
+  g.add(neckPivot);
+
+  // === JOINTED LEGS (4 legs, each with upper pivot + lower pivot) ===
+  var legDefs=[
+    {x:-0.15,z:0.3,label:'FL'}, // front-left
+    {x:0.15, z:0.3,label:'FR'}, // front-right
+    {x:-0.15,z:-0.3,label:'BL'}, // back-left
+    {x:0.15, z:-0.3,label:'BR'}  // back-right
+  ];
+  var hoofMat=new THREE.MeshStandardMaterial({color:0x667788,emissive:C.deerGlow,emissiveIntensity:0.2,
+    transparent:true,opacity:0.7});
+  var legPivots=[];
+  for(var li=0;li<4;li++){
+    var ld=legDefs[li];
+    // Upper leg pivot (at hip/shoulder)
+    var upperPivot=new THREE.Group();
+    upperPivot.position.set(ld.x,0.65,ld.z);
+    var upperLeg=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.035,0.35,4),bMat);
+    upperLeg.position.y=-0.175; // hang down from pivot
+    upperPivot.add(upperLeg);
+    // Lower leg pivot (at knee)
+    var lowerPivot=new THREE.Group();
+    lowerPivot.position.set(0,-0.35,0);
+    var lowerLeg=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.03,0.3,4),bMat);
+    lowerLeg.position.y=-0.15;
+    lowerPivot.add(lowerLeg);
+    // Hoof at bottom of lower leg
+    var hoof=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.032,0.04,4),hoofMat);
+    hoof.position.y=-0.3;lowerPivot.add(hoof);
+    // Fetlock tuft
+    var fetMat=new THREE.MeshStandardMaterial({
+      color:0xddeeff,emissive:C.deerGlow,emissiveIntensity:0.3,
+      transparent:true,opacity:0.5
+    });
+    var fet=new THREE.Mesh(new THREE.SphereGeometry(0.025,3,3),fetMat);
+    fet.scale.set(1.3,0.5,1.3);fet.position.y=-0.25;lowerPivot.add(fet);
+
+    upperPivot.add(lowerPivot);
+    g.add(upperPivot);
+    legPivots.push({upper:upperPivot,lower:lowerPivot,isFront:li<2,side:ld.x<0?-1:1});
+  }
+
+  // === TAIL PIVOT ===
+  var tailPivot=new THREE.Group();
+  tailPivot.position.set(0,1.1,-0.55);
+  var tail=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.15,4),new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:C.deerGlow,emissiveIntensity:1.0,transparent:true,opacity:0.8
+  }));
+  tailPivot.add(tail);
+  g.add(tailPivot);
+
+  // Body spots
+  var spotMat=new THREE.MeshBasicMaterial({color:0xccffee,transparent:true,opacity:0.3});
+  for(var si=0;si<4;si++){
+    var sp=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),spotMat);
+    sp.position.set((sr()-0.5)*0.25,0.8+sr()*0.3,(sr()-0.5)*0.4);
+    g.add(sp);
+  }
+  // Rib hints
+  var ribMat=new THREE.MeshBasicMaterial({color:C.deerBody,transparent:true,opacity:0.15});
+  for(var rbi=0;rbi<3;rbi++){
+    var rib=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.2,3),ribMat);
+    rib.position.set(0.3,0.85-rbi*0.06,0);
+    rib.rotation.z=Math.PI/2+0.3;g.add(rib);
+  }
+  // Dew drops on fur
+  var dewMat=new THREE.MeshStandardMaterial({
+    color:0xeeffff,emissive:0xaaddff,emissiveIntensity:0.15,
+    transparent:true,opacity:0.4,roughness:0.0,metalness:0.5
+  });
+  for(var dwi=0;dwi<3;dwi++){
+    var dew=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),dewMat);
+    dew.position.set((sr()-0.5)*0.3,0.9+sr()*0.3,(sr()-0.5)*0.35);
+    g.add(dew);
+  }
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,mat:bMat,phase:sr()*6.28,wanderAng:sr()*6.28,speed:0.6+sr()*0.4,
+    walkTimer:0,legCycle:0,homeX:x,homeZ:z,state:'walk',pauseTimer:0,
+    neckPivot:neckPivot,legPivots:legPivots,tailPivot:tailPivot,
+    fleeTimer:0,headLook:0,headBob:0};
+}
+
+// --- Luna Moth (large glowing wings — enhanced detail) ---
+function makeMoth(x,y,z){
+  var g=new THREE.Group();
+  // Body (elongated cylinder)
+  var bodyMat=new THREE.MeshStandardMaterial({
+    color:C.mothBody,emissive:C.mothGlow,emissiveIntensity:0.3,roughness:0.7
+  });
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,0.3,5),bodyMat);
+  body.rotation.x=Math.PI/2;g.add(body);
+  // Abdomen segment rings (3 subtle bands)
+  var segMat=new THREE.MeshStandardMaterial({
+    color:C.mothBody,emissive:C.mothGlow,emissiveIntensity:0.5,roughness:0.6
+  });
+  for(var si=0;si<3;si++){
+    var seg=new THREE.Mesh(new THREE.TorusGeometry(0.045,0.006,4,8),segMat);
+    seg.position.z=-0.05+si*0.06;seg.rotation.x=0;g.add(seg);
+  }
+  // Head
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.05,5,4),bodyMat);
+  head.position.z=0.18;g.add(head);
+  // Compound eyes (2 dark faceted spheres)
+  var eyeMat=new THREE.MeshStandardMaterial({color:0x112233,roughness:0.2,metalness:0.4});
+  for(var i=-1;i<=1;i+=2){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.018,4,3),eyeMat);
+    eye.position.set(i*0.03,0.01,0.21);g.add(eye);
+  }
+  // Antennae (2 thin cylinders) with feathered tips
+  for(var i=-1;i<=1;i+=2){
+    var ant=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.15,3),bodyMat);
+    ant.position.set(i*0.03,0.03,0.22);ant.rotation.x=-0.6;ant.rotation.z=i*0.4;g.add(ant);
+    // Feathered tip (tiny flattened sphere)
+    var tipMat=new THREE.MeshBasicMaterial({color:C.mothGlow,transparent:true,opacity:0.7});
+    var tip=new THREE.Mesh(new THREE.SphereGeometry(0.015,3,3),tipMat);
+    tip.scale.set(2,0.5,1);
+    tip.position.set(i*0.05,0.12,0.28);g.add(tip);
+  }
+  // Wings (4 flattened spheres — 2 large, 2 small hindwings)
+  var wingMat=new THREE.MeshStandardMaterial({
+    color:C.mothWing,emissive:C.mothGlow,emissiveIntensity:0.8,
+    transparent:true,opacity:0.6,side:THREE.DoubleSide,roughness:0.4
+  });
+  // Pivots for wing flapping
+  g._wingPivots=[];
+  for(var i=-1;i<=1;i+=2){
+    var pivot=new THREE.Group();
+    pivot.position.set(i*0.04,0,0.02);
+    // Forewing
+    var fw=new THREE.Mesh(new THREE.SphereGeometry(0.2,6,4),wingMat);
+    fw.scale.set(1.8,0.08,1.2);fw.position.set(i*0.18,0,0.02);pivot.add(fw);
+    // Hindwing (smaller)
+    var hw=new THREE.Mesh(new THREE.SphereGeometry(0.12,5,3),wingMat);
+    hw.scale.set(1.5,0.06,1.0);hw.position.set(i*0.12,0,-0.1);pivot.add(hw);
+    // Hindwing tail streamer
+    var streamMat=new THREE.MeshStandardMaterial({
+      color:C.mothWing,emissive:C.mothGlow,emissiveIntensity:0.6,
+      transparent:true,opacity:0.45,side:THREE.DoubleSide
+    });
+    var stream=new THREE.Mesh(new THREE.PlaneGeometry(0.03,0.12),streamMat);
+    stream.position.set(i*0.1,0,-0.18);stream.rotation.y=i*0.2;pivot.add(stream);
+    // Wing spots — primary eye spot
+    var spotMat=new THREE.MeshBasicMaterial({color:C.mothSpot,transparent:true,opacity:0.9});
+    var spot=new THREE.Mesh(new THREE.SphereGeometry(0.03,4,3),spotMat);
+    spot.position.set(i*0.2,0.02,0.03);pivot.add(spot);
+    // Secondary smaller spot on hindwing
+    var spot2=new THREE.Mesh(new THREE.SphereGeometry(0.018,3,3),spotMat);
+    spot2.position.set(i*0.1,0.02,-0.08);pivot.add(spot2);
+    // Wing vein lines (2 radial thin cylinders per wing)
+    var veinMat=new THREE.MeshBasicMaterial({color:C.mothGlow,transparent:true,opacity:0.25});
+    for(var vi=0;vi<2;vi++){
+      var vein=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.2,3),veinMat);
+      vein.position.set(i*0.15,0.01,-0.02+vi*0.06);
+      vein.rotation.z=Math.PI/2+i*(0.15+vi*0.15);pivot.add(vein);
+    }
+    g.add(pivot);
+    g._wingPivots.push({pivot:pivot,side:i});
+  }
+  // Faint dust trail (tiny motes behind body)
+  var dustMat=new THREE.MeshBasicMaterial({color:C.mothGlow,transparent:true,opacity:0.25});
+  for(var di=0;di<3;di++){
+    var dust=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),dustMat);
+    dust.position.set((sr()-0.5)*0.04,0,-0.15-di*0.05);g.add(dust);
+  }
+
+  // Proboscis (coiled feeding tube under head)
+  var probMat=new THREE.MeshBasicMaterial({color:0x444433,transparent:true,opacity:0.5});
+  var prob=new THREE.Mesh(new THREE.TorusGeometry(0.015,0.003,4,8,Math.PI*1.5),probMat);
+  prob.position.set(0,-0.02,0.2);prob.rotation.x=0.4;g.add(prob);
+
+  // Thorax fur dots (tiny bumps on body)
+  var thoraxMat=new THREE.MeshStandardMaterial({
+    color:C.mothBody,emissive:C.mothGlow,emissiveIntensity:0.4,roughness:1.0
+  });
+  for(var thi=0;thi<5;thi++){
+    var thA=sr()*6.28;
+    var fur=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),thoraxMat);
+    fur.position.set(Math.cos(thA)*0.04,Math.sin(thA)*0.04,sr()*0.15-0.05);
+    g.add(fur);
+  }
+
+  // Leg segments (3 pairs, tiny jointed sticks)
+  var legMat=new THREE.MeshBasicMaterial({color:C.mothBody,transparent:true,opacity:0.4});
+  for(var li=-1;li<=1;li+=2){
+    for(var lj=0;lj<3;lj++){
+      var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.06,3),legMat);
+      leg.position.set(li*0.04,-0.03,-0.05+lj*0.06);
+      leg.rotation.z=li*0.8;leg.rotation.x=-0.3;g.add(leg);
+    }
+  }
+
+  // Wing edge fringe dots (tiny scallops along forewing edge)
+  var fringeMat=new THREE.MeshBasicMaterial({color:C.mothGlow,transparent:true,opacity:0.35});
+  for(var i=-1;i<=1;i+=2){
+    for(var fri=0;fri<5;fri++){
+      var fAngle=fri/5*Math.PI-Math.PI/2;
+      var frDot=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),fringeMat);
+      frDot.position.set(i*(0.3+Math.cos(fAngle)*0.05),Math.sin(fAngle)*0.02,0.02+fri*0.04);
+      g.add(frDot);
+    }
+  }
+
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,wingMat:wingMat,phase:sr()*6.28,orbitAng:sr()*6.28,
+    orbitR:2+sr()*4,centerX:x,centerZ:z,floatY:y,flapSpeed:6+sr()*4};
+}
+
+// --- Grass Patch (Lusion-style: multi-segment curved blades with color gradient) ---
+// Vertices built in LOCAL space (origin = patch center). Mesh positioned at (cx,0,cz).
+function makeGrassPatch(cx,cz,radius,density){
+  var geo=new THREE.BufferGeometry();
+  var verts=[],colors=[];
+  var count=density||20;
+  var colBase1=new THREE.Color(0x0a2010); // deep dark green base
+  var colBase2=new THREE.Color(0x152e18); // slightly lighter base
+  var colMid=new THREE.Color(0x2a6035);   // warm mid green
+  var colTip1=new THREE.Color(0x44ee55);  // vivid bright green tip
+  var colTip2=new THREE.Color(0x77ffcc);  // bright cyan-green tip
+  var colTip3=new THREE.Color(0xddff66);  // warm yellow-green tip
+  var tmpC=new THREE.Color();
+  for(var i=0;i<count;i++){
+    var ang=sr()*6.28, dist=sr()*radius;
+    var lx=Math.cos(ang)*dist, lz=Math.sin(ang)*dist;
+    var h=0.25+sr()*0.65;
+    var w=0.03+sr()*0.05;
+    var lean=(sr()-0.5)*0.2;
+    var leanZ=(sr()-0.5)*0.2;
+    var curveMag=(sr()-0.5)*0.12; // blade curve at top
+    // 3-segment blade: base quad, mid quad, tip triangle
+    // Base colors
+    var bc=sr()<0.5?colBase1:colBase2;
+    var tipSel=sr();
+    var tc=tipSel<0.4?colTip1:(tipSel<0.7?colTip2:colTip3);
+
+    // Segment 1: base (0 to h*0.35)
+    var h1=h*0.35, h2=h*0.7;
+    var lean1=lean*0.3, lean2=lean*0.7;
+    var leanZ1=leanZ*0.3, leanZ2=leanZ*0.7;
+    // Quad: 2 triangles for base segment
+    verts.push(lx-w,0.01,lz); // BL
+    verts.push(lx+w,0.01,lz); // BR
+    verts.push(lx+lean1-w*0.9,h1,lz+leanZ1); // TL
+    colors.push(bc.r,bc.g,bc.b, bc.r,bc.g,bc.b);
+    tmpC.copy(bc).lerp(colMid,0.4);
+    colors.push(tmpC.r,tmpC.g,tmpC.b);
+    verts.push(lx+w,0.01,lz); // BR
+    verts.push(lx+lean1+w*0.9,h1,lz+leanZ1); // TR
+    verts.push(lx+lean1-w*0.9,h1,lz+leanZ1); // TL
+    colors.push(bc.r,bc.g,bc.b);
+    tmpC.copy(bc).lerp(colMid,0.4);
+    colors.push(tmpC.r,tmpC.g,tmpC.b, tmpC.r,tmpC.g,tmpC.b);
+    // Segment 2: mid (h*0.35 to h*0.7)
+    var w2=w*0.65;
+    verts.push(lx+lean1-w*0.9,h1,lz+leanZ1);
+    verts.push(lx+lean1+w*0.9,h1,lz+leanZ1);
+    verts.push(lx+lean2-w2,h2,lz+leanZ2+curveMag);
+    tmpC.copy(bc).lerp(colMid,0.4);
+    colors.push(tmpC.r,tmpC.g,tmpC.b, tmpC.r,tmpC.g,tmpC.b);
+    tmpC.copy(colMid).lerp(tc,0.3);
+    colors.push(tmpC.r,tmpC.g,tmpC.b);
+    verts.push(lx+lean1+w*0.9,h1,lz+leanZ1);
+    verts.push(lx+lean2+w2,h2,lz+leanZ2+curveMag);
+    verts.push(lx+lean2-w2,h2,lz+leanZ2+curveMag);
+    tmpC.copy(bc).lerp(colMid,0.4);
+    colors.push(tmpC.r,tmpC.g,tmpC.b);
+    tmpC.copy(colMid).lerp(tc,0.3);
+    colors.push(tmpC.r,tmpC.g,tmpC.b, tmpC.r,tmpC.g,tmpC.b);
+    // Segment 3: tip triangle (h*0.7 to h)
+    verts.push(lx+lean2-w2,h2,lz+leanZ2+curveMag);
+    verts.push(lx+lean2+w2,h2,lz+leanZ2+curveMag);
+    verts.push(lx+lean+curveMag*2,h,lz+leanZ+curveMag*1.5);
+    tmpC.copy(colMid).lerp(tc,0.3);
+    colors.push(tmpC.r,tmpC.g,tmpC.b, tmpC.r,tmpC.g,tmpC.b);
+    colors.push(tc.r,tc.g,tc.b);
+  }
+  // Ground cover: tiny clover-like triangles at base (adds density)
+  var cloverCol=new THREE.Color(0x1a5528);
+  var cloverN=Math.floor(count*0.3);
+  for(var ci=0;ci<cloverN;ci++){
+    var ca=sr()*6.28, cd=sr()*radius*0.9;
+    var clx=Math.cos(ca)*cd, clz=Math.sin(ca)*cd;
+    var csz=0.02+sr()*0.03;
+    verts.push(clx-csz,0.01,clz);
+    verts.push(clx+csz,0.01,clz);
+    verts.push(clx,0.03+sr()*0.02,clz+csz);
+    colors.push(cloverCol.r,cloverCol.g,cloverCol.b);
+    colors.push(cloverCol.r,cloverCol.g,cloverCol.b);
+    var clBr=new THREE.Color(0x33aa55);
+    colors.push(clBr.r,clBr.g,clBr.b);
+  }
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+  var mat=new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:0.7,side:THREE.DoubleSide,
+    emissive:0x44ff66,emissiveIntensity:0.08
+  });
+  var mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(cx,0,cz);
+  scene.add(mesh);
+  return{mesh:mesh,geo:geo,cx:cx,cz:cz};
+}
+
+// --- Rock Formation (Lusion-style: smooth rounded stones with moss + lichen) ---
+function makeRock(x,z){
+  var g=new THREE.Group();
+  var rockMat=new THREE.MeshStandardMaterial({
+    color:C.rockBase,roughness:0.85,metalness:0.05
+  });
+  var rockLightMat=new THREE.MeshStandardMaterial({
+    color:C.rockLight,roughness:0.8,metalness:0.05
+  });
+  var mossMat=new THREE.MeshStandardMaterial({
+    color:C.rockMoss,emissive:C.rockMoss,emissiveIntensity:0.03,roughness:0.9
+  });
+
+  // Main stone (large rounded form)
+  var mainSz=0.3+sr()*0.5;
+  var main=new THREE.Mesh(new THREE.SphereGeometry(mainSz,8,6),sr()<0.6?rockMat:rockLightMat);
+  main.scale.set(1+sr()*0.6,0.4+sr()*0.4,1+sr()*0.6);
+  main.position.y=mainSz*0.2;
+  main.rotation.set(sr()*0.5,sr()*3,sr()*0.3);
+  main.castShadow=true;main.receiveShadow=true;
+  g.add(main);
+
+  // Secondary stones (1-3 smaller companions)
+  var secN=1+Math.floor(sr()*3);
+  for(var si=0;si<secN;si++){
+    var sa=sr()*6.28, sd=mainSz*0.6+sr()*mainSz*0.5;
+    var sSz=mainSz*0.3+sr()*mainSz*0.4;
+    var sec=new THREE.Mesh(new THREE.SphereGeometry(sSz,5,4),sr()<0.5?rockMat:rockLightMat);
+    sec.scale.set(1+sr()*0.5,0.3+sr()*0.4,1+sr()*0.5);
+    sec.position.set(Math.cos(sa)*sd,sSz*0.15,Math.sin(sa)*sd);
+    sec.rotation.set(sr()*0.8,sr()*3,sr()*0.5);
+    g.add(sec);
+  }
+
+  // Moss patches on top surfaces (2-4 green blobs)
+  var mossN=2+Math.floor(sr()*3);
+  for(var mi=0;mi<mossN;mi++){
+    var ma=sr()*6.28, md=sr()*mainSz*0.6;
+    var mSz=mainSz*0.15+sr()*mainSz*0.2;
+    var moss=new THREE.Mesh(new THREE.SphereGeometry(mSz,4,3),mossMat);
+    moss.scale.set(1.5,0.2,1.5);
+    moss.position.set(Math.cos(ma)*md,mainSz*0.35+sr()*0.05,Math.sin(ma)*md);
+    g.add(moss);
+  }
+
+  // Lichen spots (tiny colored patches — yellow/orange/gray)
+  var lichenColors=[0x887744,0x998855,0x667755,0xaa9966];
+  for(var li=0;li<3;li++){
+    var lichenMat=new THREE.MeshStandardMaterial({
+      color:lichenColors[Math.floor(sr()*lichenColors.length)],
+      roughness:0.9,transparent:true,opacity:0.5
+    });
+    var la=sr()*6.28;
+    var lichen=new THREE.Mesh(new THREE.SphereGeometry(mainSz*0.06+sr()*mainSz*0.08,3,3),lichenMat);
+    lichen.scale.set(2,0.15,2);
+    lichen.position.set(Math.cos(la)*mainSz*0.5,mainSz*0.25+sr()*0.1,Math.sin(la)*mainSz*0.5);
+    g.add(lichen);
+  }
+
+  // Embedded pebbles at base (4-6 tiny half-buried stones)
+  var pebMat=new THREE.MeshStandardMaterial({color:0x3a3a40,roughness:0.9});
+  var pebN=4+Math.floor(sr()*3);
+  for(var pi=0;pi<pebN;pi++){
+    var pa=sr()*6.28, pd=mainSz*0.5+sr()*mainSz*0.6;
+    var pSz=0.03+sr()*0.05;
+    var peb=new THREE.Mesh(new THREE.SphereGeometry(pSz,3,3),pebMat);
+    peb.scale.set(1+sr()*0.5,0.4,1+sr()*0.5);
+    peb.position.set(Math.cos(pa)*pd,pSz*0.15,Math.sin(pa)*pd);
+    g.add(peb);
+  }
+
+  // Tiny grass tuft growing from crevice (2-3 blades)
+  if(sr()<0.6){
+    var grassMat=new THREE.MeshStandardMaterial({
+      color:0x33aa55,emissive:C.grassTip,emissiveIntensity:0.05,
+      roughness:0.7,side:THREE.DoubleSide
+    });
+    for(var gi=0;gi<3;gi++){
+      var ga=sr()*6.28;
+      var blade=new THREE.Mesh(new THREE.PlaneGeometry(0.015,0.08+sr()*0.06),grassMat);
+      blade.position.set(Math.cos(ga)*mainSz*0.3,mainSz*0.3,Math.sin(ga)*mainSz*0.3);
+      blade.rotation.y=sr()*3;blade.rotation.x=-0.2-sr()*0.3;
+      g.add(blade);
+    }
+  }
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,x:x,z:z,colR:mainSz*0.8};
+}
+
+// --- Fern (enhanced frond compound) ---
+function makeFern(x,z){
+  var g=new THREE.Group();
+  var fMat=new THREE.MeshStandardMaterial({
+    color:C.fern,emissive:C.fernGlow,emissiveIntensity:0.08,
+    roughness:0.7,side:THREE.DoubleSide
+  });
+  var frondCount=3+Math.floor(sr()*2);
+  var scale=0.5+sr()*0.7;
+
+  // Root clump at base (dark humus mound)
+  var rootMat=new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.95});
+  var rootClump=new THREE.Mesh(new THREE.SphereGeometry(0.06,5,3),rootMat);
+  rootClump.scale.set(1.5,0.5,1.5);rootClump.position.y=0.02;g.add(rootClump);
+  // Tiny root tendrils
+  for(var ri=0;ri<3;ri++){
+    var ra=sr()*6.28;
+    var root=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.002,0.08,3),rootMat);
+    root.position.set(Math.cos(ra)*0.06,0.01,Math.sin(ra)*0.06);
+    root.rotation.z=(ra<3.14?1:-1)*1.2;root.rotation.y=ra;g.add(root);
+  }
+
+  for(var i=0;i<frondCount;i++){
+    var ang=(i/frondCount)*6.28+sr()*0.3;
+    // Frond midrib (thin cylinder spine)
+    var midrib=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.006,0.55,3),
+      new THREE.MeshStandardMaterial({color:0x1a4520,roughness:0.8}));
+    midrib.position.set(Math.cos(ang)*0.15,0.25,Math.sin(ang)*0.15);
+    midrib.rotation.y=-ang;midrib.rotation.x=-0.6-sr()*0.4;
+    g.add(midrib);
+    // Frond blade
+    var frond=new THREE.Mesh(new THREE.PlaneGeometry(0.12,0.6,1,3),fMat);
+    frond.position.set(Math.cos(ang)*0.15,0.25,Math.sin(ang)*0.15);
+    frond.rotation.y=-ang;
+    frond.rotation.x=-0.6-sr()*0.4;
+    g.add(frond);
+    // Leaflets along the frond (6 instead of 4, alternating)
+    for(var j=0;j<6;j++){
+      var lf=new THREE.Mesh(new THREE.PlaneGeometry(0.07,0.06,1,1),fMat);
+      var fy=0.06+j*0.08;
+      var side=(j%2===0)?1:-1;
+      lf.position.set(Math.cos(ang)*(0.15+0.06),fy,Math.sin(ang)*(0.15+0.06*side));
+      lf.rotation.y=-ang;lf.rotation.x=-0.8;lf.rotation.z=side*0.5;
+      g.add(lf);
+    }
+    // Spore dots on underside (3 per frond)
+    var sporeMat=new THREE.MeshStandardMaterial({
+      color:0x886622,emissive:0x443311,emissiveIntensity:0.1
+    });
+    for(var sp=0;sp<3;sp++){
+      var spore=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),sporeMat);
+      var sy=0.12+sp*0.12;
+      spore.position.set(Math.cos(ang)*(0.15+0.02),sy-0.01,Math.sin(ang)*(0.15+0.02));
+      g.add(spore);
+    }
+  }
+  // Center curl (fiddlehead) with spiral hint
+  var curlMat=new THREE.MeshStandardMaterial({
+    color:C.fernGlow,emissive:C.fernGlow,emissiveIntensity:0.3
+  });
+  var curl=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),curlMat);
+  curl.position.y=0.35;g.add(curl);
+  // Spiral arm on fiddlehead
+  var spiralArm=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.003,0.06,3),curlMat);
+  spiralArm.position.set(0.02,0.37,0);spiralArm.rotation.z=-0.8;g.add(spiralArm);
+
+  // Water droplets on fronds (3-4 tiny glass beads)
+  var dropMat=new THREE.MeshStandardMaterial({
+    color:0xeeffff,emissive:0x88bbdd,emissiveIntensity:0.1,
+    transparent:true,opacity:0.5,roughness:0.0,metalness:0.5
+  });
+  for(var dri=0;dri<3;dri++){
+    var dra=sr()*6.28,drd=sr()*0.2;
+    var drop=new THREE.Mesh(new THREE.SphereGeometry(0.006+sr()*0.005,3,3),dropMat);
+    drop.position.set(Math.cos(dra)*drd,0.12+sr()*0.2,Math.sin(dra)*drd);
+    g.add(drop);
+  }
+
+  // Dead brown frond (one withered frond at base)
+  var deadMat=new THREE.MeshStandardMaterial({
+    color:0x3a2a10,roughness:0.9,side:THREE.DoubleSide,transparent:true,opacity:0.6
+  });
+  var deadFrond=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.4,1,2),deadMat);
+  var deadAng=sr()*6.28;
+  deadFrond.position.set(Math.cos(deadAng)*0.12,0.05,Math.sin(deadAng)*0.12);
+  deadFrond.rotation.x=-1.3;deadFrond.rotation.y=deadAng;g.add(deadFrond);
+
+  // Stipe hairs (tiny fuzz on main stems)
+  var hairMat=new THREE.MeshBasicMaterial({color:0x2a4020,transparent:true,opacity:0.3});
+  for(var hi=0;hi<4;hi++){
+    var hair=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.001,0.015,3),hairMat);
+    hair.position.set((sr()-0.5)*0.08,0.08+sr()*0.15,(sr()-0.5)*0.08);
+    hair.rotation.z=(sr()-0.5)*1.5;g.add(hair);
+  }
+
+  // Soil crumbs at base
+  var soilMat=new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.95});
+  for(var sci=0;sci<3;sci++){
+    var soil=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),soilMat);
+    soil.position.set((sr()-0.5)*0.1,0.005,(sr()-0.5)*0.1);g.add(soil);
+  }
+
+  g.scale.setScalar(scale);
+  g.position.set(x,0,z);
+  scene.add(g);
+  return{group:g,phase:sr()*6.28};
+}
+
+// --- Glowing Flower (enhanced stem + petals + glowing center) ---
+function makeFlower(x,z){
+  var g=new THREE.Group();
+  var h=0.25+sr()*0.4;
+  var stemMat=new THREE.MeshStandardMaterial({color:C.flowerStem,roughness:0.8});
+  // Stem with slight bend
+  var stem=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.015,h,4),stemMat);
+  stem.position.y=h/2;g.add(stem);
+  // Stem thorn nubs (1-2 tiny bumps)
+  for(var ti=0;ti<2;ti++){
+    var thorn=new THREE.Mesh(new THREE.ConeGeometry(0.004,0.012,3),stemMat);
+    thorn.position.set(0.012,h*0.25+ti*h*0.25,0);
+    thorn.rotation.z=-1.2;g.add(thorn);
+  }
+  // Leaves on stem (2 opposite)
+  var leafMat=new THREE.MeshStandardMaterial({color:C.fern,roughness:0.7,side:THREE.DoubleSide});
+  var leaf1=new THREE.Mesh(new THREE.PlaneGeometry(0.06,0.04),leafMat);
+  leaf1.position.set(0.03,h*0.3,0);leaf1.rotation.z=-0.5;g.add(leaf1);
+  var leaf2=new THREE.Mesh(new THREE.PlaneGeometry(0.05,0.035),leafMat);
+  leaf2.position.set(-0.025,h*0.5,0.01);leaf2.rotation.z=0.6;g.add(leaf2);
+  // Sepals (5 small green triangles under petals)
+  var sepalMat=new THREE.MeshStandardMaterial({
+    color:0x1a6030,roughness:0.7,side:THREE.DoubleSide
+  });
+  for(var si=0;si<5;si++){
+    var sa=(si/5)*6.28+0.3;
+    var sepal=new THREE.Mesh(new THREE.PlaneGeometry(0.025,0.02),sepalMat);
+    sepal.position.set(Math.cos(sa)*0.025,h-0.005,Math.sin(sa)*0.025);
+    sepal.rotation.x=-1.2;sepal.rotation.y=-sa;g.add(sepal);
+  }
+  // Petals (6 around center, slightly overlapping)
+  var petalMat=new THREE.MeshStandardMaterial({
+    color:C.flower,emissive:C.flowerGlow,emissiveIntensity:0.4+sr()*0.4,
+    transparent:true,opacity:0.85,side:THREE.DoubleSide
+  });
+  for(var i=0;i<6;i++){
+    var pa=(i/6)*6.28;
+    var petal=new THREE.Mesh(new THREE.PlaneGeometry(0.05,0.04),petalMat);
+    petal.position.set(Math.cos(pa)*0.03,h+0.01,Math.sin(pa)*0.03);
+    petal.rotation.x=-0.8;petal.rotation.y=-pa;
+    g.add(petal);
+  }
+  // Glowing center
+  var centerMat=new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:C.flowerGlow,emissiveIntensity:1.2
+  });
+  var center=new THREE.Mesh(new THREE.SphereGeometry(0.02,4,3),centerMat);
+  center.position.y=h+0.02;g.add(center);
+  // Stamen filaments (3 tiny uprights with pollen tips)
+  var stamenMat=new THREE.MeshBasicMaterial({color:0xffffaa,transparent:true,opacity:0.7});
+  var pollenMat=new THREE.MeshBasicMaterial({color:0xffee44});
+  for(var fi=0;fi<3;fi++){
+    var fa=(fi/3)*6.28+0.5;
+    var filament=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.025,3),stamenMat);
+    filament.position.set(Math.cos(fa)*0.012,h+0.03,Math.sin(fa)*0.012);
+    g.add(filament);
+    var pollen=new THREE.Mesh(new THREE.SphereGeometry(0.005,3,3),pollenMat);
+    pollen.position.set(Math.cos(fa)*0.012,h+0.045,Math.sin(fa)*0.012);
+    g.add(pollen);
+  }
+  // Floating pollen dust (2 tiny motes above)
+  var pdustMat=new THREE.MeshBasicMaterial({color:0xffffcc,transparent:true,opacity:0.3});
+  for(var pi=0;pi<2;pi++){
+    var pdust=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),pdustMat);
+    pdust.position.set((sr()-0.5)*0.04,h+0.06+sr()*0.04,(sr()-0.5)*0.04);
+    g.add(pdust);
+  }
+
+  // Nectar drop (tiny glass bead at flower center base)
+  var nectarMat=new THREE.MeshStandardMaterial({
+    color:0xffeeaa,emissive:0xffdd44,emissiveIntensity:0.2,
+    transparent:true,opacity:0.5,roughness:0.0,metalness:0.4
+  });
+  var nectar=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),nectarMat);
+  nectar.position.set(0.005,h+0.005,0.005);g.add(nectar);
+
+  // Pistil (central upright pin)
+  var pistilMat=new THREE.MeshBasicMaterial({color:0xeeff88});
+  var pistil=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.03,3),pistilMat);
+  pistil.position.y=h+0.035;g.add(pistil);
+  // Stigma (tiny ball on pistil tip)
+  var stigma=new THREE.Mesh(new THREE.SphereGeometry(0.005,3,3),pistilMat);
+  stigma.position.y=h+0.055;g.add(stigma);
+
+  // Calyx tube (green cup under sepals)
+  var calyxMat=new THREE.MeshStandardMaterial({color:0x1a5520,roughness:0.7});
+  var calyx=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,0.02,5),calyxMat);
+  calyx.position.y=h-0.01;g.add(calyx);
+
+  // Petal edge micro-dots (dewdrop beads on petal tips)
+  var petalDotMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.35});
+  for(var pdi=0;pdi<4;pdi++){
+    var pda=(pdi/4)*6.28+0.3;
+    var pdot=new THREE.Mesh(new THREE.SphereGeometry(0.004,3,3),petalDotMat);
+    pdot.position.set(Math.cos(pda)*0.045,h+0.005,Math.sin(pda)*0.045);
+    g.add(pdot);
+  }
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,petalMat:petalMat,phase:sr()*6.28,baseH:h};
+}
+
+// --- Reed cluster (enhanced tall thin swaying tubes) ---
+function makeReed(x,z){
+  var g=new THREE.Group();
+  var reedMat=new THREE.MeshStandardMaterial({
+    color:C.reed,emissive:C.reedTip,emissiveIntensity:0.05,roughness:0.7
+  });
+  var tipMat=new THREE.MeshStandardMaterial({
+    color:C.reedTip,emissive:C.reedTip,emissiveIntensity:0.15
+  });
+  // Base mud clump
+  var mudMat=new THREE.MeshStandardMaterial({color:0x1a1510,roughness:0.95});
+  var mud=new THREE.Mesh(new THREE.SphereGeometry(0.08,5,3),mudMat);
+  mud.scale.set(1.5,0.4,1.5);mud.position.y=0.02;g.add(mud);
+
+  var count=3+Math.floor(sr()*4);
+  var leafMat=new THREE.MeshStandardMaterial({
+    color:C.reed,roughness:0.7,side:THREE.DoubleSide
+  });
+  for(var i=0;i<count;i++){
+    var h=0.6+sr()*1.0;
+    var ox=(sr()-0.5)*0.2,oz=(sr()-0.5)*0.2;
+    var stalk=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.015,h,4),reedMat);
+    stalk.position.set(ox,h/2,oz);g.add(stalk);
+    // Joint nodes (2-3 per stalk)
+    var jointN=2+Math.floor(sr()*2);
+    var jointMat=new THREE.MeshStandardMaterial({color:0x2a4a20,roughness:0.7});
+    for(var ji=0;ji<jointN;ji++){
+      var jy=h*0.2+ji*h*0.25;
+      var joint=new THREE.Mesh(new THREE.TorusGeometry(0.012,0.004,4,6),jointMat);
+      joint.position.set(ox,jy,oz);joint.rotation.x=Math.PI/2;g.add(joint);
+    }
+    // Leaf blade from a joint (1 per stalk, arching out)
+    if(sr()<0.7){
+      var leafLen=0.1+sr()*0.15;
+      var la=sr()*6.28;
+      var leaf=new THREE.Mesh(new THREE.PlaneGeometry(0.02,leafLen),leafMat);
+      leaf.position.set(ox+Math.cos(la)*0.02,h*0.4,oz+Math.sin(la)*0.02);
+      leaf.rotation.y=-la;leaf.rotation.x=-0.5-sr()*0.4;
+      g.add(leaf);
+    }
+    // Tip tuft (seed plume — elongated with fluff)
+    var tip=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),tipMat);
+    tip.scale.set(0.8,1.5,0.8);tip.position.set(ox,h+0.02,oz);g.add(tip);
+    // Seed plume whiskers (3 tiny upward lines)
+    var whiskMat=new THREE.MeshBasicMaterial({color:C.reedTip,transparent:true,opacity:0.4});
+    for(var wi=0;wi<3;wi++){
+      var wa=wi/3*6.28+sr()*0.5;
+      var whisk=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.001,0.04,3),whiskMat);
+      whisk.position.set(ox+Math.cos(wa)*0.015,h+0.05,oz+Math.sin(wa)*0.015);
+      whisk.rotation.z=(sr()-0.5)*0.4;g.add(whisk);
+    }
+  }
+  g.position.set(x,0,z);scene.add(g);
+
+  // Dried leaf sheaths (papery brown wraps at joints)
+  var sheathMat=new THREE.MeshStandardMaterial({
+    color:0x4a3a18,roughness:0.9,side:THREE.DoubleSide,transparent:true,opacity:0.5
+  });
+  for(var shi=0;shi<2;shi++){
+    var shA=sr()*6.28,shD=(sr()-0.5)*0.15;
+    var sheath=new THREE.Mesh(new THREE.PlaneGeometry(0.025,0.02),sheathMat);
+    sheath.position.set(shD,0.2+shi*0.25,(sr()-0.5)*0.1);
+    sheath.rotation.set(sr()*0.5,sr(),sr()*0.5);g.add(sheath);
+  }
+
+  // Cattail fluff wisps (floating white motes near tips)
+  var fluffMat=new THREE.MeshBasicMaterial({color:0xeeddcc,transparent:true,opacity:0.25});
+  for(var ffi=0;ffi<3;ffi++){
+    var fluff=new THREE.Mesh(new THREE.SphereGeometry(0.005,3,3),fluffMat);
+    fluff.position.set((sr()-0.5)*0.15,0.8+sr()*0.6,(sr()-0.5)*0.15);
+    g.add(fluff);
+  }
+
+  // Water stain band (faint horizontal ring at ground level)
+  var stainMat=new THREE.MeshStandardMaterial({
+    color:0x223320,roughness:0.9,transparent:true,opacity:0.2
+  });
+  var stain=new THREE.Mesh(new THREE.TorusGeometry(0.1,0.008,4,8),stainMat);
+  stain.rotation.x=Math.PI/2;stain.position.y=0.03;g.add(stain);
+
+  return{group:g,phase:sr()*6.28,swayAmp:0.03+sr()*0.04};
+}
+
+// --- Will-o'-Wisp (luminous companion — enhanced detail) ---
+function makeWisp(x,y,z){
+  var g=new THREE.Group();
+  // Core bright sphere
+  var coreMat=new THREE.MeshBasicMaterial({color:C.wispCore});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(0.08,6,4),coreMat);
+  g.add(core);
+  // Inner faceted crystal (icosahedron inside core for sparkle)
+  var facetMat=new THREE.MeshBasicMaterial({
+    color:0xffffff,transparent:true,opacity:0.7,wireframe:true
+  });
+  var facet=new THREE.Mesh(new THREE.IcosahedronGeometry(0.06,0),facetMat);
+  g.add(facet);
+  // Inner glow shell
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.wispGlow,transparent:true,opacity:0.5
+  });
+  var glow=new THREE.Mesh(new THREE.SphereGeometry(0.18,6,4),glowMat);
+  g.add(glow);
+  // Halo ring (thin torus around equator)
+  var haloMat=new THREE.MeshBasicMaterial({
+    color:C.wispGlow,transparent:true,opacity:0.25
+  });
+  var halo=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.008,4,12),haloMat);
+  halo.rotation.x=Math.PI/2;g.add(halo);
+  // Outer haze
+  var hazeMat=new THREE.MeshBasicMaterial({
+    color:C.wispTrail,transparent:true,opacity:0.15
+  });
+  var haze=new THREE.Mesh(new THREE.SphereGeometry(0.35,5,4),hazeMat);
+  g.add(haze);
+  // Tiny sparkle orbiter
+  var sparkMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8});
+  var spark=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),sparkMat);
+  spark.position.set(0.15,0,0);
+  g.add(spark);
+  // Trailing ember motes (3 tiny dots behind)
+  var emberMat=new THREE.MeshBasicMaterial({color:C.wispCore,transparent:true,opacity:0.35});
+  for(var ei=0;ei<3;ei++){
+    var ember=new THREE.Mesh(new THREE.SphereGeometry(0.01,3,3),emberMat);
+    ember.position.set((sr()-0.5)*0.1,-0.1-ei*0.08,(sr()-0.5)*0.1);
+    g.add(ember);
+  }
+
+  // Plasma tendrils (3 curved filament arcs radiating from core)
+  var plasmaMat=new THREE.MeshBasicMaterial({
+    color:C.wispGlow,transparent:true,opacity:0.18
+  });
+  for(var pi=0;pi<3;pi++){
+    var pa=(pi/3)*6.28+sr()*0.5;
+    var pLen=0.15+sr()*0.1;
+    var plasma=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.001,pLen,3),plasmaMat);
+    plasma.position.set(Math.cos(pa)*0.1,sr()*0.08,Math.sin(pa)*0.1);
+    plasma.rotation.z=Math.PI/3*((pa<3.14)?1:-1);plasma.rotation.y=pa;
+    g.add(plasma);
+  }
+
+  // Secondary halo (tilted at different angle)
+  var halo2Mat=new THREE.MeshBasicMaterial({
+    color:C.wispGlow,transparent:true,opacity:0.12
+  });
+  var halo2=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.005,4,10),halo2Mat);
+  halo2.rotation.x=1.2;halo2.rotation.z=0.8;g.add(halo2);
+
+  // Core surface flicker spots (tiny bright patches)
+  var flickMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.5});
+  for(var fi=0;fi<4;fi++){
+    var fa=sr()*6.28,fel=sr()*0.8;
+    var flick=new THREE.Mesh(new THREE.SphereGeometry(0.006,3,3),flickMat);
+    flick.position.set(Math.cos(fa)*0.06,Math.sin(fel)*0.06,Math.sin(fa)*0.06);
+    g.add(flick);
+  }
+
+  // Micro-spark chain (tiny connected dots trailing downward)
+  var chainMat=new THREE.MeshBasicMaterial({color:C.wispCore,transparent:true,opacity:0.2});
+  for(var ci=0;ci<4;ci++){
+    var chain=new THREE.Mesh(new THREE.SphereGeometry(0.004,3,3),chainMat);
+    chain.position.set(0.03+sr()*0.04,-0.05-ci*0.04,sr()*0.04);
+    g.add(chain);
+  }
+
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,glowMat:glowMat,hazeMat:hazeMat,phase:sr()*6.28,
+    targetX:x,targetY:y,targetZ:z,velX:0,velY:0,velZ:0,scatter:0};
+}
+
+// --- Dandelion Puff (enhanced stem + seed head, dispersible) ---
+function makeDandelion(x,z){
+  var g=new THREE.Group();
+  var h=0.35+sr()*0.45;
+  // Basal leaf rosette (3-4 toothed leaves flat on ground)
+  var rosetteMat=new THREE.MeshStandardMaterial({
+    color:0x2a6028,roughness:0.7,side:THREE.DoubleSide
+  });
+  var rosN=3+Math.floor(sr()*2);
+  for(var ri=0;ri<rosN;ri++){
+    var ra=(ri/rosN)*6.28+sr()*0.3;
+    var rLeaf=new THREE.Mesh(new THREE.PlaneGeometry(0.08,0.035),rosetteMat);
+    rLeaf.position.set(Math.cos(ra)*0.05,0.02,Math.sin(ra)*0.05);
+    rLeaf.rotation.x=-1.4;rLeaf.rotation.y=-ra;g.add(rLeaf);
+  }
+  // Stem
+  var stemMat=new THREE.MeshStandardMaterial({color:C.dandStem,roughness:0.8});
+  var stem=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.012,h,4),stemMat);
+  stem.position.y=h/2;g.add(stem);
+  // Stem fuzz (tiny hairs along stem)
+  var fuzzMat=new THREE.MeshBasicMaterial({color:0xddddcc,transparent:true,opacity:0.3});
+  for(var fi=0;fi<4;fi++){
+    var fy=h*0.2+fi*h*0.18;
+    var fuzz=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.001,0.02,3),fuzzMat);
+    fuzz.position.set(0.01,fy,0);fuzz.rotation.z=-0.8;g.add(fuzz);
+  }
+  // Leaf at base (original)
+  var leafMat=new THREE.MeshStandardMaterial({color:C.fern,roughness:0.7,side:THREE.DoubleSide});
+  var leaf=new THREE.Mesh(new THREE.PlaneGeometry(0.07,0.03),leafMat);
+  leaf.position.set(0.03,h*0.15,0);leaf.rotation.z=-0.4;g.add(leaf);
+  // Seed head (fluffy sphere)
+  var headMat=new THREE.MeshStandardMaterial({
+    color:C.dandHead,emissive:C.dandSeedGlow,emissiveIntensity:0.2,
+    transparent:true,opacity:0.85
+  });
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.07,6,5),headMat);
+  head.position.y=h+0.05;g.add(head);
+  // Dew drop on seed head
+  var dewMat=new THREE.MeshStandardMaterial({
+    color:0xeeffff,emissive:0xaaddff,emissiveIntensity:0.15,
+    transparent:true,opacity:0.5,roughness:0.0,metalness:0.5
+  });
+  var dew=new THREE.Mesh(new THREE.SphereGeometry(0.012,4,3),dewMat);
+  dew.position.set(0.04,h+0.07,0.03);g.add(dew);
+  // Individual seed tufts (8 tiny cones radiating outward, up from 6)
+  var tuftMat=new THREE.MeshBasicMaterial({color:C.dandSeed,transparent:true,opacity:0.7});
+  for(var i=0;i<8;i++){
+    var ta=(i/8)*6.28+sr()*0.2;
+    var tuft=new THREE.Mesh(new THREE.ConeGeometry(0.015,0.05,3),tuftMat);
+    tuft.position.set(Math.cos(ta)*0.06,h+0.05+sr()*0.04,Math.sin(ta)*0.06);
+    tuft.rotation.x=(sr()-0.5)*0.6;tuft.rotation.z=(sr()-0.5)*0.6;
+    g.add(tuft);
+    // Tiny filament from each tuft
+    var filMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.3});
+    var fil=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.001,0.03,3),filMat);
+    fil.position.set(Math.cos(ta)*0.08,h+0.08,Math.sin(ta)*0.08);
+    fil.rotation.set((sr()-0.5)*0.5,0,(sr()-0.5)*0.5);g.add(fil);
+    // Pappus fiber fan (2 radial hair lines per tuft)
+    var papMat=new THREE.MeshBasicMaterial({color:0xeeeedd,transparent:true,opacity:0.15});
+    for(var pfi=0;pfi<2;pfi++){
+      var pfA=ta+(pfi-0.5)*0.5;
+      var pap=new THREE.Mesh(new THREE.CylinderGeometry(0.0008,0.0008,0.025,3),papMat);
+      pap.position.set(Math.cos(pfA)*0.075,h+0.09,Math.sin(pfA)*0.075);
+      pap.rotation.set((sr()-0.5)*0.8,0,(sr()-0.5)*0.8);g.add(pap);
+    }
+  }
+
+  // Achene seeds (tiny dark oval at base of each tuft cluster)
+  var achMat=new THREE.MeshStandardMaterial({color:0x3a2a10,roughness:0.9});
+  for(var ai=0;ai<4;ai++){
+    var aa=(ai/4)*6.28+sr()*0.5;
+    var ach=new THREE.Mesh(new THREE.SphereGeometry(0.005,3,3),achMat);
+    ach.scale.set(0.6,1.5,0.6);
+    ach.position.set(Math.cos(aa)*0.04,h+0.04,Math.sin(aa)*0.04);
+    g.add(ach);
+  }
+
+  // Stem groove lines (3 faint vertical lines)
+  var grooveMat=new THREE.MeshBasicMaterial({color:0x1a3010,transparent:true,opacity:0.15});
+  for(var gi=0;gi<3;gi++){
+    var ga=(gi/3)*6.28;
+    var groove=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.001,h*0.7,3),grooveMat);
+    groove.position.set(Math.cos(ga)*0.01,h*0.35,Math.sin(ga)*0.01);
+    g.add(groove);
+  }
+
+  // Micro-trichomes (tiny hairs on stem surface)
+  var trichMat=new THREE.MeshBasicMaterial({color:0xccddbb,transparent:true,opacity:0.2});
+  for(var tri=0;tri<5;tri++){
+    var tY=h*0.1+sr()*h*0.7;
+    var tA=sr()*6.28;
+    var trich=new THREE.Mesh(new THREE.CylinderGeometry(0.0008,0.0008,0.012,3),trichMat);
+    trich.position.set(Math.cos(tA)*0.012,tY,Math.sin(tA)*0.012);
+    trich.rotation.z=(tA<3.14?-0.8:0.8);trich.rotation.y=tA;
+    g.add(trich);
+  }
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,headMat:headMat,x:x,z:z,h:h,dispersed:false,phase:sr()*6.28,
+    seedCount:8,regrowTimer:0};
+}
+
+// --- Fairy Ring (enhanced mushroom circle + glow ring) ---
+function makeFairyRing(x,z){
+  var g=new THREE.Group();
+  var ringR=FAIRY_RING_R;
+  var mushCount=8+Math.floor(sr()*5);
+  var mushMat=new THREE.MeshStandardMaterial({
+    color:C.fairyMush,emissive:C.fairyGlow,emissiveIntensity:0.2,roughness:0.5
+  });
+  var stemMat=new THREE.MeshStandardMaterial({
+    color:C.mushStem,roughness:0.7,emissive:C.fairyGlow,emissiveIntensity:0.05
+  });
+  for(var i=0;i<mushCount;i++){
+    var a=(i/mushCount)*6.28+sr()*0.15;
+    var mr=ringR+sr()*0.3-0.15;
+    var sc=0.15+sr()*0.2;
+    // Mini mushroom stem
+    var s=new THREE.Mesh(GEO.mushStem,stemMat);
+    s.scale.setScalar(sc);s.position.set(Math.cos(a)*mr,sc*0.3,Math.sin(a)*mr);g.add(s);
+    // Mini cap
+    var cap=new THREE.Mesh(GEO.mushCap,mushMat);
+    cap.scale.set(sc,sc*0.4,sc);cap.position.set(Math.cos(a)*mr,sc*0.55,Math.sin(a)*mr);g.add(cap);
+    // Cap dot (white spot on each mini cap)
+    var dotMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.7});
+    var dot=new THREE.Mesh(new THREE.SphereGeometry(sc*0.08,3,3),dotMat);
+    dot.position.set(Math.cos(a)*mr,sc*0.6,Math.sin(a)*mr);g.add(dot);
+  }
+  // Tiny toadstools between main mushrooms (smaller extras)
+  var toadMat=new THREE.MeshStandardMaterial({
+    color:0x885588,emissive:C.fairyGlow,emissiveIntensity:0.1,roughness:0.6
+  });
+  for(var ti=0;ti<5;ti++){
+    var ta=sr()*6.28;
+    var tr=ringR+sr()*0.6-0.3;
+    var tsc=0.06+sr()*0.06;
+    var toad=new THREE.Mesh(GEO.mushCap,toadMat);
+    toad.scale.set(tsc,tsc*0.5,tsc);
+    toad.position.set(Math.cos(ta)*tr,tsc*0.35,Math.sin(ta)*tr);g.add(toad);
+  }
+  // Moss patches on ground between mushrooms (3-5 green blobs)
+  var mossMat=new THREE.MeshStandardMaterial({
+    color:0x1a5525,emissive:0x0a2210,emissiveIntensity:0.05,roughness:0.9
+  });
+  for(var mi=0;mi<4;mi++){
+    var ma=sr()*6.28,md=sr()*ringR*0.8;
+    var moss=new THREE.Mesh(new THREE.SphereGeometry(0.08+sr()*0.08,4,3),mossMat);
+    moss.scale.set(1.5,0.2,1.5);
+    moss.position.set(Math.cos(ma)*md,0.01,Math.sin(ma)*md);g.add(moss);
+  }
+  // Center stone (flat pebble at ring center)
+  var stoneMat=new THREE.MeshStandardMaterial({
+    color:0x445566,emissive:C.fairyGlow,emissiveIntensity:0.05,roughness:0.85
+  });
+  var stone=new THREE.Mesh(new THREE.SphereGeometry(0.12,5,3),stoneMat);
+  stone.scale.set(1.2,0.3,1.0);stone.position.y=0.03;g.add(stone);
+  // Spore haze motes (floating particles inside ring)
+  var sporeMat=new THREE.MeshBasicMaterial({
+    color:C.fairyGlow,transparent:true,opacity:0.2
+  });
+  for(var si=0;si<6;si++){
+    var spore=new THREE.Mesh(new THREE.SphereGeometry(0.01,3,3),sporeMat);
+    spore.position.set((sr()-0.5)*ringR*0.8,0.1+sr()*0.4,(sr()-0.5)*ringR*0.8);
+    g.add(spore);
+  }
+  // Central glow disc (flat ring on ground)
+  var discMat=new THREE.MeshBasicMaterial({
+    color:C.fairyRing,transparent:true,opacity:0.0,side:THREE.DoubleSide
+  });
+  var disc=new THREE.Mesh(new THREE.RingGeometry(0.3,ringR-0.3,16),discMat);
+  disc.rotation.x=-Math.PI/2;disc.position.y=0.02;g.add(disc);
+
+  // Mycelium web threads on ground (radial connecting lines between mushrooms)
+  var webMat=new THREE.MeshBasicMaterial({
+    color:C.fairyGlow,transparent:true,opacity:0.08
+  });
+  for(var wi=0;wi<6;wi++){
+    var wA1=sr()*6.28,wA2=wA1+0.5+sr()*1.5;
+    var webLen=ringR*0.6+sr()*ringR*0.4;
+    var web=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,webLen,3),webMat);
+    web.position.set(Math.cos((wA1+wA2)/2)*ringR*0.4,0.005,Math.sin((wA1+wA2)/2)*ringR*0.4);
+    web.rotation.x=Math.PI/2;web.rotation.z=wA1;g.add(web);
+  }
+
+  // Tiny fallen spore caps (old dried mushroom remnants)
+  var oldCapMat=new THREE.MeshStandardMaterial({
+    color:0x4a3a30,roughness:0.9,transparent:true,opacity:0.5
+  });
+  for(var oci=0;oci<3;oci++){
+    var oa=sr()*6.28,od=sr()*ringR*0.7;
+    var oldCap=new THREE.Mesh(new THREE.SphereGeometry(0.03,4,3),oldCapMat);
+    oldCap.scale.set(1.3,0.3,1.3);
+    oldCap.position.set(Math.cos(oa)*od,0.008,Math.sin(oa)*od);g.add(oldCap);
+  }
+
+  // Lichen spots on center stone
+  var lichMat=new THREE.MeshStandardMaterial({
+    color:0x778866,roughness:0.9,transparent:true,opacity:0.5
+  });
+  for(var lci=0;lci<2;lci++){
+    var lich=new THREE.Mesh(new THREE.CircleGeometry(0.02+sr()*0.02,4),lichMat);
+    lich.position.set((sr()-0.5)*0.08,0.06,(sr()-0.5)*0.06);
+    lich.rotation.x=-Math.PI/2+sr()*0.4;g.add(lich);
+  }
+
+  // Glow worm dots (tiny bioluminescent specks at ground level)
+  var gwMat=new THREE.MeshBasicMaterial({
+    color:0x88ffaa,transparent:true,opacity:0.25
+  });
+  for(var gwi=0;gwi<5;gwi++){
+    var gwa=sr()*6.28,gwd=sr()*ringR*0.9;
+    var gw=new THREE.Mesh(new THREE.SphereGeometry(0.005,3,3),gwMat);
+    gw.position.set(Math.cos(gwa)*gwd,0.01,Math.sin(gwa)*gwd);g.add(gw);
+  }
+
+  // Dew-wet soil ring (dark dampness circle just inside mushroom ring)
+  var dampMat=new THREE.MeshBasicMaterial({
+    color:0x0a0a06,transparent:true,opacity:0.15,side:THREE.DoubleSide
+  });
+  var damp=new THREE.Mesh(new THREE.RingGeometry(ringR*0.5,ringR*0.85,12),dampMat);
+  damp.rotation.x=-Math.PI/2;damp.position.y=0.008;g.add(damp);
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,mushMat:mushMat,discMat:discMat,x:x,z:z,phase:sr()*6.28,
+    glowIntensity:0,active:false};
+}
+
+// --- Bubble Sprite (enhanced drifting iridescent) ---
+function makeBubble(x,y,z){
+  var g=new THREE.Group();
+  // Main sphere
+  var shellMat=new THREE.MeshStandardMaterial({
+    color:C.bubbleIris,emissive:C.bubbleIris,emissiveIntensity:0.15,
+    transparent:true,opacity:0.25,roughness:0.0,metalness:0.6
+  });
+  var shell=new THREE.Mesh(GEO.bubble,shellMat);
+  g.add(shell);
+  // Surface swirl bands (2 thin torus rings at different angles)
+  var swirlMat=new THREE.MeshBasicMaterial({
+    color:0xeeccff,transparent:true,opacity:0.1
+  });
+  var swirl1=new THREE.Mesh(new THREE.TorusGeometry(0.13,0.003,4,10),swirlMat);
+  swirl1.rotation.x=0.5;swirl1.rotation.y=sr()*3;g.add(swirl1);
+  var swirl2=new THREE.Mesh(new THREE.TorusGeometry(0.11,0.003,4,10),swirlMat);
+  swirl2.rotation.x=-0.8;swirl2.rotation.z=1.2;g.add(swirl2);
+  // Highlight spot (fake specular — primary)
+  var shineMat=new THREE.MeshBasicMaterial({
+    color:C.bubbleShine,transparent:true,opacity:0.5
+  });
+  var shine=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),shineMat);
+  shine.position.set(0.05,0.07,0.08);g.add(shine);
+  // Secondary highlight (opposite side, dimmer)
+  var shine2Mat=new THREE.MeshBasicMaterial({
+    color:0xeeeeff,transparent:true,opacity:0.2
+  });
+  var shine2=new THREE.Mesh(new THREE.SphereGeometry(0.025,3,3),shine2Mat);
+  shine2.position.set(-0.06,-0.04,-0.06);g.add(shine2);
+  // Inner prismatic core (tiny colored sphere offset from center)
+  var prismMat=new THREE.MeshBasicMaterial({
+    color:0xffaaee,transparent:true,opacity:0.12
+  });
+  var prism=new THREE.Mesh(new THREE.SphereGeometry(0.06,4,3),prismMat);
+  prism.position.set(0.02,-0.02,0.01);g.add(prism);
+  // Inner rainbow tint
+  var innerMat=new THREE.MeshBasicMaterial({
+    color:0xffeeff,transparent:true,opacity:0.08
+  });
+  var inner=new THREE.Mesh(new THREE.SphereGeometry(0.12,5,4),innerMat);
+  g.add(inner);
+
+  // Film thickness bands (horizontal color gradient rings)
+  var filmColors=[0xffccdd,0xccddff,0xddffcc];
+  for(var fbi=0;fbi<3;fbi++){
+    var filmMat=new THREE.MeshBasicMaterial({
+      color:filmColors[fbi],transparent:true,opacity:0.06
+    });
+    var film=new THREE.Mesh(new THREE.TorusGeometry(0.14-fbi*0.02,0.002,4,8),filmMat);
+    film.position.y=-0.04+fbi*0.04;film.rotation.x=Math.PI/2;g.add(film);
+  }
+
+  // Micro-reflection dots (3 tiny bright specks scattered on shell)
+  var refMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.6});
+  for(var rfi=0;rfi<3;rfi++){
+    var rfa=sr()*6.28,rfe=sr()*Math.PI-Math.PI/2;
+    var ref=new THREE.Mesh(new THREE.SphereGeometry(0.003,3,3),refMat);
+    ref.position.set(Math.cos(rfa)*Math.cos(rfe)*0.14,Math.sin(rfe)*0.14,Math.sin(rfa)*Math.cos(rfe)*0.14);
+    g.add(ref);
+  }
+
+  // Trapped air speck (tiny darker sphere inside)
+  var airMat=new THREE.MeshBasicMaterial({color:0xaabbcc,transparent:true,opacity:0.1});
+  var air=new THREE.Mesh(new THREE.SphereGeometry(0.015,3,3),airMat);
+  air.position.set((sr()-0.5)*0.04,(sr()-0.5)*0.04,(sr()-0.5)*0.04);g.add(air);
+
+  // Bottom gravity drip bulge (slight thickening at base)
+  var dripMat=new THREE.MeshBasicMaterial({
+    color:C.bubbleIris,transparent:true,opacity:0.15
+  });
+  var drip=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),dripMat);
+  drip.scale.set(1.3,0.6,1.3);drip.position.y=-0.12;g.add(drip);
+
+  var sc=0.6+sr()*0.8;
+  g.scale.setScalar(sc);
+  g.position.set(x,y,z);scene.add(g);
+  return{group:g,shellMat:shellMat,phase:sr()*6.28,
+    driftAng:sr()*6.28,driftSpeed:0.3+sr()*0.5,floatY:y,
+    homeX:x,homeZ:z,bobAmp:0.3+sr()*0.4,popped:false,popTimer:0,sc:sc};
+}
+
+// --- Pond Lily (enhanced water patch + lily pads + flowers) ---
+function makePond(x,z){
+  var g=new THREE.Group();
+  var pondR=1.5+sr()*1.0;
+  // Shallow depression (dark disc below water for depth illusion)
+  var depthMat=new THREE.MeshStandardMaterial({
+    color:0x050812,roughness:0.9
+  });
+  var depth=new THREE.Mesh(new THREE.CircleGeometry(pondR*0.85,10),depthMat);
+  depth.rotation.x=-Math.PI/2;depth.position.y=0.005;g.add(depth);
+  // Water surface disc
+  var waterMat=new THREE.MeshStandardMaterial({
+    color:C.pondWater,emissive:C.pondGlow,emissiveIntensity:0.2,
+    transparent:true,opacity:0.55,roughness:0.05,metalness:0.4
+  });
+  var water=new THREE.Mesh(new THREE.CircleGeometry(pondR,12),waterMat);
+  water.rotation.x=-Math.PI/2;water.position.y=0.03;g.add(water);
+  // Edge stones (5-8 irregular pebbles around rim)
+  var stoneMat=new THREE.MeshStandardMaterial({color:0x3a3a42,roughness:0.85});
+  var stoneN=5+Math.floor(sr()*4);
+  for(var si=0;si<stoneN;si++){
+    var sa=si/stoneN*6.28+sr()*0.3;
+    var sd=pondR+sr()*0.2-0.1;
+    var sSz=0.06+sr()*0.08;
+    var stone=new THREE.Mesh(new THREE.SphereGeometry(sSz,4,3),stoneMat);
+    stone.scale.set(1+sr()*0.5,0.4+sr()*0.3,1+sr()*0.5);
+    stone.position.set(Math.cos(sa)*sd,sSz*0.2,Math.sin(sa)*sd);
+    stone.rotation.set(sr(),sr(),sr());g.add(stone);
+  }
+  // Water grass tufts at edge (3 clumps)
+  var wgMat=new THREE.MeshStandardMaterial({
+    color:0x1a5520,roughness:0.7,side:THREE.DoubleSide
+  });
+  for(var wi=0;wi<3;wi++){
+    var wa=sr()*6.28;
+    var wd=pondR*0.85+sr()*0.2;
+    for(var wj=0;wj<3;wj++){
+      var blade=new THREE.Mesh(new THREE.PlaneGeometry(0.015,0.15+sr()*0.1),wgMat);
+      blade.position.set(Math.cos(wa)*wd+(sr()-0.5)*0.05,0.08,Math.sin(wa)*wd+(sr()-0.5)*0.05);
+      blade.rotation.y=sr()*3;blade.rotation.x=-0.2;g.add(blade);
+    }
+  }
+  // Ripple rings (2 concentric torus at water surface)
+  var rippleMat=new THREE.MeshBasicMaterial({
+    color:0xaaddee,transparent:true,opacity:0.08
+  });
+  for(var rri=0;rri<2;rri++){
+    var ripple=new THREE.Mesh(new THREE.TorusGeometry(pondR*0.3+rri*pondR*0.25,0.005,4,16),rippleMat);
+    ripple.rotation.x=Math.PI/2;ripple.position.y=0.035;g.add(ripple);
+  }
+  // Lily pads (4-5 flat discs)
+  var padMat=new THREE.MeshStandardMaterial({
+    color:C.lilyPad,roughness:0.6,side:THREE.DoubleSide
+  });
+  var padCount=4+Math.floor(sr()*2);
+  var pads=[];
+  for(var i=0;i<padCount;i++){
+    var pa=sr()*6.28,pd=sr()*pondR*0.6;
+    var padSize=0.15+sr()*0.15;
+    var pad=new THREE.Mesh(new THREE.CircleGeometry(padSize,8),padMat);
+    pad.rotation.x=-Math.PI/2;
+    pad.position.set(Math.cos(pa)*pd,0.05,Math.sin(pa)*pd);
+    g.add(pad);
+    // Pad vein line (subtle midrib)
+    var veinMat=new THREE.MeshBasicMaterial({color:0x1a5020,transparent:true,opacity:0.3});
+    var vein=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,padSize*1.5,3),veinMat);
+    vein.position.set(Math.cos(pa)*pd,0.052,Math.sin(pa)*pd);
+    vein.rotation.x=Math.PI/2;vein.rotation.z=sr()*3;g.add(vein);
+    pads.push({mesh:pad,phase:sr()*6.28});
+  }
+  // Lily flower on first pad
+  var flMat=new THREE.MeshStandardMaterial({
+    color:C.lilyFlower,emissive:C.lilyGlow,emissiveIntensity:0.4,
+    transparent:true,opacity:0.85,side:THREE.DoubleSide
+  });
+  var flowerY=0.08;
+  for(var i=0;i<6;i++){
+    var fa=(i/6)*6.28;
+    var petal=new THREE.Mesh(new THREE.PlaneGeometry(0.06,0.05),flMat);
+    petal.position.set(pads[0].mesh.position.x+Math.cos(fa)*0.05,flowerY,
+      pads[0].mesh.position.z+Math.sin(fa)*0.05);
+    petal.rotation.x=-1.0;petal.rotation.y=-fa;g.add(petal);
+  }
+  // Flower center
+  var fcMat=new THREE.MeshStandardMaterial({
+    color:0xffffaa,emissive:C.lilyGlow,emissiveIntensity:0.8
+  });
+  var fc=new THREE.Mesh(new THREE.SphereGeometry(0.025,4,3),fcMat);
+  fc.position.set(pads[0].mesh.position.x,flowerY+0.02,pads[0].mesh.position.z);
+  g.add(fc);
+  // Second smaller bud on another pad (if enough pads)
+  if(pads.length>2){
+    var budMat=new THREE.MeshStandardMaterial({
+      color:C.lilyFlower,emissive:C.lilyGlow,emissiveIntensity:0.2,
+      transparent:true,opacity:0.7
+    });
+    var bud=new THREE.Mesh(new THREE.SphereGeometry(0.03,5,4),budMat);
+    bud.scale.set(0.8,1.2,0.8);
+    bud.position.set(pads[2].mesh.position.x,0.09,pads[2].mesh.position.z);
+    g.add(bud);
+  }
+
+  // Submerged pebbles (visible through water)
+  var pebMat=new THREE.MeshStandardMaterial({color:0x3a3835,roughness:0.8,transparent:true,opacity:0.5});
+  for(var pbi=0;pbi<5;pbi++){
+    var pbA=sr()*6.28,pbD=sr()*pondR*0.7;
+    var peb=new THREE.Mesh(new THREE.SphereGeometry(0.02+sr()*0.025,4,3),pebMat);
+    peb.scale.set(1+sr()*0.5,0.4,1+sr()*0.5);
+    peb.position.set(Math.cos(pbA)*pbD,0.015,Math.sin(pbA)*pbD);g.add(peb);
+  }
+
+  // Silt deposits (faint sandy patches on pond floor)
+  var siltMat=new THREE.MeshBasicMaterial({color:0x2a2418,transparent:true,opacity:0.12,side:THREE.DoubleSide});
+  for(var sli=0;sli<3;sli++){
+    var slA=sr()*6.28,slD=sr()*pondR*0.5;
+    var silt=new THREE.Mesh(new THREE.CircleGeometry(0.08+sr()*0.06,5),siltMat);
+    silt.rotation.x=-Math.PI/2;silt.position.set(Math.cos(slA)*slD,0.012,Math.sin(slA)*slD);
+    g.add(silt);
+  }
+
+  // Tadpole shapes (2 tiny dark ovals with tail lines in water)
+  var tadMat=new THREE.MeshStandardMaterial({color:0x112215,roughness:0.7,transparent:true,opacity:0.4});
+  for(var tdi=0;tdi<2;tdi++){
+    var tdA=sr()*6.28,tdD=sr()*pondR*0.5;
+    var tadBody=new THREE.Mesh(new THREE.SphereGeometry(0.012,4,3),tadMat);
+    tadBody.scale.set(0.8,0.5,1.3);
+    tadBody.position.set(Math.cos(tdA)*tdD,0.04,Math.sin(tdA)*tdD);g.add(tadBody);
+    var tadTail=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.001,0.025,3),tadMat);
+    tadTail.position.set(Math.cos(tdA)*tdD-Math.cos(tdA)*0.02,0.04,Math.sin(tdA)*tdD-Math.sin(tdA)*0.02);
+    tadTail.rotation.z=Math.PI/2;tadTail.rotation.y=tdA;g.add(tadTail);
+  }
+
+  // Algae patches (green film at water edge)
+  var algaeMat=new THREE.MeshBasicMaterial({color:0x225520,transparent:true,opacity:0.1,side:THREE.DoubleSide});
+  for(var ali=0;ali<3;ali++){
+    var alA=sr()*6.28,alD=pondR*0.7+sr()*pondR*0.25;
+    var algae=new THREE.Mesh(new THREE.CircleGeometry(0.06+sr()*0.04,5),algaeMat);
+    algae.rotation.x=-Math.PI/2;algae.position.set(Math.cos(alA)*alD,0.032,Math.sin(alA)*alD);
+    g.add(algae);
+  }
+
+  // Surface tension film ring at edge (meniscus)
+  var menMat=new THREE.MeshBasicMaterial({color:0xccddee,transparent:true,opacity:0.06});
+  var meniscus=new THREE.Mesh(new THREE.TorusGeometry(pondR-0.05,0.01,4,16),menMat);
+  meniscus.rotation.x=Math.PI/2;meniscus.position.y=0.035;g.add(meniscus);
+
+  // Fallen leaf on water surface
+  var fLeafMat=new THREE.MeshStandardMaterial({color:0x4a3018,roughness:0.8,side:THREE.DoubleSide,transparent:true,opacity:0.6});
+  var fLeaf=new THREE.Mesh(new THREE.CircleGeometry(0.03,5),fLeafMat);
+  fLeaf.rotation.x=-Math.PI/2;
+  fLeaf.position.set((sr()-0.5)*pondR*0.5,0.04,(sr()-0.5)*pondR*0.5);g.add(fLeaf);
+
+  g.position.set(x,0,z);scene.add(g);
+  return{group:g,waterMat:waterMat,flMat:flMat,pads:pads,x:x,z:z,
+    phase:sr()*6.28,pondR:pondR};
+}
+
+// ================================================================
+// QUEST OBJECTS — Orbs, Obelisk, Lasers, Finale
+// ================================================================
+var orbsFound=0, questPhase='SEEK'; // SEEK → RISING → COMPLETE → FINALE
+var obeliskY=-OBELISK_H; // starts buried
+var finaleTimer=0;
+var orbHudEl=document.getElementById('orb-hud');
+
+// --- Golden Orb (enhanced multi-shell glow) ---
+function makeOrb(x,z){
+  var g=new THREE.Group();
+  // Core sphere
+  var coreMat=new THREE.MeshBasicMaterial({color:C.orbGold});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8),coreMat);
+  g.add(core);
+  // Inner seed (tiny bright white center)
+  var seedMat=new THREE.MeshBasicMaterial({color:0xffffff});
+  var seed=new THREE.Mesh(new THREE.SphereGeometry(0.06,6,4),seedMat);
+  g.add(seed);
+  // Inner star wireframe (icosahedron)
+  var starMat=new THREE.MeshBasicMaterial({
+    color:0xffee88,transparent:true,opacity:0.4,wireframe:true
+  });
+  var star=new THREE.Mesh(new THREE.IcosahedronGeometry(0.15,0),starMat);
+  g.add(star);
+  // Inner glow shell
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.orbGlow,transparent:true,opacity:0.5
+  });
+  var glow=new THREE.Mesh(new THREE.SphereGeometry(0.35,8,6),glowMat);
+  g.add(glow);
+  // Corona ray spikes (8 thin cones radiating outward)
+  var rayMat=new THREE.MeshBasicMaterial({
+    color:C.orbGlow,transparent:true,opacity:0.3
+  });
+  for(var ri=0;ri<8;ri++){
+    var ra=(ri/8)*6.28;
+    var ray=new THREE.Mesh(new THREE.ConeGeometry(0.02,0.25,3),rayMat);
+    ray.position.set(Math.cos(ra)*0.3,Math.sin(ra*2)*0.05,Math.sin(ra)*0.3);
+    ray.rotation.z=-ra+Math.PI/2;ray.rotation.y=ra;
+    g.add(ray);
+  }
+  // Outer haze shell
+  var hazeMat=new THREE.MeshBasicMaterial({
+    color:C.orbInner,transparent:true,opacity:0.15
+  });
+  var haze=new THREE.Mesh(new THREE.SphereGeometry(0.6,8,5),hazeMat);
+  g.add(haze);
+  // Orbiting sparkle ring (small dots)
+  for(var i=0;i<6;i++){
+    var sp=new THREE.Mesh(new THREE.SphereGeometry(0.03,4,3),
+      new THREE.MeshBasicMaterial({color:0xffffff}));
+    var a=(i/6)*6.28;
+    sp.position.set(Math.cos(a)*0.4,Math.sin(a*2)*0.1,Math.sin(a)*0.4);
+    g.add(sp);
+  }
+  // Rune dots (4 tiny golden markers on equatorial band)
+  var runeMat=new THREE.MeshBasicMaterial({color:C.orbGold,transparent:true,opacity:0.7});
+  for(var di=0;di<4;di++){
+    var da=(di/4)*6.28+0.4;
+    var rune=new THREE.Mesh(new THREE.SphereGeometry(0.015,3,3),runeMat);
+    rune.position.set(Math.cos(da)*0.5,0,Math.sin(da)*0.5);
+    g.add(rune);
+  }
+
+  // Sacred geometry lines (3 great-circle arcs around orb)
+  var sacredMat=new THREE.MeshBasicMaterial({color:0xffddaa,transparent:true,opacity:0.12});
+  for(var sgi=0;sgi<3;sgi++){
+    var sgR=new THREE.Mesh(new THREE.TorusGeometry(0.28,0.003,4,12),sacredMat);
+    sgR.rotation.set(sgi*1.05,sgi*0.7,0);g.add(sgR);
+  }
+
+  // Orbit trail arc (faint ring showing sparkle path)
+  var trailMat=new THREE.MeshBasicMaterial({color:C.orbGlow,transparent:true,opacity:0.08});
+  var trail=new THREE.Mesh(new THREE.TorusGeometry(0.4,0.004,4,16),trailMat);
+  trail.rotation.x=Math.PI/2;g.add(trail);
+
+  // Energy pulse ring (thicker torus at midpoint)
+  var pulseMat=new THREE.MeshBasicMaterial({color:0xffeecc,transparent:true,opacity:0.15});
+  var pulse=new THREE.Mesh(new THREE.TorusGeometry(0.25,0.012,4,10),pulseMat);
+  pulse.rotation.x=Math.PI/2;g.add(pulse);
+
+  // Micro-facet surface sparkles (tiny dots on core surface)
+  var facetMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.5});
+  for(var fci=0;fci<6;fci++){
+    var fca=sr()*6.28,fce=sr()*Math.PI-Math.PI/2;
+    var fc=new THREE.Mesh(new THREE.SphereGeometry(0.008,3,3),facetMat);
+    fc.position.set(Math.cos(fca)*Math.cos(fce)*0.2,Math.sin(fce)*0.2,Math.sin(fca)*Math.cos(fce)*0.2);
+    g.add(fc);
+  }
+
+  // Ground glow disc (projected light circle below orb)
+  var gndMat=new THREE.MeshBasicMaterial({color:C.orbGlow,transparent:true,opacity:0.1,side:THREE.DoubleSide});
+  var gndGlow=new THREE.Mesh(new THREE.CircleGeometry(0.5,8),gndMat);
+  gndGlow.rotation.x=-Math.PI/2;gndGlow.position.y=-0.95;g.add(gndGlow);
+
+  g.position.set(x,1.0,z);
+  scene.add(g);
+  return{group:g,coreMat:coreMat,glowMat:glowMat,hazeMat:hazeMat,
+    x:x,z:z,found:false,flyUp:false,flyY:1.0,phase:sr()*6.28,
+    laserLine:null,laserMat:null};
+}
+
+// --- Obelisk (tall dark monolith at world center) ---
+var obeliskGroup=null,obeliskMat=null,obeliskGlowMat=null;
+function makeObelisk(){
+  var g=new THREE.Group();
+  // Main shaft — tapered box
+  var mat=new THREE.MeshStandardMaterial({
+    color:C.obeliskBlack,roughness:0.2,metalness:0.8,
+    emissive:C.obeliskPink,emissiveIntensity:0
+  });
+  obeliskMat=mat;
+  // Use CylinderGeometry with 4 sides for obelisk shape
+  var shaft=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.8,OBELISK_H,4),mat);
+  shaft.position.y=OBELISK_H/2;shaft.rotation.y=Math.PI/4;
+  shaft.castShadow=true;g.add(shaft);
+
+  // Corner chamfer lines (4 bright edge strips along shaft corners)
+  var chamMat=new THREE.MeshBasicMaterial({color:0x332244,transparent:true,opacity:0.2});
+  for(var ci=0;ci<4;ci++){
+    var ca=(ci/4)*6.28+Math.PI/4;
+    var cham=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.04,OBELISK_H*0.9,3),chamMat);
+    cham.position.set(Math.cos(ca)*1.55,OBELISK_H*0.45,Math.sin(ca)*1.55);
+    g.add(cham);
+  }
+
+  // Surface rune carvings (glowing line segments on each face)
+  var runeMat=new THREE.MeshBasicMaterial({color:C.obeliskPink,transparent:true,opacity:0.0});
+  for(var fi=0;fi<4;fi++){
+    var fAngle=(fi/4)*6.28+Math.PI/4;
+    // 3 horizontal rune lines per face
+    for(var rl=0;rl<3;rl++){
+      var ry=6+rl*4;
+      var rune=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.8,3),runeMat);
+      rune.position.set(Math.cos(fAngle)*1.6,ry,Math.sin(fAngle)*1.6);
+      rune.rotation.z=Math.PI/2;rune.rotation.y=-fAngle;
+      g.add(rune);
+    }
+    // Vertical rune stroke per face
+    var vRune=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,2.5,3),runeMat);
+    vRune.position.set(Math.cos(fAngle)*1.6,12,Math.sin(fAngle)*1.6);
+    g.add(vRune);
+  }
+
+  // Capstone (pyramid tip)
+  var capMat=new THREE.MeshStandardMaterial({
+    color:C.obeliskBlack,roughness:0.1,metalness:0.9,
+    emissive:C.obeliskPink,emissiveIntensity:0
+  });
+  obeliskGlowMat=capMat;
+  var cap=new THREE.Mesh(new THREE.ConeGeometry(1.3,3,4),capMat);
+  cap.position.y=OBELISK_H+1.5;cap.rotation.y=Math.PI/4;g.add(cap);
+
+  // Capstone edge highlights (4 bright edge lines on pyramid)
+  var capEdgeMat=new THREE.MeshBasicMaterial({color:C.obeliskPink,transparent:true,opacity:0.0});
+  for(var cei=0;cei<4;cei++){
+    var ceA=(cei/4)*6.28+Math.PI/4;
+    var capEdge=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,3.2,3),capEdgeMat);
+    capEdge.position.set(Math.cos(ceA)*0.8,OBELISK_H+1.5,Math.sin(ceA)*0.8);
+    capEdge.rotation.z=0.35*((ceA<3.14)?1:-1);capEdge.rotation.y=-ceA;
+    g.add(capEdge);
+  }
+
+  // Etched rings
+  for(var i=0;i<5;i++){
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(1.85-i*0.02,0.04,6,4),
+      new THREE.MeshBasicMaterial({color:0x222233}));
+    ring.position.y=4+i*5;ring.rotation.x=Math.PI/2;g.add(ring);
+  }
+
+  // Base plinth (wider foundation step)
+  var plinthMat=new THREE.MeshStandardMaterial({
+    color:0x111118,roughness:0.3,metalness:0.7
+  });
+  var plinth=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.5,0.6,4),plinthMat);
+  plinth.position.y=0.3;plinth.rotation.y=Math.PI/4;g.add(plinth);
+  // Second step
+  var plinth2=new THREE.Mesh(new THREE.CylinderGeometry(2.8,3.0,0.4,4),plinthMat);
+  plinth2.position.y=0.05;plinth2.rotation.y=Math.PI/4;g.add(plinth2);
+
+  // Floating glyph motes (orbit near top, initially invisible)
+  var glyphMat=new THREE.MeshBasicMaterial({color:C.obeliskPink,transparent:true,opacity:0.0});
+  for(var gli=0;gli<8;gli++){
+    var glA=(gli/8)*6.28;
+    var glyph=new THREE.Mesh(new THREE.SphereGeometry(0.06,4,3),glyphMat);
+    glyph.position.set(Math.cos(glA)*2.5,OBELISK_H*0.7+gli*0.5,Math.sin(glA)*2.5);
+    g.add(glyph);
+  }
+
+  // Surface weathering scratches (faint marks on faces)
+  var scratchMat=new THREE.MeshBasicMaterial({color:0x1a1a22,transparent:true,opacity:0.08});
+  for(var sci=0;sci<6;sci++){
+    var scA=sr()*6.28,scY=2+sr()*OBELISK_H*0.7;
+    var scratch=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.5+sr()*0.5,3),scratchMat);
+    scratch.position.set(Math.cos(scA)*1.6,scY,Math.sin(scA)*1.6);
+    scratch.rotation.z=(sr()-0.5)*0.8;scratch.rotation.y=-scA;
+    g.add(scratch);
+  }
+
+  // Base rubble (scattered broken stone fragments around plinth)
+  var rubbleMat=new THREE.MeshStandardMaterial({color:0x0e0e14,roughness:0.5,metalness:0.4});
+  for(var rbi=0;rbi<12;rbi++){
+    var rba=sr()*6.28,rbd=3+sr()*2;
+    var rbSz=0.15+sr()*0.25;
+    var rubble=new THREE.Mesh(new THREE.SphereGeometry(rbSz,4,3),rubbleMat);
+    rubble.scale.set(1+sr()*0.5,0.3+sr()*0.3,1+sr()*0.5);
+    rubble.position.set(Math.cos(rba)*rbd,rbSz*0.15,Math.sin(rba)*rbd);
+    rubble.rotation.set(sr(),sr(),sr());g.add(rubble);
+  }
+
+  // Ancient inscription dots (small bright circles on each face)
+  var inscMat=new THREE.MeshBasicMaterial({color:C.obeliskPink,transparent:true,opacity:0.0});
+  for(var fi=0;fi<4;fi++){
+    var fAng=(fi/4)*6.28+Math.PI/4;
+    for(var di=0;di<5;di++){
+      var iy=5+di*3.5+sr()*0.5;
+      var iOff=(sr()-0.5)*0.4;
+      var dot=new THREE.Mesh(new THREE.SphereGeometry(0.04,4,3),inscMat);
+      dot.position.set(Math.cos(fAng)*1.58+Math.cos(fAng+1.57)*iOff,iy,
+        Math.sin(fAng)*1.58+Math.sin(fAng+1.57)*iOff);
+      g.add(dot);
+    }
+  }
+
+  // Ground shadow disc (dark circle beneath obelisk)
+  var shadowMat=new THREE.MeshBasicMaterial({
+    color:0x000000,transparent:true,opacity:0.15,side:THREE.DoubleSide
+  });
+  var shadow=new THREE.Mesh(new THREE.CircleGeometry(4,8),shadowMat);
+  shadow.rotation.x=-Math.PI/2;shadow.position.y=0.005;g.add(shadow);
+
+  g.position.set(0,-OBELISK_H,0); // starts buried
+  scene.add(g);
+  obeliskGroup=g;
+  // Dramatic obelisk light (rises with obelisk, casts colored glow)
+  var obeliskLight=new THREE.PointLight(0x8866cc,0,30);
+  g.add(obeliskLight);
+  obeliskLight.position.set(0,OBELISK_H+1,0);
+}
+
+// --- Laser beam (from orb float position to obelisk top) ---
+function makeLaser(fromX,fromZ,floatY){
+  var topY=OBELISK_H+2; // obelisk tip
+  var points=[
+    new THREE.Vector3(fromX,floatY,fromZ),
+    new THREE.Vector3(0,topY,0)
+  ];
+  var geo=new THREE.BufferGeometry().setFromPoints(points);
+  var mat=new THREE.MeshBasicMaterial({
+    color:C.laserPink,transparent:true,opacity:0.8
+  });
+  // Use a thin tube for visible width
+  var path=new THREE.LineCurve3(points[0],points[1]);
+  var tubeGeo=new THREE.TubeGeometry(path,1,0.08,6,false);
+  var tube=new THREE.Mesh(tubeGeo,mat);
+  scene.add(tube);
+  // Outer glow tube
+  var glowMat=new THREE.MeshBasicMaterial({
+    color:C.laserGlow,transparent:true,opacity:0.25
+  });
+  var glowTube=new THREE.Mesh(new THREE.TubeGeometry(path,1,0.25,6,false),glowMat);
+  scene.add(glowTube);
+  return{tube:tube,glow:glowTube,mat:mat,glowMat:glowMat};
+}
+
+// --- Moat (ring of water around obelisk) ---
+var moatMesh=null,moatMat=null;
+function makeMoat(){
+  var mat=new THREE.MeshStandardMaterial({
+    color:C.moatBlue,emissive:0x1155aa,emissiveIntensity:0.3,
+    transparent:true,opacity:0,roughness:0.1,metalness:0.3
+  });
+  moatMat=mat;
+  // Ring shape: outer=6m, inner=3m
+  var shape=new THREE.Shape();
+  shape.absarc(0,0,6,0,6.28,false);
+  var hole=new THREE.Path();
+  hole.absarc(0,0,3,0,6.28,true);
+  shape.holes.push(hole);
+  var geo=new THREE.ShapeGeometry(shape,24);
+  var mesh=new THREE.Mesh(geo,mat);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.position.y=0.05;
+  scene.add(mesh);
+  moatMesh=mesh;
+
+  // Submerged glow stones (bright pebbles on moat floor)
+  var glowStoneMat=new THREE.MeshBasicMaterial({
+    color:0x4488cc,transparent:true,opacity:0.0
+  });
+  for(var gsi=0;gsi<12;gsi++){
+    var gsA=(gsi/12)*6.28+sr()*0.3;
+    var gsR=3.5+sr()*2.0;
+    var gs=new THREE.Mesh(new THREE.SphereGeometry(0.04+sr()*0.04,4,3),glowStoneMat);
+    gs.scale.set(1.2,0.4,1.2);
+    gs.position.set(Math.cos(gsA)*gsR,0.02,Math.sin(gsA)*gsR);
+    scene.add(gs);
+  }
+
+  // Water foam patches (white blobs at inner edge)
+  var foamMat=new THREE.MeshBasicMaterial({
+    color:0xccddee,transparent:true,opacity:0.0,side:THREE.DoubleSide
+  });
+  for(var fmi=0;fmi<6;fmi++){
+    var fmA=(fmi/6)*6.28+sr()*0.5;
+    var foam=new THREE.Mesh(new THREE.CircleGeometry(0.12+sr()*0.1,5),foamMat);
+    foam.rotation.x=-Math.PI/2;
+    foam.position.set(Math.cos(fmA)*3.3,0.06,Math.sin(fmA)*3.3);
+    scene.add(foam);
+  }
+
+  // Current flow lines (faint arcs showing water direction)
+  var currMat=new THREE.MeshBasicMaterial({
+    color:0x88bbdd,transparent:true,opacity:0.0
+  });
+  for(var cli=0;cli<8;cli++){
+    var clA=(cli/8)*6.28;
+    var clR=4+sr()*1.5;
+    var current=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.003,0.4,3),currMat);
+    current.position.set(Math.cos(clA)*clR,0.055,Math.sin(clA)*clR);
+    current.rotation.x=Math.PI/2;current.rotation.z=clA+Math.PI/2;
+    scene.add(current);
+  }
+
+  // Depth gradient ring (darker center channel)
+  var depthMat=new THREE.MeshBasicMaterial({
+    color:0x040810,transparent:true,opacity:0.0,side:THREE.DoubleSide
+  });
+  var depthShape=new THREE.Shape();
+  depthShape.absarc(0,0,5.2,0,6.28,false);
+  var depthHole=new THREE.Path();
+  depthHole.absarc(0,0,3.8,0,6.28,true);
+  depthShape.holes.push(depthHole);
+  var depthGeo=new THREE.ShapeGeometry(depthShape,16);
+  var depthMesh=new THREE.Mesh(depthGeo,depthMat);
+  depthMesh.rotation.x=-Math.PI/2;depthMesh.position.y=0.04;
+  scene.add(depthMesh);
+}
+
+// --- Rainbow arcs (curved tubes arcing over obelisk) ---
+var rainbowArcs=[];
+function makeRainbows(){
+  for(var i=0;i<6;i++){
+    var col=C.rainbow[i];
+    var ang=(i/6)*6.28;
+    var r=5+i*0.5;
+    var h=OBELISK_H+5+i*2;
+    // Create arc as CatmullRomCurve3
+    var pts=[];
+    for(var j=0;j<=12;j++){
+      var frac=j/12;
+      var a=ang+frac*Math.PI; // half circle
+      var px=Math.cos(a)*r;
+      var pz=Math.sin(a)*r;
+      var py=Math.sin(frac*Math.PI)*h; // parabolic arc
+      pts.push(new THREE.Vector3(px,py,pz));
+    }
+    var curve=new THREE.CatmullRomCurve3(pts);
+    var mat=new THREE.MeshBasicMaterial({
+      color:col,transparent:true,opacity:0
+    });
+    var tubeGeo=new THREE.TubeGeometry(curve,20,0.12-i*0.008,5,false);
+    var mesh=new THREE.Mesh(tubeGeo,mat);
+    scene.add(mesh);
+
+    // Sparkle motes along arc (5 tiny bright dots per band)
+    var sparkMat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0});
+    for(var si=0;si<5;si++){
+      var sfrac=(si+0.5)/5;
+      var sp=curve.getPoint(sfrac);
+      var spark=new THREE.Mesh(new THREE.SphereGeometry(0.05,3,3),sparkMat);
+      spark.position.copy(sp);scene.add(spark);
+    }
+
+    // Ground glow pool at each endpoint
+    var poolMat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:THREE.DoubleSide});
+    var p0=pts[0],pEnd=pts[pts.length-1];
+    var pool0=new THREE.Mesh(new THREE.CircleGeometry(0.5,6),poolMat);
+    pool0.rotation.x=-Math.PI/2;pool0.position.set(p0.x,0.03,p0.z);scene.add(pool0);
+    var pool1=new THREE.Mesh(new THREE.CircleGeometry(0.5,6),poolMat);
+    pool1.rotation.x=-Math.PI/2;pool1.position.set(pEnd.x,0.03,pEnd.z);scene.add(pool1);
+
+    rainbowArcs.push({mesh:mesh,mat:mat,targetOpacity:0});
+  }
+
+  // Secondary faint outer arc (single mixed-color band offset outward)
+  var secPts=[];
+  var secR=9.5,secH=OBELISK_H+12;
+  for(var j=0;j<=12;j++){
+    var frac=j/12;
+    var a=frac*Math.PI;
+    secPts.push(new THREE.Vector3(Math.cos(a)*secR,Math.sin(frac*Math.PI)*secH,Math.sin(a)*secR));
+  }
+  var secCurve=new THREE.CatmullRomCurve3(secPts);
+  var secMat=new THREE.MeshBasicMaterial({color:0xeeddff,transparent:true,opacity:0});
+  var secTube=new THREE.Mesh(new THREE.TubeGeometry(secCurve,16,0.04,4,false),secMat);
+  scene.add(secTube);
+  rainbowArcs.push({mesh:secTube,mat:secMat,targetOpacity:0});
+}
+
+// --- Orb proximity light (single pooled — light budget +1) ---
+var orbLight=new THREE.PointLight(C.orbGold,0,15);
+scene.add(orbLight);
+
+var orbs=[];
+
+// --- Player ---
+var player={pos:new THREE.Vector3(0,EYE_H,0),vel:new THREE.Vector3(),onGround:true};
+
+// ================================================================
+// PHASE III — Kinematic Kernel
+// ================================================================
+function updatePlayer(dt){
+  var inp=getInput();
+  var sprinting=keys['ShiftLeft']||keys['ShiftRight']||touchSprint;
+  player.vel.x=inp.x;
+  player.vel.z=inp.z;
+  player.vel.y-=GRAVITY*dt;
+  if((keys['Space']||touchJump)&&player.onGround){
+    player.vel.y=JUMP_IMPULSE;player.onGround=false;touchJump=false;
+  }
+  // Track pre-landing velocity for cushion
+  if(!player.onGround) landingVelY=player.vel.y;
+  player.pos.x+=player.vel.x*dt;
+  player.pos.y+=player.vel.y*dt;
+  player.pos.z+=player.vel.z*dt;
+  if(player.pos.y<=EYE_H){player.pos.y=EYE_H;player.vel.y=0;
+    // Landing detection
+    if(!wasOnGround&&landingVelY<-3){
+      var impactStrength=Math.min(Math.abs(landingVelY)/JUMP_IMPULSE,1);
+      landingDip=impactStrength*0.15;
+      spawnDustBurst(player.pos.x,player.pos.z,Math.floor(3+impactStrength*5));
+    }
+    player.onGround=true;
+  }
+  wasOnGround=player.onGround;
+  if(player.onGround){player.vel.x*=GROUND_DRAG;player.vel.z*=GROUND_DRAG}
+  else{player.vel.x*=AIR_DRAG;player.vel.z*=AIR_DRAG}
+  // --- Collision: push player out of tree trunks and rocks ---
+  var PLAYER_R=0.4;
+  for(var ci=0;ci<trees_data.length;ci++){
+    var td=trees_data[ci];
+    var cdx=player.pos.x-td.x,cdz=player.pos.z-td.z;
+    var cd2=cdx*cdx+cdz*cdz;
+    var tr=0.6+PLAYER_R; // trunk radius ~0.5 + player
+    if(cd2<tr*tr&&cd2>0.001){
+      var cdi=1/Math.sqrt(cd2);
+      player.pos.x=td.x+cdx*cdi*tr;
+      player.pos.z=td.z+cdz*cdi*tr;
+    }
+  }
+  for(var ci=0;ci<rocks_data.length;ci++){
+    var rd=rocks_data[ci];
+    var cdx=player.pos.x-rd.x,cdz=player.pos.z-rd.z;
+    var cd2=cdx*cdx+cdz*cdz;
+    var rr=rd.colR+PLAYER_R;
+    if(cd2<rr*rr&&cd2>0.001){
+      var cdi=1/Math.sqrt(cd2);
+      player.pos.x=rd.x+cdx*cdi*rr;
+      player.pos.z=rd.z+cdz*cdi*rr;
+    }
+  }
+  var d=Math.sqrt(player.pos.x*player.pos.x+player.pos.z*player.pos.z);
+  if(d>WORLD_R){var a=Math.atan2(player.pos.z,player.pos.x);
+    player.pos.x=Math.cos(a)*WORLD_R;player.pos.z=Math.sin(a)*WORLD_R}
+  playerLight.position.copy(player.pos);
+
+  // --- Head Bob ---
+  var speed=Math.sqrt(inp.x*inp.x+inp.z*inp.z);
+  var moving=speed>0.5&&player.onGround;
+  if(moving) playerIdleTime=0; else playerIdleTime+=dt;
+  var bobTarget=moving?(sprinting?0.06:0.035):0;
+  headBobAmp+=(bobTarget-headBobAmp)*dt*6;
+  if(moving) headBobPhase+=dt*(sprinting?12:8);
+  var bobOffset=Math.sin(headBobPhase)*headBobAmp;
+
+  // --- Sprint FOV ---
+  targetFOV=(sprinting&&moving)?78:65;
+  currentFOV+=(targetFOV-currentFOV)*dt*4;
+  camera.fov=currentFOV;
+  camera.updateProjectionMatrix();
+
+  // --- Landing Cushion ---
+  landingDip*=Math.pow(0.04,dt); // exponential decay
+  if(landingDip<0.001) landingDip=0;
+
+  // Store camera-only Y offset (do NOT mutate player.pos — that drifts ground reference)
+  cameraBobY=bobOffset-landingDip;
+}
+
+// --- Firefly Pool (MeshBasicMaterial — ZERO light cost) ---
+var flies=[];
+function initFlies(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({
+      color:i%3===0?C.fireflyB:C.firefly,transparent:true,opacity:0
+    });
+    var m=new THREE.Mesh(GEO.fly,mat);
+    m.visible=false;scene.add(m);
+    flies.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
+      active:false,phase:Math.random()*6.28,wander:Math.random()*6.28});
+  }
+}
+function spawnFly(px,py,pz,life){
+  var f=null;
+  for(var i=0;i<flies.length;i++){if(!flies[i].active){f=flies[i];break}}
+  if(!f){var best=Infinity;for(var i=0;i<flies.length;i++){if(flies[i].life<best){best=flies[i].life;f=flies[i]}}}
+  f.mesh.position.set(px,py+0.5+Math.random()*3,pz);
+  f.mesh.visible=true;f.mat.opacity=1;
+  f.vel.set((Math.random()-.5)*2,(Math.random()-.5),( Math.random()-.5)*2);
+  f.life=life;f.max=life;f.active=true;f.wander=Math.random()*6.28;
+}
+function updateFlies(dt,t){
+  var ac=0;
+  for(var i=0;i<flies.length;i++){
+    var f=flies[i];if(!f.active)continue;
+    f.life-=dt;
+    if(f.life<=0){f.active=false;f.mesh.visible=false;continue}
+    ac++;
+    f.wander+=(Math.random()-0.5)*3*dt;
+    f.vel.x+=Math.cos(f.wander)*1.5*dt;
+    f.vel.z+=Math.sin(f.wander)*1.5*dt;
+    f.vel.y+=Math.sin(t*2+f.phase)*dt;
+    f.vel.multiplyScalar(0.995);
+    f.mesh.position.x+=f.vel.x*dt;
+    f.mesh.position.y+=f.vel.y*dt;
+    f.mesh.position.z+=f.vel.z*dt;
+    if(f.mesh.position.y<0.3){f.mesh.position.y=0.3;f.vel.y=Math.abs(f.vel.y)*0.5}
+    if(f.mesh.position.y>12)f.vel.y-=2*dt;
+    var pulse=Math.sin(t*3+f.phase)*0.5+0.5;
+    var frac=f.life/f.max;
+    f.mat.opacity=frac*(0.4+pulse*0.6);
+    f.mesh.scale.setScalar(0.6+pulse*0.6);
+  }
+  return ac;
+}
+
+// --- Spore Pool ---
+var spores=[];
+function initSpores(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.spore,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.spore,mat);m.visible=false;scene.add(m);
+    spores.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnSpore(px,py,pz){
+  var s=null;
+  for(var i=0;i<spores.length;i++){if(!spores[i].active){s=spores[i];break}}
+  if(!s){var best=Infinity;for(var i=0;i<spores.length;i++){if(spores[i].life<best){best=spores[i].life;s=spores[i]}}}
+  s.mesh.position.set(px,py,pz);s.mesh.visible=true;
+  s.vel.set((Math.random()-.5)*0.3,0.4+Math.random()*0.4,(Math.random()-.5)*0.3);
+  s.life=3+Math.random()*3;s.max=s.life;s.active=true;
+}
+function updateSpores(dt){
+  var ac=0;
+  for(var i=0;i<spores.length;i++){
+    var s=spores[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
+    ac++;
+    s.vel.y+=0.3*dt; // rises
+    s.vel.multiplyScalar(0.997);
+    s.mesh.position.x+=s.vel.x*dt;
+    s.mesh.position.y+=s.vel.y*dt;
+    s.mesh.position.z+=s.vel.z*dt;
+    s.mat.opacity=(s.life/s.max)*0.7;
+  }
+  return ac;
+}
+
+// --- Creature arrays ---
+var jellies=[],puffs=[],deers=[],moths=[];
+// --- Vegetation arrays ---
+var grassPatches=[],ferns=[],flowers=[],reeds=[],rocks_data=[];
+// New entity arrays
+var wisps=[],dandelions=[],fairyRings=[],bubbles=[],ponds=[];
+// Falling star motes pool
+var starMotes=[];
+// Dust landing particles pool
+var dustMotes=[];
+// Dandelion seed particles pool
+var dandSeeds=[];
+// Bubble pop sparkles pool
+var bubblePops=[];
+
+// --- Head bob / Sprint FOV / Landing Cushion state ---
+var headBobPhase=0, headBobAmp=0, cameraBobY=0;
+var currentFOV=65, targetFOV=65;
+var landingDip=0, wasOnGround=true, landingVelY=0;
+var playerIdleTime=0;
+// Echo bloom state
+var echoBloomTimer=0, echoBloomCenter=null, echoBloomRadius=0;
+
+// --- Sky dome slow rotation + anomaly pulse ---
+function updateSky(dt,t){
+  skyGroup.rotation.y=t*0.003; // very slow celestial rotation
+}
+
+// --- Vegetation sway (wind effect) ---
+function updateVegetation(dt,t){
+  // Grass patch sway via rotation
+  for(var i=0;i<grassPatches.length;i++){
+    var gp=grassPatches[i];
+    var wind=Math.sin(t*0.7+gp.cx*0.05)*0.04+Math.sin(t*1.3+gp.cz*0.08)*0.02;
+    gp.mesh.rotation.z=wind;
+    gp.mesh.rotation.x=Math.sin(t*0.9+gp.cz*0.06)*0.03;
+  }
+  // Fern gentle sway
+  for(var i=0;i<ferns.length;i++){
+    var f=ferns[i];
+    f.group.rotation.z=Math.sin(t*0.8+f.phase)*0.03;
+    f.group.rotation.x=Math.sin(t*0.6+f.phase+1)*0.02;
+  }
+  // Flower pulse
+  for(var i=0;i<flowers.length;i++){
+    var fl=flowers[i];
+    var p=Math.sin(t*1.0+fl.phase)*0.5+0.5;
+    fl.petalMat.emissiveIntensity=0.3+p*0.5;
+    fl.group.rotation.z=Math.sin(t*0.9+fl.phase)*0.04;
+  }
+  // Reed sway
+  for(var i=0;i<reeds.length;i++){
+    var r=reeds[i];
+    r.group.rotation.z=Math.sin(t*1.1+r.phase)*r.swayAmp;
+    r.group.rotation.x=Math.sin(t*0.8+r.phase+2)*r.swayAmp*0.5;
+  }
+}
+
+// --- Falling Star Motes Pool ---
+function initStarMotes(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.starMote,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.starMote,mat);m.visible=false;scene.add(m);
+    starMotes.push({mesh:m,mat:mat,life:0,max:0,active:false,vy:0,drift:0});
+  }
+}
+function spawnStarMote(){
+  var s=null;
+  for(var i=0;i<starMotes.length;i++){if(!starMotes[i].active){s=starMotes[i];break}}
+  if(!s) return;
+  var px=player.pos.x+(Math.random()-0.5)*60;
+  var pz=player.pos.z+(Math.random()-0.5)*60;
+  var py=15+Math.random()*20;
+  s.mesh.position.set(px,py,pz);
+  s.mesh.visible=true;s.mat.opacity=0.8;
+  s.life=6+Math.random()*6;s.max=s.life;s.active=true;
+  s.vy=-0.15-Math.random()*0.3;
+  s.drift=Math.random()*6.28;
+}
+var starTimer=0;
+function updateStarMotes(dt,t){
+  starTimer+=dt;
+  if(starTimer>0.15){starTimer=0;spawnStarMote()}
+  for(var i=0;i<starMotes.length;i++){
+    var s=starMotes[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0||s.mesh.position.y<0.5){s.active=false;s.mesh.visible=false;continue}
+    s.mesh.position.y+=s.vy*dt;
+    s.drift+=(Math.random()-0.5)*0.5*dt;
+    s.mesh.position.x+=Math.sin(s.drift)*0.1*dt;
+    s.mesh.position.z+=Math.cos(s.drift)*0.08*dt;
+    var frac=s.life/s.max;
+    var twinkle=Math.sin(t*4+i)*0.3+0.7;
+    s.mat.opacity=frac*twinkle*0.7;
+    s.mesh.scale.setScalar(0.5+twinkle*0.5);
+  }
+}
+
+// --- Dust Landing Particles Pool ---
+function initDustMotes(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:0x88aa77,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.dustMote,mat);m.visible=false;scene.add(m);
+    dustMotes.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnDustBurst(px,pz,count){
+  for(var c=0;c<count;c++){
+    var d=null;
+    for(var i=0;i<dustMotes.length;i++){if(!dustMotes[i].active){d=dustMotes[i];break}}
+    if(!d) continue;
+    var a=Math.random()*6.28,spd=1+Math.random()*2;
+    d.mesh.position.set(px+Math.cos(a)*0.2,0.1,pz+Math.sin(a)*0.2);
+    d.mesh.visible=true;d.mat.opacity=0.5;
+    d.vel.set(Math.cos(a)*spd,0.5+Math.random()*1.5,Math.sin(a)*spd);
+    d.life=0.6+Math.random()*0.6;d.max=d.life;d.active=true;
+  }
+}
+function updateDustMotes(dt){
+  for(var i=0;i<dustMotes.length;i++){
+    var d=dustMotes[i];if(!d.active)continue;
+    d.life-=dt;
+    if(d.life<=0){d.active=false;d.mesh.visible=false;continue}
+    d.vel.y-=3*dt;d.vel.multiplyScalar(0.96);
+    d.mesh.position.x+=d.vel.x*dt;
+    d.mesh.position.y+=d.vel.y*dt;
+    d.mesh.position.z+=d.vel.z*dt;
+    if(d.mesh.position.y<0.05){d.mesh.position.y=0.05;d.vel.y=0;d.vel.x*=0.8;d.vel.z*=0.8}
+    d.mat.opacity=(d.life/d.max)*0.4;
+  }
+}
+
+// --- Dandelion Seed Particles Pool ---
+function initDandSeeds(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.dandSeed,transparent:true,opacity:0});
+    var m=new THREE.Mesh(GEO.dandSeed,mat);m.visible=false;scene.add(m);
+    dandSeeds.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,
+      active:false,drift:0});
+  }
+}
+function spawnDandSeed(px,py,pz){
+  var s=null;
+  for(var i=0;i<dandSeeds.length;i++){if(!dandSeeds[i].active){s=dandSeeds[i];break}}
+  if(!s) return;
+  s.mesh.position.set(px+(Math.random()-0.5)*0.1,py,pz+(Math.random()-0.5)*0.1);
+  s.mesh.visible=true;s.mat.opacity=0.8;
+  var a=Math.random()*6.28;
+  s.vel.set(Math.cos(a)*0.5+Math.random()*0.3,0.6+Math.random()*0.8,Math.sin(a)*0.5);
+  s.life=4+Math.random()*5;s.max=s.life;s.active=true;
+  s.drift=Math.random()*6.28;
+}
+function updateDandSeeds(dt,t){
+  for(var i=0;i<dandSeeds.length;i++){
+    var s=dandSeeds[i];if(!s.active)continue;
+    s.life-=dt;
+    if(s.life<=0){s.active=false;s.mesh.visible=false;continue}
+    // Gentle upward drift with wind
+    s.drift+=(Math.random()-0.5)*1.5*dt;
+    s.vel.x+=Math.sin(s.drift)*0.3*dt;
+    s.vel.z+=Math.cos(s.drift)*0.2*dt;
+    s.vel.y+=(0.15-s.vel.y)*dt*0.5; // terminal rise speed
+    s.vel.multiplyScalar(0.998);
+    s.mesh.position.x+=s.vel.x*dt;
+    s.mesh.position.y+=s.vel.y*dt;
+    s.mesh.position.z+=s.vel.z*dt;
+    var frac=s.life/s.max;
+    s.mat.opacity=frac*0.7*(0.6+Math.sin(t*2+i)*0.4);
+    s.mesh.scale.setScalar(0.8+Math.sin(t*3+i*0.5)*0.3);
+  }
+}
+
+// --- Bubble Pop Sparkles Pool ---
+function initBubblePops(n){
+  for(var i=0;i<n;i++){
+    var mat=new THREE.MeshBasicMaterial({color:C.bubblePop,transparent:true,opacity:0});
+    var m=new THREE.Mesh(new THREE.SphereGeometry(0.02,3,3),mat);m.visible=false;scene.add(m);
+    bubblePops.push({mesh:m,mat:mat,vel:new THREE.Vector3(),life:0,max:0,active:false});
+  }
+}
+function spawnBubblePop(px,py,pz,count){
+  for(var c=0;c<count;c++){
+    var p=null;
+    for(var i=0;i<bubblePops.length;i++){if(!bubblePops[i].active){p=bubblePops[i];break}}
+    if(!p)continue;
+    var a=Math.random()*6.28,elev=Math.random()*3.14;
+    var spd=1+Math.random()*2;
+    p.mesh.position.set(px,py,pz);p.mesh.visible=true;p.mat.opacity=0.9;
+    p.vel.set(Math.cos(a)*Math.sin(elev)*spd,Math.cos(elev)*spd,Math.sin(a)*Math.sin(elev)*spd);
+    p.life=0.4+Math.random()*0.4;p.max=p.life;p.active=true;
+  }
+}
+function updateBubblePops(dt){
+  for(var i=0;i<bubblePops.length;i++){
+    var p=bubblePops[i];if(!p.active)continue;
+    p.life-=dt;
+    if(p.life<=0){p.active=false;p.mesh.visible=false;continue}
+    p.vel.y-=2*dt;p.vel.multiplyScalar(0.97);
+    p.mesh.position.x+=p.vel.x*dt;
+    p.mesh.position.y+=p.vel.y*dt;
+    p.mesh.position.z+=p.vel.z*dt;
+    p.mat.opacity=(p.life/p.max)*0.8;
+  }
+}
+
+// --- Will-o'-Wisp AI: follow player loosely, scatter on sprint, guide to orbs when idle ---
+function updateWisps(dt,t){
+  var sprinting=keys['ShiftLeft']||keys['ShiftRight']||touchSprint;
+  // Find nearest uncollected orb for waypointing
+  var guideOrb=null;
+  if(playerIdleTime>5&&(questPhase==='SEEK'||questPhase==='RISING')){
+    var bestD=Infinity;
+    for(var oi=0;oi<orbs.length;oi++){
+      if(orbs[oi].found)continue;
+      var odx=orbs[oi].x-player.pos.x,odz=orbs[oi].z-player.pos.z;
+      var od2=odx*odx+odz*odz;
+      if(od2<bestD){bestD=od2;guideOrb=orbs[oi]}
+    }
+  }
+  for(var i=0;i<wisps.length;i++){
+    var w=wisps[i];
+    // Determine target position: orbit around player
+    var orbitAng=t*0.5+w.phase+(i/WISP_N)*6.28;
+    var orbitR=sprinting?4+i*2:1.5+i*0.8;
+    var orbitY=sprinting?3+i:1.2+Math.sin(t*0.7+w.phase)*0.5;
+    w.targetX=player.pos.x+Math.cos(orbitAng)*orbitR;
+    w.targetY=player.pos.y-EYE_H+orbitY;
+    w.targetZ=player.pos.z+Math.sin(orbitAng)*orbitR;
+    // First wisp guides toward nearest orb when player idle
+    if(i===0&&guideOrb){
+      var guideFrac=Math.min((playerIdleTime-5)/3,0.6); // ramp up over 3s, max 60% bias
+      w.targetX+=(guideOrb.x-player.pos.x)*guideFrac;
+      w.targetZ+=(guideOrb.z-player.pos.z)*guideFrac;
+      w.targetY+=0.5; // rise slightly to draw attention
+    }
+    // Scatter effect: if sprinting, push outward faster
+    var followRate=sprinting?0.8:2.5;
+    // Smooth approach via velocity
+    w.velX+=(w.targetX-w.group.position.x)*followRate*dt;
+    w.velY+=(w.targetY-w.group.position.y)*followRate*dt;
+    w.velZ+=(w.targetZ-w.group.position.z)*followRate*dt;
+    w.velX*=0.92;w.velY*=0.92;w.velZ*=0.92;
+    w.group.position.x+=w.velX*dt*4;
+    w.group.position.y+=w.velY*dt*4;
+    w.group.position.z+=w.velZ*dt*4;
+    // Pulse glow
+    var p=Math.sin(t*2+w.phase)*0.5+0.5;
+    w.glowMat.opacity=0.3+p*0.4;
+    w.hazeMat.opacity=0.08+p*0.12;
+    // Orbit sparkle child
+    var ch=w.group.children[3];
+    var sa=t*3+w.phase;
+    ch.position.set(Math.cos(sa)*0.18,Math.sin(sa*1.5)*0.06,Math.sin(sa)*0.18);
+  }
+}
+
+// --- Dandelion dispersal: walk-through triggers seed burst ---
+function updateDandelions(dt,t){
+  for(var i=0;i<dandelions.length;i++){
+    var d=dandelions[i];
+    if(!d.dispersed){
+      // Check player proximity
+      var dx=d.x-player.pos.x,dz=d.z-player.pos.z;
+      if(dx*dx+dz*dz<1.2){
+        d.dispersed=true;
+        // Burst seeds
+        for(var s=0;s<8;s++) spawnDandSeed(d.x,d.h+0.05,d.z);
+        // Hide the seed head and tufts
+        for(var c=2;c<d.group.children.length;c++){
+          d.group.children[c].visible=false;
+        }
+        d.regrowTimer=15+Math.random()*10;
+      }else{
+        // Gentle sway
+        d.group.rotation.z=Math.sin(t*0.9+d.phase)*0.04;
+        // Head glow pulse
+        d.headMat.emissiveIntensity=0.15+Math.sin(t*1.2+d.phase)*0.1;
+      }
+    }else{
+      // Regrow timer
+      d.regrowTimer-=dt;
+      if(d.regrowTimer<=0){
+        d.dispersed=false;
+        for(var c=2;c<d.group.children.length;c++){
+          d.group.children[c].visible=true;
+        }
+      }
+      d.group.rotation.z=Math.sin(t*0.9+d.phase)*0.02;
+    }
+  }
+}
+
+// --- Fairy Ring: proximity glow + bounce on jump ---
+function updateFairyRings(dt,t){
+  for(var i=0;i<fairyRings.length;i++){
+    var fr=fairyRings[i];
+    var dx=fr.x-player.pos.x,dz=fr.z-player.pos.z;
+    var dist2=dx*dx+dz*dz;
+    var inRing=dist2<(FAIRY_RING_R+0.5)*(FAIRY_RING_R+0.5);
+    // Glow on proximity
+    var targetGlow=inRing?1.0:0.0;
+    fr.glowIntensity+=(targetGlow-fr.glowIntensity)*dt*3;
+    fr.discMat.opacity=fr.glowIntensity*0.25*(0.6+Math.sin(t*2+fr.phase)*0.4);
+    fr.mushMat.emissiveIntensity=0.2+fr.glowIntensity*0.8;
+    // Bounce: if player just jumped while in ring — boost upward
+    // (onGround is already false when director runs, so detect fresh jump velocity)
+    if(inRing&&player.vel.y>0&&player.vel.y<=JUMP_IMPULSE+0.5){
+      player.vel.y=JUMP_IMPULSE+FAIRY_BOUNCE;
+      fr.glowIntensity=1.5; // flash
+    }
+  }
+}
+
+// --- Bubble Sprites: drift, pop on player collision ---
+function updateBubbles(dt,t){
+  for(var i=0;i<bubbles.length;i++){
+    var b=bubbles[i];
+    if(b.popped){
+      b.popTimer-=dt;
+      if(b.popTimer<=0){
+        // Respawn
+        b.popped=false;
+        b.group.visible=true;
+        var a=sr()*6.28,d=8+sr()*WORLD_R*0.5;
+        b.homeX=Math.cos(a)*d;b.homeZ=Math.sin(a)*d;
+        b.floatY=0.5+sr()*4;
+        b.group.position.set(b.homeX,b.floatY,b.homeZ);
+      }
+      continue;
+    }
+    // Drift gently
+    b.driftAng+=dt*0.2;
+    var tx=b.homeX+Math.sin(b.driftAng)*3;
+    var tz=b.homeZ+Math.cos(b.driftAng*0.7)*3;
+    b.group.position.x+=(tx-b.group.position.x)*dt*0.5;
+    b.group.position.z+=(tz-b.group.position.z)*dt*0.5;
+    b.group.position.y=b.floatY+Math.sin(t*0.6+b.phase)*b.bobAmp;
+    // Iridescent color shift
+    var hue=(t*0.1+b.phase)%1;
+    var r=Math.sin(hue*6.28)*0.15+0.7;
+    var g2=Math.sin(hue*6.28+2.09)*0.15+0.7;
+    var bl=Math.sin(hue*6.28+4.19)*0.15+0.8;
+    b.shellMat.color.setRGB(r,g2,bl);
+    // Pulse opacity
+    b.shellMat.opacity=0.18+Math.sin(t*1.5+b.phase)*0.08;
+    // Check player collision
+    var dx=b.group.position.x-player.pos.x;
+    var dy=b.group.position.y-player.pos.y;
+    var dz=b.group.position.z-player.pos.z;
+    if(dx*dx+dy*dy+dz*dz<BUBBLE_POP_R*BUBBLE_POP_R*b.sc*b.sc){
+      // Pop!
+      b.popped=true;b.popTimer=8+Math.random()*8;
+      b.group.visible=false;
+      spawnBubblePop(b.group.position.x,b.group.position.y,b.group.position.z,6);
+    }
+  }
+}
+
+// --- Pond Lilies: bob pads, pulse flower ---
+function updatePonds(dt,t){
+  for(var i=0;i<ponds.length;i++){
+    var po=ponds[i];
+    // Pad bobbing
+    for(var j=0;j<po.pads.length;j++){
+      var pad=po.pads[j];
+      pad.mesh.position.y=0.05+Math.sin(t*0.8+pad.phase)*0.015;
+    }
+    // Water shimmer
+    po.waterMat.emissiveIntensity=0.15+Math.sin(t*1.0+po.phase)*0.1;
+    // Flower pulse
+    var fp=Math.sin(t*1.2+po.phase)*0.5+0.5;
+    po.flMat.emissiveIntensity=0.3+fp*0.5;
+  }
+}
+
+// --- Echo Bloom: cascade glow through nearby vegetation near crystals ---
+function updateEchoBloom(dt,t){
+  // Trigger near crystals
+  echoBloomTimer-=dt;
+  if(echoBloomTimer<=0){
+    echoBloomTimer=0.5; // check interval
+    for(var i=0;i<crys_data.length;i++){
+      var c=crys_data[i];
+      var dx=c.x-player.pos.x,dz=c.z-player.pos.z;
+      if(dx*dx+dz*dz<36){ // within 6m
+        echoBloomCenter={x:c.x,z:c.z};
+        echoBloomRadius=0;
+        break;
+      }
+    }
+  }
+  if(!echoBloomCenter) return;
+  echoBloomRadius+=dt*12; // expands at 12 m/s
+  if(echoBloomRadius>30){echoBloomCenter=null;echoBloomRadius=0;return}
+  var wave=echoBloomRadius;
+  var waveW=4.0; // ring width
+  // Boost nearby mushrooms
+  for(var i=0;i<mush_data.length;i++){
+    var m=mush_data[i];
+    var dx=m.x-echoBloomCenter.x,dz=m.z-echoBloomCenter.z;
+    var d=Math.sqrt(dx*dx+dz*dz);
+    var inWave=Math.abs(d-wave)<waveW;
+    if(inWave){
+      var waveFrac=1-Math.abs(d-wave)/waveW;
+      m.capMat.emissiveIntensity=Math.max(m.capMat.emissiveIntensity,m.base+waveFrac*2.0);
+    }
+  }
+  // Boost nearby flowers
+  for(var i=0;i<flowers.length;i++){
+    var fl=flowers[i];
+    var fx=fl.group.position.x-echoBloomCenter.x;
+    var fz=fl.group.position.z-echoBloomCenter.z;
+    var d=Math.sqrt(fx*fx+fz*fz);
+    var inWave=Math.abs(d-wave)<waveW;
+    if(inWave){
+      var waveFrac=1-Math.abs(d-wave)/waveW;
+      fl.petalMat.emissiveIntensity=Math.max(fl.petalMat.emissiveIntensity,0.3+waveFrac*1.5);
+    }
+  }
+}
+
+// --- Jelly AI: gentle drift + vertical bob ---
+function updateJellies(dt,t){
+  for(var i=0;i<jellies.length;i++){
+    var j=jellies[i];
+    // Drift in slow circles
+    j.driftAng+=dt*0.15;
+    var radius=8+Math.sin(t*0.1+j.phase)*4;
+    var tx=j.homeX+Math.cos(j.driftAng)*radius;
+    var tz=j.homeZ+Math.sin(j.driftAng)*radius;
+    var g=j.group;
+    g.position.x+=(tx-g.position.x)*dt*0.3;
+    g.position.z+=(tz-g.position.z)*dt*0.3;
+    // Vertical bob
+    g.position.y=j.floatY+Math.sin(t*j.wobble+j.phase)*1.5;
+    // Pulse glow
+    var p=Math.sin(t*1.2+j.phase)*0.5+0.5;
+    j.bellMat.emissiveIntensity=0.4+p*0.8;
+    j.bellMat.opacity=0.35+p*0.25;
+    // Gentle rotation
+    g.rotation.y+=dt*0.2;
+    // Tentacle sway (wiggle children 2-7)
+    for(var ti=2;ti<g.children.length;ti++){
+      g.children[ti].rotation.x=Math.sin(t*2+ti+j.phase)*0.15;
+      g.children[ti].rotation.z=Math.sin(t*1.5+ti*0.7+j.phase)*0.1;
+    }
+  }
+}
+
+// --- Puffling AI: idle → hop → idle ---
+function updatePuffs(dt,t){
+  for(var i=0;i<puffs.length;i++){
+    var p=puffs[i],g=p.group;
+    if(p.state==='idle'){
+      p.idleTimer-=dt;
+      // Cute idle bobble
+      g.position.y=Math.sin(t*2+p.phase)*0.02;
+      g.rotation.y+=Math.sin(t*0.5+p.phase)*dt*0.3;
+      if(p.idleTimer<=0){
+        p.state='hop';
+        p.wanderAng+=((Math.random()-0.5)*1.5);
+        p.hopTimer=0;
+      }
+    }else{
+      p.hopTimer+=dt;
+      // Hop cycle: ~1.2 seconds
+      var hopDur=1.2;
+      var frac=p.hopTimer/hopDur;
+      if(frac>=1.0){
+        p.state='idle';
+        p.idleTimer=1.5+Math.random()*3;
+        g.position.y=0;
+      }else{
+        // Parabolic hop arc
+        var arc=Math.sin(frac*Math.PI)*0.3;
+        g.position.y=arc;
+        // Move forward
+        g.position.x+=Math.sin(p.wanderAng)*p.speed*dt;
+        g.position.z+=Math.cos(p.wanderAng)*p.speed*dt;
+        // Squash and stretch
+        var sq=1.0-Math.sin(frac*Math.PI)*0.15;
+        var st=1.0+Math.sin(frac*Math.PI)*0.2;
+        g.scale.set(sq,st,sq);
+        // Face movement direction
+        g.rotation.y=p.wanderAng;
+      }
+      // Keep in bounds
+      var d=Math.sqrt(g.position.x*g.position.x+g.position.z*g.position.z);
+      if(d>WORLD_R*0.85) p.wanderAng+=Math.PI;
+    }
+  }
+}
+
+// --- Deer AI: majestic walk, jointed legs, head movement, flee from player ---
+var DEER_FLEE_R=8, DEER_FLEE_SPEED_MULT=2.2;
+function updateDeers(dt,t){
+  for(var i=0;i<deers.length;i++){
+    var d=deers[i],g=d.group;
+
+    // Check player proximity — flee if close
+    var dx=g.position.x-player.pos.x, dz=g.position.z-player.pos.z;
+    var pDist=Math.sqrt(dx*dx+dz*dz);
+    if(pDist<DEER_FLEE_R){
+      // Set wander angle AWAY from player
+      d.wanderAng=Math.atan2(dx,dz);
+      d.state='flee';
+      d.fleeTimer=2.0+Math.random()*1.5;
+    }
+
+    var moveSpeed=d.speed;
+    var isMoving=false;
+
+    if(d.state==='flee'){
+      d.fleeTimer-=dt;
+      moveSpeed=d.speed*DEER_FLEE_SPEED_MULT;
+      isMoving=true;
+      if(d.fleeTimer<=0){d.state='walk';d.walkTimer=0}
+    }else if(d.state==='pause'){
+      d.pauseTimer-=dt;
+      if(d.pauseTimer<=0){d.state='walk';d.wanderAng+=(Math.random()-0.5)*0.8}
+    }else{
+      // Walk state
+      d.walkTimer+=dt;
+      isMoving=true;
+      // Periodic pause (slow majestic pace)
+      if(d.walkTimer>4+Math.random()*5){
+        d.state='pause';d.pauseTimer=2.5+Math.random()*4;d.walkTimer=0;
+      }
+    }
+
+    if(isMoving){
+      // Move FORWARD along wanderAng (+Z is local forward)
+      g.position.x+=Math.sin(d.wanderAng)*moveSpeed*dt;
+      g.position.z+=Math.cos(d.wanderAng)*moveSpeed*dt;
+      // Face movement direction (deer faces +Z locally, so rotation.y = -wanderAng)
+      g.rotation.y=d.wanderAng;
+      // Advance leg cycle
+      d.legCycle+=dt*moveSpeed*5;
+      // Subtle body bob
+      g.position.y=Math.abs(Math.sin(d.legCycle))*0.02;
+    }
+
+    // Keep in bounds
+    var dist=Math.sqrt(g.position.x*g.position.x+g.position.z*g.position.z);
+    if(dist>WORLD_R*0.85) d.wanderAng+=Math.PI*0.8;
+
+    // === JOINT ANIMATION ===
+    // Leg pendulum swing (walk cycle)
+    var legAmp=isMoving?(d.state==='flee'?0.45:0.3):0.02;
+    var legSpeed=d.legCycle;
+    for(var li=0;li<d.legPivots.length;li++){
+      var lp=d.legPivots[li];
+      // Diagonal pair: FL+BR vs FR+BL (gait pattern)
+      var phase=(lp.isFront===(lp.side<0))?0:Math.PI;
+      var swing=Math.sin(legSpeed+phase)*legAmp;
+      // Upper leg swings forward/back
+      lp.upper.rotation.x=swing;
+      // Lower leg: slight secondary bend (more when leg is back)
+      var kneeBend=Math.max(0,Math.sin(legSpeed+phase-0.5))*legAmp*0.6;
+      lp.lower.rotation.x=kneeBend;
+    }
+
+    // Head/neck animation
+    if(d.neckPivot){
+      if(d.state==='pause'){
+        // Idle: slow look-around and gentle grazing dip
+        d.headLook+=(Math.sin(t*0.4+d.phase)*0.003)*60*dt;
+        d.neckPivot.rotation.y=Math.sin(t*0.3+d.phase)*0.25; // look left/right
+        d.neckPivot.rotation.x=Math.sin(t*0.5+d.phase*2)*0.08-0.05; // gentle nod/graze
+      }else if(d.state==='flee'){
+        // Flee: head up, alert
+        d.neckPivot.rotation.x=-0.15; // head raised
+        d.neckPivot.rotation.y=0; // straight ahead
+      }else{
+        // Walking: rhythmic head bob synced to step
+        d.neckPivot.rotation.x=Math.sin(d.legCycle*0.5)*0.06-0.02;
+        d.neckPivot.rotation.y=Math.sin(d.legCycle*0.25)*0.05;
+      }
+    }
+
+    // Tail wag
+    if(d.tailPivot){
+      var tailSpeed=d.state==='flee'?3:0.8;
+      d.tailPivot.rotation.x=0.5+Math.sin(t*tailSpeed+d.phase)*0.15;
+      d.tailPivot.rotation.z=Math.sin(t*tailSpeed*0.7+d.phase)*0.1;
+    }
+
+    // Ethereal pulse on body material
+    var pulse=Math.sin(t*0.8+d.phase)*0.5+0.5;
+    d.mat.emissiveIntensity=0.3+pulse*0.4;
+    d.mat.opacity=0.55+pulse*0.2;
+  }
+}
+
+// --- Moth AI: orbit a point, flap wings ---
+function updateMoths(dt,t){
+  for(var i=0;i<moths.length;i++){
+    var m=moths[i],g=m.group;
+    // Orbit in a circle
+    m.orbitAng+=dt*0.4;
+    var tx=m.centerX+Math.cos(m.orbitAng)*m.orbitR;
+    var tz=m.centerZ+Math.sin(m.orbitAng)*m.orbitR;
+    g.position.x+=(tx-g.position.x)*dt*1.5;
+    g.position.z+=(tz-g.position.z)*dt*1.5;
+    g.position.y=m.floatY+Math.sin(t*0.7+m.phase)*0.8;
+    // Face direction of travel
+    g.rotation.y=m.orbitAng+Math.PI/2;
+    // Wing flap — rotate wing pivots
+    var flap=Math.sin(t*m.flapSpeed+m.phase)*0.4;
+    for(var w=0;w<g._wingPivots.length;w++){
+      var wp=g._wingPivots[w];
+      wp.pivot.rotation.z=flap*wp.side;
+    }
+    // Glow pulse
+    var pulse=Math.sin(t*1.5+m.phase)*0.5+0.5;
+    m.wingMat.emissiveIntensity=0.5+pulse*0.6;
+    m.wingMat.opacity=0.45+pulse*0.25;
+  }
+}
+
+// --- Quest Update System ---
+function updateQuest(dt,t){
+  // Orb proximity light — find nearest unfound orb
+  var nearestOrb=null,nearestD=Infinity;
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];if(o.found)continue;
+    var dx=o.x-player.pos.x,dz=o.z-player.pos.z;
+    var d=dx*dx+dz*dz;
+    if(d<nearestD){nearestD=d;nearestOrb=o}
+  }
+  // Proximity light on nearest unfound orb
+  if(nearestOrb&&nearestD<ORB_SENSE_R*ORB_SENSE_R){
+    var p=Math.sin(t*2+nearestOrb.phase)*0.5+0.5;
+    orbLight.position.set(nearestOrb.x,1.0,nearestOrb.z);
+    orbLight.intensity=1.0+p*2.0;
+    orbLight.distance=ORB_SENSE_R;
+  }else{
+    orbLight.intensity=0;
+  }
+
+  // Animate all orbs
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];
+    if(o.found&&!o.flyUp)continue; // fully ascended, laser handles the rest
+
+    if(!o.found){
+      // Idle animation: bob + sparkle orbit + pulse
+      var p=Math.sin(t*1.5+o.phase)*0.5+0.5;
+      o.group.position.y=1.0+Math.sin(t*0.8+o.phase)*0.3;
+      o.glowMat.opacity=0.3+p*0.4;
+      o.hazeMat.opacity=0.08+p*0.12;
+      // Rotate sparkle ring
+      for(var s=3;s<o.group.children.length;s++){
+        var ch=o.group.children[s];
+        var sa=((s-3)/6)*6.28+t*1.5;
+        ch.position.x=Math.cos(sa)*0.4;
+        ch.position.z=Math.sin(sa)*0.4;
+        ch.position.y=Math.sin(sa*2+t)*0.1;
+      }
+      // Touch detection
+      var dx=o.x-player.pos.x,dz=o.z-player.pos.z;
+      if(dx*dx+dz*dz<ORB_TOUCH_R*ORB_TOUCH_R){
+        o.found=true;o.flyUp=true;o.flyY=o.group.position.y;
+        orbsFound++;
+        orbHudEl.innerHTML='✦ '+orbsFound+' / '+ORB_N;
+        // Start obelisk rising on first orb
+        if(questPhase==='SEEK')questPhase='RISING';
+      }
+    }
+
+    if(o.flyUp){
+      // Fly upward toward obelisk tip height
+      var targetY=OBELISK_H+5;
+      o.flyY+=(targetY-o.flyY)*dt*0.8;
+      o.group.position.y=o.flyY;
+      // Shrink as it rises
+      var frac=Math.min((o.flyY-1)/(targetY-1),1);
+      o.group.scale.setScalar(1.0-frac*0.6);
+      o.glowMat.opacity=0.8-frac*0.5;
+      // When high enough, lock in place and create laser
+      if(o.flyY>targetY-1&&!o.laserLine){
+        o.flyUp=false;
+        o.group.visible=false; // hide orb, laser takes over
+        o.laserLine=makeLaser(o.x,o.z,targetY);
+      }
+    }
+  }
+
+  // Obelisk rising
+  if(questPhase==='RISING'){
+    if(obeliskY<0){
+      obeliskY+=OBELISK_RISE_SPEED*dt;
+      if(obeliskY>0)obeliskY=0;
+      obeliskGroup.position.y=obeliskY;
+    }
+    // Check completion
+    if(orbsFound>=ORB_N&&obeliskY>=0){
+      questPhase='COMPLETE';
+      finaleTimer=0;
+    }
+  }
+
+  // Obelisk subtle rotation + light intensity
+  if(obeliskGroup){
+    obeliskGroup.rotation.y+=dt*0.03;
+    // Obelisk light glows brighter as it rises
+    var oLight=obeliskGroup.children[obeliskGroup.children.length-1];
+    if(oLight&&oLight.isLight){
+      var riseT=Math.max(0,Math.min(1,(obeliskY+OBELISK_H)/OBELISK_H));
+      oLight.intensity=riseT*1.5*(0.8+Math.sin(t*1.5)*0.2);
+    }
+  }
+
+  // Laser pulse
+  for(var i=0;i<orbs.length;i++){
+    var o=orbs[i];
+    if(!o.laserLine)continue;
+    var p=Math.sin(t*3+i)*0.5+0.5;
+    o.laserLine.mat.opacity=0.5+p*0.4;
+    o.laserLine.glowMat.opacity=0.15+p*0.15;
+  }
+
+  // === FINALE ===
+  if(questPhase==='COMPLETE'){
+    finaleTimer+=dt;
+
+    // Phase 1 (0-3s): Obelisk glows bright pink
+    var glowRamp=Math.min(finaleTimer/3,1);
+    obeliskMat.emissiveIntensity=glowRamp*1.5;
+    obeliskGlowMat.emissiveIntensity=glowRamp*2.5;
+
+    // Phase 2 (1-6s): Moat fades in
+    if(finaleTimer>1&&moatMat){
+      var moatFade=Math.min((finaleTimer-1)/4,1);
+      moatMat.opacity=moatFade*0.6;
+      // Animate moat surface ripple via subtle Y oscillation
+      if(moatMesh) moatMesh.position.y=0.05+Math.sin(t*3)*0.02*moatFade;
+    }
+
+    // Phase 3 (2-8s): Rainbows appear
+    if(finaleTimer>2){
+      var rbFade=Math.min((finaleTimer-2)/5,1);
+      for(var i=0;i<rainbowArcs.length;i++){
+        var delay=i*0.3;
+        var arcFade=Math.min(Math.max((finaleTimer-2-delay)/2,0),1);
+        rainbowArcs[i].mat.opacity=arcFade*0.55;
+        // Gentle rotation
+        rainbowArcs[i].mesh.rotation.y+=dt*0.1*(i+1)*0.3;
+      }
+    }
+
+    // Phase 4 (1s+): All creatures migrate toward center
+    if(finaleTimer>1){
+      var gatherStrength=Math.min((finaleTimer-1)/6,1)*2.0;
+      // Deer
+      for(var i=0;i<deers.length;i++){
+        var d=deers[i],g=d.group;
+        var tx=-g.position.x,tz=-g.position.z;
+        var dist=Math.sqrt(tx*tx+tz*tz);
+        if(dist>8){
+          d.wanderAng=Math.atan2(-g.position.x,-g.position.z);
+          d.state='walk';d.speed=1.5*gatherStrength;
+          g.position.x+=tx/dist*d.speed*dt;
+          g.position.z+=tz/dist*d.speed*dt;
+          g.rotation.y=d.wanderAng;
+        }else{d.state='pause'}
+      }
+      // Pufflings
+      for(var i=0;i<puffs.length;i++){
+        var p=puffs[i],g=p.group;
+        var tx=-g.position.x,tz=-g.position.z;
+        var dist=Math.sqrt(tx*tx+tz*tz);
+        if(dist>8){
+          p.wanderAng=Math.atan2(-g.position.x,-g.position.z);
+          p.state='hop';p.hopTimer=p.hopTimer%1.2;
+          g.position.x+=tx/dist*1.5*gatherStrength*dt;
+          g.position.z+=tz/dist*1.5*gatherStrength*dt;
+        }
+      }
+      // Jellies float toward center
+      for(var i=0;i<jellies.length;i++){
+        var j=jellies[i],g=j.group;
+        g.position.x+=(0-g.position.x)*dt*0.15*gatherStrength;
+        g.position.z+=(0-g.position.z)*dt*0.15*gatherStrength;
+      }
+      // Moths spiral inward
+      for(var i=0;i<moths.length;i++){
+        var m=moths[i];
+        m.centerX+=(0-m.centerX)*dt*0.2*gatherStrength;
+        m.centerZ+=(0-m.centerZ)*dt*0.2*gatherStrength;
+        m.orbitR=Math.max(m.orbitR-dt*0.3*gatherStrength,2);
+      }
+    }
+
+    // Transition to FINALE state after everything is in place
+    if(finaleTimer>10)questPhase='FINALE';
+  }
+
+  // Sustain finale state — keep everything animating
+  if(questPhase==='FINALE'){
+    obeliskMat.emissiveIntensity=1.5+Math.sin(t*0.5)*0.3;
+    obeliskGlowMat.emissiveIntensity=2.5+Math.sin(t*0.7)*0.5;
+    if(moatMesh) moatMesh.position.y=0.05+Math.sin(t*3)*0.02;
+    for(var i=0;i<rainbowArcs.length;i++){
+      rainbowArcs[i].mesh.rotation.y+=dt*0.1*(i+1)*0.3;
+      rainbowArcs[i].mat.opacity=0.45+Math.sin(t+i)*0.1;
+    }
+  }
+}
+
+// ================================================================
+// PHASE IV — Director
+// ================================================================
+
+// Crystal proximity lights — pooled, moved to nearest crystals each frame
+var crystalLights=[];
+function initCrystalLights(){
+  for(var i=0;i<MAX_CRYSTAL_LIGHTS;i++){
+    var pl=new THREE.PointLight(C.crystal,0,16);
+    scene.add(pl);
+    crystalLights.push(pl);
+  }
+}
+
+var trees_data=[],mush_data=[],crys_data=[];
+
+function populate(){
+  // Trees
+  for(var i=0;i<TREE_N;i++){
+    var x,z,ok=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=5+sr()*(WORLD_R-10);
+      x=Math.cos(ang)*d;z=Math.sin(ang)*d;ok=true;
+      for(var j=0;j<trees_data.length;j++){
+        var dx=trees_data[j].x-x,dz=trees_data[j].z-z;
+        if(dx*dx+dz*dz<9){ok=false;break}
+      }
+      if(ok)break;
+    }
+    if(ok){var g=makeTree(x,z);trees_data.push({group:g,x:x,z:z})}
+  }
+  // Mushrooms near trees
+  for(var i=0;i<MUSH_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    var ang=sr()*6.28,d=1+sr()*4;
+    var mx=ref.x+Math.cos(ang)*d,mz=ref.z+Math.sin(ang)*d;
+    mush_data.push(makeMush(mx,mz));
+  }
+  // Crystals
+  for(var i=0;i<CRYSTAL_N;i++){
+    var ang=sr()*6.28,d=8+sr()*WORLD_R*0.6;
+    crys_data.push(makeCrystal(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Jellies — floating between trees
+  for(var i=0;i<JELLY_N;i++){
+    var ang=sr()*6.28,d=10+sr()*WORLD_R*0.5;
+    jellies.push(makeJelly(Math.cos(ang)*d,3+sr()*5,Math.sin(ang)*d));
+  }
+  // Pufflings — near mushroom clusters
+  for(var i=0;i<PUFF_N;i++){
+    var ref=mush_data[Math.floor(sr()*mush_data.length)];
+    var ang=sr()*6.28,d=1+sr()*5;
+    puffs.push(makePuff(ref.x+Math.cos(ang)*d,ref.z+Math.sin(ang)*d));
+  }
+  // Spirit Deer — open areas
+  for(var i=0;i<DEER_N;i++){
+    var ang=sr()*6.28,d=12+sr()*WORLD_R*0.5;
+    deers.push(makeDeer(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Luna Moths — orbiting near trees with canopy glow
+  for(var i=0;i<MOTH_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    moths.push(makeMoth(ref.x,2+sr()*4,ref.z));
+  }
+  // Grass patches — scattered everywhere
+  for(var i=0;i<GRASS_PATCHES;i++){
+    var ang=sr()*6.28,d=2+sr()*(WORLD_R*0.9);
+    var gx=Math.cos(ang)*d,gz=Math.sin(ang)*d;
+    grassPatches.push(makeGrassPatch(gx,gz,2+sr()*2.5,25+Math.floor(sr()*20)));
+  }
+  // Rocks — scattered formations, avoiding tree trunks
+  for(var i=0;i<ROCK_N;i++){
+    var rx,rz,ok4=false;
+    for(var a=0;a<10;a++){
+      var ang=sr()*6.28,d=3+sr()*(WORLD_R*0.85);
+      rx=Math.cos(ang)*d;rz=Math.sin(ang)*d;ok4=true;
+      for(var j=0;j<trees_data.length;j++){
+        var ddx=trees_data[j].x-rx,ddz=trees_data[j].z-rz;
+        if(ddx*ddx+ddz*ddz<4){ok4=false;break}
+      }
+      if(ok4)break;
+    }
+    if(ok4) rocks_data.push(makeRock(rx,rz));
+  }
+  // Ferns — near trees, understory
+  for(var i=0;i<FERN_N;i++){
+    var ref=trees_data[Math.floor(sr()*trees_data.length)];
+    var ang=sr()*6.28,d=1+sr()*5;
+    ferns.push(makeFern(ref.x+Math.cos(ang)*d,ref.z+Math.sin(ang)*d));
+  }
+  // Glowing flowers — scattered in open areas and near mushrooms
+  for(var i=0;i<FLOWER_N;i++){
+    var ang=sr()*6.28,d=3+sr()*(WORLD_R*0.7);
+    flowers.push(makeFlower(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Reed clusters — scattered
+  for(var i=0;i<REED_N;i++){
+    var ang=sr()*6.28,d=4+sr()*(WORLD_R*0.8);
+    reeds.push(makeReed(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Golden orbs — hidden at medium-far distances, avoid center
+  for(var i=0;i<ORB_N;i++){
+    var ox,oz,ok=false;
+    for(var a=0;a<30;a++){
+      var ang=sr()*6.28,d=20+sr()*(WORLD_R*0.6);
+      ox=Math.cos(ang)*d;oz=Math.sin(ang)*d;ok=true;
+      // Must be >15m from other orbs and >10m from center
+      for(var j=0;j<orbs.length;j++){
+        var ddx=orbs[j].x-ox,ddz=orbs[j].z-oz;
+        if(ddx*ddx+ddz*ddz<225){ok=false;break}
+      }
+      if(ok)break;
+    }
+    if(ok) orbs.push(makeOrb(ox,oz));
+  }
+  // Will-o'-wisps — spawn near player start
+  for(var i=0;i<WISP_N;i++){
+    var wa=sr()*6.28,wd=2+sr()*3;
+    wisps.push(makeWisp(Math.cos(wa)*wd,1.0+sr()*0.5,Math.sin(wa)*wd));
+  }
+  // Dandelion puffs — scattered in open areas
+  for(var i=0;i<DANDELION_N;i++){
+    var ang=sr()*6.28,d=4+sr()*(WORLD_R*0.7);
+    dandelions.push(makeDandelion(Math.cos(ang)*d,Math.sin(ang)*d));
+  }
+  // Fairy rings — in clearings away from trees
+  for(var i=0;i<FAIRY_RING_N;i++){
+    var fx,fz,ok2=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=10+sr()*(WORLD_R*0.6);
+      fx=Math.cos(ang)*d;fz=Math.sin(ang)*d;ok2=true;
+      for(var j=0;j<trees_data.length;j++){
+        var ddx=trees_data[j].x-fx,ddz=trees_data[j].z-fz;
+        if(ddx*ddx+ddz*ddz<36){ok2=false;break}
+      }
+      if(ok2)break;
+    }
+    if(ok2) fairyRings.push(makeFairyRing(fx,fz));
+  }
+  // Bubble sprites — drifting through the canopy
+  for(var i=0;i<BUBBLE_N;i++){
+    var ang=sr()*6.28,d=5+sr()*WORLD_R*0.6;
+    var by=0.5+sr()*5;
+    bubbles.push(makeBubble(Math.cos(ang)*d,by,Math.sin(ang)*d));
+  }
+  // Ponds with lily pads
+  for(var i=0;i<POND_N;i++){
+    var px,pz,ok3=false;
+    for(var a=0;a<20;a++){
+      var ang=sr()*6.28,d=8+sr()*(WORLD_R*0.6);
+      px=Math.cos(ang)*d;pz=Math.sin(ang)*d;ok3=true;
+      for(var j=0;j<trees_data.length;j++){
+        var ddx=trees_data[j].x-px,ddz=trees_data[j].z-pz;
+        if(ddx*ddx+ddz*ddz<16){ok3=false;break}
+      }
+      if(ok3)break;
+    }
+    if(ok3) ponds.push(makePond(px,pz));
+  }
+}
+
+// State machine
+var state='EXPLORE';
+var ffTimer=0,spTimer=0;
+
+function director(dt,t){
+  // Check crystal proximity
+  var nearCrys=false;
+  for(var i=0;i<crys_data.length;i++){
+    var dx=crys_data[i].x-player.pos.x,dz=crys_data[i].z-player.pos.z;
+    if(dx*dx+dz*dz<64){nearCrys=true;break}
+  }
+  state=nearCrys?'NEAR_CRYSTAL':'EXPLORE';
+
+  // Firefly spawning
+  ffTimer+=dt;
+  var ffRate=state==='NEAR_CRYSTAL'?0.08:0.25;
+  var ffMax=state==='NEAR_CRYSTAL'?120:100;
+  if(ffTimer>ffRate){
+    ffTimer=0;
+    var flyCount=0;for(var i=0;i<flies.length;i++)if(flies[i].active)flyCount++;
+    if(flyCount<ffMax){
+      if(state==='NEAR_CRYSTAL'){
+        for(var i=0;i<crys_data.length;i++){
+          var dx=crys_data[i].x-player.pos.x,dz=crys_data[i].z-player.pos.z;
+          if(dx*dx+dz*dz<100)
+            spawnFly(crys_data[i].x,1,crys_data[i].z,3+Math.random()*4);
+        }
+      }else{
+        var a=Math.random()*6.28,d=5+Math.random()*25;
+        spawnFly(player.pos.x+Math.cos(a)*d,0,player.pos.z+Math.sin(a)*d,6+Math.random()*10);
+      }
+    }
+  }
+
+  // Spore emission from nearby mushrooms
+  spTimer+=dt;
+  if(spTimer>0.2){
+    spTimer=0;
+    for(var i=0;i<mush_data.length;i++){
+      var m=mush_data[i];
+      var dx=m.x-player.pos.x,dz=m.z-player.pos.z;
+      if(dx*dx+dz*dz<200&&Math.random()<0.15)
+        spawnSpore(m.x,0.6*m.group.scale.x,m.z);
+    }
+  }
+
+  // Update mushroom glow pulse
+  for(var i=0;i<mush_data.length;i++){
+    var m=mush_data[i];
+    var p=Math.sin(t*m.speed+m.phase)*0.5+0.5;
+    m.capMat.emissiveIntensity=m.base*(0.5+p*0.8);
+  }
+
+  // Update crystal glow pulse + rotation
+  for(var i=0;i<crys_data.length;i++){
+    var c=crys_data[i];
+    var p=Math.sin(t*0.6+c.phase)*0.5+0.5;
+    c.mat.emissiveIntensity=1.0+p*1.5;
+    c.group.children[0].rotation.y+=dt*0.15;
+    if(c.light) c.light.intensity=0.3+p*0.4;
+  }
+
+  // Assign crystal proximity lights to nearest crystals
+  // Sort crystals by distance to player, assign lights to closest
+  var sorted=[];
+  for(var i=0;i<crys_data.length;i++){
+    var c=crys_data[i];
+    var dx=c.x-player.pos.x,dz=c.z-player.pos.z;
+    sorted.push({idx:i,dist:dx*dx+dz*dz});
+  }
+  sorted.sort(function(a,b){return a.dist-b.dist});
+
+  for(var i=0;i<crystalLights.length;i++){
+    if(i<sorted.length&&sorted[i].dist<2500){ // within ~50m
+      var c=crys_data[sorted[i].idx];
+      var p=Math.sin(t*0.6+c.phase)*0.5+0.5;
+      crystalLights[i].position.set(c.x,1.5,c.z);
+      crystalLights[i].intensity=1.5+p*2.0;
+      crystalLights[i].distance=16;
+      crystalLights[i].color.setHex(C.crystal);
+    }else{
+      crystalLights[i].intensity=0;
+    }
+  }
+
+  // Update creatures
+  updateJellies(dt,t);
+  updatePuffs(dt,t);
+  updateDeers(dt,t);
+  updateMoths(dt,t);
+  // Update vegetation sway
+  updateSky(dt,t);
+  updateVegetation(dt,t);
+  // Update new entities
+  updateWisps(dt,t);
+  updateDandelions(dt,t);
+  updateFairyRings(dt,t);
+  updateBubbles(dt,t);
+  updatePonds(dt,t);
+  updateStarMotes(dt,t);
+  updateDandSeeds(dt,t);
+  updateDustMotes(dt);
+  updateBubblePops(dt);
+  updateEchoBloom(dt,t);
+  // Update quest system
+  updateQuest(dt,t);
+}
+
+// ================================================================
+// HUD
+// ================================================================
+var hudEl=document.getElementById('hud');
+var fpsS=60;
+
+function updateHUD(dt,flyC,spC){
+  fpsS=fpsS*0.95+(1/Math.max(dt,0.001))*0.05;
+  var qLabel=questPhase==='SEEK'?'Seek the orbs...':
+    questPhase==='RISING'?'The obelisk stirs...':
+    questPhase==='COMPLETE'?'Convergence!':
+    'Luminaries';
+  hudEl.innerHTML='<b>'+qLabel+'</b> · FPS:'+Math.round(fpsS)+
+    '<br>Pos:'+player.pos.x.toFixed(0)+','+player.pos.z.toFixed(0);
+}
+
+// ================================================================
+// Animate
+// ================================================================
+var elapsed=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  var dt=Math.min(clock.getDelta(),0.1);
+  elapsed+=dt;
+
+  if(!started){
+    yaw+=dt*0.08;
+    camera.position.set(0,EYE_H,0);
+    camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=0;
+    // Still pulse mushrooms + crystals
+    for(var i=0;i<mush_data.length;i++){
+      var m=mush_data[i];
+      var p=Math.sin(elapsed*m.speed+m.phase)*0.5+0.5;
+      m.capMat.emissiveIntensity=m.base*(0.5+p*0.8);
+    }
+    for(var i=0;i<crys_data.length;i++){
+      var c=crys_data[i];
+      c.mat.emissiveIntensity=1.0+Math.sin(elapsed*0.6+c.phase)*0.5*1.5+0.75;
+    }
+    updateJellies(dt,elapsed);
+    updatePuffs(dt,elapsed);
+    updateDeers(dt,elapsed);
+    updateMoths(dt,elapsed);
+    updateSky(dt,elapsed);
+    updateVegetation(dt,elapsed);
+    // Idle updates for new entities
+    updateStarMotes(dt,elapsed);
+    for(var i=0;i<bubbles.length;i++){
+      if(!bubbles[i].popped){
+        bubbles[i].group.position.y=bubbles[i].floatY+Math.sin(elapsed*0.6+bubbles[i].phase)*bubbles[i].bobAmp;
+      }
+    }
+    for(var i=0;i<ponds.length;i++){
+      for(var j=0;j<ponds[i].pads.length;j++){
+        ponds[i].pads[j].mesh.position.y=0.05+Math.sin(elapsed*0.8+ponds[i].pads[j].phase)*0.015;
+      }
+    }
+    // Idle orb pulse
+    for(var i=0;i<orbs.length;i++){
+      var o=orbs[i];
+      var p=Math.sin(elapsed*1.5+o.phase)*0.5+0.5;
+      o.group.position.y=1.0+Math.sin(elapsed*0.8+o.phase)*0.3;
+      o.glowMat.opacity=0.3+p*0.4;
+    }
+    bloomEnabled?composer.render():renderer.render(scene,camera);
+    return;
+  }
+
+  updatePlayer(dt);
+  director(dt,elapsed);
+  var flyC=updateFlies(dt,elapsed);
+  var spC=updateSpores(dt);
+
+  camera.position.copy(player.pos);
+  camera.position.y+=cameraBobY;
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  updateHUD(dt,flyC,spC);
+  bloomEnabled?composer.render():renderer.render(scene,camera);
+}
+
+// ================================================================
+// Resize
+// ================================================================
+window.addEventListener('resize',function(){
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  if(bloomEnabled) composer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// --- Pause when tab hidden (prevents dt spike on return) ---
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden) clock.getDelta(); // discard accumulated dt
+});
+
+// ================================================================
+// Start
+// ================================================================
+function go(){
+  if(started)return;started=true;
+  var o=document.getElementById('overlay');
+  if(o){o.style.opacity='0';setTimeout(function(){try{o.remove()}catch(e){}},2500)}
+  orbHudEl.style.display='block';
+}
+
+// ================================================================
+// Init
+// ================================================================
+try{
+  populate();
+  initFlies(150);
+  initSpores(60);
+  initCrystalLights();
+  initStarMotes(STARMOTE_N);
+  initDustMotes(20);
+  initDandSeeds(40);
+  initBubblePops(30);
+  makeObelisk();
+  makeMoat();
+  makeRainbows();
+  // Seed initial fireflies
+  for(var i=0;i<50;i++){
+    var a=Math.random()*6.28,d=3+Math.random()*WORLD_R*0.7;
+    spawnFly(Math.cos(a)*d,0,Math.sin(a)*d,8+Math.random()*12);
+  }
+  console.log('✓ Init: trees='+trees_data.length+' mush='+mush_data.length+
+    ' crystals='+crys_data.length+' orbs='+orbs.length+
+    ' creatures='+(jellies.length+puffs.length+deers.length+moths.length)+
+    ' wisps='+wisps.length+' dandelions='+dandelions.length+
+    ' fairyRings='+fairyRings.length+' bubbles='+bubbles.length+
+    ' ponds='+ponds.length+
+    ' scene='+scene.children.length);
+  animate();
+}catch(err){
+  console.error('INIT FAILED:',err);
+  document.body.innerHTML='<div style="color:red;padding:30px;font-family:monospace">'+
+    '<h2>Init Failed</h2><pre>'+(err.stack||err.message)+'</pre></div>';
+}
+</script></body></html>

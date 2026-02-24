@@ -2,6 +2,8 @@
 
 A first-person 3D exploration experience set in a procedurally generated bioluminescent forest. Built as a single HTML file using Three.js — no build step, no installation, just open and explore.
 
+https://ee-edk.github.io/Luminaries/
+
 ## Play
 
 Open `Luminaries.html` in any modern browser with WebGL support. That's it.

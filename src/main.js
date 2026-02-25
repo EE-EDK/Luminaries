@@ -286,18 +286,84 @@ function updateVegetation(dt, t) {
 
 function updateJellies(dt, t) {
   for (let i = 0; i < jellies.length; i++) {
-    const j = jellies[i];
-    j.driftAng += dt * 0.15;
-    const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
-    const tx = j.homeX + Math.cos(j.driftAng) * radius;
-    const tz = j.homeZ + Math.sin(j.driftAng) * radius;
-    const g = j.group;
-    g.position.x += (tx - g.position.x) * dt * 0.3;
-    g.position.z += (tz - g.position.z) * dt * 0.3;
-    g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
-    const p = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
-    j.bellMat.emissiveIntensity = (0.4 + p * 0.8) * bioGlow;
-    j.bellMat.opacity = 0.35 + p * 0.25;
+    const j = jellies[i], g = j.group;
+    const jx = g.position.x, jz = g.position.z;
+
+    // Init extended state
+    if (!j._init) {
+      j._init = true; j._state = 'drift';
+      j._stT = 20 + Math.random() * 30;
+      j._migrateAng = 0; j._pulseSync = 0;
+    }
+
+    // State transitions
+    j._stT -= dt;
+    if (j._stT <= 0) {
+      if (isStorming) {
+        j._state = 'display'; j._stT = 10 + Math.random() * 15;
+      } else {
+        const r = Math.random();
+        if (r < 0.5) { j._state = 'drift'; j._stT = 20 + Math.random() * 30; }
+        else if (r < 0.75) { j._state = 'pulse'; j._stT = 8 + Math.random() * 12; }
+        else {
+          j._state = 'migrate'; j._migrateAng = Math.random() * 6.28;
+          j._stT = 15 + Math.random() * 20;
+        }
+      }
+    }
+    // Force display during storms
+    if (isStorming && j._state !== 'display') {
+      j._state = 'display'; j._stT = 10;
+    }
+
+    switch (j._state) {
+      case 'drift': {
+        j.driftAng += dt * 0.15;
+        const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
+        const tx = j.homeX + Math.cos(j.driftAng) * radius;
+        const tz = j.homeZ + Math.sin(j.driftAng) * radius;
+        g.position.x += (tx - jx) * dt * 0.3;
+        g.position.z += (tz - jz) * dt * 0.3;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
+        break;
+      }
+      case 'pulse': {
+        j.driftAng += dt * 0.08;
+        g.position.x += Math.cos(j.driftAng) * dt * 0.3;
+        g.position.z += Math.sin(j.driftAng) * dt * 0.3;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.0;
+        j._pulseSync = Math.sin(t * 2.0 + Math.floor(i / 2) * Math.PI) * 0.5 + 0.5;
+        break;
+      }
+      case 'migrate': {
+        g.position.x += Math.cos(j._migrateAng) * dt * 1.0;
+        g.position.z += Math.sin(j._migrateAng) * dt * 1.0;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 0.8;
+        const md = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+        if (md > WORLD_R * 0.8) j._migrateAng += Math.PI;
+        break;
+      }
+      case 'display': {
+        j.driftAng += dt * 0.4;
+        g.position.x += Math.cos(j.driftAng) * dt * 0.8;
+        g.position.z += Math.sin(j.driftAng) * dt * 0.8;
+        g.position.y = j.floatY + Math.sin(t * 2.0 + j.phase) * 2.0;
+        break;
+      }
+    }
+
+    // Visual updates
+    const basePulse = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
+    let emissiveMult = 1.0, opacityBoost = 0;
+    if (j._state === 'pulse') {
+      emissiveMult = 1.0 + j._pulseSync * 1.5;
+      opacityBoost = j._pulseSync * 0.15;
+    } else if (j._state === 'display') {
+      emissiveMult = 1.5 + Math.sin(t * 4 + j.phase) * 0.8;
+      opacityBoost = 0.15;
+    }
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * bioGlow * emissiveMult;
+    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
       g.children[ti].rotation.x = Math.sin(t * 2 + ti + j.phase) * 0.15;
@@ -307,116 +373,412 @@ function updateJellies(dt, t) {
 }
 
 function updatePuffs(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
-    if (p.state === 'idle') {
-      p.idleTimer -= dt;
-      g.position.y = Math.sin(t * 2 + p.phase) * 0.02;
-      g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
-      if (p.idleTimer <= 0) {
-        p.state = 'hop'; p.wanderAng += ((Math.random() - 0.5) * 1.5); p.hopTimer = 0;
+    const px = g.position.x, pz = g.position.z;
+    const ddx = px - player.pos.x, ddz = pz - player.pos.z;
+    const pDist2 = ddx * ddx + ddz * ddz;
+    const pDist = Math.sqrt(pDist2);
+
+    // Init extended state
+    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; }
+
+    // Startle check
+    if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
+      const startleR = sprinting ? 3.5 : 2.0;
+      if (pDist < startleR) {
+        p.state = 'startled'; p._scaredT = 0.6 + Math.random() * 0.5;
+        p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
       }
-    } else {
-      p.hopTimer += dt;
-      const hopDur = 1.2;
-      const frac = p.hopTimer / hopDur;
-      if (frac >= 1.0) {
-        p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = 0;
-      } else {
-        g.position.y = Math.sin(frac * Math.PI) * 0.3;
-        g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
-        g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
-        const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
-        const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
-        g.scale.set(sq, st, sq);
-        g.rotation.y = p.wanderAng;
-      }
-      const d = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-      if (d > WORLD_R * 0.85) p.wanderAng += Math.PI;
     }
+
+    // Huddle in storms
+    if (isStorming && p.state !== 'startled' && p.state !== 'huddle') {
+      let closest = Infinity, closestIdx = -1;
+      for (let j = 0; j < puffs.length; j++) {
+        if (j === i) continue;
+        const odx = puffs[j].group.position.x - px, odz = puffs[j].group.position.z - pz;
+        const od2 = odx * odx + odz * odz;
+        if (od2 < closest) { closest = od2; closestIdx = j; }
+      }
+      if (closestIdx >= 0 && closest > 1) {
+        p.state = 'huddle'; p._huddleTarget = closestIdx;
+      }
+    }
+
+    // Following: cautiously approach idle player
+    if (playerIdleTime > 8 && pDist < 12 && p.state === 'idle' && Math.random() < 0.001) {
+      p.state = 'following'; p._followT = 10 + Math.random() * 10;
+    }
+
+    switch (p.state) {
+      case 'idle': {
+        p.idleTimer -= dt;
+        g.position.y = Math.sin(t * 2 + p.phase) * 0.02;
+        g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
+        if (p.idleTimer <= 0) {
+          p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5; p.hopTimer = 0;
+        }
+        break;
+      }
+      case 'hop': {
+        p.hopTimer += dt;
+        const hopDur = 1.2;
+        const frac = p.hopTimer / hopDur;
+        if (frac >= 1.0) {
+          p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = 0;
+        } else {
+          g.position.y = Math.sin(frac * Math.PI) * 0.3;
+          g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
+          g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
+          const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
+          const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
+          g.scale.set(sq, st, sq);
+          g.rotation.y = p.wanderAng;
+        }
+        break;
+      }
+      case 'startled': {
+        p._scaredT -= dt;
+        p.hopTimer += dt * 1.5;
+        const frac = Math.min(p.hopTimer / 0.8, 1);
+        g.position.y = Math.sin(frac * Math.PI) * 0.5;
+        g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt;
+        g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt;
+        g.scale.set(0.85, 1.3, 0.85);
+        if (p._scaredT <= 0) {
+          p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
+          g.position.y = 0; g.scale.set(1, 1, 1);
+        }
+        break;
+      }
+      case 'following': {
+        p._followT -= dt;
+        if (pDist > 15 || playerIdleTime < 3 || p._followT <= 0) {
+          p.state = 'idle'; p.idleTimer = 2; break;
+        }
+        p.wanderAng = Math.atan2(player.pos.x - px, player.pos.z - pz);
+        if (pDist > 3) {
+          p.hopTimer += dt;
+          const frac = (p.hopTimer % 1.5) / 1.5;
+          g.position.y = Math.sin(frac * Math.PI) * 0.2;
+          g.position.x += Math.sin(p.wanderAng) * p.speed * 0.4 * dt;
+          g.position.z += Math.cos(p.wanderAng) * p.speed * 0.4 * dt;
+        } else {
+          g.position.y = Math.sin(t * 3 + p.phase) * 0.03;
+        }
+        g.rotation.y = p.wanderAng;
+        break;
+      }
+      case 'huddle': {
+        if (!isStorming) { p.state = 'idle'; p.idleTimer = 2; break; }
+        const tgt = puffs[p._huddleTarget];
+        if (tgt) {
+          const hdx = tgt.group.position.x - px, hdz = tgt.group.position.z - pz;
+          const hd = Math.sqrt(hdx * hdx + hdz * hdz);
+          if (hd > 0.5) {
+            g.position.x += (hdx / hd) * p.speed * 0.5 * dt;
+            g.position.z += (hdz / hd) * p.speed * 0.5 * dt;
+          }
+        }
+        g.rotation.z = Math.sin(t * 8) * 0.05;
+        g.position.y = 0;
+        break;
+      }
+    }
+
+    // World bounds
+    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+    if (wd > WORLD_R * 0.85) p.wanderAng += Math.PI;
   }
 }
 
 function updateDeers(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   for (let i = 0; i < deers.length; i++) {
     const d = deers[i], g = d.group;
-    const dx = g.position.x - player.pos.x, dz = g.position.z - player.pos.z;
-    const pDist = Math.sqrt(dx * dx + dz * dz);
-    if (pDist < DEER_FLEE_R) {
-      d.wanderAng = Math.atan2(dx, dz); d.state = 'flee'; d.fleeTimer = 2.0 + Math.random() * 1.5;
+    const gx = g.position.x, gz = g.position.z;
+    const ddx = gx - player.pos.x, ddz = gz - player.pos.z;
+    const pDist = Math.sqrt(ddx * ddx + ddz * ddz);
+    const pAng = Math.atan2(ddx, ddz);
+    const alertR = sprinting ? 18 : 12;
+    const fleeR = sprinting ? 10 : DEER_FLEE_R;
+
+    // Init extended state on first tick
+    if (!d._init) {
+      d._init = true; d._stT = 0; d._drinkTgt = null;
+      d._zigTimer = 0; d._zigDir = 1;
     }
-    let moveSpeed = d.speed;
-    let isMoving = false;
-    if (d.state === 'flee') {
-      d.fleeTimer -= dt; moveSpeed = d.speed * DEER_FLEE_SPEED_MULT; isMoving = true;
-      if (d.fleeTimer <= 0) { d.state = 'walk'; d.walkTimer = 0; }
-    } else if (d.state === 'pause') {
-      d.pauseTimer -= dt;
-      if (d.pauseTimer <= 0) { d.state = 'walk'; d.wanderAng += (Math.random() - 0.5) * 0.8; }
-    } else {
-      d.walkTimer += dt; isMoving = true;
-      if (d.walkTimer > 4 + Math.random() * 5) {
-        d.state = 'pause'; d.pauseTimer = 2.5 + Math.random() * 4; d.walkTimer = 0;
+
+    // Threat detection (overrides passive states)
+    if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
+      if (pDist < fleeR) {
+        d.state = 'flee'; d.wanderAng = pAng;
+        d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
+      } else if (pDist < alertR) {
+        d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
       }
     }
+
+    let moveSpeed = d.speed, isMoving = false;
+
+    switch (d.state) {
+      case 'walk': {
+        isMoving = true;
+        d.walkTimer -= dt;
+        if (d.walkTimer <= 0) {
+          const r = Math.random();
+          if (r < 0.25) { d.state = 'pause'; d.pauseTimer = 2 + Math.random() * 3; }
+          else if (r < 0.4) { d.state = 'graze'; d._stT = 3 + Math.random() * 4; }
+          else if (r < 0.5 && ponds.length > 0) {
+            d.state = 'drink'; d._stT = 8;
+            let bestD2 = Infinity;
+            for (let pi = 0; pi < ponds.length; pi++) {
+              const pdx = ponds[pi].x - gx, pdz = ponds[pi].z - gz;
+              const pd2 = pdx * pdx + pdz * pdz;
+              if (pd2 < bestD2) { bestD2 = pd2; d._drinkTgt = ponds[pi]; }
+            }
+          }
+          else if (r < 0.55) { d.state = 'rest'; d._stT = 5 + Math.random() * 5; }
+          else { d.wanderAng += (Math.random() - 0.5) * 1.2; d.walkTimer = 3 + Math.random() * 5; }
+        }
+        // Gently steer toward home zone
+        const homeD2 = (gx - d.homeX) * (gx - d.homeX) + (gz - d.homeZ) * (gz - d.homeZ);
+        if (homeD2 > 400) {
+          const homeAng = Math.atan2(d.homeX - gx, d.homeZ - gz);
+          d.wanderAng += (homeAng - d.wanderAng) * dt * 0.5;
+        }
+        break;
+      }
+      case 'pause': {
+        d.pauseTimer -= dt;
+        d.headLook = Math.sin(t * 0.6) * 0.4;
+        if (d.pauseTimer <= 0) { d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5; }
+        break;
+      }
+      case 'graze': {
+        d._stT -= dt;
+        d.headBob = -0.5;
+        if (d._stT <= 0) { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4; d.headBob = 0; }
+        break;
+      }
+      case 'drink': {
+        d._stT -= dt;
+        if (d._drinkTgt) {
+          const tdx = d._drinkTgt.x - gx, tdz = d._drinkTgt.z - gz;
+          const td = Math.sqrt(tdx * tdx + tdz * tdz);
+          if (td > 2) {
+            d.wanderAng = Math.atan2(tdx, tdz); isMoving = true; moveSpeed = d.speed * 0.7;
+          } else { d.headBob = -0.6; }
+        }
+        if (d._stT <= 0) {
+          d.state = 'walk'; d.walkTimer = 3 + Math.random() * 4;
+          d.headBob = 0; d._drinkTgt = null;
+        }
+        break;
+      }
+      case 'rest': {
+        d._stT -= dt;
+        g.position.y = Math.max(-0.3, g.position.y - dt * 0.5);
+        if (d._stT <= 0) { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
+        break;
+      }
+      case 'alert': {
+        d._stT -= dt;
+        if (pDist < fleeR) {
+          d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
+        } else if (d._stT <= 0) {
+          if (pDist < alertR * 1.2) { d.state = 'watching'; d._stT = 3 + Math.random() * 3; }
+          else { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
+        }
+        break;
+      }
+      case 'watching': {
+        d._stT -= dt;
+        isMoving = true; moveSpeed = d.speed * 0.3;
+        d.wanderAng = pAng;
+        if (pDist < fleeR) {
+          d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
+        } else if (pDist > alertR * 1.5 || d._stT <= 0) {
+          d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4;
+        }
+        break;
+      }
+      case 'flee': {
+        isMoving = true; moveSpeed = d.speed * DEER_FLEE_SPEED_MULT;
+        d.fleeTimer -= dt;
+        d._zigTimer -= dt;
+        if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
+        d.wanderAng = pAng + d._zigDir * 0.3;
+        if (d.fleeTimer <= 0 || pDist > alertR * 2) {
+          d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5;
+        }
+        break;
+      }
+    }
+
+    // Movement
     if (isMoving) {
       g.position.x += Math.sin(d.wanderAng) * moveSpeed * dt;
       g.position.z += Math.cos(d.wanderAng) * moveSpeed * dt;
-      g.rotation.y = d.wanderAng;
-      d.legCycle += dt * moveSpeed * 5;
-      g.position.y = Math.abs(Math.sin(d.legCycle)) * 0.02;
+      d.legCycle += dt * moveSpeed * 3;
     }
-    const dist = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-    if (dist > WORLD_R * 0.85) d.wanderAng += Math.PI * 0.8;
-    // Joint animation
-    const legAmp = isMoving ? (d.state === 'flee' ? 0.45 : 0.3) : 0.02;
+    // World bounds
+    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+    if (wd > WORLD_R * 0.9) {
+      d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
+    }
+    // Return to ground from rest
+    if (d.state !== 'rest' && g.position.y < 0) {
+      g.position.y = Math.min(0, g.position.y + dt * 0.5);
+    }
+
+    // Heading
+    g.rotation.y = d.wanderAng;
+
+    // Head tracking for alert/watching
+    if (d.state === 'alert' || d.state === 'watching') {
+      const targetYaw = pAng - d.wanderAng;
+      d.headLook += (targetYaw * 0.5 - d.headLook) * dt * 3;
+    }
+
+    // Neck pivot animation
+    const targetBob = d.headBob || 0;
+    d.neckPivot.rotation.x += (targetBob - d.neckPivot.rotation.x) * dt * 3;
+    d.neckPivot.rotation.y += (d.headLook - d.neckPivot.rotation.y) * dt * 4;
+    if (isMoving && d.state !== 'graze' && d.state !== 'drink') {
+      d.neckPivot.rotation.x += Math.sin(d.legCycle * 2) * 0.05;
+    }
+
+    // Leg animation
     for (let li = 0; li < d.legPivots.length; li++) {
       const lp = d.legPivots[li];
-      const phase = (lp.isFront === (lp.side < 0)) ? 0 : Math.PI;
-      const swing = Math.sin(d.legCycle + phase) * legAmp;
-      lp.upper.rotation.x = swing;
-      lp.lower.rotation.x = Math.max(0, Math.sin(d.legCycle + phase - 0.5)) * legAmp * 0.6;
-    }
-    if (d.neckPivot) {
-      if (d.state === 'pause') {
-        d.headLook += (Math.sin(t * 0.4 + d.phase) * 0.003) * 60 * dt;
-        d.neckPivot.rotation.y = Math.sin(t * 0.3 + d.phase) * 0.25;
-        d.neckPivot.rotation.x = Math.sin(t * 0.5 + d.phase * 2) * 0.08 - 0.05;
-      } else if (d.state === 'flee') {
-        d.neckPivot.rotation.x = -0.15; d.neckPivot.rotation.y = 0;
+      if (isMoving) {
+        const offset = lp.isFront ? 0 : Math.PI;
+        const sideOff = lp.side > 0 ? Math.PI : 0;
+        const swing = Math.sin(d.legCycle + offset + sideOff) * 0.4 * (moveSpeed / d.speed);
+        lp.upper.rotation.x = swing;
+        lp.lower.rotation.x = Math.max(0, -swing * 0.6);
+      } else if (d.state === 'rest' && g.position.y < -0.1) {
+        lp.upper.rotation.x += (0.8 - lp.upper.rotation.x) * dt * 2;
+        lp.lower.rotation.x += (1.0 - lp.lower.rotation.x) * dt * 2;
       } else {
-        d.neckPivot.rotation.x = Math.sin(d.legCycle * 0.5) * 0.06 - 0.02;
-        d.neckPivot.rotation.y = Math.sin(d.legCycle * 0.25) * 0.05;
+        lp.upper.rotation.x *= 0.9;
+        lp.lower.rotation.x *= 0.9;
       }
     }
-    if (d.tailPivot) {
-      const tailSpeed = d.state === 'flee' ? 3 : 0.8;
-      d.tailPivot.rotation.x = 0.5 + Math.sin(t * tailSpeed + d.phase) * 0.15;
-      d.tailPivot.rotation.z = Math.sin(t * tailSpeed * 0.7 + d.phase) * 0.1;
-    }
-    const pulse = Math.sin(t * 0.8 + d.phase) * 0.5 + 0.5;
-    d.mat.emissiveIntensity = (0.3 + pulse * 0.4) * bioGlow;
-    d.mat.opacity = 0.55 + pulse * 0.2;
+
+    // Tail
+    d.tailPivot.rotation.x = Math.sin(t * 1.5 + d.phase) * 0.15;
+    if (d.state === 'flee') d.tailPivot.rotation.x += 0.3;
+    if (d.state === 'alert') d.tailPivot.rotation.z = Math.sin(t * 6) * 0.1;
+    else d.tailPivot.rotation.z *= 0.9;
+
+    // Emissive
+    d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * bioGlow;
+    d.headLook *= 0.98;
   }
 }
 
 function updateMoths(dt, t) {
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
-    m.orbitAng += dt * 0.4;
-    const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR;
-    const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR;
-    g.position.x += (tx - g.position.x) * dt * 1.5;
-    g.position.z += (tz - g.position.z) * dt * 1.5;
-    g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
-    g.rotation.y = m.orbitAng + Math.PI / 2;
-    const flap = Math.sin(t * m.flapSpeed + m.phase) * 0.4;
+    const mx = g.position.x, mz = g.position.z;
+
+    // Init extended state
+    if (!m._init) {
+      m._init = true; m._state = 'patrol';
+      m._stT = 0; m._attractTarget = null; m._restTree = null;
+    }
+
+    // State transitions from patrol
+    if (m._state === 'patrol') {
+      if (Math.random() < 0.002) {
+        let bestD2 = Infinity, bestCrys = null;
+        for (let ci = 0; ci < crys_data.length; ci++) {
+          const cdx = crys_data[ci].x - mx, cdz = crys_data[ci].z - mz;
+          const cd2 = cdx * cdx + cdz * cdz;
+          if (cd2 < 900 && cd2 < bestD2) { bestD2 = cd2; bestCrys = crys_data[ci]; }
+        }
+        if (bestCrys) {
+          m._state = 'attracted'; m._attractTarget = bestCrys;
+          m._stT = 6 + Math.random() * 8;
+        }
+      }
+      if (Math.random() < 0.001) {
+        let bestD2 = Infinity, bestTree = null;
+        for (let ti = 0; ti < trees_data.length; ti++) {
+          const tdx = trees_data[ti].x - mx, tdz = trees_data[ti].z - mz;
+          const td2 = tdx * tdx + tdz * tdz;
+          if (td2 < 400 && td2 < bestD2) { bestD2 = td2; bestTree = trees_data[ti]; }
+        }
+        if (bestTree) {
+          m._state = 'rest'; m._restTree = bestTree;
+          m._stT = 4 + Math.random() * 6;
+        }
+      }
+    }
+
+    switch (m._state) {
+      case 'patrol': {
+        m.orbitAng += dt * 0.4;
+        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR;
+        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR;
+        g.position.x += (tx - mx) * dt * 1.5;
+        g.position.z += (tz - mz) * dt * 1.5;
+        g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
+        g.rotation.y = m.orbitAng + Math.PI / 2;
+        break;
+      }
+      case 'attracted': {
+        m._stT -= dt;
+        if (!m._attractTarget || m._stT <= 0) {
+          m._state = 'patrol'; m._attractTarget = null; break;
+        }
+        m.orbitAng += dt * 0.8;
+        const tgt = m._attractTarget;
+        const spiral = Math.max(0.5, m._stT * 0.4);
+        const tx = tgt.x + Math.cos(m.orbitAng) * spiral;
+        const tz = tgt.z + Math.sin(m.orbitAng) * spiral;
+        g.position.x += (tx - mx) * dt * 2.0;
+        g.position.z += (tz - mz) * dt * 2.0;
+        g.position.y += (2.0 - g.position.y) * dt * 0.5;
+        g.rotation.y = m.orbitAng + Math.PI / 2;
+        break;
+      }
+      case 'rest': {
+        m._stT -= dt;
+        if (!m._restTree || m._stT <= 0) {
+          m._state = 'patrol'; m._restTree = null;
+          m.centerX = g.position.x; m.centerZ = g.position.z;
+          break;
+        }
+        const tree = m._restTree;
+        const tdx = tree.x + 0.5 - mx, tdz = tree.z + 0.5 - mz;
+        const td = Math.sqrt(tdx * tdx + tdz * tdz);
+        if (td > 0.3) {
+          g.position.x += tdx / td * dt * 2;
+          g.position.z += tdz / td * dt * 2;
+        }
+        g.position.y += (2.5 - g.position.y) * dt * 1.5;
+        g.rotation.y = Math.atan2(tdx, tdz);
+        break;
+      }
+    }
+
+    // Wing flap (barely flutter when resting)
+    const flapIntensity = m._state === 'rest' ? 0.05 : 0.4;
+    const flap = Math.sin(t * m.flapSpeed + m.phase) * flapIntensity;
     for (let w = 0; w < g._wingPivots.length; w++) {
       const wp = g._wingPivots[w];
       wp.pivot.rotation.z = flap * wp.side;
     }
+
+    // Emissive
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
-    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6) * bioGlow;
+    const attractBoost = m._state === 'attracted' ? 0.4 : 0;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * bioGlow;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }

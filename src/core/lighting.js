@@ -7,7 +7,8 @@ import { scene } from './renderer.js';
 // ================================================================
 
 // Hemisphere ambient
-scene.add(new THREE.HemisphereLight(C.ambient, C.ground, 0.5));
+export const hemiLight = new THREE.HemisphereLight(C.ambient, C.ground, 0.5);
+scene.add(hemiLight);
 
 // Primary moonlight (directional with shadows)
 export const moon = new THREE.DirectionalLight(C.moon, 0.85);
@@ -24,7 +25,7 @@ moon.shadow.bias = -0.001;
 scene.add(moon);
 
 // Secondary moonlight (opposite angle — creates cross-shadows for depth)
-const moon2 = new THREE.DirectionalLight(0x223355, 0.3);
+export const moon2 = new THREE.DirectionalLight(0x223355, 0.3);
 moon2.position.set(-40, 45, 25);
 moon2.castShadow = true;
 moon2.shadow.camera.left = -70;

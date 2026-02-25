@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender } from './core/postprocessing.js';
-import { initCrystalLights, crystalLights, playerLight, orbLight, moon } from './core/lighting.js';
+import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
 import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump } from './core/input.js';
 import { GEO } from './core/geometries.js';
 
@@ -69,6 +69,9 @@ import { updateDustMotes } from './particles/dust.js';
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
 import { makeLaser } from './quest/lasers.js';
+
+// Systems
+import { initDayNight, updateDayNight, bioGlow } from './systems/dayNightCycle.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -266,7 +269,7 @@ function updateVegetation(dt, t) {
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
-    fl.petalMat.emissiveIntensity = 0.3 + p * 0.5;
+    fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
     fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04;
   }
   for (let i = 0; i < reeds.length; i++) {
@@ -288,7 +291,7 @@ function updateJellies(dt, t) {
     g.position.z += (tz - g.position.z) * dt * 0.3;
     g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
     const p = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
-    j.bellMat.emissiveIntensity = 0.4 + p * 0.8;
+    j.bellMat.emissiveIntensity = (0.4 + p * 0.8) * bioGlow;
     j.bellMat.opacity = 0.35 + p * 0.25;
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
@@ -387,7 +390,7 @@ function updateDeers(dt, t) {
       d.tailPivot.rotation.z = Math.sin(t * tailSpeed * 0.7 + d.phase) * 0.1;
     }
     const pulse = Math.sin(t * 0.8 + d.phase) * 0.5 + 0.5;
-    d.mat.emissiveIntensity = 0.3 + pulse * 0.4;
+    d.mat.emissiveIntensity = (0.3 + pulse * 0.4) * bioGlow;
     d.mat.opacity = 0.55 + pulse * 0.2;
   }
 }
@@ -408,7 +411,7 @@ function updateMoths(dt, t) {
       wp.pivot.rotation.z = flap * wp.side;
     }
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
-    m.wingMat.emissiveIntensity = 0.5 + pulse * 0.6;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6) * bioGlow;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
@@ -465,7 +468,7 @@ function updateFairyRings(dt, t) {
     const targetGlow = inRing ? 1.0 : 0.0;
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
     fr.discMat.opacity = fr.glowIntensity * 0.25 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
-    fr.mushMat.emissiveIntensity = 0.2 + fr.glowIntensity * 0.8;
+    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * bioGlow;
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
       fr.glowIntensity = 1.5;
@@ -517,9 +520,9 @@ function updatePonds(dt, t) {
     for (let j = 0; j < po.pads.length; j++) {
       po.pads[j].mesh.position.y = 0.05 + Math.sin(t * 0.8 + po.pads[j].phase) * 0.015;
     }
-    po.waterMat.emissiveIntensity = 0.15 + Math.sin(t * 1.0 + po.phase) * 0.1;
+    po.waterMat.emissiveIntensity = (0.15 + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
-    po.flMat.emissiveIntensity = 0.3 + fp * 0.5;
+    po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * bioGlow;
   }
 }
 
@@ -546,7 +549,7 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, m.base + waveFrac * 2.0);
+      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * bioGlow);
     }
   }
   for (let i = 0; i < flowers.length; i++) {
@@ -556,7 +559,7 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(fx * fx + fz * fz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, 0.3 + waveFrac * 1.5);
+      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * bioGlow);
     }
   }
 }
@@ -613,16 +616,16 @@ function director(dt, t) {
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
-    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8);
+    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
   }
 
   // Crystal glow + rotation
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    c.mat.emissiveIntensity = 1.0 + p * 1.5;
+    c.mat.emissiveIntensity = (1.0 + p * 1.5) * bioGlow;
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = 0.3 + p * 0.4;
+    if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
   }
 
   // Crystal proximity lights
@@ -638,7 +641,7 @@ function director(dt, t) {
       const c = crys_data[sorted[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = 1.5 + p * 2.0;
+      crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
       crystalLights[i].distance = 16;
       crystalLights[i].color.setHex(C.crystal);
     } else {
@@ -689,6 +692,8 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   elapsed += dt;
 
+  updateDayNight(dt);
+
   if (!gameStarted) {
     // Pre-game idle animation
     yaw; // read-only
@@ -701,11 +706,11 @@ function animate() {
     for (let i = 0; i < mush_data.length; i++) {
       const m = mush_data[i];
       const p = Math.sin(elapsed * m.speed + m.phase) * 0.5 + 0.5;
-      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8);
+      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
     }
     for (let i = 0; i < crys_data.length; i++) {
       const c = crys_data[i];
-      c.mat.emissiveIntensity = 1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75;
+      c.mat.emissiveIntensity = (1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75) * bioGlow;
     }
     updateJellies(dt, elapsed);
     updatePuffs(dt, elapsed);
@@ -758,6 +763,12 @@ function animate() {
 try {
   createGround();
   createSkyDome();
+
+  // Init day/night cycle (after sky is built so materials can be cached)
+  initDayNight({
+    scene, moon, moon2, hemiLight, playerLight, skyGroup
+  });
+
   populate();
 
   // Wire up collision data for player

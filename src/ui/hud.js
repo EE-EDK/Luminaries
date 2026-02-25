@@ -1,5 +1,6 @@
 import { questPhase } from '../quest/questManager.js';
 import { phase as timePhase } from '../systems/dayNightCycle.js';
+import { weatherState } from '../systems/weather.js';
 
 let hudEl = null;
 let fpsS = 60;
@@ -9,6 +10,15 @@ const PHASE_LABELS = {
   NIGHT: 'Night',
   DEEP_NIGHT: 'Deep Night',
   DAWN: 'Dawn'
+};
+
+const WEATHER_LABELS = {
+  CLEAR: 'Clear',
+  MISTY: 'Misty',
+  LIGHT_RAIN: 'Light Rain',
+  HEAVY_RAIN: 'Heavy Rain',
+  FOG_BANK: 'Fog',
+  LUMINOUS_STORM: 'Storm'
 };
 
 export function initHUD() {
@@ -23,6 +33,7 @@ export function updateHUD(dt, playerPos) {
     questPhase === 'COMPLETE' ? 'Convergence!' :
     'Luminaries';
   const tLabel = PHASE_LABELS[timePhase] || 'Night';
-  hudEl.innerHTML = '<b>' + qLabel + '</b> · ' + tLabel + ' · FPS:' + Math.round(fpsS) +
+  const wLabel = WEATHER_LABELS[weatherState] || 'Clear';
+  hudEl.innerHTML = '<b>' + qLabel + '</b> · ' + tLabel + ' · ' + wLabel + ' · FPS:' + Math.round(fpsS) +
     '<br>Pos:' + playerPos.x.toFixed(0) + ',' + playerPos.z.toFixed(0);
 }

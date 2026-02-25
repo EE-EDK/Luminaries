@@ -72,6 +72,8 @@ import { makeLaser } from './quest/lasers.js';
 
 // Systems
 import { initDayNight, updateDayNight, bioGlow } from './systems/dayNightCycle.js';
+import { initWeather, updateWeather, windX, windZ, windStrength, lightningFlash, isStorming } from './systems/weather.js';
+import { initRain, updateRain } from './particles/rain.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -255,27 +257,30 @@ function populate() {
 // ================================================================
 
 function updateVegetation(dt, t) {
+  const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
+  const wLeanX = windX * 0.03; // directional lean
+  const wLeanZ = windZ * 0.03;
   for (let i = 0; i < grassPatches.length; i++) {
     const gp = grassPatches[i];
-    const wind = Math.sin(t * 0.7 + gp.cx * 0.05) * 0.04 + Math.sin(t * 1.3 + gp.cz * 0.08) * 0.02;
-    gp.mesh.rotation.z = wind;
-    gp.mesh.rotation.x = Math.sin(t * 0.9 + gp.cz * 0.06) * 0.03;
+    const sway = (Math.sin(t * 0.7 + gp.cx * 0.05) * 0.04 + Math.sin(t * 1.3 + gp.cz * 0.08) * 0.02) * wAmp;
+    gp.mesh.rotation.z = sway + wLeanX;
+    gp.mesh.rotation.x = Math.sin(t * 0.9 + gp.cz * 0.06) * 0.03 * wAmp + wLeanZ;
   }
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
-    f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03;
-    f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02;
+    f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
+    f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
   }
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
     fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
-    fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04;
+    fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
   for (let i = 0; i < reeds.length; i++) {
     const r = reeds[i];
-    r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp;
-    r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5;
+    r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
+    r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
   }
 }
 
@@ -693,6 +698,16 @@ function animate() {
   elapsed += dt;
 
   updateDayNight(dt);
+  const rainRate = updateWeather(dt, elapsed, player.pos);
+  updateRain(dt, player.pos, rainRate, windX, windZ);
+
+  // Lightning flash (brief ambient light spike during storms)
+  if (lightningFlash > 0) {
+    hemiLight.intensity += lightningFlash * 2.5;
+    scene.background.r = Math.min(1, scene.background.r + lightningFlash * 0.3);
+    scene.background.g = Math.min(1, scene.background.g + lightningFlash * 0.3);
+    scene.background.b = Math.min(1, scene.background.b + lightningFlash * 0.4);
+  }
 
   if (!gameStarted) {
     // Pre-game idle animation
@@ -774,6 +789,10 @@ try {
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);
   setDustBurstFn(spawnDustBurst);
+
+  // Init weather + rain
+  initWeather();
+  initRain();
 
   // Init particle pools
   initFlies(150);

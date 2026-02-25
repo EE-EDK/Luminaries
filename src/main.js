@@ -570,6 +570,87 @@ function updateEchoBloom(dt, t) {
 }
 
 // ================================================================
+// Reactive Flora (proximity/touch responses)
+// ================================================================
+function updateFloraReactions(dt, t) {
+  const px = player.pos.x, pz = player.pos.z;
+
+  // --- Flowers: bloom open + glow surge when player approaches (within 4m) ---
+  for (let i = 0; i < flowers.length; i++) {
+    const fl = flowers[i];
+    const fx = fl.group.position.x, fz = fl.group.position.z;
+    const ddx = fx - px, ddz = fz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const target = dist2 < 16 ? 1.0 : 0.0;
+    fl._react = (fl._react || 0);
+    fl._react += (target - fl._react) * dt * (target > 0 ? 4 : 1.5);
+    // Bloom scale (spread petals outward)
+    const sc = 1.0 + fl._react * 0.15;
+    fl.group.scale.set(sc, 1.0 + fl._react * 0.05, sc);
+    // Add glow boost
+    fl.petalMat.emissiveIntensity += fl._react * 0.6 * bioGlow;
+  }
+
+  // --- Mushrooms: bright pulse on proximity (within 2m) ---
+  for (let i = 0; i < mush_data.length; i++) {
+    const m = mush_data[i];
+    const ddx = m.x - px, ddz = m.z - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const touch = dist2 < 4 ? 1.0 : 0.0;
+    m._touch = (m._touch || 0);
+    m._touch += (touch - m._touch) * dt * (touch > 0 ? 6 : 1.5);
+    // Boost emissive and slight scale pulse
+    m.capMat.emissiveIntensity += m._touch * 1.5 * bioGlow;
+    const ms = 1.0 + m._touch * 0.08;
+    m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
+  }
+
+  // --- Grass: bend away from player (within 5m) ---
+  for (let i = 0; i < grassPatches.length; i++) {
+    const gp = grassPatches[i];
+    const ddx = gp.cx - px, ddz = gp.cz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    if (dist2 < 25 && dist2 > 0.01) {
+      const dist = Math.sqrt(dist2);
+      const strength = (1.0 - dist / 5.0) * 0.08;
+      gp.mesh.rotation.z += (ddx / dist) * strength;
+      gp.mesh.rotation.x += (ddz / dist) * strength;
+    }
+  }
+
+  // --- Ferns: curl inward when very close (within 1.5m) ---
+  for (let i = 0; i < ferns.length; i++) {
+    const f = ferns[i];
+    const fx = f.group.position.x, fz = f.group.position.z;
+    const ddx = fx - px, ddz = fz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const target = dist2 < 2.25 ? 0.65 : 1.0;
+    f._curl = (f._curl === undefined ? 1.0 : f._curl);
+    f._curl += (target - f._curl) * dt * (target < 1.0 ? 4 : 1.5);
+    f.group.scale.set(1.0 + (1 - f._curl) * 0.3, f._curl, 1.0 + (1 - f._curl) * 0.3);
+  }
+
+  // --- Crystal resonance: chain glow to nearby crystals ---
+  for (let i = 0; i < crys_data.length; i++) {
+    const c = crys_data[i];
+    const ddx = c.x - px, ddz = c.z - pz;
+    if (ddx * ddx + ddz * ddz < 36) { // within 6m of player
+      for (let j = 0; j < crys_data.length; j++) {
+        if (i === j) continue;
+        const c2 = crys_data[j];
+        const cdx = c.x - c2.x, cdz = c.z - c2.z;
+        const cd2 = cdx * cdx + cdz * cdz;
+        if (cd2 < 400) { // neighbor within 20m
+          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8;
+          c2.mat.emissiveIntensity += chainStr * bioGlow;
+          if (c2.light) c2.light.intensity += chainStr * 0.3 * bioGlow;
+        }
+      }
+    }
+  }
+}
+
+// ================================================================
 // Director
 // ================================================================
 let dirState = 'EXPLORE';
@@ -671,6 +752,7 @@ function director(dt, t) {
   updateDustMotes(dt);
   updateBubblePops(dt);
   updateEchoBloom(dt, t);
+  updateFloraReactions(dt, t);
   updateQuest(dt, t);
 }
 

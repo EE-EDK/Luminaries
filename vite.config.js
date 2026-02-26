@@ -5,8 +5,8 @@ export default defineConfig({
   publicDir: 'public',
   base: './',
   build: {
-    outDir: 'dist',
-    sourcemap: true
+    outDir: 'docs',
+    sourcemap: false
   },
   server: {
     open: true

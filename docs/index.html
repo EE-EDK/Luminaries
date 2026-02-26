@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Luminaries</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:'Courier New',monospace;touch-action:none}
+canvas{display:block;cursor:crosshair}
+#hud{position:absolute;top:10px;left:10px;color:#88ffcc;background:rgba(0,8,4,.75);
+  padding:8px 12px;border-radius:6px;font-size:12px;z-index:100;pointer-events:none;
+  border:1px solid rgba(100,255,180,.2);text-shadow:0 0 4px rgba(100,255,180,.4);line-height:1.5}
+#controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#88ddbb;
+  background:rgba(0,8,4,.75);padding:8px 16px;border-radius:8px;font-size:11px;z-index:100;
+  text-align:center;pointer-events:none;border:1px solid rgba(100,255,180,.15)}
+#joy-zone{position:absolute;bottom:20px;left:20px;width:130px;height:130px;z-index:150;
+  pointer-events:auto;display:none}
+#joy-base{position:absolute;width:130px;height:130px;border-radius:50%;
+  background:rgba(100,255,180,.1);border:2px solid rgba(100,255,180,.2)}
+#joy-knob{position:absolute;width:50px;height:50px;border-radius:50%;
+  background:rgba(100,255,180,.3);border:2px solid rgba(100,255,180,.45);left:40px;top:40px}
+#btn-jump{position:absolute;bottom:25px;right:25px;width:65px;height:65px;border-radius:50%;
+  background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
+  pointer-events:auto;display:none;color:#88ffcc;font-size:11px;font-family:monospace;
+  line-height:65px;text-align:center}
+#overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
+  font-size:24px;z-index:200;text-align:center;pointer-events:none;
+  text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
+  opacity:1;transition:opacity 2s;letter-spacing:3px}
+#overlay .sub{font-size:12px;margin-top:8px;color:#66ccaa;letter-spacing:2px}
+#orb-hud{position:absolute;top:10px;right:10px;color:#ffdd55;background:rgba(20,12,0,.8);
+  padding:8px 14px;border-radius:6px;font-size:14px;z-index:100;pointer-events:none;
+  border:1px solid rgba(255,220,80,.3);text-shadow:0 0 8px rgba(255,200,50,.5);
+  font-family:'Courier New',monospace;letter-spacing:1px;display:none}
+</style>  <script type="module" crossorigin src="./assets/index-Cd4ZqOI3.js"></script>
+</head><body>
+<div id="hud">LOADING...</div>
+<div id="controls">WASD · SPACE Jump · SHIFT Sprint · Click+Drag Look</div>
+<div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+<div id="btn-jump">JUMP</div>
+<div id="orb-hud">✦ 0 / 5</div>
+<div id="overlay">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
+</body></html>

@@ -148,13 +148,17 @@ export function updateQuest(dt, t) {
     if (finaleTimer > 1 && moatMat) {
       const moatFade = Math.min((finaleTimer - 1) / 4, 1);
       moatMat.opacity = moatFade * 0.6;
-      if (moatMesh) moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02 * moatFade;
+      if (moatMesh) {
+        if (!moatMesh.visible) moatMesh.visible = true;
+        moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02 * moatFade;
+      }
     }
 
     if (finaleTimer > 2) {
       for (let i = 0; i < rainbowArcs.length; i++) {
         const delay = i * 0.3;
         const arcFade = Math.min(Math.max((finaleTimer - 2 - delay) / 2, 0), 1);
+        if (arcFade > 0 && !rainbowArcs[i].mesh.visible) rainbowArcs[i].mesh.visible = true;
         rainbowArcs[i].mat.opacity = arcFade * 0.55;
         rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
       }

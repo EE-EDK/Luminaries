@@ -26,6 +26,7 @@ export function makeRainbows() {
     });
     const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.12 - i * 0.008, 5, false);
     const mesh = new THREE.Mesh(tubeGeo, mat);
+    mesh.visible = false;
     scene.add(mesh);
 
     // Sparkle motes along arc (5 tiny bright dots per band)
@@ -34,16 +35,16 @@ export function makeRainbows() {
       const sfrac = (si + 0.5) / 5;
       const sp = curve.getPoint(sfrac);
       const spark = new THREE.Mesh(new THREE.SphereGeometry(0.05, 3, 3), sparkMat);
-      spark.position.copy(sp); scene.add(spark);
+      spark.position.copy(sp); spark.visible = false; scene.add(spark);
     }
 
     // Ground glow pool at each endpoint
     const poolMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, side: THREE.DoubleSide });
     const p0 = pts[0], pEnd = pts[pts.length - 1];
     const pool0 = new THREE.Mesh(new THREE.CircleGeometry(0.5, 6), poolMat);
-    pool0.rotation.x = -Math.PI / 2; pool0.position.set(p0.x, 0.03, p0.z); scene.add(pool0);
+    pool0.rotation.x = -Math.PI / 2; pool0.position.set(p0.x, 0.03, p0.z); pool0.visible = false; scene.add(pool0);
     const pool1 = new THREE.Mesh(new THREE.CircleGeometry(0.5, 6), poolMat);
-    pool1.rotation.x = -Math.PI / 2; pool1.position.set(pEnd.x, 0.03, pEnd.z); scene.add(pool1);
+    pool1.rotation.x = -Math.PI / 2; pool1.position.set(pEnd.x, 0.03, pEnd.z); pool1.visible = false; scene.add(pool1);
 
     rainbowArcs.push({ mesh: mesh, mat: mat, targetOpacity: 0 });
   }
@@ -59,6 +60,7 @@ export function makeRainbows() {
   const secCurve = new THREE.CatmullRomCurve3(secPts);
   const secMat = new THREE.MeshBasicMaterial({ color: 0xeeddff, transparent: true, opacity: 0 });
   const secTube = new THREE.Mesh(new THREE.TubeGeometry(secCurve, 16, 0.04, 4, false), secMat);
+  secTube.visible = false;
   scene.add(secTube);
   rainbowArcs.push({ mesh: secTube, mat: secMat, targetOpacity: 0 });
 }

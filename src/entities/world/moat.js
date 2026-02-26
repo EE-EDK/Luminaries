@@ -26,6 +26,7 @@ export function makeMoat() {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0.05;
+  mesh.visible = false;
   scene.add(mesh);
   moatMesh = mesh;
 
@@ -39,7 +40,7 @@ export function makeMoat() {
     const gs = new THREE.Mesh(new THREE.SphereGeometry(0.04 + sr() * 0.04, 4, 3), glowStoneMat);
     gs.scale.set(1.2, 0.4, 1.2);
     gs.position.set(Math.cos(gsA) * gsR, 0.02, Math.sin(gsA) * gsR);
-    scene.add(gs);
+    gs.visible = false; scene.add(gs);
   }
 
   // Water foam patches (white blobs at inner edge)
@@ -51,7 +52,7 @@ export function makeMoat() {
     const foam = new THREE.Mesh(new THREE.CircleGeometry(0.12 + sr() * 0.1, 5), foamMat);
     foam.rotation.x = -Math.PI / 2;
     foam.position.set(Math.cos(fmA) * 3.3, 0.06, Math.sin(fmA) * 3.3);
-    scene.add(foam);
+    foam.visible = false; scene.add(foam);
   }
 
   // Current flow lines (faint arcs showing water direction)
@@ -64,7 +65,7 @@ export function makeMoat() {
     const current = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.4, 3), currMat);
     current.position.set(Math.cos(clA) * clR, 0.055, Math.sin(clA) * clR);
     current.rotation.x = Math.PI / 2; current.rotation.z = clA + Math.PI / 2;
-    scene.add(current);
+    current.visible = false; scene.add(current);
   }
 
   // Depth gradient ring (darker center channel)
@@ -79,5 +80,5 @@ export function makeMoat() {
   const depthGeo = new THREE.ShapeGeometry(depthShape, 16);
   const depthMesh = new THREE.Mesh(depthGeo, depthMat);
   depthMesh.rotation.x = -Math.PI / 2; depthMesh.position.y = 0.04;
-  scene.add(depthMesh);
+  depthMesh.visible = false; scene.add(depthMesh);
 }

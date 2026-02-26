@@ -10,7 +10,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 2.0;
+renderer.toneMappingExposure = 2.5;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
@@ -19,7 +19,7 @@ export const clock = new THREE.Clock();
 export const scene = new THREE.Scene();
 
 scene.background = new THREE.Color(C.skyDeep);
-scene.fog = new THREE.FogExp2(C.fog, 0.014);
+scene.fog = new THREE.FogExp2(C.fog, 0.010);
 
 // Resize handler
 window.addEventListener('resize', () => {

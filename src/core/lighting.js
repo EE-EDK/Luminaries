@@ -39,22 +39,22 @@ moon2.shadow.bias = -0.002;
 scene.add(moon2);
 
 // Secondary fill light (opposite side, warmer, no shadow — simulates ground bounce)
-const fillLight = new THREE.DirectionalLight(0x223344, 0.25);
+const fillLight = new THREE.DirectionalLight(0x334455, 0.4);
 fillLight.position.set(-25, 15, 30);
 scene.add(fillLight);
 
 // Warm uplight from ground (simulates bioluminescent glow bouncing up)
-const groundGlow = new THREE.PointLight(0x224433, 0.4, 80);
+const groundGlow = new THREE.PointLight(0x336644, 0.7, 100);
 groundGlow.position.set(0, 0.5, 0);
 scene.add(groundGlow);
 
 // Atmospheric colored accent lights (placed at key locations for mood)
 const accentConfigs = [
-  { pos: [15, 3, 15], col: 0x3366aa, int: 0.6, dist: 25 },
-  { pos: [-20, 4, -10], col: 0x664488, int: 0.5, dist: 20 },
-  { pos: [0, 5, 30], col: 0x228866, int: 0.5, dist: 22 },
-  { pos: [-15, 3, 20], col: 0x448899, int: 0.4, dist: 18 },
-  { pos: [25, 3, -20], col: 0x996644, int: 0.3, dist: 15 }
+  { pos: [15, 3, 15], col: 0x3366aa, int: 0.8, dist: 30 },
+  { pos: [-20, 4, -10], col: 0x664488, int: 0.7, dist: 25 },
+  { pos: [0, 5, 30], col: 0x228866, int: 0.7, dist: 28 },
+  { pos: [-15, 3, 20], col: 0x448899, int: 0.6, dist: 22 },
+  { pos: [25, 3, -20], col: 0x996644, int: 0.5, dist: 20 }
 ];
 for (const ac of accentConfigs) {
   const aLight = new THREE.PointLight(ac.col, ac.int, ac.dist);
@@ -63,12 +63,12 @@ for (const ac of accentConfigs) {
 }
 
 // Rim light from behind (backlight silhouette effect on trees)
-const rimLight = new THREE.DirectionalLight(0x334466, 0.3);
+const rimLight = new THREE.DirectionalLight(0x445577, 0.4);
 rimLight.position.set(-10, 25, 40);
 scene.add(rimLight);
 
 // Player carry light (always illuminates nearby)
-export const playerLight = new THREE.PointLight(0x556677, 0.5, 18);
+export const playerLight = new THREE.PointLight(0x668888, 0.6, 20);
 scene.add(playerLight);
 
 // Crystal proximity lights — pooled, moved to nearest crystals each frame

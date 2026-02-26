@@ -10,8 +10,8 @@ function makeGroundTexture() {
   const S = 1024;
   const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
   const ctx = cv.getContext('2d');
-  // Base color
-  ctx.fillStyle = '#0c2014'; ctx.fillRect(0, 0, S, S);
+  // Base color — bright enough to catch moonlight and ambient
+  ctx.fillStyle = '#1a3828'; ctx.fillRect(0, 0, S, S);
 
   // === TILE-BREAKING: paint edges that wrap seamlessly ===
   for (let ei = 0; ei < 20; ei++) {
@@ -20,14 +20,14 @@ function makeGroundTexture() {
     const eGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, er);
     const ec = Math.random();
     if (ec < 0.4) {
-      eGrad.addColorStop(0, 'rgba(15,35,18,0.2)');
-      eGrad.addColorStop(1, 'rgba(10,25,12,0)');
+      eGrad.addColorStop(0, 'rgba(30,60,35,0.25)');
+      eGrad.addColorStop(1, 'rgba(20,42,24,0)');
     } else if (ec < 0.7) {
-      eGrad.addColorStop(0, 'rgba(25,20,10,0.15)');
-      eGrad.addColorStop(1, 'rgba(12,18,10,0)');
+      eGrad.addColorStop(0, 'rgba(40,35,18,0.2)');
+      eGrad.addColorStop(1, 'rgba(25,30,18,0)');
     } else {
-      eGrad.addColorStop(0, 'rgba(20,50,25,0.18)');
-      eGrad.addColorStop(1, 'rgba(10,30,15,0)');
+      eGrad.addColorStop(0, 'rgba(35,70,40,0.22)');
+      eGrad.addColorStop(1, 'rgba(20,48,28,0)');
     }
     ctx.fillStyle = eGrad;
     for (let wx = -1; wx <= 1; wx++) {
@@ -205,7 +205,8 @@ export function createGround() {
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(WORLD_R * 1.5, 64),
     new THREE.MeshStandardMaterial({
-      map: groundTex, color: 0xccddcc, roughness: 0.95, metalness: 0.0
+      map: groundTex, color: 0xddeedd, roughness: 0.85, metalness: 0.0,
+      emissive: 0x0a1a10, emissiveIntensity: 0.15
     })
   );
   ground.rotation.x = -Math.PI / 2;

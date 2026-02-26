@@ -42,7 +42,7 @@ function softGlowWrap(ctx, x, y, rx, ry, color, peak, W) {
 }
 
 function paintSkyCanvas() {
-  const W = 4096, H = 2048;
+  const W = 2048, H = 1024;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');

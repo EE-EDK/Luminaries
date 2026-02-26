@@ -20,7 +20,7 @@ moon.shadow.camera.top = 90;
 moon.shadow.camera.bottom = -90;
 moon.shadow.camera.near = 1;
 moon.shadow.camera.far = 250;
-moon.shadow.mapSize.set(2048, 2048);
+moon.shadow.mapSize.set(1024, 1024);
 moon.shadow.bias = -0.001;
 scene.add(moon);
 
@@ -34,7 +34,7 @@ moon2.shadow.camera.top = 70;
 moon2.shadow.camera.bottom = -70;
 moon2.shadow.camera.near = 1;
 moon2.shadow.camera.far = 200;
-moon2.shadow.mapSize.set(1024, 1024);
+moon2.shadow.mapSize.set(512, 512);
 moon2.shadow.bias = -0.002;
 scene.add(moon2);
 

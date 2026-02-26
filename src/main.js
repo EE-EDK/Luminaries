@@ -181,11 +181,13 @@ function populate() {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     moths.push(makeMoth(ref.x, getGroundY(ref.x, ref.z) + 2 + sr() * 4, ref.z));
   }
-  // Grass patches
+  // Grass patches (4 varieties: original green, purple, blue, teal)
+  const grassPalettes = [null, C.grassPurple, C.grassBlue, C.grassTeal];
   for (let i = 0; i < GRASS_PATCHES; i++) {
     const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.9);
     const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
-    const gp = makeGrassPatch(gx, gz, 2 + sr() * 2.5, 25 + Math.floor(sr() * 20));
+    const pal = grassPalettes[Math.floor(sr() * grassPalettes.length)];
+    const gp = makeGrassPatch(gx, gz, 2 + sr() * 2.5, 25 + Math.floor(sr() * 20), pal);
     gp.mesh.position.y = getGroundY(gx, gz);
     grassPatches.push(gp);
   }

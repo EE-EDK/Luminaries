@@ -45,13 +45,15 @@ export function makePond(x, z) {
       blade.rotation.y = sr() * 3; blade.rotation.x = -0.2; g.add(blade);
     }
   }
-  // Ripple rings (2 concentric torus at water surface)
+  // Animated ripple rings (expand outward, cycle)
   const rippleMat = new THREE.MeshBasicMaterial({
     color: 0xaaddee, transparent: true, opacity: 0.08
   });
-  for (let rri = 0; rri < 2; rri++) {
-    const ripple = new THREE.Mesh(new THREE.TorusGeometry(pondR * 0.3 + rri * pondR * 0.25, 0.005, 4, 16), rippleMat);
-    ripple.rotation.x = Math.PI / 2; ripple.position.y = 0.035; g.add(ripple);
+  const ripples = [];
+  for (let rri = 0; rri < 3; rri++) {
+    const ripple = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.004, 4, 20), rippleMat.clone());
+    ripple.rotation.x = Math.PI / 2; ripple.position.y = 0.036; g.add(ripple);
+    ripples.push({ mesh: ripple, phase: rri / 3 });
   }
   // Lily pads (4-5 flat discs)
   const padMat = new THREE.MeshStandardMaterial({
@@ -123,16 +125,18 @@ export function makePond(x, z) {
     g.add(silt);
   }
 
-  // Tadpole shapes (2 tiny dark ovals with tail lines in water)
+  // Tadpole shapes (animated swim paths)
   const tadMat = new THREE.MeshStandardMaterial({ color: 0x112215, roughness: 0.7, transparent: true, opacity: 0.4 });
+  const tadpoles = [];
   for (let tdi = 0; tdi < 2; tdi++) {
-    const tdA = sr() * 6.28, tdD = sr() * pondR * 0.5;
+    const tdA = sr() * 6.28, tdD = sr() * pondR * 0.4;
     const tadBody = new THREE.Mesh(new THREE.SphereGeometry(0.012, 4, 3), tadMat);
     tadBody.scale.set(0.8, 0.5, 1.3);
     tadBody.position.set(Math.cos(tdA) * tdD, 0.04, Math.sin(tdA) * tdD); g.add(tadBody);
     const tadTail = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.001, 0.025, 3), tadMat);
     tadTail.position.set(Math.cos(tdA) * tdD - Math.cos(tdA) * 0.02, 0.04, Math.sin(tdA) * tdD - Math.sin(tdA) * 0.02);
     tadTail.rotation.z = Math.PI / 2; tadTail.rotation.y = tdA; g.add(tadTail);
+    tadpoles.push({ body: tadBody, tail: tadTail, ang: tdA, orbR: 0.15 + sr() * pondR * 0.35, speed: 0.3 + sr() * 0.4 });
   }
 
   // Algae patches (green film at water edge)
@@ -157,7 +161,7 @@ export function makePond(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, waterMat: waterMat, flMat: flMat, pads: pads, x: x, z: z,
-    phase: sr() * 6.28, pondR: pondR
+    group: g, waterMat, flMat, pads, ripples, tadpoles,
+    x: x, z: z, phase: sr() * 6.28, pondR
   };
 }

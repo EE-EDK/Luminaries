@@ -1252,6 +1252,10 @@ try {
   makeMoat();
   makeRainbows();
 
+  // Init UI (must be before quest so orb HUD element is available)
+  initHUD();
+  initOverlay();
+
   // Init quest system
   initQuest({
     orbs: orbs,
@@ -1269,10 +1273,6 @@ try {
     jellies: jellies,
     moths: moths
   });
-
-  // Init UI
-  initHUD();
-  initOverlay();
 
   // Wire up go callback
   setGoCallback(go);

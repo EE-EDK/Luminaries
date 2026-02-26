@@ -9,3 +9,6 @@ export function sr() {
 export function resetSeed(seed) {
   _s = seed || 42;
 }
+
+export function saveSeed() { return _s; }
+export function restoreSeed(s) { _s = s; }

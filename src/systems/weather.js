@@ -76,11 +76,24 @@ function pickNext() {
 
 function buildMistPlanes() {
   if (mistReady) return;
-  const geo = new THREE.PlaneGeometry(25, 8);
+  // Soft radial gradient texture so fog patches have feathered edges
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 64;
+  const ctx = cv.getContext('2d');
+  const grad = ctx.createRadialGradient(64, 32, 0, 64, 32, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(0.7, 'rgba(255,255,255,0.06)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 64);
+  const fogTex = new THREE.CanvasTexture(cv);
+
+  const geo = new THREE.PlaneGeometry(40, 14);
   for (let i = 0; i < MAX_MIST; i++) {
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x88aacc, transparent: true, opacity: 0,
-      side: THREE.DoubleSide, depthWrite: false, fog: false
+      map: fogTex, color: 0x556677, transparent: true, opacity: 0,
+      side: THREE.DoubleSide, depthWrite: false
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.visible = false;
@@ -89,7 +102,7 @@ function buildMistPlanes() {
       mesh, mat, active: false,
       drift: Math.random() * Math.PI * 2,
       speed: 0.3 + Math.random() * 0.4,
-      baseY: 1.2 + Math.random() * 2.5,
+      baseY: 0.8 + Math.random() * 2.0,
       wobble: Math.random() * Math.PI * 2
     });
   }
@@ -185,7 +198,7 @@ export function updateWeather(dt, t, playerPos) {
         );
         mp.mesh.rotation.y = a + Math.PI / 2;
         mp.drift += windX * dt * 0.02;
-        const tgtOp = 0.05 + curFogMult * 0.02;
+        const tgtOp = 0.03 + curFogMult * 0.012;
         mp.mat.opacity += (tgtOp - mp.mat.opacity) * dt * 2;
       } else if (mp.active) {
         mp.mat.opacity -= dt * 0.5;

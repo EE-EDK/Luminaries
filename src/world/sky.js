@@ -9,6 +9,7 @@ import { scene } from '../core/renderer.js';
 // ================================================================
 
 export const skyGroup = new THREE.Group();
+let skyDomeMat = null;
 
 // Helpers
 function rgba(hex, a) {
@@ -249,11 +250,11 @@ export function createSkyDome() {
 
   const tex = paintSkyCanvas();
   const geo = new THREE.SphereGeometry(SKY_R, 64, 32);
-  const mat = new THREE.MeshBasicMaterial({
+  skyDomeMat = new THREE.MeshBasicMaterial({
     map: tex, side: THREE.BackSide, fog: false,
-    transparent: true, opacity: 1.0
+    transparent: false
   });
-  const dome = new THREE.Mesh(geo, mat);
+  const dome = new THREE.Mesh(geo, skyDomeMat);
   skyGroup.add(dome);
   scene.add(skyGroup);
 
@@ -263,4 +264,12 @@ export function createSkyDome() {
 
 export function updateSky(dt, t) {
   skyGroup.rotation.y = t * 0.003;
+}
+
+// Modulate sky brightness via color tint (called by day/night cycle)
+export function setSkyBrightness(brightness) {
+  if (skyDomeMat) {
+    const v = Math.max(0.15, brightness); // never fully black
+    skyDomeMat.color.setRGB(v, v, v);
+  }
 }

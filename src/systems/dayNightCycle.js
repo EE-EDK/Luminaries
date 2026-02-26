@@ -5,6 +5,7 @@
 // 10-minute default cycle. Starts at NIGHT (t=0.25).
 
 import * as THREE from 'three';
+import { setSkyBrightness } from '../world/sky.js';
 
 const CYCLE_DURATION = 600; // seconds for one full cycle (10 minutes)
 
@@ -21,11 +22,6 @@ let moonRef = null;
 let moon2Ref = null;
 let hemiRef = null;
 let playerLightRef = null;
-let skyGroupRef = null;
-
-// Cached sky material data for brightness modulation
-const skyMats = []; // { mat, base }
-let skyMatsCached = false;
 
 // Phase keyframes (evenly spaced at 0.25 intervals)
 // t=0.00: DUSK, t=0.25: NIGHT, t=0.50: DEEP_NIGHT, t=0.75: DAWN
@@ -100,33 +96,16 @@ const KF = [
 const _c1 = new THREE.Color();
 const _c2 = new THREE.Color();
 
-function cacheSkyMaterials() {
-  if (!skyGroupRef || skyMatsCached) return;
-  const seen = new Set();
-  skyGroupRef.traverse((child) => {
-    const mat = child.material;
-    if (mat && mat.transparent && !seen.has(mat)) {
-      seen.add(mat);
-      skyMats.push({ mat, base: mat.opacity });
-    }
-  });
-  skyMatsCached = true;
-}
-
 export function initDayNight(config) {
   sceneRef = config.scene;
   moonRef = config.moon;
   moon2Ref = config.moon2;
   hemiRef = config.hemiLight;
   playerLightRef = config.playerLight;
-  skyGroupRef = config.skyGroup;
 }
 
 export function updateDayNight(dt) {
   if (!sceneRef) return;
-
-  // Cache sky material opacities on first frame
-  if (!skyMatsCached) cacheSkyMaterials();
 
   // Advance world clock
   worldTime = (worldTime + dt / CYCLE_DURATION) % 1.0;
@@ -193,11 +172,9 @@ export function updateDayNight(dt) {
     playerLightRef.intensity = mix(a.plInt, b.plInt);
   }
 
-  // --- Sky star brightness ---
+  // --- Sky star brightness (via color tint, not opacity) ---
   starBrightness = mix(a.stars, b.stars);
-  for (let k = 0; k < skyMats.length; k++) {
-    skyMats[k].mat.opacity = skyMats[k].base * starBrightness;
-  }
+  setSkyBrightness(starBrightness);
 
   // --- Bio-glow multiplier (read by main.js via live export binding) ---
   bioGlow = mix(a.bio, b.bio);

@@ -58,14 +58,17 @@ export function makeFairyRing(x, z) {
   });
   const stone = new THREE.Mesh(new THREE.SphereGeometry(0.12, 5, 3), stoneMat);
   stone.scale.set(1.2, 0.3, 1.0); stone.position.y = 0.03; g.add(stone);
-  // Spore haze motes (floating particles inside ring)
+  // Spore haze motes (floating particles inside ring — animated)
   const sporeMat = new THREE.MeshBasicMaterial({
     color: C.fairyGlow, transparent: true, opacity: 0.2
   });
-  for (let si = 0; si < 6; si++) {
-    const spore = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), sporeMat);
-    spore.position.set((sr() - 0.5) * ringR * 0.8, 0.1 + sr() * 0.4, (sr() - 0.5) * ringR * 0.8);
+  const spores = [];
+  for (let si = 0; si < 8; si++) {
+    const spore = new THREE.Mesh(new THREE.SphereGeometry(0.012, 3, 3), sporeMat);
+    const sx = (sr() - 0.5) * ringR * 0.8, sz = (sr() - 0.5) * ringR * 0.8;
+    spore.position.set(sx, 0.05 + sr() * 0.3, sz);
     g.add(spore);
+    spores.push({ mesh: spore, baseX: sx, baseZ: sz, drift: sr() * 6.28, speed: 0.2 + sr() * 0.3 });
   }
   // Central glow disc (flat ring on ground)
   const discMat = new THREE.MeshBasicMaterial({
@@ -111,10 +114,12 @@ export function makeFairyRing(x, z) {
   const gwMat = new THREE.MeshBasicMaterial({
     color: 0x88ffaa, transparent: true, opacity: 0.25
   });
+  const glowWorms = [];
   for (let gwi = 0; gwi < 5; gwi++) {
     const gwa = sr() * 6.28, gwd = sr() * ringR * 0.9;
     const gw = new THREE.Mesh(new THREE.SphereGeometry(0.005, 3, 3), gwMat);
     gw.position.set(Math.cos(gwa) * gwd, 0.01, Math.sin(gwa) * gwd); g.add(gw);
+    glowWorms.push(gw);
   }
 
   // Dew-wet soil ring (dark dampness circle just inside mushroom ring)
@@ -126,7 +131,7 @@ export function makeFairyRing(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, mushMat: mushMat, discMat: discMat, x: x, z: z, phase: sr() * 6.28,
-    glowIntensity: 0, active: false
+    group: g, mushMat: mushMat, discMat: discMat, sporeMat, spores, glowWorms, gwMat,
+    x: x, z: z, ringR, phase: sr() * 6.28, glowIntensity: 0, active: false
   };
 }

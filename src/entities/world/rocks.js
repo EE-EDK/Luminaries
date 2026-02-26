@@ -1,4 +1,4 @@
-// --- Rock Formation (Lusion-style: smooth rounded stones with moss + lichen) ---
+// --- Rock Formation (smooth rounded stones with moss, lichen, weathering, crystal hints) ---
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -16,7 +16,7 @@ export function makeRock(x, z) {
     color: C.rockMoss, emissive: C.rockMoss, emissiveIntensity: 0.03, roughness: 0.9
   });
 
-  // Main stone (large rounded form)
+  // Main stone
   const mainSz = 0.3 + sr() * 0.5;
   const main = new THREE.Mesh(new THREE.SphereGeometry(mainSz, 8, 6), sr() < 0.6 ? rockMat : rockLightMat);
   main.scale.set(1 + sr() * 0.6, 0.4 + sr() * 0.4, 1 + sr() * 0.6);
@@ -37,7 +37,7 @@ export function makeRock(x, z) {
     g.add(sec);
   }
 
-  // Moss patches on top surfaces (2-4 green blobs)
+  // Moss patches on top surfaces
   const mossN = 2 + Math.floor(sr() * 3);
   for (let mi = 0; mi < mossN; mi++) {
     const ma = sr() * 6.28, md = sr() * mainSz * 0.6;
@@ -48,7 +48,7 @@ export function makeRock(x, z) {
     g.add(moss);
   }
 
-  // Lichen spots (tiny colored patches — yellow/orange/gray)
+  // Lichen spots
   const lichenColors = [0x887744, 0x998855, 0x667755, 0xaa9966];
   for (let li = 0; li < 3; li++) {
     const lichenMat = new THREE.MeshStandardMaterial({
@@ -62,7 +62,68 @@ export function makeRock(x, z) {
     g.add(lichen);
   }
 
-  // Embedded pebbles at base (4-6 tiny half-buried stones)
+  // Weathering cracks (dark lines etched into stone surface)
+  const crackMat = new THREE.MeshBasicMaterial({
+    color: 0x151518, transparent: true, opacity: 0.35
+  });
+  const crackN = 2 + Math.floor(sr() * 3);
+  for (let ci = 0; ci < crackN; ci++) {
+    const ca = sr() * 6.28;
+    const cLen = mainSz * 0.3 + sr() * mainSz * 0.4;
+    const crack = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, cLen, 3), crackMat);
+    const cR = mainSz * 0.3 + sr() * mainSz * 0.2;
+    crack.position.set(Math.cos(ca) * cR, mainSz * 0.2 + sr() * mainSz * 0.15, Math.sin(ca) * cR);
+    crack.rotation.set(sr() * 0.5, ca, Math.PI / 2 + sr() * 0.4);
+    g.add(crack);
+  }
+
+  // Water stain trails (dark streaks running down from top)
+  const stainMat = new THREE.MeshBasicMaterial({
+    color: 0x0a1510, transparent: true, opacity: 0.2, side: THREE.DoubleSide
+  });
+  const stainN = 1 + Math.floor(sr() * 2);
+  for (let sti = 0; sti < stainN; sti++) {
+    const sta = sr() * 6.28;
+    const stLen = mainSz * 0.3 + sr() * mainSz * 0.3;
+    const stain = new THREE.Mesh(new THREE.PlaneGeometry(0.02 + sr() * 0.015, stLen), stainMat);
+    stain.position.set(
+      Math.cos(sta) * mainSz * 0.45,
+      mainSz * 0.15,
+      Math.sin(sta) * mainSz * 0.45
+    );
+    stain.rotation.y = -sta;
+    g.add(stain);
+  }
+
+  // Embedded crystal sparkle hints (tiny bright specks)
+  const sparkles = [];
+  const sparkleMat = new THREE.MeshBasicMaterial({
+    color: 0x88ccff, transparent: true, opacity: 0.4
+  });
+  if (sr() < 0.5) {
+    const sparkN = 2 + Math.floor(sr() * 3);
+    for (let spi = 0; spi < sparkN; spi++) {
+      const spa = sr() * 6.28;
+      const spr = mainSz * 0.25 + sr() * mainSz * 0.25;
+      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.006, 3, 3), sparkleMat);
+      spark.position.set(
+        Math.cos(spa) * spr,
+        mainSz * 0.15 + sr() * mainSz * 0.2,
+        Math.sin(spa) * spr
+      );
+      g.add(spark);
+      sparkles.push(spark);
+    }
+  }
+
+  // Soil ring (dark compressed ground around base)
+  const soilMat = new THREE.MeshBasicMaterial({
+    color: 0x0a0a06, transparent: true, opacity: 0.12, side: THREE.DoubleSide
+  });
+  const soil = new THREE.Mesh(new THREE.RingGeometry(mainSz * 0.5, mainSz * 1.0, 8), soilMat);
+  soil.rotation.x = -Math.PI / 2; soil.position.y = 0.005; g.add(soil);
+
+  // Embedded pebbles at base
   const pebMat = new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.9 });
   const pebN = 4 + Math.floor(sr() * 3);
   for (let pi = 0; pi < pebN; pi++) {
@@ -74,7 +135,7 @@ export function makeRock(x, z) {
     g.add(peb);
   }
 
-  // Tiny grass tuft growing from crevice (2-3 blades)
+  // Tiny grass tuft growing from crevice
   if (sr() < 0.6) {
     const grassMat = new THREE.MeshStandardMaterial({
       color: 0x33aa55, emissive: C.grassTip, emissiveIntensity: 0.05,
@@ -90,5 +151,5 @@ export function makeRock(x, z) {
   }
 
   g.position.set(x, 0, z); scene.add(g);
-  return { group: g, x: x, z: z, colR: mainSz * 0.8 };
+  return { group: g, x, z, colR: mainSz * 0.8, sparkles, sparkleMat };
 }

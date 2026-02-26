@@ -21,26 +21,32 @@ export function makePuff(x, z) {
   // Head (slightly smaller, on top)
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 7, 5), bodyMat);
   head.position.y = 0.65; g.add(head);
-  // Ears (2 small cones)
+  // Ears (2 small cones — tracked for wiggle animation)
+  const ears = [];
   for (let i = -1; i <= 1; i += 2) {
     const ear = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.15, 4), bodyMat);
     ear.position.set(i * 0.13, 0.85, 0);
     ear.rotation.z = i * 0.3;
     g.add(ear);
+    ears.push({ mesh: ear, side: i, baseRotZ: i * 0.3 });
     // Inner ear (pink)
     const innerEar = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 4),
       new THREE.MeshStandardMaterial({ color: C.puffCheek, emissive: C.puffCheek, emissiveIntensity: 0.2 }));
     innerEar.position.set(i * 0.13, 0.84, 0.01); innerEar.rotation.z = i * 0.3; g.add(innerEar);
+    ears.push({ mesh: innerEar, side: i, baseRotZ: i * 0.3 });
   }
-  // Eyes (2 dark dots)
+  // Eyes (2 dark dots — tracked for blink animation)
   const eyeMat = new THREE.MeshBasicMaterial({ color: C.puffEye });
+  const eyes = [];
   for (let i = -1; i <= 1; i += 2) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 4, 4), eyeMat);
     eye.position.set(i * 0.09, 0.68, 0.18); g.add(eye);
+    eyes.push(eye);
     // Eye highlight (white catch light)
     const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const hl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 3, 3), hlMat);
     hl.position.set(i * 0.09 + i * 0.015, 0.695, 0.2); g.add(hl);
+    eyes.push(hl);
   }
   // Nose (tiny dark dot)
   const noseMat = new THREE.MeshBasicMaterial({ color: 0x443333 });
@@ -106,9 +112,10 @@ export function makePuff(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
+    group: g, ears, eyes, tail, phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _followT: 0, _scaredT: 0, _huddleTarget: -1,
-    _baseY: 0, _lastTX: x, _lastTZ: z
+    _baseY: 0, _lastTX: x, _lastTZ: z,
+    _blinkTimer: 2 + Math.random() * 4, _blinkState: 0
   };
 }

@@ -39,18 +39,21 @@ export function makeWisp(x, y, z) {
   const spark = new THREE.Mesh(new THREE.SphereGeometry(0.02, 3, 3), sparkMat);
   spark.position.set(0.15, 0, 0);
   g.add(spark);
-  // Trailing ember motes (3 tiny dots behind)
+  // Trailing ember motes (3 tiny dots behind — animated)
   const emberMat = new THREE.MeshBasicMaterial({ color: C.wispCore, transparent: true, opacity: 0.35 });
+  const embers = [];
   for (let ei = 0; ei < 3; ei++) {
     const ember = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), emberMat);
     ember.position.set((sr() - 0.5) * 0.1, -0.1 - ei * 0.08, (sr() - 0.5) * 0.1);
     g.add(ember);
+    embers.push(ember);
   }
 
-  // Plasma tendrils (3 curved filament arcs radiating from core)
+  // Plasma tendrils (3 curved filament arcs radiating from core — animated)
   const plasmaMat = new THREE.MeshBasicMaterial({
     color: C.wispGlow, transparent: true, opacity: 0.18
   });
+  const tendrils = [];
   for (let pi = 0; pi < 3; pi++) {
     const pa = (pi / 3) * 6.28 + sr() * 0.5;
     const pLen = 0.15 + sr() * 0.1;
@@ -58,6 +61,7 @@ export function makeWisp(x, y, z) {
     plasma.position.set(Math.cos(pa) * 0.1, sr() * 0.08, Math.sin(pa) * 0.1);
     plasma.rotation.z = Math.PI / 3 * ((pa < 3.14) ? 1 : -1); plasma.rotation.y = pa;
     g.add(plasma);
+    tendrils.push({ mesh: plasma, baseAng: pa });
   }
 
   // Secondary halo (tilted at different angle)
@@ -84,9 +88,11 @@ export function makeWisp(x, y, z) {
     g.add(chain);
   }
 
+  g.scale.setScalar(0.5);
   g.position.set(x, y, z); scene.add(g);
   return {
-    group: g, glowMat: glowMat, hazeMat: hazeMat, phase: sr() * 6.28,
+    group: g, glowMat, hazeMat, embers, tendrils, plasmaMat, facet, halo, halo2,
+    phase: sr() * 6.28,
     targetX: x, targetY: y, targetZ: z, velX: 0, velY: 0, velZ: 0, scatter: 0
   };
 }

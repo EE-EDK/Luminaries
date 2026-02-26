@@ -33,7 +33,7 @@ import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, set
 import { makeTree } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
-import { makeGrassPatch } from './entities/flora/grass.js';
+import { makeGrassPatch, updateGrassPatch } from './entities/flora/grass.js';
 import { makeFern } from './entities/flora/ferns.js';
 import { makeFlower } from './entities/flora/flowers.js';
 import { makeReed } from './entities/flora/reeds.js';
@@ -320,10 +320,7 @@ function updateVegetation(dt, t) {
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
   for (let i = 0; i < grassPatches.length; i++) {
-    const gp = grassPatches[i];
-    const sway = (Math.sin(t * 0.7 + gp.cx * 0.05) * 0.04 + Math.sin(t * 1.3 + gp.cz * 0.08) * 0.02) * wAmp;
-    gp.mesh.rotation.z = sway + wLeanX;
-    gp.mesh.rotation.x = Math.sin(t * 0.9 + gp.cz * 0.06) * 0.03 * wAmp + wLeanZ;
+    updateGrassPatch(grassPatches[i], t, wAmp, wLeanX, wLeanZ, player.pos.x, player.pos.z);
   }
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
@@ -539,6 +536,27 @@ function updatePuffs(dt, t) {
         break;
       }
     }
+
+    // Eye blink animation
+    p._blinkTimer -= dt;
+    if (p._blinkTimer <= 0) {
+      if (p._blinkState === 0) {
+        // Close eyes
+        for (let ei = 0; ei < p.eyes.length; ei++) p.eyes[ei].scale.y = 0.1;
+        p._blinkState = 1; p._blinkTimer = 0.08 + Math.random() * 0.06;
+      } else {
+        // Open eyes
+        for (let ei = 0; ei < p.eyes.length; ei++) p.eyes[ei].scale.y = 1.0;
+        p._blinkState = 0; p._blinkTimer = 2 + Math.random() * 5;
+      }
+    }
+    // Ear wiggle (subtle rotation oscillation)
+    for (let ei = 0; ei < p.ears.length; ei++) {
+      const ear = p.ears[ei];
+      ear.mesh.rotation.z = ear.baseRotZ + Math.sin(t * 3.5 + ear.side * 1.2 + p.phase) * 0.08;
+    }
+    // Tail pom bounce
+    p.tail.position.y = 0.38 + Math.sin(t * 4 + p.phase) * 0.015;
 
     // World bounds
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
@@ -872,9 +890,34 @@ function updateWisps(dt, t) {
     const p = Math.sin(t * 2 + w.phase) * 0.5 + 0.5;
     w.glowMat.opacity = 0.3 + p * 0.4;
     w.hazeMat.opacity = 0.08 + p * 0.12;
-    const ch = w.group.children[3];
-    const sa = t * 3 + w.phase;
-    ch.position.set(Math.cos(sa) * 0.18, Math.sin(sa * 1.5) * 0.06, Math.sin(sa) * 0.18);
+    // Sparkle orbiter — variable radius and speed
+    const sa = t * (2.5 + i * 0.5) + w.phase;
+    const sparkR = 0.14 + Math.sin(t * 1.3 + w.phase) * 0.06;
+    const ch = w.group.children[5]; // spark
+    ch.position.set(Math.cos(sa) * sparkR, Math.sin(sa * 1.5) * 0.08, Math.sin(sa) * sparkR);
+    // Plasma tendrils wave
+    for (let ti = 0; ti < w.tendrils.length; ti++) {
+      const td = w.tendrils[ti];
+      const wave = Math.sin(t * 3 + ti * 2.1 + w.phase) * 0.3;
+      const radius = 0.08 + Math.sin(t * 2 + ti * 1.5) * 0.04;
+      td.mesh.position.x = Math.cos(td.baseAng + wave) * radius;
+      td.mesh.position.z = Math.sin(td.baseAng + wave) * radius;
+      td.mesh.rotation.y = td.baseAng + wave;
+      td.mesh.rotation.z = Math.PI / 3 + Math.sin(t * 2.5 + ti) * 0.2;
+    }
+    // Ember trail bob
+    for (let ei = 0; ei < w.embers.length; ei++) {
+      const eOff = (ei + 1) * 0.08;
+      w.embers[ei].position.y = -0.06 - eOff + Math.sin(t * 4 + ei * 1.4 + w.phase) * 0.03;
+      w.embers[ei].position.x = Math.sin(t * 2.5 + ei * 2 + w.phase) * 0.06;
+      w.embers[ei].material.opacity = 0.2 + Math.sin(t * 5 + ei * 1.7) * 0.15;
+    }
+    // Inner facet rotation
+    w.facet.rotation.y += dt * 1.5;
+    w.facet.rotation.x += dt * 0.7;
+    // Halos gentle spin
+    w.halo.rotation.z += dt * 0.3;
+    w.halo2.rotation.y += dt * 0.2;
   }
 }
 
@@ -891,6 +934,27 @@ function updateFairyRings(dt, t) {
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
       fr.glowIntensity = 1.5;
+    }
+    // Spore motes drift upward and cycle
+    const sporeAlpha = 0.08 + fr.glowIntensity * 0.25;
+    fr.sporeMat.opacity = sporeAlpha;
+    for (let si = 0; si < fr.spores.length; si++) {
+      const sp = fr.spores[si];
+      sp.drift += dt * 0.3;
+      const yFrac = (sp.mesh.position.y % 0.6) / 0.6;
+      sp.mesh.position.y += sp.speed * dt * (0.5 + fr.glowIntensity);
+      sp.mesh.position.x = sp.baseX + Math.sin(t * 0.8 + sp.drift) * 0.15;
+      sp.mesh.position.z = sp.baseZ + Math.cos(t * 0.6 + sp.drift) * 0.12;
+      // Reset when too high
+      if (sp.mesh.position.y > 0.8) {
+        sp.mesh.position.y = 0.03;
+      }
+      sp.mesh.scale.setScalar(0.6 + Math.sin(t * 2 + si) * 0.4);
+    }
+    // Glow worms pulse independently
+    for (let gwi = 0; gwi < fr.glowWorms.length; gwi++) {
+      const pulse = Math.sin(t * 1.5 + gwi * 1.3 + fr.phase) * 0.5 + 0.5;
+      fr.glowWorms[gwi].material.opacity = 0.1 + pulse * 0.4 + fr.glowIntensity * 0.3;
     }
   }
 }
@@ -936,12 +1000,37 @@ function updateBubbles(dt, t) {
 function updatePonds(dt, t) {
   for (let i = 0; i < ponds.length; i++) {
     const po = ponds[i];
+    // Lily pad bob
     for (let j = 0; j < po.pads.length; j++) {
       po.pads[j].mesh.position.y = 0.05 + Math.sin(t * 0.8 + po.pads[j].phase) * 0.015;
     }
     po.waterMat.emissiveIntensity = (0.15 + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
     po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * bioGlow;
+    // Animated ripple rings — expand and fade cyclically
+    for (let ri = 0; ri < po.ripples.length; ri++) {
+      const rp = po.ripples[ri];
+      const cycle = ((t * 0.25 + rp.phase) % 1.0); // 0→1 expansion cycle
+      const scale = 0.2 + cycle * po.pondR * 0.8;
+      rp.mesh.scale.setScalar(scale);
+      rp.mesh.material.opacity = (1.0 - cycle) * 0.12;
+    }
+    // Tadpole swim paths — lazy circles
+    for (let tdi = 0; tdi < po.tadpoles.length; tdi++) {
+      const td = po.tadpoles[tdi];
+      td.ang += td.speed * dt;
+      const tx = Math.cos(td.ang) * td.orbR;
+      const tz = Math.sin(td.ang) * td.orbR;
+      td.body.position.x = tx;
+      td.body.position.z = tz;
+      td.body.rotation.y = td.ang + Math.PI / 2;
+      // Tail follows behind
+      const tailOff = 0.02;
+      td.tail.position.x = tx - Math.cos(td.ang) * tailOff;
+      td.tail.position.z = tz - Math.sin(td.ang) * tailOff;
+      td.tail.rotation.y = td.ang;
+      td.tail.rotation.z = Math.PI / 2 + Math.sin(t * 8 + tdi * 3) * 0.4;
+    }
   }
 }
 
@@ -1164,6 +1253,13 @@ function director(dt, t) {
   updateMoths(dt, t);
   updateSky(dt, t);
   updateVegetation(dt, t);
+  // Rock crystal sparkle twinkle
+  for (let i = 0; i < rocks_data.length; i++) {
+    const rk = rocks_data[i];
+    if (rk.sparkles) for (let si = 0; si < rk.sparkles.length; si++) {
+      rk.sparkles[si].material.opacity = 0.15 + Math.sin(t * 4 + i * 2.3 + si * 1.7) * 0.35;
+    }
+  }
   updateWisps(dt, t);
   updateDandelions(dandelions, dt, t, player.pos);
   updateFairyRings(dt, t);

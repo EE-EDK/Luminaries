@@ -67,7 +67,7 @@ export function updateQuest(dt, t) {
 
     if (!o.found) {
       const p = Math.sin(t * 1.5 + o.phase) * 0.5 + 0.5;
-      o.group.position.y = 1.0 + Math.sin(t * 0.8 + o.phase) * 0.3;
+      o.group.position.y = o.flyY + Math.sin(t * 0.8 + o.phase) * 0.3;
       o.glowMat.opacity = 0.3 + p * 0.4;
       o.hazeMat.opacity = 0.08 + p * 0.12;
       // Rotate sparkle ring
@@ -83,7 +83,9 @@ export function updateQuest(dt, t) {
       if (dx * dx + dz * dz < ORB_TOUCH_R * ORB_TOUCH_R) {
         o.found = true; o.flyUp = true; o.flyY = o.group.position.y;
         orbsFound++;
-        if (orbHudEl) orbHudEl.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
+        // Update HUD — query DOM directly as fallback
+        const hud = orbHudEl || document.getElementById('orb-hud');
+        if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
         if (questPhase === 'SEEK') questPhase = 'RISING';
       }
     }

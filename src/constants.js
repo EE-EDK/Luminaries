@@ -64,8 +64,8 @@ export const DEER_FLEE_SPEED_MULT = 2.2;
 
 // Color palette
 export const C = {
-  sky: 0x081018, fog: 0x060c14, ground: 0x102818,
-  bark: 0x1a120a, leaf: 0x0c3014, leafGlow: 0x44ffaa,
+  sky: 0x081018, fog: 0x060c14, ground: 0x1a4028,
+  bark: 0x3a2818, leaf: 0x1a4820, leafGlow: 0x44ffaa,
   mushCap: 0x8833ee, mushGlow: 0xcc77ff, mushStem: 0x2a1140,
   crystal: 0x33ffdd, crystalCore: 0x88ffee,
   firefly: 0xeeff66, fireflyB: 0x66ffdd, spore: 0xbbff99,

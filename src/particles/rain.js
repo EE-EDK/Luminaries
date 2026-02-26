@@ -3,6 +3,7 @@
 // ================================================================
 import * as THREE from 'three';
 import { scene } from '../core/renderer.js';
+import { getGroundY } from '../world/terrain.js';
 
 const MAX_DROPS = 300;
 
@@ -79,7 +80,7 @@ export function updateRain(dt, playerPos, rainRate, windXVal, windZVal) {
     if (life[i] <= 0) continue;
     life[i] -= dt;
 
-    if (life[i] <= 0 || dy[i] < 0.1) {
+    if (life[i] <= 0 || dy[i] < getGroundY(dx[i], dz[i]) + 0.1) {
       life[i] = 0;
       hideDropVerts(i);
       continue;

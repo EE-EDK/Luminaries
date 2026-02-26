@@ -3,16 +3,17 @@ import { scene } from '../../core/renderer.js';
 import { sr } from '../../utils/rng.js';
 
 // --- Grass Patch (procedural blade geometry with vertex-level sway) ---
-export function makeGrassPatch(cx, cz, radius, density) {
+// palette: [base1, base2, mid, tip1, tip2, tip3, clover, cloverBr, emissive] hex array (optional)
+export function makeGrassPatch(cx, cz, radius, density, palette) {
   const geo = new THREE.BufferGeometry();
   const verts = [], colors = [], heights = [];
   const count = density || 20;
-  const colBase1 = new THREE.Color(0x0a2010);
-  const colBase2 = new THREE.Color(0x152e18);
-  const colMid = new THREE.Color(0x2a6035);
-  const colTip1 = new THREE.Color(0x44ee55);
-  const colTip2 = new THREE.Color(0x77ffcc);
-  const colTip3 = new THREE.Color(0xddff66);
+  const colBase1 = new THREE.Color(palette ? palette[0] : 0x0a2010);
+  const colBase2 = new THREE.Color(palette ? palette[1] : 0x152e18);
+  const colMid = new THREE.Color(palette ? palette[2] : 0x2a6035);
+  const colTip1 = new THREE.Color(palette ? palette[3] : 0x44ee55);
+  const colTip2 = new THREE.Color(palette ? palette[4] : 0x77ffcc);
+  const colTip3 = new THREE.Color(palette ? palette[5] : 0xddff66);
   const tmpC = new THREE.Color();
   for (let i = 0; i < count; i++) {
     const ang = sr() * 6.28, dist = sr() * radius;
@@ -72,7 +73,8 @@ export function makeGrassPatch(cx, cz, radius, density) {
     colors.push(tc.r, tc.g, tc.b);
   }
   // Ground cover: clover-like triangles
-  const cloverCol = new THREE.Color(0x1a5528);
+  const cloverCol = new THREE.Color(palette ? palette[6] : 0x1a5528);
+  const cloverBr = new THREE.Color(palette ? palette[7] : 0x33aa55);
   const cloverN = Math.floor(count * 0.3);
   for (let ci = 0; ci < cloverN; ci++) {
     const ca = sr() * 6.28, cd = sr() * radius * 0.9;
@@ -84,8 +86,7 @@ export function makeGrassPatch(cx, cz, radius, density) {
     heights.push(0, 0, 0.05);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
-    const clBr = new THREE.Color(0x33aa55);
-    colors.push(clBr.r, clBr.g, clBr.b);
+    colors.push(cloverBr.r, cloverBr.g, cloverBr.b);
   }
   const posAttr = new THREE.Float32BufferAttribute(verts, 3);
   posAttr.setUsage(THREE.DynamicDrawUsage);
@@ -99,7 +100,7 @@ export function makeGrassPatch(cx, cz, radius, density) {
   origPos.set(posAttr.array);
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.7, side: THREE.DoubleSide,
-    emissive: 0x44ff66, emissiveIntensity: 0.08
+    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.08
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(cx, 0, cz);

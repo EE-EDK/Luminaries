@@ -23,7 +23,7 @@ export const JELLY_N = 6;
 export const PUFF_N = 8;
 export const DEER_N = 4;
 export const MOTH_N = 5;
-export const GRASS_PATCHES = 80;
+export const GRASS_PATCHES = 110;
 export const FERN_N = 35;
 export const FLOWER_N = 30;
 export const REED_N = 25;
@@ -77,6 +77,10 @@ export const C = {
   mothWing: 0xaaff99, mothGlow: 0xccffaa, mothBody: 0x556633, mothSpot: 0xffffff,
   // Vegetation palette
   grass1: 0x1a4420, grass2: 0x0d3318, grassTip: 0x33aa55,
+  // Grass variety palettes: [base1, base2, mid, tip1, tip2, tip3, clover, cloverBr, emissive]
+  grassPurple: [0x1a0a22, 0x24123a, 0x4a2068, 0xaa44ee, 0xcc77ff, 0xff88dd, 0x2a1540, 0x6633aa, 0xaa44ff],
+  grassBlue:   [0x0a1422, 0x0d1a35, 0x204565, 0x44aaee, 0x66ddff, 0x88eeff, 0x152a45, 0x3366aa, 0x44aaff],
+  grassTeal:   [0x0a1a1a, 0x102a22, 0x206050, 0x44eebb, 0x66ffdd, 0xaaff88, 0x1a4038, 0x33aa88, 0x44ffbb],
   fern: 0x1a5530, fernGlow: 0x33cc66,
   flower: 0xff77cc, flowerGlow: 0xff99dd, flowerStem: 0x1a4420,
   reed: 0x2a5535, reedTip: 0x44bb66,

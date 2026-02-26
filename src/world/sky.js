@@ -1,269 +1,264 @@
 import * as THREE from 'three';
-import { C, SKY_STARS, SKY_NEBULA_N, SKY_CONSTELLATION_N, SKY_ANOMALY_N, SKY_R } from '../constants.js';
-import { sr } from '../utils/rng.js';
+import { SKY_R } from '../constants.js';
+import { saveSeed, restoreSeed } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
 
 // ================================================================
-// SPACE SKY DOME — realistic fantasy night sky
-// Stars dominate, with subtle hints of color from distant nebulae
+// PROCEDURAL CANVAS SKY DOME — realistic fantasy night sky
+// Single textured sphere instead of hundreds of mesh objects
 // ================================================================
 
 export const skyGroup = new THREE.Group();
 
+// Helpers
+function rgba(hex, a) {
+  const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function softGlow(ctx, x, y, rx, ry, color, peak) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (Math.abs(ry / rx - 1) > 0.01) ctx.scale(1, ry / rx);
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  grad.addColorStop(0, rgba(color, peak));
+  grad.addColorStop(0.25, rgba(color, peak * 0.55));
+  grad.addColorStop(0.55, rgba(color, peak * 0.15));
+  grad.addColorStop(0.85, rgba(color, peak * 0.03));
+  grad.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, 6.2832);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Paint nebula with horizontal wrapping (avoids seam)
+function softGlowWrap(ctx, x, y, rx, ry, color, peak, W) {
+  softGlow(ctx, x, y, rx, ry, color, peak);
+  if (x - rx < 0) softGlow(ctx, x + W, y, rx, ry, color, peak);
+  if (x + rx > W) softGlow(ctx, x - W, y, rx, ry, color, peak);
+}
+
+function paintSkyCanvas() {
+  const W = 4096, H = 2048;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const R = Math.random;
+
+  // ---- 1. Deep space base gradient ----
+  const base = ctx.createLinearGradient(0, 0, 0, H);
+  base.addColorStop(0, '#030610');
+  base.addColorStop(0.2, '#050a18');
+  base.addColorStop(0.4, '#0a1222');
+  base.addColorStop(0.55, '#0c1828');
+  base.addColorStop(0.75, '#081018');
+  base.addColorStop(1, '#040810');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, W, H);
+
+  // ---- 2. Large nebula base regions (broad color washes) ----
+  const nebulae = [
+    { x: 0.12, y: 0.22, rx: 0.18, ry: 0.14, col: 0x1a3366, a: 0.14 },
+    { x: 0.42, y: 0.28, rx: 0.22, ry: 0.10, col: 0x2a1855, a: 0.12 },
+    { x: 0.72, y: 0.18, rx: 0.16, ry: 0.12, col: 0x1a4466, a: 0.13 },
+    { x: 0.88, y: 0.32, rx: 0.20, ry: 0.09, col: 0x331844, a: 0.10 },
+    { x: 0.28, y: 0.12, rx: 0.14, ry: 0.18, col: 0x224488, a: 0.10 },
+    { x: 0.58, y: 0.38, rx: 0.18, ry: 0.07, col: 0x442244, a: 0.08 },
+    { x: 0.05, y: 0.40, rx: 0.15, ry: 0.10, col: 0x183355, a: 0.09 },
+    { x: 0.52, y: 0.15, rx: 0.12, ry: 0.16, col: 0x2a3366, a: 0.07 },
+  ];
+
+  for (const n of nebulae) {
+    softGlowWrap(ctx, n.x * W, n.y * H, n.rx * W, n.ry * H, n.col, n.a, W);
+    // Random sub-clouds within each nebula
+    for (let i = 0; i < 4; i++) {
+      const sx = (n.x + (R() - 0.5) * n.rx) * W;
+      const sy = (n.y + (R() - 0.5) * n.ry) * H;
+      const srx = n.rx * W * (0.2 + R() * 0.35);
+      const sry = n.ry * H * (0.2 + R() * 0.4);
+      softGlowWrap(ctx, sx, sy, srx, sry, n.col, n.a * (0.4 + R() * 0.5), W);
+    }
+  }
+
+  // ---- 3. Medium nebula wisps (more saturated detail clouds) ----
+  const wispCols = [0x2244aa, 0x224466, 0x442266, 0x553355, 0x336688, 0x224455, 0x3a2266];
+  for (let i = 0; i < 30; i++) {
+    const wx = R() * W;
+    const wy = R() * H * 0.55;
+    const wrx = 40 + R() * 180;
+    const wry = 25 + R() * 100;
+    softGlowWrap(ctx, wx, wy, wrx, wry, wispCols[Math.floor(R() * wispCols.length)], 0.025 + R() * 0.035, W);
+  }
+
+  // ---- 4. Milky way band (luminous diagonal stripe) ----
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const mwCenterY = 0.26;
+  // Broad diffuse band
+  for (let i = 0; i < 50; i++) {
+    const t = i / 50;
+    const mx = t * W;
+    const my = (mwCenterY + Math.sin(t * Math.PI) * 0.06 + (R() - 0.5) * 0.02) * H;
+    const mrx = W * 0.05 + R() * W * 0.035;
+    const mry = H * 0.04 * (0.4 + R() * 0.6);
+    softGlow(ctx, mx, my, mrx, mry, 0x445566, 0.025 + R() * 0.015);
+  }
+  // Brighter core regions
+  for (let i = 0; i < 25; i++) {
+    const t = 0.2 + R() * 0.6;
+    const mx = t * W;
+    const my = (mwCenterY + Math.sin(t * Math.PI) * 0.04) * H;
+    softGlow(ctx, mx, my, W * 0.03 + R() * W * 0.02, H * 0.02 + R() * H * 0.01, 0x6688aa, 0.015 + R() * 0.012);
+  }
+  // Warm highlights in core
+  for (let i = 0; i < 10; i++) {
+    const t = 0.35 + R() * 0.3;
+    const mx = t * W;
+    const my = (mwCenterY + Math.sin(t * Math.PI) * 0.02) * H;
+    softGlow(ctx, mx, my, W * 0.02, H * 0.012, 0x887766, 0.01 + R() * 0.008);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+
+  // ---- 5. Dark dust lanes (cut through the milky way for realism) ----
+  for (let i = 0; i < 12; i++) {
+    const t = 0.1 + R() * 0.8;
+    const dx = t * W;
+    const dy = (mwCenterY + Math.sin(t * Math.PI) * 0.04 + (R() - 0.5) * 0.02) * H;
+    const drx = 20 + R() * 60;
+    const dry = 8 + R() * 20;
+    softGlow(ctx, dx, dy, drx, dry, 0x020408, 0.15 + R() * 0.1);
+  }
+
+  // ---- 6. Dense star field ----
+  const starCols = [
+    '255,255,255', '220,230,255', '255,240,220', '200,215,255',
+    '255,225,200', '240,240,255', '255,245,235'
+  ];
+  // Background dim stars (everywhere)
+  for (let i = 0; i < 5000; i++) {
+    const sx = R() * W;
+    const sy = R() * H * 0.65; // upper 65% (visible hemisphere)
+    const sz = 0.3 + R() * 0.7;
+    const b = 0.1 + R() * 0.5;
+    ctx.fillStyle = `rgba(${starCols[Math.floor(R() * starCols.length)]},${b})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sz, 0, 6.28);
+    ctx.fill();
+  }
+  // Milky way dense stars (concentrated in the band)
+  for (let i = 0; i < 3000; i++) {
+    const t = R();
+    const sx = t * W;
+    const bandY = (mwCenterY + Math.sin(t * Math.PI) * 0.06) * H;
+    const sy = bandY + (R() - 0.5) * H * 0.1;
+    if (sy < 0 || sy > H * 0.6) continue;
+    const sz = 0.2 + R() * 0.6;
+    const b = 0.2 + R() * 0.7;
+    ctx.fillStyle = `rgba(${starCols[Math.floor(R() * starCols.length)]},${b})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sz, 0, 6.28);
+    ctx.fill();
+  }
+
+  // ---- 7. Bright prominent stars with glow halos ----
+  for (let i = 0; i < 60; i++) {
+    const sx = R() * W;
+    const sy = R() * H * 0.58;
+    const coreR = 1.2 + R() * 1.8;
+    const haloR = 6 + R() * 14;
+    const sc = R();
+    let col;
+    if (sc < 0.45) col = '255,255,255';
+    else if (sc < 0.65) col = '210,225,255';
+    else if (sc < 0.8) col = '255,230,200';
+    else if (sc < 0.92) col = '190,210,255';
+    else col = '255,200,180';
+    // Halo
+    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
+    grad.addColorStop(0, `rgba(${col},0.5)`);
+    grad.addColorStop(0.1, `rgba(${col},0.18)`);
+    grad.addColorStop(0.35, `rgba(${col},0.04)`);
+    grad.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, haloR, 0, 6.28);
+    ctx.fill();
+    // Spike cross (subtle diffraction)
+    ctx.strokeStyle = `rgba(${col},0.12)`;
+    ctx.lineWidth = 0.5;
+    const spikeLen = haloR * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(sx - spikeLen, sy); ctx.lineTo(sx + spikeLen, sy);
+    ctx.moveTo(sx, sy - spikeLen); ctx.lineTo(sx, sy + spikeLen);
+    ctx.stroke();
+    // Core
+    ctx.fillStyle = `rgba(${col},1)`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, coreR, 0, 6.28);
+    ctx.fill();
+  }
+
+  // ---- 8. Star clusters (dense pockets) ----
+  for (let ci = 0; ci < 8; ci++) {
+    const ccx = R() * W;
+    const ccy = H * 0.08 + R() * H * 0.42;
+    const cr = 50 + R() * 90;
+    // Faint cluster glow
+    softGlow(ctx, ccx, ccy, cr, cr * 0.7, 0x334466, 0.03);
+    for (let si = 0; si < 100; si++) {
+      const sa = R() * 6.28;
+      const sd = R() * R() * cr; // concentrate toward center
+      const sx = ccx + Math.cos(sa) * sd;
+      const sy = ccy + Math.sin(sa) * sd * 0.65;
+      if (sx < 0 || sx > W || sy < 0 || sy > H) continue;
+      const sz = 0.2 + R() * 0.6;
+      ctx.fillStyle = `rgba(255,255,255,${0.25 + R() * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sz, 0, 6.28);
+      ctx.fill();
+    }
+  }
+
+  // ---- 9. Distant colored nebula cores (tiny bright spots within nebulae) ----
+  for (let i = 0; i < 15; i++) {
+    const n = nebulae[Math.floor(R() * nebulae.length)];
+    const cx = (n.x + (R() - 0.5) * n.rx * 0.5) * W;
+    const cy = (n.y + (R() - 0.5) * n.ry * 0.5) * H;
+    const cr = 3 + R() * 8;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr * 3);
+    grad.addColorStop(0, rgba(n.col, 0.2));
+    grad.addColorStop(0.3, rgba(n.col, 0.06));
+    grad.addColorStop(1, rgba(n.col, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cr * 3, 0, 6.28);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export function createSkyDome() {
-  // --- Star field (main visual feature of the sky) ---
-  const starGeos = [
-    new THREE.SphereGeometry(0.2, 4, 3),   // tiny dim stars
-    new THREE.SphereGeometry(0.35, 6, 4),   // medium stars
-    new THREE.SphereGeometry(0.55, 6, 5)    // bright stars
-  ];
-  const starColors = [C.skyStarBright, C.skyStarDim, C.skyStarWarm, C.skyStarCool];
+  // Save RNG state so sky painting doesn't disrupt seeded world generation
+  const savedSeed = saveSeed();
 
-  for (let si = 0; si < SKY_STARS; si++) {
-    const theta = sr() * 6.28;
-    const phi = sr() * 0.85 * Math.PI * 0.5 + (si < 80 ? sr() * 0.4 : 0);
-    const tier = si < 40 ? 2 : (si < 160 ? 1 : 0);
-    const sCol = starColors[Math.floor(sr() * starColors.length)];
-    const sMat = new THREE.MeshBasicMaterial({
-      color: sCol, transparent: true,
-      opacity: tier === 0 ? 0.2 + sr() * 0.3 : tier === 1 ? 0.45 + sr() * 0.35 : 0.8 + sr() * 0.2
-    });
-    const sMesh = new THREE.Mesh(starGeos[tier], sMat);
-    const sx = SKY_R * Math.cos(theta) * Math.cos(phi);
-    const sy = SKY_R * Math.sin(phi) + 20;
-    const sz = SKY_R * Math.sin(theta) * Math.cos(phi);
-    sMesh.position.set(sx, sy, sz);
-    skyGroup.add(sMesh);
-  }
-
-  // --- Subtle star cluster patches (faint dense regions) ---
-  for (let ci = 0; ci < 10; ci++) {
-    const ca = sr() * 6.28, cph = 0.3 + sr() * 0.5;
-    const ccx = SKY_R * 0.95 * Math.cos(ca) * Math.cos(cph);
-    const ccy = SKY_R * 0.95 * Math.sin(cph) + 30;
-    const ccz = SKY_R * 0.95 * Math.sin(ca) * Math.cos(cph);
-    const clusterMat = new THREE.MeshBasicMaterial({
-      color: starColors[Math.floor(sr() * starColors.length)],
-      transparent: true, opacity: 0.03 + sr() * 0.04
-    });
-    const cluster = new THREE.Mesh(
-      new THREE.SphereGeometry(10 + sr() * 15, 12, 8), clusterMat
-    );
-    cluster.position.set(ccx, ccy, ccz); skyGroup.add(cluster);
-  }
-
-  // --- Galaxy spirals (very subtle, distant) ---
-  function makeGalaxy(gx, gy, gz, radius, armN, color) {
-    const gg = new THREE.Group();
-    // Faint core glow
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xccccbb, transparent: true, opacity: 0.12
-    });
-    gg.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 0.12, 10, 8), coreMat));
-    // Dim halo
-    const haloMat = new THREE.MeshBasicMaterial({
-      color: color, transparent: true, opacity: 0.04
-    });
-    gg.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 0.35, 10, 8), haloMat));
-    // Spiral arm dots (very faint)
-    const armMat = new THREE.MeshBasicMaterial({
-      color: color, transparent: true, opacity: 0.06
-    });
-    const dotMat = new THREE.MeshBasicMaterial({
-      color: 0xddddcc, transparent: true, opacity: 0.15
-    });
-    for (let ai = 0; ai < armN; ai++) {
-      const baseAng = (ai / armN) * 6.28;
-      for (let si = 0; si < 14; si++) {
-        const t = si / 14;
-        const rr = radius * 0.1 + t * radius;
-        const a = baseAng + t * 3.5;
-        const dx = rr * Math.cos(a) + (sr() - 0.5) * radius * 0.08;
-        const dz = rr * Math.sin(a) + (sr() - 0.5) * radius * 0.08;
-        const dy = (sr() - 0.5) * radius * 0.03;
-        const sz = 0.2 + sr() * 0.35;
-        const dot = new THREE.Mesh(
-          new THREE.SphereGeometry(sz, 4, 3),
-          si % 4 === 0 ? dotMat : armMat
-        );
-        dot.position.set(dx, dy, dz); gg.add(dot);
-      }
-    }
-    gg.position.set(gx, gy, gz);
-    gg.rotation.set(sr() * 1.5, sr() * 3, sr() * 0.8);
-    return gg;
-  }
-
-  const galaxyPositions = [
-    { a: 0.8, ph: 0.6, r: SKY_R * 0.88, sz: 18, arms: 2, col: 0x554477 },
-    { a: 3.2, ph: 0.45, r: SKY_R * 0.92, sz: 14, arms: 3, col: 0x446677 },
-    { a: 5.1, ph: 0.7, r: SKY_R * 0.85, sz: 22, arms: 2, col: 0x665566 }
-  ];
-  for (const gp of galaxyPositions) {
-    const gx = gp.r * Math.cos(gp.a) * Math.cos(gp.ph);
-    const gy = gp.r * Math.sin(gp.ph) + 20;
-    const gz = gp.r * Math.sin(gp.a) * Math.cos(gp.ph);
-    skyGroup.add(makeGalaxy(gx, gy, gz, gp.sz, gp.arms, gp.col));
-  }
-
-  // --- Nebulae (very faint colored washes — watercolor hints, not blobs) ---
-  const nebColors = [0x553366, 0x335566, 0x663355, 0x336655, 0x554455];
-  for (let ni = 0; ni < SKY_NEBULA_N; ni++) {
-    const na = sr() * 6.28, nph = 0.15 + sr() * 0.65;
-    const nd = SKY_R * 0.75 + sr() * SKY_R * 0.15;
-    const nx = nd * Math.cos(na) * Math.cos(nph);
-    const ny = nd * Math.sin(nph) + 15;
-    const nz = nd * Math.sin(na) * Math.cos(nph);
-    const nebR = 25 + sr() * 35;
-    const nebCol = nebColors[ni % nebColors.length];
-
-    // 3 translucent layers (very low opacity)
-    for (let nl = 0; nl < 3; nl++) {
-      const layerR = nebR * (1 - nl * 0.2);
-      const nebMat = new THREE.MeshBasicMaterial({
-        color: nebCol, transparent: true,
-        opacity: 0.008 + nl * 0.005,
-        side: THREE.DoubleSide
-      });
-      const neb = new THREE.Mesh(new THREE.SphereGeometry(layerR, 14, 10), nebMat);
-      neb.position.set(
-        nx + (sr() - 0.5) * nebR * 0.3,
-        ny + (sr() - 0.5) * nebR * 0.2,
-        nz + (sr() - 0.5) * nebR * 0.3
-      );
-      neb.scale.set(1 + sr() * 0.8, 0.3 + sr() * 0.4, 1 + sr() * 0.6);
-      skyGroup.add(neb);
-    }
-
-    // 2-3 faint wispy sub-regions
-    const subN = 2 + Math.floor(sr() * 2);
-    for (let sbi = 0; sbi < subN; sbi++) {
-      const sbAng = sr() * 6.28, sbDist = nebR * 0.3 + sr() * nebR * 0.5;
-      const sbR = nebR * 0.2 + sr() * nebR * 0.25;
-      const sbMat = new THREE.MeshBasicMaterial({
-        color: nebCol, transparent: true,
-        opacity: 0.005 + sr() * 0.006,
-        side: THREE.DoubleSide
-      });
-      const sb = new THREE.Mesh(new THREE.SphereGeometry(sbR, 8, 6), sbMat);
-      sb.position.set(
-        nx + Math.cos(sbAng) * sbDist,
-        ny + (sr() - 0.5) * nebR * 0.25,
-        nz + Math.sin(sbAng) * sbDist
-      );
-      sb.scale.set(1 + sr() * 0.5, 0.25 + sr() * 0.3, 1 + sr() * 0.5);
-      skyGroup.add(sb);
-    }
-  }
-
-  // --- Constellations (star patterns with faint connecting lines) ---
-  const constellationDefs = [
-    [[0, 0], [0.04, 0.03], [0.08, 0.01], [0.08, 0.05], [0.12, 0.03]],
-    [[0, 0], [0.03, 0.04], [0.06, 0], [0.06, 0.06], [0.09, 0.03]],
-    [[0, 0], [0.02, 0.05], [0.05, 0.02], [0.08, 0.06], [0.1, 0]],
-    [[0, 0], [0.04, 0.02], [0.02, 0.05], [0.06, 0.05]],
-    [[0, 0], [0.03, 0.01], [0.06, 0.03], [0.04, 0.06], [0.01, 0.04]],
-    [[0, 0], [0.05, 0], [0.025, 0.04]],
-    [[0, 0], [0.04, 0.03], [0.08, 0], [0.12, 0.03], [0.08, 0.06]],
-    [[0, 0], [0.03, 0.02], [0.06, 0.04], [0.09, 0.02], [0.12, 0]]
-  ];
-  const conLineMat = new THREE.LineBasicMaterial({
-    color: C.skyConstLine, transparent: true, opacity: 0.1
+  const tex = paintSkyCanvas();
+  const geo = new THREE.SphereGeometry(SKY_R, 64, 32);
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, side: THREE.BackSide, fog: false,
+    transparent: true, opacity: 1.0
   });
-  const conStarMat = new THREE.MeshBasicMaterial({
-    color: C.skyStarBright, transparent: true, opacity: 0.8
-  });
-  for (let ci = 0; ci < SKY_CONSTELLATION_N; ci++) {
-    const def = constellationDefs[ci % constellationDefs.length];
-    const anchorTheta = sr() * 6.28;
-    const anchorPhi = 0.2 + sr() * 0.55;
-    const cg = new THREE.Group();
-    const pts = [];
-    for (let di = 0; di < def.length; di++) {
-      const ct = anchorTheta + def[di][0] * 6;
-      const cp = anchorPhi + def[di][1] * 3;
-      const cx = SKY_R * 0.93 * Math.cos(ct) * Math.cos(cp);
-      const cy = SKY_R * 0.93 * Math.sin(cp) + 20;
-      const cz = SKY_R * 0.93 * Math.sin(ct) * Math.cos(cp);
-      pts.push(new THREE.Vector3(cx, cy, cz));
-      const cStar = new THREE.Mesh(
-        new THREE.SphereGeometry(0.5 + sr() * 0.4, 4, 3), conStarMat
-      );
-      cStar.position.set(cx, cy, cz); cg.add(cStar);
-    }
-    for (let li = 0; li < pts.length - 1; li++) {
-      const lineGeo = new THREE.BufferGeometry().setFromPoints([pts[li], pts[li + 1]]);
-      cg.add(new THREE.Line(lineGeo, conLineMat));
-    }
-    skyGroup.add(cg);
-  }
-
-  // --- Distant anomalies (very subtle colored glows, no hard geometry) ---
-  for (let ai = 0; ai < SKY_ANOMALY_N; ai++) {
-    const aa = sr() * 6.28, aph = 0.2 + sr() * 0.6;
-    const ad = SKY_R * 0.8 + sr() * SKY_R * 0.1;
-    const ax = ad * Math.cos(aa) * Math.cos(aph);
-    const ay = ad * Math.sin(aph) + 20;
-    const az = ad * Math.sin(aa) * Math.cos(aph);
-    const aCol = C.skyAnomaly[ai % C.skyAnomaly.length];
-    const ag = new THREE.Group();
-    // Tiny bright point
-    ag.add(new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 6, 5),
-      new THREE.MeshBasicMaterial({ color: aCol, transparent: true, opacity: 0.6 })
-    ));
-    // Soft inner glow
-    ag.add(new THREE.Mesh(
-      new THREE.SphereGeometry(2.5, 8, 6),
-      new THREE.MeshBasicMaterial({ color: aCol, transparent: true, opacity: 0.08 })
-    ));
-    // Very faint outer halo
-    ag.add(new THREE.Mesh(
-      new THREE.SphereGeometry(5 + sr() * 3, 10, 8),
-      new THREE.MeshBasicMaterial({ color: aCol, transparent: true, opacity: 0.025 })
-    ));
-    ag.position.set(ax, ay, az);
-    skyGroup.add(ag);
-  }
-
-  // --- Milky band (faint galactic plane) ---
-  const milkyMat = new THREE.MeshBasicMaterial({
-    color: 0x556677, transparent: true, opacity: 0.025, side: THREE.DoubleSide
-  });
-  for (let mi = 0; mi < 14; mi++) {
-    const mAng = mi * 0.25 + sr() * 0.1;
-    const mPhi = 0.38 + sr() * 0.18;
-    const mx = SKY_R * 0.9 * Math.cos(mAng) * Math.cos(mPhi);
-    const my = SKY_R * 0.9 * Math.sin(mPhi) + 20;
-    const mz = SKY_R * 0.9 * Math.sin(mAng) * Math.cos(mPhi);
-    const bSize = 15 + sr() * 20;
-    const band = new THREE.Mesh(new THREE.SphereGeometry(bSize, 10, 8), milkyMat);
-    band.position.set(mx, my, mz);
-    band.scale.set(1.5 + sr() * 1.0, 0.1 + sr() * 0.08, 0.4 + sr() * 0.3);
-    band.lookAt(0, 25, 0);
-    band.rotation.z = sr() * 0.5; skyGroup.add(band);
-  }
-  // Knots along the band
-  const milkyKnotMat = new THREE.MeshBasicMaterial({
-    color: 0x667788, transparent: true, opacity: 0.035
-  });
-  for (let mk = 0; mk < 6; mk++) {
-    const mkAng = mk * 0.5 + sr() * 0.2;
-    const mkPhi = 0.38 + sr() * 0.12;
-    const mkx = SKY_R * 0.88 * Math.cos(mkAng) * Math.cos(mkPhi);
-    const mky = SKY_R * 0.88 * Math.sin(mkPhi) + 22;
-    const mkz = SKY_R * 0.88 * Math.sin(mkAng) * Math.cos(mkPhi);
-    const knot = new THREE.Mesh(new THREE.SphereGeometry(4 + sr() * 6, 8, 6), milkyKnotMat);
-    knot.position.set(mkx, mky, mkz);
-    skyGroup.add(knot);
-  }
-
+  const dome = new THREE.Mesh(geo, mat);
+  skyGroup.add(dome);
   scene.add(skyGroup);
 
-  // Disable fog on ALL sky materials
-  skyGroup.traverse((child) => {
-    if (child.material) child.material.fog = false;
-  });
+  // Restore RNG state
+  restoreSeed(savedSeed);
 }
 
 export function updateSky(dt, t) {

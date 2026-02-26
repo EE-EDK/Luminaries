@@ -34,22 +34,20 @@ export function makeObelisk() {
     g.add(cham);
   }
 
-  // Surface rune carvings (glowing line segments on each face)
+  // Surface rune carvings (glowing line segments on each face) — hidden until quest finale
   const runeMat = new THREE.MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
   for (let fi = 0; fi < 4; fi++) {
     const fAngle = (fi / 4) * 6.28 + Math.PI / 4;
-    // 3 horizontal rune lines per face
     for (let rl = 0; rl < 3; rl++) {
       const ry = 6 + rl * 4;
       const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 3), runeMat);
       rune.position.set(Math.cos(fAngle) * 1.6, ry, Math.sin(fAngle) * 1.6);
       rune.rotation.z = Math.PI / 2; rune.rotation.y = -fAngle;
-      g.add(rune);
+      rune.visible = false; g.add(rune);
     }
-    // Vertical rune stroke per face
     const vRune = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 2.5, 3), runeMat);
     vRune.position.set(Math.cos(fAngle) * 1.6, 12, Math.sin(fAngle) * 1.6);
-    g.add(vRune);
+    vRune.visible = false; g.add(vRune);
   }
 
   // Capstone (pyramid tip)
@@ -61,14 +59,14 @@ export function makeObelisk() {
   const cap = new THREE.Mesh(new THREE.ConeGeometry(1.3, 3, 4), capMat);
   cap.position.y = OBELISK_H + 1.5; cap.rotation.y = Math.PI / 4; g.add(cap);
 
-  // Capstone edge highlights (4 bright edge lines on pyramid)
+  // Capstone edge highlights — hidden until quest finale
   const capEdgeMat = new THREE.MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
   for (let cei = 0; cei < 4; cei++) {
     const ceA = (cei / 4) * 6.28 + Math.PI / 4;
     const capEdge = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.2, 3), capEdgeMat);
     capEdge.position.set(Math.cos(ceA) * 0.8, OBELISK_H + 1.5, Math.sin(ceA) * 0.8);
     capEdge.rotation.z = 0.35 * ((ceA < 3.14) ? 1 : -1); capEdge.rotation.y = -ceA;
-    g.add(capEdge);
+    capEdge.visible = false; g.add(capEdge);
   }
 
   // Etched rings
@@ -88,13 +86,13 @@ export function makeObelisk() {
   const plinth2 = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 3.0, 0.4, 4), plinthMat);
   plinth2.position.y = 0.05; plinth2.rotation.y = Math.PI / 4; g.add(plinth2);
 
-  // Floating glyph motes (orbit near top, initially invisible)
+  // Floating glyph motes (orbit near top, hidden until quest finale)
   const glyphMat = new THREE.MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
   for (let gli = 0; gli < 8; gli++) {
     const glA = (gli / 8) * 6.28;
     const glyph = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 3), glyphMat);
     glyph.position.set(Math.cos(glA) * 2.5, OBELISK_H * 0.7 + gli * 0.5, Math.sin(glA) * 2.5);
-    g.add(glyph);
+    glyph.visible = false; g.add(glyph);
   }
 
   // Surface weathering scratches (faint marks on faces)
@@ -118,7 +116,7 @@ export function makeObelisk() {
     rubble.rotation.set(sr(), sr(), sr()); g.add(rubble);
   }
 
-  // Ancient inscription dots (small bright circles on each face)
+  // Ancient inscription dots — hidden until quest finale
   const inscMat = new THREE.MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
   for (let fi = 0; fi < 4; fi++) {
     const fAng = (fi / 4) * 6.28 + Math.PI / 4;
@@ -128,7 +126,7 @@ export function makeObelisk() {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 4, 3), inscMat);
       dot.position.set(Math.cos(fAng) * 1.58 + Math.cos(fAng + 1.57) * iOff, iy,
         Math.sin(fAng) * 1.58 + Math.sin(fAng + 1.57) * iOff);
-      g.add(dot);
+      dot.visible = false; g.add(dot);
     }
   }
 

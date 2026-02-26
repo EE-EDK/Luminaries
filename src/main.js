@@ -101,6 +101,7 @@ const fairyRings = [];
 const bubbles = [];
 const ponds = [];
 const orbs = [];
+const crystalSortBuf = []; // Reused each frame for crystal proximity sorting
 
 // ================================================================
 // Echo bloom state
@@ -437,7 +438,7 @@ function updatePuffs(dt, t) {
     const pDist = Math.sqrt(pDist2);
 
     // Init extended state
-    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; p._baseY = getGroundY(px, pz); }
+    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
 
     // Startle check
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
@@ -467,8 +468,9 @@ function updatePuffs(dt, t) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
-    // Update terrain-relative base Y as puffling moves
-    p._baseY = getGroundY(px, pz);
+    // Update terrain-relative base Y only when moved enough (avoid per-frame noise calc)
+    const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
+    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.25) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
 
     switch (p.state) {
       case 'idle': {
@@ -567,8 +569,12 @@ function updateDeers(dt, t) {
     if (!d._init) {
       d._init = true; d._stT = 0; d._drinkTgt = null;
       d._zigTimer = 0; d._zigDir = 1;
+      d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz;
     }
-    const deerBaseY = getGroundY(gx, gz);
+    // Only recalc terrain height when moved enough (>0.5m)
+    const dtx = gx - d._lastTX, dtz = gz - d._lastTZ;
+    if (dtx * dtx + dtz * dtz > 0.25) { d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz; }
+    const deerBaseY = d._baseY;
 
     // Threat detection (overrides passive states)
     if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
@@ -1141,17 +1147,20 @@ function director(dt, t) {
     if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
   }
 
-  // Crystal proximity lights
-  const sorted = [];
+  // Crystal proximity lights (reuse sort buffer to avoid per-frame allocation)
+  if (!crystalSortBuf.length) {
+    for (let i = 0; i < crys_data.length; i++) crystalSortBuf.push({ idx: i, dist: 0 });
+  }
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
-    sorted.push({ idx: i, dist: dx * dx + dz * dz });
+    crystalSortBuf[i].idx = i;
+    crystalSortBuf[i].dist = dx * dx + dz * dz;
   }
-  sorted.sort((a, b) => a.dist - b.dist);
+  crystalSortBuf.sort((a, b) => a.dist - b.dist);
   for (let i = 0; i < crystalLights.length; i++) {
-    if (i < sorted.length && sorted[i].dist < 2500) {
-      const c = crys_data[sorted[i].idx];
+    if (i < crystalSortBuf.length && crystalSortBuf[i].dist < 2500) {
+      const c = crys_data[crystalSortBuf[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
       crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
@@ -1290,9 +1299,9 @@ try {
 
   createSkyDome();
 
-  // Init day/night cycle (after sky is built so materials can be cached)
+  // Init day/night cycle
   initDayNight({
-    scene, moon, moon2, hemiLight, playerLight, skyGroup
+    scene, moon, moon2, hemiLight, playerLight
   });
 
   populate();

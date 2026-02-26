@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender } from './core/postprocessing.js';
-import { initCrystalLights, crystalLights, playerLight, orbLight, moon } from './core/lighting.js';
+import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
 import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump } from './core/input.js';
 import { GEO } from './core/geometries.js';
 
@@ -69,6 +69,11 @@ import { updateDustMotes } from './particles/dust.js';
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
 import { makeLaser } from './quest/lasers.js';
+
+// Systems
+import { initDayNight, updateDayNight, bioGlow } from './systems/dayNightCycle.js';
+import { initWeather, updateWeather, windX, windZ, windStrength, lightningFlash, isStorming } from './systems/weather.js';
+import { initRain, updateRain } from './particles/rain.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -252,44 +257,113 @@ function populate() {
 // ================================================================
 
 function updateVegetation(dt, t) {
+  const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
+  const wLeanX = windX * 0.03; // directional lean
+  const wLeanZ = windZ * 0.03;
   for (let i = 0; i < grassPatches.length; i++) {
     const gp = grassPatches[i];
-    const wind = Math.sin(t * 0.7 + gp.cx * 0.05) * 0.04 + Math.sin(t * 1.3 + gp.cz * 0.08) * 0.02;
-    gp.mesh.rotation.z = wind;
-    gp.mesh.rotation.x = Math.sin(t * 0.9 + gp.cz * 0.06) * 0.03;
+    const sway = (Math.sin(t * 0.7 + gp.cx * 0.05) * 0.04 + Math.sin(t * 1.3 + gp.cz * 0.08) * 0.02) * wAmp;
+    gp.mesh.rotation.z = sway + wLeanX;
+    gp.mesh.rotation.x = Math.sin(t * 0.9 + gp.cz * 0.06) * 0.03 * wAmp + wLeanZ;
   }
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
-    f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03;
-    f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02;
+    f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
+    f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
   }
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
-    fl.petalMat.emissiveIntensity = 0.3 + p * 0.5;
-    fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04;
+    fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+    fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
   for (let i = 0; i < reeds.length; i++) {
     const r = reeds[i];
-    r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp;
-    r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5;
+    r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
+    r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
   }
 }
 
 function updateJellies(dt, t) {
   for (let i = 0; i < jellies.length; i++) {
-    const j = jellies[i];
-    j.driftAng += dt * 0.15;
-    const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
-    const tx = j.homeX + Math.cos(j.driftAng) * radius;
-    const tz = j.homeZ + Math.sin(j.driftAng) * radius;
-    const g = j.group;
-    g.position.x += (tx - g.position.x) * dt * 0.3;
-    g.position.z += (tz - g.position.z) * dt * 0.3;
-    g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
-    const p = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
-    j.bellMat.emissiveIntensity = 0.4 + p * 0.8;
-    j.bellMat.opacity = 0.35 + p * 0.25;
+    const j = jellies[i], g = j.group;
+    const jx = g.position.x, jz = g.position.z;
+
+    // Init extended state
+    if (!j._init) {
+      j._init = true; j._state = 'drift';
+      j._stT = 20 + Math.random() * 30;
+      j._migrateAng = 0; j._pulseSync = 0;
+    }
+
+    // State transitions
+    j._stT -= dt;
+    if (j._stT <= 0) {
+      if (isStorming) {
+        j._state = 'display'; j._stT = 10 + Math.random() * 15;
+      } else {
+        const r = Math.random();
+        if (r < 0.5) { j._state = 'drift'; j._stT = 20 + Math.random() * 30; }
+        else if (r < 0.75) { j._state = 'pulse'; j._stT = 8 + Math.random() * 12; }
+        else {
+          j._state = 'migrate'; j._migrateAng = Math.random() * 6.28;
+          j._stT = 15 + Math.random() * 20;
+        }
+      }
+    }
+    // Force display during storms
+    if (isStorming && j._state !== 'display') {
+      j._state = 'display'; j._stT = 10;
+    }
+
+    switch (j._state) {
+      case 'drift': {
+        j.driftAng += dt * 0.15;
+        const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
+        const tx = j.homeX + Math.cos(j.driftAng) * radius;
+        const tz = j.homeZ + Math.sin(j.driftAng) * radius;
+        g.position.x += (tx - jx) * dt * 0.3;
+        g.position.z += (tz - jz) * dt * 0.3;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
+        break;
+      }
+      case 'pulse': {
+        j.driftAng += dt * 0.08;
+        g.position.x += Math.cos(j.driftAng) * dt * 0.3;
+        g.position.z += Math.sin(j.driftAng) * dt * 0.3;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.0;
+        j._pulseSync = Math.sin(t * 2.0 + Math.floor(i / 2) * Math.PI) * 0.5 + 0.5;
+        break;
+      }
+      case 'migrate': {
+        g.position.x += Math.cos(j._migrateAng) * dt * 1.0;
+        g.position.z += Math.sin(j._migrateAng) * dt * 1.0;
+        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 0.8;
+        const md = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+        if (md > WORLD_R * 0.8) j._migrateAng += Math.PI;
+        break;
+      }
+      case 'display': {
+        j.driftAng += dt * 0.4;
+        g.position.x += Math.cos(j.driftAng) * dt * 0.8;
+        g.position.z += Math.sin(j.driftAng) * dt * 0.8;
+        g.position.y = j.floatY + Math.sin(t * 2.0 + j.phase) * 2.0;
+        break;
+      }
+    }
+
+    // Visual updates
+    const basePulse = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
+    let emissiveMult = 1.0, opacityBoost = 0;
+    if (j._state === 'pulse') {
+      emissiveMult = 1.0 + j._pulseSync * 1.5;
+      opacityBoost = j._pulseSync * 0.15;
+    } else if (j._state === 'display') {
+      emissiveMult = 1.5 + Math.sin(t * 4 + j.phase) * 0.8;
+      opacityBoost = 0.15;
+    }
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * bioGlow * emissiveMult;
+    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
       g.children[ti].rotation.x = Math.sin(t * 2 + ti + j.phase) * 0.15;
@@ -299,116 +373,412 @@ function updateJellies(dt, t) {
 }
 
 function updatePuffs(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
-    if (p.state === 'idle') {
-      p.idleTimer -= dt;
-      g.position.y = Math.sin(t * 2 + p.phase) * 0.02;
-      g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
-      if (p.idleTimer <= 0) {
-        p.state = 'hop'; p.wanderAng += ((Math.random() - 0.5) * 1.5); p.hopTimer = 0;
+    const px = g.position.x, pz = g.position.z;
+    const ddx = px - player.pos.x, ddz = pz - player.pos.z;
+    const pDist2 = ddx * ddx + ddz * ddz;
+    const pDist = Math.sqrt(pDist2);
+
+    // Init extended state
+    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; }
+
+    // Startle check
+    if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
+      const startleR = sprinting ? 3.5 : 2.0;
+      if (pDist < startleR) {
+        p.state = 'startled'; p._scaredT = 0.6 + Math.random() * 0.5;
+        p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
       }
-    } else {
-      p.hopTimer += dt;
-      const hopDur = 1.2;
-      const frac = p.hopTimer / hopDur;
-      if (frac >= 1.0) {
-        p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = 0;
-      } else {
-        g.position.y = Math.sin(frac * Math.PI) * 0.3;
-        g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
-        g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
-        const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
-        const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
-        g.scale.set(sq, st, sq);
-        g.rotation.y = p.wanderAng;
-      }
-      const d = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-      if (d > WORLD_R * 0.85) p.wanderAng += Math.PI;
     }
+
+    // Huddle in storms
+    if (isStorming && p.state !== 'startled' && p.state !== 'huddle') {
+      let closest = Infinity, closestIdx = -1;
+      for (let j = 0; j < puffs.length; j++) {
+        if (j === i) continue;
+        const odx = puffs[j].group.position.x - px, odz = puffs[j].group.position.z - pz;
+        const od2 = odx * odx + odz * odz;
+        if (od2 < closest) { closest = od2; closestIdx = j; }
+      }
+      if (closestIdx >= 0 && closest > 1) {
+        p.state = 'huddle'; p._huddleTarget = closestIdx;
+      }
+    }
+
+    // Following: cautiously approach idle player
+    if (playerIdleTime > 8 && pDist < 12 && p.state === 'idle' && Math.random() < 0.001) {
+      p.state = 'following'; p._followT = 10 + Math.random() * 10;
+    }
+
+    switch (p.state) {
+      case 'idle': {
+        p.idleTimer -= dt;
+        g.position.y = Math.sin(t * 2 + p.phase) * 0.02;
+        g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
+        if (p.idleTimer <= 0) {
+          p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5; p.hopTimer = 0;
+        }
+        break;
+      }
+      case 'hop': {
+        p.hopTimer += dt;
+        const hopDur = 1.2;
+        const frac = p.hopTimer / hopDur;
+        if (frac >= 1.0) {
+          p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = 0;
+        } else {
+          g.position.y = Math.sin(frac * Math.PI) * 0.3;
+          g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
+          g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
+          const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
+          const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
+          g.scale.set(sq, st, sq);
+          g.rotation.y = p.wanderAng;
+        }
+        break;
+      }
+      case 'startled': {
+        p._scaredT -= dt;
+        p.hopTimer += dt * 1.5;
+        const frac = Math.min(p.hopTimer / 0.8, 1);
+        g.position.y = Math.sin(frac * Math.PI) * 0.5;
+        g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt;
+        g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt;
+        g.scale.set(0.85, 1.3, 0.85);
+        if (p._scaredT <= 0) {
+          p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
+          g.position.y = 0; g.scale.set(1, 1, 1);
+        }
+        break;
+      }
+      case 'following': {
+        p._followT -= dt;
+        if (pDist > 15 || playerIdleTime < 3 || p._followT <= 0) {
+          p.state = 'idle'; p.idleTimer = 2; break;
+        }
+        p.wanderAng = Math.atan2(player.pos.x - px, player.pos.z - pz);
+        if (pDist > 3) {
+          p.hopTimer += dt;
+          const frac = (p.hopTimer % 1.5) / 1.5;
+          g.position.y = Math.sin(frac * Math.PI) * 0.2;
+          g.position.x += Math.sin(p.wanderAng) * p.speed * 0.4 * dt;
+          g.position.z += Math.cos(p.wanderAng) * p.speed * 0.4 * dt;
+        } else {
+          g.position.y = Math.sin(t * 3 + p.phase) * 0.03;
+        }
+        g.rotation.y = p.wanderAng;
+        break;
+      }
+      case 'huddle': {
+        if (!isStorming) { p.state = 'idle'; p.idleTimer = 2; break; }
+        const tgt = puffs[p._huddleTarget];
+        if (tgt) {
+          const hdx = tgt.group.position.x - px, hdz = tgt.group.position.z - pz;
+          const hd = Math.sqrt(hdx * hdx + hdz * hdz);
+          if (hd > 0.5) {
+            g.position.x += (hdx / hd) * p.speed * 0.5 * dt;
+            g.position.z += (hdz / hd) * p.speed * 0.5 * dt;
+          }
+        }
+        g.rotation.z = Math.sin(t * 8) * 0.05;
+        g.position.y = 0;
+        break;
+      }
+    }
+
+    // World bounds
+    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+    if (wd > WORLD_R * 0.85) p.wanderAng += Math.PI;
   }
 }
 
 function updateDeers(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   for (let i = 0; i < deers.length; i++) {
     const d = deers[i], g = d.group;
-    const dx = g.position.x - player.pos.x, dz = g.position.z - player.pos.z;
-    const pDist = Math.sqrt(dx * dx + dz * dz);
-    if (pDist < DEER_FLEE_R) {
-      d.wanderAng = Math.atan2(dx, dz); d.state = 'flee'; d.fleeTimer = 2.0 + Math.random() * 1.5;
+    const gx = g.position.x, gz = g.position.z;
+    const ddx = gx - player.pos.x, ddz = gz - player.pos.z;
+    const pDist = Math.sqrt(ddx * ddx + ddz * ddz);
+    const pAng = Math.atan2(ddx, ddz);
+    const alertR = sprinting ? 18 : 12;
+    const fleeR = sprinting ? 10 : DEER_FLEE_R;
+
+    // Init extended state on first tick
+    if (!d._init) {
+      d._init = true; d._stT = 0; d._drinkTgt = null;
+      d._zigTimer = 0; d._zigDir = 1;
     }
-    let moveSpeed = d.speed;
-    let isMoving = false;
-    if (d.state === 'flee') {
-      d.fleeTimer -= dt; moveSpeed = d.speed * DEER_FLEE_SPEED_MULT; isMoving = true;
-      if (d.fleeTimer <= 0) { d.state = 'walk'; d.walkTimer = 0; }
-    } else if (d.state === 'pause') {
-      d.pauseTimer -= dt;
-      if (d.pauseTimer <= 0) { d.state = 'walk'; d.wanderAng += (Math.random() - 0.5) * 0.8; }
-    } else {
-      d.walkTimer += dt; isMoving = true;
-      if (d.walkTimer > 4 + Math.random() * 5) {
-        d.state = 'pause'; d.pauseTimer = 2.5 + Math.random() * 4; d.walkTimer = 0;
+
+    // Threat detection (overrides passive states)
+    if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
+      if (pDist < fleeR) {
+        d.state = 'flee'; d.wanderAng = pAng;
+        d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
+      } else if (pDist < alertR) {
+        d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
       }
     }
+
+    let moveSpeed = d.speed, isMoving = false;
+
+    switch (d.state) {
+      case 'walk': {
+        isMoving = true;
+        d.walkTimer -= dt;
+        if (d.walkTimer <= 0) {
+          const r = Math.random();
+          if (r < 0.25) { d.state = 'pause'; d.pauseTimer = 2 + Math.random() * 3; }
+          else if (r < 0.4) { d.state = 'graze'; d._stT = 3 + Math.random() * 4; }
+          else if (r < 0.5 && ponds.length > 0) {
+            d.state = 'drink'; d._stT = 8;
+            let bestD2 = Infinity;
+            for (let pi = 0; pi < ponds.length; pi++) {
+              const pdx = ponds[pi].x - gx, pdz = ponds[pi].z - gz;
+              const pd2 = pdx * pdx + pdz * pdz;
+              if (pd2 < bestD2) { bestD2 = pd2; d._drinkTgt = ponds[pi]; }
+            }
+          }
+          else if (r < 0.55) { d.state = 'rest'; d._stT = 5 + Math.random() * 5; }
+          else { d.wanderAng += (Math.random() - 0.5) * 1.2; d.walkTimer = 3 + Math.random() * 5; }
+        }
+        // Gently steer toward home zone
+        const homeD2 = (gx - d.homeX) * (gx - d.homeX) + (gz - d.homeZ) * (gz - d.homeZ);
+        if (homeD2 > 400) {
+          const homeAng = Math.atan2(d.homeX - gx, d.homeZ - gz);
+          d.wanderAng += (homeAng - d.wanderAng) * dt * 0.5;
+        }
+        break;
+      }
+      case 'pause': {
+        d.pauseTimer -= dt;
+        d.headLook = Math.sin(t * 0.6) * 0.4;
+        if (d.pauseTimer <= 0) { d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5; }
+        break;
+      }
+      case 'graze': {
+        d._stT -= dt;
+        d.headBob = -0.5;
+        if (d._stT <= 0) { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4; d.headBob = 0; }
+        break;
+      }
+      case 'drink': {
+        d._stT -= dt;
+        if (d._drinkTgt) {
+          const tdx = d._drinkTgt.x - gx, tdz = d._drinkTgt.z - gz;
+          const td = Math.sqrt(tdx * tdx + tdz * tdz);
+          if (td > 2) {
+            d.wanderAng = Math.atan2(tdx, tdz); isMoving = true; moveSpeed = d.speed * 0.7;
+          } else { d.headBob = -0.6; }
+        }
+        if (d._stT <= 0) {
+          d.state = 'walk'; d.walkTimer = 3 + Math.random() * 4;
+          d.headBob = 0; d._drinkTgt = null;
+        }
+        break;
+      }
+      case 'rest': {
+        d._stT -= dt;
+        g.position.y = Math.max(-0.3, g.position.y - dt * 0.5);
+        if (d._stT <= 0) { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
+        break;
+      }
+      case 'alert': {
+        d._stT -= dt;
+        if (pDist < fleeR) {
+          d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
+        } else if (d._stT <= 0) {
+          if (pDist < alertR * 1.2) { d.state = 'watching'; d._stT = 3 + Math.random() * 3; }
+          else { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
+        }
+        break;
+      }
+      case 'watching': {
+        d._stT -= dt;
+        isMoving = true; moveSpeed = d.speed * 0.3;
+        d.wanderAng = pAng;
+        if (pDist < fleeR) {
+          d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
+        } else if (pDist > alertR * 1.5 || d._stT <= 0) {
+          d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4;
+        }
+        break;
+      }
+      case 'flee': {
+        isMoving = true; moveSpeed = d.speed * DEER_FLEE_SPEED_MULT;
+        d.fleeTimer -= dt;
+        d._zigTimer -= dt;
+        if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
+        d.wanderAng = pAng + d._zigDir * 0.3;
+        if (d.fleeTimer <= 0 || pDist > alertR * 2) {
+          d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5;
+        }
+        break;
+      }
+    }
+
+    // Movement
     if (isMoving) {
       g.position.x += Math.sin(d.wanderAng) * moveSpeed * dt;
       g.position.z += Math.cos(d.wanderAng) * moveSpeed * dt;
-      g.rotation.y = d.wanderAng;
-      d.legCycle += dt * moveSpeed * 5;
-      g.position.y = Math.abs(Math.sin(d.legCycle)) * 0.02;
+      d.legCycle += dt * moveSpeed * 3;
     }
-    const dist = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-    if (dist > WORLD_R * 0.85) d.wanderAng += Math.PI * 0.8;
-    // Joint animation
-    const legAmp = isMoving ? (d.state === 'flee' ? 0.45 : 0.3) : 0.02;
+    // World bounds
+    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
+    if (wd > WORLD_R * 0.9) {
+      d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
+    }
+    // Return to ground from rest
+    if (d.state !== 'rest' && g.position.y < 0) {
+      g.position.y = Math.min(0, g.position.y + dt * 0.5);
+    }
+
+    // Heading
+    g.rotation.y = d.wanderAng;
+
+    // Head tracking for alert/watching
+    if (d.state === 'alert' || d.state === 'watching') {
+      const targetYaw = pAng - d.wanderAng;
+      d.headLook += (targetYaw * 0.5 - d.headLook) * dt * 3;
+    }
+
+    // Neck pivot animation
+    const targetBob = d.headBob || 0;
+    d.neckPivot.rotation.x += (targetBob - d.neckPivot.rotation.x) * dt * 3;
+    d.neckPivot.rotation.y += (d.headLook - d.neckPivot.rotation.y) * dt * 4;
+    if (isMoving && d.state !== 'graze' && d.state !== 'drink') {
+      d.neckPivot.rotation.x += Math.sin(d.legCycle * 2) * 0.05;
+    }
+
+    // Leg animation
     for (let li = 0; li < d.legPivots.length; li++) {
       const lp = d.legPivots[li];
-      const phase = (lp.isFront === (lp.side < 0)) ? 0 : Math.PI;
-      const swing = Math.sin(d.legCycle + phase) * legAmp;
-      lp.upper.rotation.x = swing;
-      lp.lower.rotation.x = Math.max(0, Math.sin(d.legCycle + phase - 0.5)) * legAmp * 0.6;
-    }
-    if (d.neckPivot) {
-      if (d.state === 'pause') {
-        d.headLook += (Math.sin(t * 0.4 + d.phase) * 0.003) * 60 * dt;
-        d.neckPivot.rotation.y = Math.sin(t * 0.3 + d.phase) * 0.25;
-        d.neckPivot.rotation.x = Math.sin(t * 0.5 + d.phase * 2) * 0.08 - 0.05;
-      } else if (d.state === 'flee') {
-        d.neckPivot.rotation.x = -0.15; d.neckPivot.rotation.y = 0;
+      if (isMoving) {
+        const offset = lp.isFront ? 0 : Math.PI;
+        const sideOff = lp.side > 0 ? Math.PI : 0;
+        const swing = Math.sin(d.legCycle + offset + sideOff) * 0.4 * (moveSpeed / d.speed);
+        lp.upper.rotation.x = swing;
+        lp.lower.rotation.x = Math.max(0, -swing * 0.6);
+      } else if (d.state === 'rest' && g.position.y < -0.1) {
+        lp.upper.rotation.x += (0.8 - lp.upper.rotation.x) * dt * 2;
+        lp.lower.rotation.x += (1.0 - lp.lower.rotation.x) * dt * 2;
       } else {
-        d.neckPivot.rotation.x = Math.sin(d.legCycle * 0.5) * 0.06 - 0.02;
-        d.neckPivot.rotation.y = Math.sin(d.legCycle * 0.25) * 0.05;
+        lp.upper.rotation.x *= 0.9;
+        lp.lower.rotation.x *= 0.9;
       }
     }
-    if (d.tailPivot) {
-      const tailSpeed = d.state === 'flee' ? 3 : 0.8;
-      d.tailPivot.rotation.x = 0.5 + Math.sin(t * tailSpeed + d.phase) * 0.15;
-      d.tailPivot.rotation.z = Math.sin(t * tailSpeed * 0.7 + d.phase) * 0.1;
-    }
-    const pulse = Math.sin(t * 0.8 + d.phase) * 0.5 + 0.5;
-    d.mat.emissiveIntensity = 0.3 + pulse * 0.4;
-    d.mat.opacity = 0.55 + pulse * 0.2;
+
+    // Tail
+    d.tailPivot.rotation.x = Math.sin(t * 1.5 + d.phase) * 0.15;
+    if (d.state === 'flee') d.tailPivot.rotation.x += 0.3;
+    if (d.state === 'alert') d.tailPivot.rotation.z = Math.sin(t * 6) * 0.1;
+    else d.tailPivot.rotation.z *= 0.9;
+
+    // Emissive
+    d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * bioGlow;
+    d.headLook *= 0.98;
   }
 }
 
 function updateMoths(dt, t) {
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
-    m.orbitAng += dt * 0.4;
-    const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR;
-    const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR;
-    g.position.x += (tx - g.position.x) * dt * 1.5;
-    g.position.z += (tz - g.position.z) * dt * 1.5;
-    g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
-    g.rotation.y = m.orbitAng + Math.PI / 2;
-    const flap = Math.sin(t * m.flapSpeed + m.phase) * 0.4;
+    const mx = g.position.x, mz = g.position.z;
+
+    // Init extended state
+    if (!m._init) {
+      m._init = true; m._state = 'patrol';
+      m._stT = 0; m._attractTarget = null; m._restTree = null;
+    }
+
+    // State transitions from patrol
+    if (m._state === 'patrol') {
+      if (Math.random() < 0.002) {
+        let bestD2 = Infinity, bestCrys = null;
+        for (let ci = 0; ci < crys_data.length; ci++) {
+          const cdx = crys_data[ci].x - mx, cdz = crys_data[ci].z - mz;
+          const cd2 = cdx * cdx + cdz * cdz;
+          if (cd2 < 900 && cd2 < bestD2) { bestD2 = cd2; bestCrys = crys_data[ci]; }
+        }
+        if (bestCrys) {
+          m._state = 'attracted'; m._attractTarget = bestCrys;
+          m._stT = 6 + Math.random() * 8;
+        }
+      }
+      if (Math.random() < 0.001) {
+        let bestD2 = Infinity, bestTree = null;
+        for (let ti = 0; ti < trees_data.length; ti++) {
+          const tdx = trees_data[ti].x - mx, tdz = trees_data[ti].z - mz;
+          const td2 = tdx * tdx + tdz * tdz;
+          if (td2 < 400 && td2 < bestD2) { bestD2 = td2; bestTree = trees_data[ti]; }
+        }
+        if (bestTree) {
+          m._state = 'rest'; m._restTree = bestTree;
+          m._stT = 4 + Math.random() * 6;
+        }
+      }
+    }
+
+    switch (m._state) {
+      case 'patrol': {
+        m.orbitAng += dt * 0.4;
+        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR;
+        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR;
+        g.position.x += (tx - mx) * dt * 1.5;
+        g.position.z += (tz - mz) * dt * 1.5;
+        g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
+        g.rotation.y = m.orbitAng + Math.PI / 2;
+        break;
+      }
+      case 'attracted': {
+        m._stT -= dt;
+        if (!m._attractTarget || m._stT <= 0) {
+          m._state = 'patrol'; m._attractTarget = null; break;
+        }
+        m.orbitAng += dt * 0.8;
+        const tgt = m._attractTarget;
+        const spiral = Math.max(0.5, m._stT * 0.4);
+        const tx = tgt.x + Math.cos(m.orbitAng) * spiral;
+        const tz = tgt.z + Math.sin(m.orbitAng) * spiral;
+        g.position.x += (tx - mx) * dt * 2.0;
+        g.position.z += (tz - mz) * dt * 2.0;
+        g.position.y += (2.0 - g.position.y) * dt * 0.5;
+        g.rotation.y = m.orbitAng + Math.PI / 2;
+        break;
+      }
+      case 'rest': {
+        m._stT -= dt;
+        if (!m._restTree || m._stT <= 0) {
+          m._state = 'patrol'; m._restTree = null;
+          m.centerX = g.position.x; m.centerZ = g.position.z;
+          break;
+        }
+        const tree = m._restTree;
+        const tdx = tree.x + 0.5 - mx, tdz = tree.z + 0.5 - mz;
+        const td = Math.sqrt(tdx * tdx + tdz * tdz);
+        if (td > 0.3) {
+          g.position.x += tdx / td * dt * 2;
+          g.position.z += tdz / td * dt * 2;
+        }
+        g.position.y += (2.5 - g.position.y) * dt * 1.5;
+        g.rotation.y = Math.atan2(tdx, tdz);
+        break;
+      }
+    }
+
+    // Wing flap (barely flutter when resting)
+    const flapIntensity = m._state === 'rest' ? 0.05 : 0.4;
+    const flap = Math.sin(t * m.flapSpeed + m.phase) * flapIntensity;
     for (let w = 0; w < g._wingPivots.length; w++) {
       const wp = g._wingPivots[w];
       wp.pivot.rotation.z = flap * wp.side;
     }
+
+    // Emissive
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
-    m.wingMat.emissiveIntensity = 0.5 + pulse * 0.6;
+    const attractBoost = m._state === 'attracted' ? 0.4 : 0;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * bioGlow;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
@@ -465,7 +835,7 @@ function updateFairyRings(dt, t) {
     const targetGlow = inRing ? 1.0 : 0.0;
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
     fr.discMat.opacity = fr.glowIntensity * 0.25 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
-    fr.mushMat.emissiveIntensity = 0.2 + fr.glowIntensity * 0.8;
+    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * bioGlow;
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
       fr.glowIntensity = 1.5;
@@ -517,9 +887,9 @@ function updatePonds(dt, t) {
     for (let j = 0; j < po.pads.length; j++) {
       po.pads[j].mesh.position.y = 0.05 + Math.sin(t * 0.8 + po.pads[j].phase) * 0.015;
     }
-    po.waterMat.emissiveIntensity = 0.15 + Math.sin(t * 1.0 + po.phase) * 0.1;
+    po.waterMat.emissiveIntensity = (0.15 + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
-    po.flMat.emissiveIntensity = 0.3 + fp * 0.5;
+    po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * bioGlow;
   }
 }
 
@@ -546,7 +916,7 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, m.base + waveFrac * 2.0);
+      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * bioGlow);
     }
   }
   for (let i = 0; i < flowers.length; i++) {
@@ -556,7 +926,88 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(fx * fx + fz * fz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, 0.3 + waveFrac * 1.5);
+      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * bioGlow);
+    }
+  }
+}
+
+// ================================================================
+// Reactive Flora (proximity/touch responses)
+// ================================================================
+function updateFloraReactions(dt, t) {
+  const px = player.pos.x, pz = player.pos.z;
+
+  // --- Flowers: bloom open + glow surge when player approaches (within 4m) ---
+  for (let i = 0; i < flowers.length; i++) {
+    const fl = flowers[i];
+    const fx = fl.group.position.x, fz = fl.group.position.z;
+    const ddx = fx - px, ddz = fz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const target = dist2 < 16 ? 1.0 : 0.0;
+    fl._react = (fl._react || 0);
+    fl._react += (target - fl._react) * dt * (target > 0 ? 4 : 1.5);
+    // Bloom scale (spread petals outward)
+    const sc = 1.0 + fl._react * 0.15;
+    fl.group.scale.set(sc, 1.0 + fl._react * 0.05, sc);
+    // Add glow boost
+    fl.petalMat.emissiveIntensity += fl._react * 0.6 * bioGlow;
+  }
+
+  // --- Mushrooms: bright pulse on proximity (within 2m) ---
+  for (let i = 0; i < mush_data.length; i++) {
+    const m = mush_data[i];
+    const ddx = m.x - px, ddz = m.z - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const touch = dist2 < 4 ? 1.0 : 0.0;
+    m._touch = (m._touch || 0);
+    m._touch += (touch - m._touch) * dt * (touch > 0 ? 6 : 1.5);
+    // Boost emissive and slight scale pulse
+    m.capMat.emissiveIntensity += m._touch * 1.5 * bioGlow;
+    const ms = 1.0 + m._touch * 0.08;
+    m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
+  }
+
+  // --- Grass: bend away from player (within 5m) ---
+  for (let i = 0; i < grassPatches.length; i++) {
+    const gp = grassPatches[i];
+    const ddx = gp.cx - px, ddz = gp.cz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    if (dist2 < 25 && dist2 > 0.01) {
+      const dist = Math.sqrt(dist2);
+      const strength = (1.0 - dist / 5.0) * 0.08;
+      gp.mesh.rotation.z += (ddx / dist) * strength;
+      gp.mesh.rotation.x += (ddz / dist) * strength;
+    }
+  }
+
+  // --- Ferns: curl inward when very close (within 1.5m) ---
+  for (let i = 0; i < ferns.length; i++) {
+    const f = ferns[i];
+    const fx = f.group.position.x, fz = f.group.position.z;
+    const ddx = fx - px, ddz = fz - pz;
+    const dist2 = ddx * ddx + ddz * ddz;
+    const target = dist2 < 2.25 ? 0.65 : 1.0;
+    f._curl = (f._curl === undefined ? 1.0 : f._curl);
+    f._curl += (target - f._curl) * dt * (target < 1.0 ? 4 : 1.5);
+    f.group.scale.set(1.0 + (1 - f._curl) * 0.3, f._curl, 1.0 + (1 - f._curl) * 0.3);
+  }
+
+  // --- Crystal resonance: chain glow to nearby crystals ---
+  for (let i = 0; i < crys_data.length; i++) {
+    const c = crys_data[i];
+    const ddx = c.x - px, ddz = c.z - pz;
+    if (ddx * ddx + ddz * ddz < 36) { // within 6m of player
+      for (let j = 0; j < crys_data.length; j++) {
+        if (i === j) continue;
+        const c2 = crys_data[j];
+        const cdx = c.x - c2.x, cdz = c.z - c2.z;
+        const cd2 = cdx * cdx + cdz * cdz;
+        if (cd2 < 400) { // neighbor within 20m
+          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8;
+          c2.mat.emissiveIntensity += chainStr * bioGlow;
+          if (c2.light) c2.light.intensity += chainStr * 0.3 * bioGlow;
+        }
+      }
     }
   }
 }
@@ -613,16 +1064,16 @@ function director(dt, t) {
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
-    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8);
+    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
   }
 
   // Crystal glow + rotation
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    c.mat.emissiveIntensity = 1.0 + p * 1.5;
+    c.mat.emissiveIntensity = (1.0 + p * 1.5) * bioGlow;
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = 0.3 + p * 0.4;
+    if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
   }
 
   // Crystal proximity lights
@@ -638,7 +1089,7 @@ function director(dt, t) {
       const c = crys_data[sorted[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = 1.5 + p * 2.0;
+      crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
       crystalLights[i].distance = 16;
       crystalLights[i].color.setHex(C.crystal);
     } else {
@@ -663,6 +1114,7 @@ function director(dt, t) {
   updateDustMotes(dt);
   updateBubblePops(dt);
   updateEchoBloom(dt, t);
+  updateFloraReactions(dt, t);
   updateQuest(dt, t);
 }
 
@@ -689,6 +1141,18 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   elapsed += dt;
 
+  updateDayNight(dt);
+  const rainRate = updateWeather(dt, elapsed, player.pos);
+  updateRain(dt, player.pos, rainRate, windX, windZ);
+
+  // Lightning flash (brief ambient light spike during storms)
+  if (lightningFlash > 0) {
+    hemiLight.intensity += lightningFlash * 2.5;
+    scene.background.r = Math.min(1, scene.background.r + lightningFlash * 0.3);
+    scene.background.g = Math.min(1, scene.background.g + lightningFlash * 0.3);
+    scene.background.b = Math.min(1, scene.background.b + lightningFlash * 0.4);
+  }
+
   if (!gameStarted) {
     // Pre-game idle animation
     yaw; // read-only
@@ -701,11 +1165,11 @@ function animate() {
     for (let i = 0; i < mush_data.length; i++) {
       const m = mush_data[i];
       const p = Math.sin(elapsed * m.speed + m.phase) * 0.5 + 0.5;
-      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8);
+      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
     }
     for (let i = 0; i < crys_data.length; i++) {
       const c = crys_data[i];
-      c.mat.emissiveIntensity = 1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75;
+      c.mat.emissiveIntensity = (1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75) * bioGlow;
     }
     updateJellies(dt, elapsed);
     updatePuffs(dt, elapsed);
@@ -758,11 +1222,21 @@ function animate() {
 try {
   createGround();
   createSkyDome();
+
+  // Init day/night cycle (after sky is built so materials can be cached)
+  initDayNight({
+    scene, moon, moon2, hemiLight, playerLight, skyGroup
+  });
+
   populate();
 
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);
   setDustBurstFn(spawnDustBurst);
+
+  // Init weather + rain
+  initWeather();
+  initRain();
 
   // Init particle pools
   initFlies(150);

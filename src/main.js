@@ -101,7 +101,8 @@ const fairyRings = [];
 const bubbles = [];
 const ponds = [];
 const orbs = [];
-const crystalSortBuf = []; // Reused each frame for crystal proximity sorting
+const crystalSortBuf = []; // Reused for crystal proximity sorting
+let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 
 // ================================================================
 // Echo bloom state
@@ -170,7 +171,9 @@ function populate() {
     const ang = sr() * 6.28, d = 12 + sr() * WORLD_R * 0.5;
     const dx = Math.cos(ang) * d, dz = Math.sin(ang) * d;
     const de = makeDeer(dx, dz);
-    de.group.position.y = getGroundY(dx, dz);
+    const deerY = getGroundY(dx, dz);
+    de.group.position.y = deerY;
+    de._baseY = deerY;
     deers.push(de);
   }
   // Moths (fly above ground)
@@ -345,13 +348,6 @@ function updateJellies(dt, t) {
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
 
-    // Init extended state
-    if (!j._init) {
-      j._init = true; j._state = 'drift';
-      j._stT = 20 + Math.random() * 30;
-      j._migrateAng = 0; j._pulseSync = 0;
-    }
-
     // State transitions
     j._stT -= dt;
     if (j._stT <= 0) {
@@ -395,8 +391,8 @@ function updateJellies(dt, t) {
         g.position.x += Math.cos(j._migrateAng) * dt * 1.0;
         g.position.z += Math.sin(j._migrateAng) * dt * 1.0;
         g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 0.8;
-        const md = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-        if (md > WORLD_R * 0.8) j._migrateAng += Math.PI;
+        const md2 = g.position.x * g.position.x + g.position.z * g.position.z;
+        if (md2 > (WORLD_R * 0.8) * (WORLD_R * 0.8)) j._migrateAng += Math.PI;
         break;
       }
       case 'display': {
@@ -435,15 +431,11 @@ function updatePuffs(dt, t) {
     const px = g.position.x, pz = g.position.z;
     const ddx = px - player.pos.x, ddz = pz - player.pos.z;
     const pDist2 = ddx * ddx + ddz * ddz;
-    const pDist = Math.sqrt(pDist2);
-
-    // Init extended state
-    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
 
     // Startle check
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
       const startleR = sprinting ? 3.5 : 2.0;
-      if (pDist < startleR) {
+      if (pDist2 < startleR * startleR) {
         p.state = 'startled'; p._scaredT = 0.6 + Math.random() * 0.5;
         p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
       }
@@ -464,7 +456,7 @@ function updatePuffs(dt, t) {
     }
 
     // Following: cautiously approach idle player
-    if (playerIdleTime > 8 && pDist < 12 && p.state === 'idle' && Math.random() < 0.001) {
+    if (playerIdleTime > 8 && pDist2 < 144 && p.state === 'idle' && Math.random() < 0.001) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
@@ -515,11 +507,11 @@ function updatePuffs(dt, t) {
       }
       case 'following': {
         p._followT -= dt;
-        if (pDist > 15 || playerIdleTime < 3 || p._followT <= 0) {
+        if (pDist2 > 225 || playerIdleTime < 3 || p._followT <= 0) {
           p.state = 'idle'; p.idleTimer = 2; break;
         }
         p.wanderAng = Math.atan2(player.pos.x - px, player.pos.z - pz);
-        if (pDist > 3) {
+        if (pDist2 > 9) {
           p.hopTimer += dt;
           const frac = (p.hopTimer % 1.5) / 1.5;
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.2;
@@ -549,8 +541,8 @@ function updatePuffs(dt, t) {
     }
 
     // World bounds
-    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-    if (wd > WORLD_R * 0.85) p.wanderAng += Math.PI;
+    const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
+    if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
   }
 }
 
@@ -560,17 +552,13 @@ function updateDeers(dt, t) {
     const d = deers[i], g = d.group;
     const gx = g.position.x, gz = g.position.z;
     const ddx = gx - player.pos.x, ddz = gz - player.pos.z;
-    const pDist = Math.sqrt(ddx * ddx + ddz * ddz);
+    const pDist2 = ddx * ddx + ddz * ddz;
     const pAng = Math.atan2(ddx, ddz);
     const alertR = sprinting ? 18 : 12;
+    const alertR2 = alertR * alertR;
     const fleeR = sprinting ? 10 : DEER_FLEE_R;
+    const fleeR2 = fleeR * fleeR;
 
-    // Init extended state on first tick
-    if (!d._init) {
-      d._init = true; d._stT = 0; d._drinkTgt = null;
-      d._zigTimer = 0; d._zigDir = 1;
-      d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz;
-    }
     // Only recalc terrain height when moved enough (>0.5m)
     const dtx = gx - d._lastTX, dtz = gz - d._lastTZ;
     if (dtx * dtx + dtz * dtz > 0.25) { d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz; }
@@ -578,10 +566,10 @@ function updateDeers(dt, t) {
 
     // Threat detection (overrides passive states)
     if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
-      if (pDist < fleeR) {
+      if (pDist2 < fleeR2) {
         d.state = 'flee'; d.wanderAng = pAng;
         d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
-      } else if (pDist < alertR) {
+      } else if (pDist2 < alertR2) {
         d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
       }
     }
@@ -651,10 +639,10 @@ function updateDeers(dt, t) {
       }
       case 'alert': {
         d._stT -= dt;
-        if (pDist < fleeR) {
+        if (pDist2 < fleeR2) {
           d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
         } else if (d._stT <= 0) {
-          if (pDist < alertR * 1.2) { d.state = 'watching'; d._stT = 3 + Math.random() * 3; }
+          if (pDist2 < (alertR * 1.2) * (alertR * 1.2)) { d.state = 'watching'; d._stT = 3 + Math.random() * 3; }
           else { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
         }
         break;
@@ -663,9 +651,9 @@ function updateDeers(dt, t) {
         d._stT -= dt;
         isMoving = true; moveSpeed = d.speed * 0.3;
         d.wanderAng = pAng;
-        if (pDist < fleeR) {
+        if (pDist2 < fleeR2) {
           d.state = 'flee'; d.wanderAng = pAng; d.fleeTimer = 2.5 + Math.random() * 2;
-        } else if (pDist > alertR * 1.5 || d._stT <= 0) {
+        } else if (pDist2 > (alertR * 1.5) * (alertR * 1.5) || d._stT <= 0) {
           d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4;
         }
         break;
@@ -676,7 +664,7 @@ function updateDeers(dt, t) {
         d._zigTimer -= dt;
         if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
         d.wanderAng = pAng + d._zigDir * 0.3;
-        if (d.fleeTimer <= 0 || pDist > alertR * 2) {
+        if (d.fleeTimer <= 0 || pDist2 > (alertR * 2) * (alertR * 2)) {
           d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5;
         }
         break;
@@ -690,8 +678,8 @@ function updateDeers(dt, t) {
       d.legCycle += dt * moveSpeed * 3;
     }
     // World bounds
-    const wd = Math.sqrt(g.position.x * g.position.x + g.position.z * g.position.z);
-    if (wd > WORLD_R * 0.9) {
+    const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
+    if (wd2 > (WORLD_R * 0.9) * (WORLD_R * 0.9)) {
       d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
     }
     // Return to ground from rest / track terrain
@@ -755,12 +743,6 @@ function updateMoths(dt, t) {
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
     const mx = g.position.x, mz = g.position.z;
-
-    // Init extended state
-    if (!m._init) {
-      m._init = true; m._state = 'patrol';
-      m._stT = 0; m._attractTarget = null; m._restTree = null;
-    }
 
     // State transitions from patrol
     if (m._state === 'patrol') {
@@ -1147,17 +1129,21 @@ function director(dt, t) {
     if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
   }
 
-  // Crystal proximity lights (reuse sort buffer to avoid per-frame allocation)
+  // Crystal proximity lights — only re-sort when player moves >1m
   if (!crystalSortBuf.length) {
     for (let i = 0; i < crys_data.length; i++) crystalSortBuf.push({ idx: i, dist: 0 });
   }
-  for (let i = 0; i < crys_data.length; i++) {
-    const c = crys_data[i];
-    const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
-    crystalSortBuf[i].idx = i;
-    crystalSortBuf[i].dist = dx * dx + dz * dz;
+  const csDX = player.pos.x - crystalSortPX, csDZ = player.pos.z - crystalSortPZ;
+  if (csDX * csDX + csDZ * csDZ > 1) {
+    crystalSortPX = player.pos.x; crystalSortPZ = player.pos.z;
+    for (let i = 0; i < crys_data.length; i++) {
+      const c = crys_data[i];
+      const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
+      crystalSortBuf[i].idx = i;
+      crystalSortBuf[i].dist = dx * dx + dz * dz;
+    }
+    crystalSortBuf.sort((a, b) => a.dist - b.dist);
   }
-  crystalSortBuf.sort((a, b) => a.dist - b.dist);
   for (let i = 0; i < crystalLights.length; i++) {
     if (i < crystalSortBuf.length && crystalSortBuf[i].dist < 2500) {
       const c = crys_data[crystalSortBuf[i].idx];

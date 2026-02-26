@@ -115,6 +115,8 @@ export function makeJelly(x, y, z) {
   g.position.set(x, y, z); scene.add(g);
   return {
     group: g, bellMat: bellMat, phase: sr() * 6.28, driftAng: sr() * 6.28,
-    homeX: x, homeZ: z, floatY: y, wobble: 0.5 + sr() * 0.5
+    homeX: x, homeZ: z, floatY: y, wobble: 0.5 + sr() * 0.5,
+    _init: true, _state: 'drift', _stT: 20 + Math.random() * 30,
+    _migrateAng: 0, _pulseSync: 0
   };
 }

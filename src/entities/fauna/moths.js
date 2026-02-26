@@ -126,6 +126,7 @@ export function makeMoth(x, y, z) {
   g.position.set(x, y, z); scene.add(g);
   return {
     group: g, wingMat: wingMat, phase: sr() * 6.28, orbitAng: sr() * 6.28,
-    orbitR: 2 + sr() * 4, centerX: x, centerZ: z, floatY: y, flapSpeed: 6 + sr() * 4
+    orbitR: 2 + sr() * 4, centerX: x, centerZ: z, floatY: y, flapSpeed: 6 + sr() * 4,
+    _init: true, _state: 'patrol', _stT: 0, _attractTarget: null, _restTree: null
   };
 }

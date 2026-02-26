@@ -166,6 +166,8 @@ export function makeDeer(x, z) {
     group: g, mat: bMat, phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.4,
     walkTimer: 0, legCycle: 0, homeX: x, homeZ: z, state: 'walk', pauseTimer: 0,
     neckPivot: neckPivot, legPivots: legPivots, tailPivot: tailPivot,
-    fleeTimer: 0, headLook: 0, headBob: 0
+    fleeTimer: 0, headLook: 0, headBob: 0,
+    _init: true, _stT: 0, _drinkTgt: null, _zigTimer: 0, _zigDir: 1,
+    _baseY: 0, _lastTX: x, _lastTZ: z
   };
 }

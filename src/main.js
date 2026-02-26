@@ -941,7 +941,6 @@ function updateFairyRings(dt, t) {
     for (let si = 0; si < fr.spores.length; si++) {
       const sp = fr.spores[si];
       sp.drift += dt * 0.3;
-      const yFrac = (sp.mesh.position.y % 0.6) / 0.6;
       sp.mesh.position.y += sp.speed * dt * (0.5 + fr.glowIntensity);
       sp.mesh.position.x = sp.baseX + Math.sin(t * 0.8 + sp.drift) * 0.15;
       sp.mesh.position.z = sp.baseZ + Math.cos(t * 0.6 + sp.drift) * 0.12;
@@ -1108,18 +1107,6 @@ function updateFloraReactions(dt, t) {
     m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
   }
 
-  // --- Grass: bend away from player (within 5m) ---
-  for (let i = 0; i < grassPatches.length; i++) {
-    const gp = grassPatches[i];
-    const ddx = gp.cx - px, ddz = gp.cz - pz;
-    const dist2 = ddx * ddx + ddz * ddz;
-    if (dist2 < 25 && dist2 > 0.01) {
-      const dist = Math.sqrt(dist2);
-      const strength = (1.0 - dist / 5.0) * 0.08;
-      gp.mesh.rotation.z += (ddx / dist) * strength;
-      gp.mesh.rotation.x += (ddz / dist) * strength;
-    }
-  }
 
   // --- Ferns: curl inward when very close (within 1.5m) ---
   for (let i = 0; i < ferns.length; i++) {

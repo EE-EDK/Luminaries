@@ -40,10 +40,10 @@ export function makeWisp(x, y, z) {
   spark.position.set(0.15, 0, 0);
   g.add(spark);
   // Trailing ember motes (3 tiny dots behind — animated)
-  const emberMat = new THREE.MeshBasicMaterial({ color: C.wispCore, transparent: true, opacity: 0.35 });
   const embers = [];
   for (let ei = 0; ei < 3; ei++) {
-    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), emberMat);
+    const eMat = new THREE.MeshBasicMaterial({ color: C.wispCore, transparent: true, opacity: 0.35 });
+    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), eMat);
     ember.position.set((sr() - 0.5) * 0.1, -0.1 - ei * 0.08, (sr() - 0.5) * 0.1);
     g.add(ember);
     embers.push(ember);

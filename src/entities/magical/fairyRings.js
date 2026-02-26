@@ -111,13 +111,11 @@ export function makeFairyRing(x, z) {
   }
 
   // Glow worm dots (tiny bioluminescent specks at ground level)
-  const gwMat = new THREE.MeshBasicMaterial({
-    color: 0x88ffaa, transparent: true, opacity: 0.25
-  });
   const glowWorms = [];
   for (let gwi = 0; gwi < 5; gwi++) {
     const gwa = sr() * 6.28, gwd = sr() * ringR * 0.9;
-    const gw = new THREE.Mesh(new THREE.SphereGeometry(0.005, 3, 3), gwMat);
+    const gwm = new THREE.MeshBasicMaterial({ color: 0x88ffaa, transparent: true, opacity: 0.25 });
+    const gw = new THREE.Mesh(new THREE.SphereGeometry(0.005, 3, 3), gwm);
     gw.position.set(Math.cos(gwa) * gwd, 0.01, Math.sin(gwa) * gwd); g.add(gw);
     glowWorms.push(gw);
   }
@@ -131,7 +129,7 @@ export function makeFairyRing(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, mushMat: mushMat, discMat: discMat, sporeMat, spores, glowWorms, gwMat,
+    group: g, mushMat: mushMat, discMat: discMat, sporeMat, spores, glowWorms,
     x: x, z: z, ringR, phase: sr() * 6.28, glowIntensity: 0, active: false
   };
 }

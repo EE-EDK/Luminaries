@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { GEO } from '../core/geometries.js';
+import { getGroundY } from '../world/terrain.js';
 
 const flies = [];
 
@@ -42,7 +43,8 @@ export function updateFlies(dt, t) {
     f.mesh.position.x += f.vel.x * dt;
     f.mesh.position.y += f.vel.y * dt;
     f.mesh.position.z += f.vel.z * dt;
-    if (f.mesh.position.y < 0.3) { f.mesh.position.y = 0.3; f.vel.y = Math.abs(f.vel.y) * 0.5; }
+    const flyGroundY = getGroundY(f.mesh.position.x, f.mesh.position.z) + 0.3;
+    if (f.mesh.position.y < flyGroundY) { f.mesh.position.y = flyGroundY; f.vel.y = Math.abs(f.vel.y) * 0.5; }
     if (f.mesh.position.y > 12) f.vel.y -= 2 * dt;
     const pulse = Math.sin(t * 3 + f.phase) * 0.5 + 0.5;
     const frac = f.life / f.max;

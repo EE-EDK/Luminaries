@@ -24,6 +24,7 @@ import { sr } from './utils/rng.js';
 // World
 import { createGround } from './world/ground.js';
 import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
+import { getGroundY, registerFlatZone } from './world/terrain.js';
 
 // Player
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn } from './core/player.js';
@@ -124,44 +125,65 @@ function populate() {
       }
       if (ok) break;
     }
-    if (ok) { const g = makeTree(x, z); trees_data.push({ group: g, x: x, z: z }); }
+    if (ok) {
+      const g = makeTree(x, z);
+      g.position.y = getGroundY(x, z);
+      trees_data.push({ group: g, x: x, z: z });
+    }
   }
   // Mushrooms near trees
   for (let i = 0; i < MUSH_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 4;
-    mush_data.push(makeMush(ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d));
+    const mx = ref.x + Math.cos(ang) * d, mz = ref.z + Math.sin(ang) * d;
+    const m = makeMush(mx, mz);
+    m.group.position.y = getGroundY(mx, mz);
+    mush_data.push(m);
   }
   // Crystals
   for (let i = 0; i < CRYSTAL_N; i++) {
     const ang = sr() * 6.28, d = 8 + sr() * WORLD_R * 0.6;
-    crys_data.push(makeCrystal(Math.cos(ang) * d, Math.sin(ang) * d));
+    const cx = Math.cos(ang) * d, cz = Math.sin(ang) * d;
+    const c = makeCrystal(cx, cz);
+    c.group.position.y = getGroundY(cx, cz);
+    crys_data.push(c);
   }
-  // Jellies
+  // Jellies (float above ground)
   for (let i = 0; i < JELLY_N; i++) {
     const ang = sr() * 6.28, d = 10 + sr() * WORLD_R * 0.5;
-    jellies.push(makeJelly(Math.cos(ang) * d, 3 + sr() * 5, Math.sin(ang) * d));
+    const jx = Math.cos(ang) * d, jz = Math.sin(ang) * d;
+    jellies.push(makeJelly(jx, getGroundY(jx, jz) + 3 + sr() * 5, jz));
   }
   // Pufflings
   for (let i = 0; i < PUFF_N; i++) {
     const ref = mush_data[Math.floor(sr() * mush_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 5;
-    puffs.push(makePuff(ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d));
+    const px = ref.x + Math.cos(ang) * d, pz = ref.z + Math.sin(ang) * d;
+    const p = makePuff(px, pz);
+    p.group.position.y = getGroundY(px, pz);
+    p._baseY = getGroundY(px, pz);
+    puffs.push(p);
   }
   // Spirit Deer
   for (let i = 0; i < DEER_N; i++) {
     const ang = sr() * 6.28, d = 12 + sr() * WORLD_R * 0.5;
-    deers.push(makeDeer(Math.cos(ang) * d, Math.sin(ang) * d));
+    const dx = Math.cos(ang) * d, dz = Math.sin(ang) * d;
+    const de = makeDeer(dx, dz);
+    de.group.position.y = getGroundY(dx, dz);
+    deers.push(de);
   }
-  // Moths
+  // Moths (fly above ground)
   for (let i = 0; i < MOTH_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    moths.push(makeMoth(ref.x, 2 + sr() * 4, ref.z));
+    moths.push(makeMoth(ref.x, getGroundY(ref.x, ref.z) + 2 + sr() * 4, ref.z));
   }
   // Grass patches
   for (let i = 0; i < GRASS_PATCHES; i++) {
     const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.9);
-    grassPatches.push(makeGrassPatch(Math.cos(ang) * d, Math.sin(ang) * d, 2 + sr() * 2.5, 25 + Math.floor(sr() * 20)));
+    const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
+    const gp = makeGrassPatch(gx, gz, 2 + sr() * 2.5, 25 + Math.floor(sr() * 20));
+    gp.mesh.position.y = getGroundY(gx, gz);
+    grassPatches.push(gp);
   }
   // Rocks
   for (let i = 0; i < ROCK_N; i++) {
@@ -175,25 +197,38 @@ function populate() {
       }
       if (ok4) break;
     }
-    if (ok4) rocks_data.push(makeRock(rx, rz));
+    if (ok4) {
+      const r = makeRock(rx, rz);
+      r.group.position.y = getGroundY(rx, rz);
+      rocks_data.push(r);
+    }
   }
   // Ferns
   for (let i = 0; i < FERN_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 5;
-    ferns.push(makeFern(ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d));
+    const fx = ref.x + Math.cos(ang) * d, fz = ref.z + Math.sin(ang) * d;
+    const f = makeFern(fx, fz);
+    f.group.position.y = getGroundY(fx, fz);
+    ferns.push(f);
   }
   // Flowers
   for (let i = 0; i < FLOWER_N; i++) {
     const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7);
-    flowers.push(makeFlower(Math.cos(ang) * d, Math.sin(ang) * d));
+    const flx = Math.cos(ang) * d, flz = Math.sin(ang) * d;
+    const fl = makeFlower(flx, flz);
+    fl.group.position.y = getGroundY(flx, flz);
+    flowers.push(fl);
   }
   // Reeds
   for (let i = 0; i < REED_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8);
-    reeds.push(makeReed(Math.cos(ang) * d, Math.sin(ang) * d));
+    const rdx = Math.cos(ang) * d, rdz = Math.sin(ang) * d;
+    const rd = makeReed(rdx, rdz);
+    rd.group.position.y = getGroundY(rdx, rdz);
+    reeds.push(rd);
   }
-  // Golden orbs
+  // Golden orbs (float above terrain)
   for (let i = 0; i < ORB_N; i++) {
     let ox, oz, ok = false;
     for (let a = 0; a < 30; a++) {
@@ -205,19 +240,28 @@ function populate() {
       }
       if (ok) break;
     }
-    if (ok) orbs.push(makeOrb(ox, oz));
+    if (ok) {
+      const o = makeOrb(ox, oz);
+      o.group.position.y = getGroundY(ox, oz) + 1.0;
+      o.flyY = getGroundY(ox, oz) + 1.0;
+      orbs.push(o);
+    }
   }
-  // Wisps
+  // Wisps (float above terrain)
   for (let i = 0; i < WISP_N; i++) {
     const wa = sr() * 6.28, wd = 2 + sr() * 3;
-    wisps.push(makeWisp(Math.cos(wa) * wd, 1.0 + sr() * 0.5, Math.sin(wa) * wd));
+    const wx = Math.cos(wa) * wd, wz = Math.sin(wa) * wd;
+    wisps.push(makeWisp(wx, getGroundY(wx, wz) + 1.0 + sr() * 0.5, wz));
   }
   // Dandelions
   for (let i = 0; i < DANDELION_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7);
-    dandelions.push(makeDandelion(Math.cos(ang) * d, Math.sin(ang) * d));
+    const dnx = Math.cos(ang) * d, dnz = Math.sin(ang) * d;
+    const dn = makeDandelion(dnx, dnz);
+    dn.group.position.y = getGroundY(dnx, dnz);
+    dandelions.push(dn);
   }
-  // Fairy rings
+  // Fairy rings (register flat zones first)
   for (let i = 0; i < FAIRY_RING_N; i++) {
     let fx, fz, ok2 = false;
     for (let a = 0; a < 20; a++) {
@@ -229,14 +273,20 @@ function populate() {
       }
       if (ok2) break;
     }
-    if (ok2) fairyRings.push(makeFairyRing(fx, fz));
+    if (ok2) {
+      registerFlatZone(fx, fz, 4);
+      const fr = makeFairyRing(fx, fz);
+      fr.group.position.y = getGroundY(fx, fz);
+      fairyRings.push(fr);
+    }
   }
-  // Bubbles
+  // Bubbles (float above terrain)
   for (let i = 0; i < BUBBLE_N; i++) {
     const ang = sr() * 6.28, d = 5 + sr() * WORLD_R * 0.6;
-    bubbles.push(makeBubble(Math.cos(ang) * d, 0.5 + sr() * 5, Math.sin(ang) * d));
+    const bx = Math.cos(ang) * d, bz = Math.sin(ang) * d;
+    bubbles.push(makeBubble(bx, getGroundY(bx, bz) + 0.5 + sr() * 5, bz));
   }
-  // Ponds
+  // Ponds (register flat zones, keep at terrain level)
   for (let i = 0; i < POND_N; i++) {
     let px, pz, ok3 = false;
     for (let a = 0; a < 20; a++) {
@@ -248,7 +298,12 @@ function populate() {
       }
       if (ok3) break;
     }
-    if (ok3) ponds.push(makePond(px, pz));
+    if (ok3) {
+      registerFlatZone(px, pz, 3);
+      const po = makePond(px, pz);
+      po.group.position.y = getGroundY(px, pz);
+      ponds.push(po);
+    }
   }
 }
 
@@ -382,7 +437,7 @@ function updatePuffs(dt, t) {
     const pDist = Math.sqrt(pDist2);
 
     // Init extended state
-    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; }
+    if (!p._init) { p._init = true; p._followT = 0; p._scaredT = 0; p._huddleTarget = -1; p._baseY = getGroundY(px, pz); }
 
     // Startle check
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
@@ -412,10 +467,13 @@ function updatePuffs(dt, t) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
+    // Update terrain-relative base Y as puffling moves
+    p._baseY = getGroundY(px, pz);
+
     switch (p.state) {
       case 'idle': {
         p.idleTimer -= dt;
-        g.position.y = Math.sin(t * 2 + p.phase) * 0.02;
+        g.position.y = p._baseY + Math.sin(t * 2 + p.phase) * 0.02;
         g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
         if (p.idleTimer <= 0) {
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5; p.hopTimer = 0;
@@ -427,9 +485,9 @@ function updatePuffs(dt, t) {
         const hopDur = 1.2;
         const frac = p.hopTimer / hopDur;
         if (frac >= 1.0) {
-          p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = 0;
+          p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = p._baseY;
         } else {
-          g.position.y = Math.sin(frac * Math.PI) * 0.3;
+          g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
           g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
@@ -443,13 +501,13 @@ function updatePuffs(dt, t) {
         p._scaredT -= dt;
         p.hopTimer += dt * 1.5;
         const frac = Math.min(p.hopTimer / 0.8, 1);
-        g.position.y = Math.sin(frac * Math.PI) * 0.5;
+        g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.5;
         g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt;
         g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt;
         g.scale.set(0.85, 1.3, 0.85);
         if (p._scaredT <= 0) {
           p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
-          g.position.y = 0; g.scale.set(1, 1, 1);
+          g.position.y = p._baseY; g.scale.set(1, 1, 1);
         }
         break;
       }
@@ -462,11 +520,11 @@ function updatePuffs(dt, t) {
         if (pDist > 3) {
           p.hopTimer += dt;
           const frac = (p.hopTimer % 1.5) / 1.5;
-          g.position.y = Math.sin(frac * Math.PI) * 0.2;
+          g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.2;
           g.position.x += Math.sin(p.wanderAng) * p.speed * 0.4 * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * 0.4 * dt;
         } else {
-          g.position.y = Math.sin(t * 3 + p.phase) * 0.03;
+          g.position.y = p._baseY + Math.sin(t * 3 + p.phase) * 0.03;
         }
         g.rotation.y = p.wanderAng;
         break;
@@ -483,7 +541,7 @@ function updatePuffs(dt, t) {
           }
         }
         g.rotation.z = Math.sin(t * 8) * 0.05;
-        g.position.y = 0;
+        g.position.y = p._baseY;
         break;
       }
     }
@@ -510,6 +568,7 @@ function updateDeers(dt, t) {
       d._init = true; d._stT = 0; d._drinkTgt = null;
       d._zigTimer = 0; d._zigDir = 1;
     }
+    const deerBaseY = getGroundY(gx, gz);
 
     // Threat detection (overrides passive states)
     if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
@@ -580,7 +639,7 @@ function updateDeers(dt, t) {
       }
       case 'rest': {
         d._stT -= dt;
-        g.position.y = Math.max(-0.3, g.position.y - dt * 0.5);
+        g.position.y = Math.max(deerBaseY - 0.3, g.position.y - dt * 0.5);
         if (d._stT <= 0) { d.state = 'walk'; d.walkTimer = 2 + Math.random() * 3; }
         break;
       }
@@ -629,9 +688,14 @@ function updateDeers(dt, t) {
     if (wd > WORLD_R * 0.9) {
       d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
     }
-    // Return to ground from rest
-    if (d.state !== 'rest' && g.position.y < 0) {
-      g.position.y = Math.min(0, g.position.y + dt * 0.5);
+    // Return to ground from rest / track terrain
+    if (d.state !== 'rest') {
+      const yDiff = deerBaseY - g.position.y;
+      if (Math.abs(yDiff) > 0.01) {
+        g.position.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), dt * 2);
+      } else {
+        g.position.y = deerBaseY;
+      }
     }
 
     // Heading
@@ -1039,11 +1103,12 @@ function director(dt, t) {
         for (let i = 0; i < crys_data.length; i++) {
           const dx = crys_data[i].x - player.pos.x, dz = crys_data[i].z - player.pos.z;
           if (dx * dx + dz * dz < 100)
-            spawnFly(crys_data[i].x, 1, crys_data[i].z, 3 + Math.random() * 4);
+            spawnFly(crys_data[i].x, getGroundY(crys_data[i].x, crys_data[i].z) + 1, crys_data[i].z, 3 + Math.random() * 4);
         }
       } else {
         const a = Math.random() * 6.28, d = 5 + Math.random() * 25;
-        spawnFly(player.pos.x + Math.cos(a) * d, 0, player.pos.z + Math.sin(a) * d, 6 + Math.random() * 10);
+        const flyX = player.pos.x + Math.cos(a) * d, flyZ = player.pos.z + Math.sin(a) * d;
+        spawnFly(flyX, getGroundY(flyX, flyZ), flyZ, 6 + Math.random() * 10);
       }
     }
   }
@@ -1192,7 +1257,7 @@ function animate() {
     for (let i = 0; i < orbs.length; i++) {
       const o = orbs[i];
       const p = Math.sin(elapsed * 1.5 + o.phase) * 0.5 + 0.5;
-      o.group.position.y = 1.0 + Math.sin(elapsed * 0.8 + o.phase) * 0.3;
+      o.group.position.y = o.flyY + Math.sin(elapsed * 0.8 + o.phase) * 0.3;
       o.glowMat.opacity = 0.3 + p * 0.4;
     }
 
@@ -1220,7 +1285,9 @@ function animate() {
 // Init
 // ================================================================
 try {
-  createGround();
+  // Register obelisk flat zone (world center always flat)
+  registerFlatZone(0, 0, 5);
+
   createSkyDome();
 
   // Init day/night cycle (after sky is built so materials can be cached)
@@ -1229,6 +1296,9 @@ try {
   });
 
   populate();
+
+  // Create ground AFTER populate so pond/fairy ring flat zones are registered
+  createGround();
 
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);
@@ -1280,7 +1350,8 @@ try {
   // Seed initial fireflies
   for (let i = 0; i < 50; i++) {
     const a = Math.random() * 6.28, d = 3 + Math.random() * WORLD_R * 0.7;
-    spawnFly(Math.cos(a) * d, 0, Math.sin(a) * d, 8 + Math.random() * 12);
+    const fx = Math.cos(a) * d, fz = Math.sin(a) * d;
+    spawnFly(fx, getGroundY(fx, fz), fz, 8 + Math.random() * 12);
   }
 
   console.log('✓ Init: trees=' + trees_data.length + ' mush=' + mush_data.length +

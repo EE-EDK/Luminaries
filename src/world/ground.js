@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WORLD_R } from '../constants.js';
 import { scene } from '../core/renderer.js';
+import { getGroundY } from './terrain.js';
 
 // ================================================================
 // Procedural ground texture — bioluminescent forest floor
@@ -14,15 +15,15 @@ function makeGroundTexture() {
   const R = Math.random;
 
   // ---- 1. Base: varied earth tones (not uniform) ----
-  ctx.fillStyle = '#1e3a2a'; ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = '#2a5038'; ctx.fillRect(0, 0, S, S);
 
   // Large biome patches (some mossy, some bare, some rich humus)
   const biomes = [
-    { col: 'rgba(25,55,30,0.3)', n: 15, r: 120 },  // mossy green
-    { col: 'rgba(40,30,15,0.25)', n: 12, r: 100 },  // brown earth
-    { col: 'rgba(15,40,35,0.2)', n: 10, r: 110 },   // dark teal moss
-    { col: 'rgba(35,45,20,0.2)', n: 8, r: 90 },     // olive
-    { col: 'rgba(20,25,15,0.25)', n: 8, r: 80 },    // dark soil
+    { col: 'rgba(40,80,50,0.35)', n: 15, r: 120 },  // mossy green
+    { col: 'rgba(60,50,25,0.25)', n: 12, r: 100 },  // brown earth
+    { col: 'rgba(30,65,55,0.25)', n: 10, r: 110 },  // teal moss
+    { col: 'rgba(55,70,35,0.2)', n: 8, r: 90 },     // olive
+    { col: 'rgba(35,40,25,0.25)', n: 8, r: 80 },    // dark soil
   ];
   for (const b of biomes) {
     for (let i = 0; i < b.n; i++) {
@@ -119,14 +120,14 @@ function makeGroundTexture() {
     const grad = ctx.createRadialGradient(mx, my, 0, mx, my, mrad);
     const mCol = R();
     if (mCol < 0.4) {
-      grad.addColorStop(0, 'rgba(30,65,35,0.14)');
-      grad.addColorStop(1, 'rgba(18,40,22,0)');
+      grad.addColorStop(0, 'rgba(45,90,50,0.18)');
+      grad.addColorStop(1, 'rgba(25,55,30,0)');
     } else if (mCol < 0.7) {
-      grad.addColorStop(0, 'rgba(25,55,45,0.12)');
-      grad.addColorStop(1, 'rgba(15,35,28,0)');
+      grad.addColorStop(0, 'rgba(35,75,60,0.16)');
+      grad.addColorStop(1, 'rgba(20,50,38,0)');
     } else {
-      grad.addColorStop(0, 'rgba(40,55,25,0.1)');
-      grad.addColorStop(1, 'rgba(22,32,14,0)');
+      grad.addColorStop(0, 'rgba(55,75,35,0.14)');
+      grad.addColorStop(1, 'rgba(30,45,20,0)');
     }
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.arc(mx, my, mrad, 0, 6.28); ctx.fill();
@@ -189,11 +190,33 @@ function makeGroundTexture() {
 
 export function createGround() {
   const groundTex = makeGroundTexture();
+  // Subdivided plane for terrain displacement
+  const size = WORLD_R * 3; // same coverage as before (1.5 * radius on each side)
+  const segs = 200; // vertex density for smooth hills
+  const geo = new THREE.PlaneGeometry(size, size, segs, segs);
+  const posAttr = geo.attributes.position;
+  const uvAttr = geo.attributes.uv;
+
+  // Displace vertices using heightmap + clip to circular world
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i);
+    const y = posAttr.getY(i); // PlaneGeometry XY, we'll rotate to XZ
+    const dist = Math.sqrt(x * x + y * y);
+
+    // Apply terrain height (stored in Z before rotation)
+    if (dist < WORLD_R * 1.4) {
+      posAttr.setZ(i, getGroundY(x, y));
+    } else {
+      posAttr.setZ(i, 0);
+    }
+  }
+  geo.computeVertexNormals();
+
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(WORLD_R * 1.5, 64),
+    geo,
     new THREE.MeshStandardMaterial({
-      map: groundTex, color: 0xddeedd, roughness: 0.82, metalness: 0.0,
-      emissive: 0x0c1e14, emissiveIntensity: 0.18
+      map: groundTex, color: 0xeeffee, roughness: 0.75, metalness: 0.0,
+      emissive: 0x1a3820, emissiveIntensity: 0.25
     })
   );
   ground.rotation.x = -Math.PI / 2;

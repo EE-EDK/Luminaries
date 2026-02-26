@@ -3,6 +3,7 @@ import { GRAVITY, MOVE_SPEED, SPRINT_MULT, JUMP_IMPULSE, GROUND_DRAG, AIR_DRAG, 
 import { camera } from './renderer.js';
 import { playerLight } from './lighting.js';
 import { getInput, keys, yaw, pitch, touchJump, setTouchJump, touchSprint } from './input.js';
+import { getGroundY } from '../world/terrain.js';
 
 // Player state
 export const player = { pos: new THREE.Vector3(0, EYE_H, 0), vel: new THREE.Vector3(), onGround: true };
@@ -42,8 +43,9 @@ export function updatePlayer(dt) {
   player.pos.x += player.vel.x * dt;
   player.pos.y += player.vel.y * dt;
   player.pos.z += player.vel.z * dt;
-  if (player.pos.y <= EYE_H) {
-    player.pos.y = EYE_H; player.vel.y = 0;
+  const groundY = getGroundY(player.pos.x, player.pos.z) + EYE_H;
+  if (player.pos.y <= groundY) {
+    player.pos.y = groundY; player.vel.y = 0;
     // Landing detection
     if (!wasOnGround && landingVelY < -3) {
       const impactStrength = Math.min(Math.abs(landingVelY) / JUMP_IMPULSE, 1);

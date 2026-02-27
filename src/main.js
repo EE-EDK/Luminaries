@@ -27,7 +27,7 @@ import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
 import { getGroundY, registerFlatZone } from './world/terrain.js';
 
 // Player
-import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn } from './core/player.js';
+import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
 
 // Entities — Flora
 import { makeTree } from './entities/flora/trees.js';
@@ -60,10 +60,10 @@ import { makeRainbows, rainbowArcs } from './entities/world/rainbows.js';
 
 // Particles
 import { initFlies, spawnFly, updateFlies } from './particles/fireflies.js';
-import { initSpores, spawnSpore, updateSpores } from './particles/spores.js';
+import { initSpores, spawnSpore, updateSpores, setSporeWind } from './particles/spores.js';
 import { initStarMotes, updateStarMotes } from './particles/starMotes.js';
 import { initDustMotes, spawnDustBurst } from './particles/dust.js';
-import { initDandSeeds, updateDandSeeds } from './particles/seeds.js';
+import { initDandSeeds, spawnDandSeed, updateDandSeeds, setSeedWind } from './particles/seeds.js';
 import { initBubblePops, spawnBubblePop, updateBubblePops } from './particles/bubblePops.js';
 import { updateDustMotes } from './particles/dust.js';
 
@@ -72,9 +72,19 @@ import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questMana
 import { makeLaser } from './quest/lasers.js';
 
 // Systems
-import { initDayNight, updateDayNight, bioGlow } from './systems/dayNightCycle.js';
-import { initWeather, updateWeather, windX, windZ, windStrength, lightningFlash, isStorming } from './systems/weather.js';
+import { initDayNight, updateDayNight, bioGlow, phase as dayPhase } from './systems/dayNightCycle.js';
+import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, lightningFlash, isStorming, getRainRate } from './systems/weather.js';
 import { initRain, updateRain } from './particles/rain.js';
+
+// Audio
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown } from './systems/audio.js';
+
+// AI
+import { canSee, canHear, isNear } from './systems/ai/senses.js';
+import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBounds, avoidObstacles } from './systems/ai/steering.js';
+
+// Discoveries
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI } from './systems/discoveries.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -321,6 +331,13 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
+  // --- Tree wind sway (Item 4) ---
+  for (let i = 0; i < trees_data.length; i++) {
+    const tr = trees_data[i];
+    const tPhase = tr.x * 0.1 + tr.z * 0.13;
+    tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
+    tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
+  }
   for (let i = 0; i < grassPatches.length; i++) {
     updateGrassPatch(grassPatches[i], t, wAmp, wLeanX, wLeanZ, player.pos.x, player.pos.z);
   }
@@ -365,6 +382,7 @@ function updateJellies(dt, t) {
     // Force display during storms
     if (isStorming && j._state !== 'display') {
       j._state = 'display'; j._stT = 10;
+      playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
     }
 
     switch (j._state) {
@@ -403,6 +421,10 @@ function updateJellies(dt, t) {
       }
     }
 
+    // Periodic hum sound
+    if (j._state === 'pulse' && Math.random() < 0.003) {
+      playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
+    }
     // Visual updates
     const basePulse = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
     let emissiveMult = 1.0, opacityBoost = 0;
@@ -431,12 +453,21 @@ function updatePuffs(dt, t) {
     const ddx = px - player.pos.x, ddz = pz - player.pos.z;
     const pDist2 = ddx * ddx + ddz * ddz;
 
-    // Startle check
+    // Startle check (also startled by nearby fleeing deer — Item 6: cross-species)
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
       const startleR = sprinting ? 3.5 : 2.0;
-      if (pDist2 < startleR * startleR) {
+      let startled = pDist2 < startleR * startleR;
+      if (!startled) {
+        for (let di = 0; di < deers.length; di++) {
+          if (deers[di].state !== 'flee') continue;
+          const deerDx = deers[di].group.position.x - px, deerDz = deers[di].group.position.z - pz;
+          if (deerDx * deerDx + deerDz * deerDz < 25) { startled = true; break; }
+        }
+      }
+      if (startled) {
         p.state = 'startled'; p._scaredT = 0.6 + Math.random() * 0.5;
         p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
+        playCreatureSound('puff', { x: px, z: pz }, player.pos);
       }
     }
 
@@ -468,6 +499,8 @@ function updatePuffs(dt, t) {
         p.idleTimer -= dt;
         g.position.y = p._baseY + Math.sin(t * 2 + p.phase) * 0.02;
         g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
+        // Random idle chirp
+        if (Math.random() < 0.001) playCreatureSound('puff', { x: px, z: pz }, player.pos);
         if (p.idleTimer <= 0) {
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5; p.hopTimer = 0;
         }
@@ -584,13 +617,17 @@ function updateDeers(dt, t) {
     if (dtx * dtx + dtz * dtz > 0.25) { d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz; }
     const deerBaseY = d._baseY;
 
-    // Threat detection (overrides passive states)
+    // Threat detection using AI senses (Item 5)
     if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
-      if (pDist2 < fleeR2) {
+      const deerPos = { x: gx, z: gz };
+      const playerTarget = { x: player.pos.x, z: player.pos.z };
+      if (pDist2 < fleeR2 || canHear(deerPos, playerTarget, fleeR, sprinting)) {
         d.state = 'flee'; d.wanderAng = pAng;
         d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
-      } else if (pDist2 < alertR2) {
+        playCreatureSound('deer', deerPos, player.pos);
+      } else if (pDist2 < alertR2 || canSee(deerPos, d.wanderAng, playerTarget, alertR, Math.PI * 0.5)) {
         d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
+        playCreatureSound('deer', deerPos, player.pos);
       }
     }
 
@@ -684,6 +721,16 @@ function updateDeers(dt, t) {
         d._zigTimer -= dt;
         if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
         d.wanderAng = pAng + d._zigDir * 0.3;
+        // Obstacle avoidance during flee (Item 5)
+        const avoidF = avoidObstacles({ x: gx, z: gz }, d.wanderAng, trees_data, 3, 1.5);
+        if (avoidF.x * avoidF.x + avoidF.z * avoidF.z > 0.01) {
+          d.wanderAng += Math.atan2(avoidF.z, avoidF.x) * 0.3;
+        }
+        // Smooth world bounds (Item 5)
+        const bnd = worldBounds({ x: gx, z: gz }, 8);
+        if (bnd.x !== 0 || bnd.z !== 0) {
+          d.wanderAng = Math.atan2(bnd.z, bnd.x);
+        }
         if (d.fleeTimer <= 0 || pDist2 > (alertR * 2) * (alertR * 2)) {
           d.state = 'walk'; d.walkTimer = 3 + Math.random() * 5;
         }
@@ -767,15 +814,24 @@ function updateMoths(dt, t) {
     // State transitions from patrol
     if (m._state === 'patrol') {
       if (Math.random() < 0.002) {
-        let bestD2 = Infinity, bestCrys = null;
+        let bestD2 = Infinity, bestTarget = null;
+        // Check crystals
         for (let ci = 0; ci < crys_data.length; ci++) {
           const cdx = crys_data[ci].x - mx, cdz = crys_data[ci].z - mz;
           const cd2 = cdx * cdx + cdz * cdz;
-          if (cd2 < 900 && cd2 < bestD2) { bestD2 = cd2; bestCrys = crys_data[ci]; }
+          if (cd2 < 900 && cd2 < bestD2) { bestD2 = cd2; bestTarget = crys_data[ci]; }
         }
-        if (bestCrys) {
-          m._state = 'attracted'; m._attractTarget = bestCrys;
+        // Also check active fairy rings (Item 6: cross-species)
+        for (let fi = 0; fi < fairyRings.length; fi++) {
+          if (fairyRings[fi].glowIntensity < 0.3) continue;
+          const fdx = fairyRings[fi].x - mx, fdz = fairyRings[fi].z - mz;
+          const fd2 = fdx * fdx + fdz * fdz;
+          if (fd2 < 900 && fd2 < bestD2) { bestD2 = fd2; bestTarget = fairyRings[fi]; }
+        }
+        if (bestTarget) {
+          m._state = 'attracted'; m._attractTarget = bestTarget;
           m._stT = 6 + Math.random() * 8;
+          playCreatureSound('moth', { x: mx, z: mz }, player.pos);
         }
       }
       if (Math.random() < 0.001) {
@@ -936,6 +992,7 @@ function updateFairyRings(dt, t) {
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
       fr.glowIntensity = 1.5;
+      playFairyBounce();
     }
     // Spore motes drift upward and cycle
     const sporeAlpha = 0.08 + fr.glowIntensity * 0.25;
@@ -994,43 +1051,50 @@ function updateBubbles(dt, t) {
       b.popped = true; b.popTimer = 8 + Math.random() * 8;
       b.group.visible = false;
       spawnBubblePop(b.group.position.x, b.group.position.y, b.group.position.z, 6);
+      playBubblePop(b.group.position, player.pos);
     }
   }
 }
 
 function updatePonds(dt, t) {
+  const curRain = getRainRate();
   for (let i = 0; i < ponds.length; i++) {
     const po = ponds[i];
-    // Lily pad bob
+    // Lily pad bob — more agitated during rain (Item 8)
+    const padBob = 0.015 + curRain * 0.01;
     for (let j = 0; j < po.pads.length; j++) {
-      po.pads[j].mesh.position.y = 0.05 + Math.sin(t * 0.8 + po.pads[j].phase) * 0.015;
+      po.pads[j].mesh.position.y = 0.05 + Math.sin(t * (0.8 + curRain * 0.4) + po.pads[j].phase) * padBob;
     }
-    po.waterMat.emissiveIntensity = (0.15 + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
+    // Water glow — slightly brighter during/after rain (Item 8)
+    const rainGlowBoost = curRain * 0.08;
+    po.waterMat.emissiveIntensity = (0.15 + rainGlowBoost + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
     po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * bioGlow;
-    // Animated ripple rings — expand and fade cyclically
+    // Animated ripple rings — faster and more visible during rain (Item 8)
+    const rippleSpeed = 0.25 + curRain * 0.2;
+    const rippleAlpha = 0.12 + curRain * 0.08;
     for (let ri = 0; ri < po.ripples.length; ri++) {
       const rp = po.ripples[ri];
-      const cycle = ((t * 0.25 + rp.phase) % 1.0); // 0→1 expansion cycle
+      const cycle = ((t * rippleSpeed + rp.phase) % 1.0);
       const scale = 0.2 + cycle * po.pondR * 0.8;
       rp.mesh.scale.setScalar(scale);
-      rp.mesh.material.opacity = (1.0 - cycle) * 0.12;
+      rp.mesh.material.opacity = (1.0 - cycle) * rippleAlpha;
     }
-    // Tadpole swim paths — lazy circles
+    // Tadpole swim paths — speed up during rain (Item 8)
+    const tadSpeedMult = 1.0 + curRain * 0.5;
     for (let tdi = 0; tdi < po.tadpoles.length; tdi++) {
       const td = po.tadpoles[tdi];
-      td.ang += td.speed * dt;
+      td.ang += td.speed * tadSpeedMult * dt;
       const tx = Math.cos(td.ang) * td.orbR;
       const tz = Math.sin(td.ang) * td.orbR;
       td.body.position.x = tx;
       td.body.position.z = tz;
       td.body.rotation.y = td.ang + Math.PI / 2;
-      // Tail follows behind
       const tailOff = 0.02;
       td.tail.position.x = tx - Math.cos(td.ang) * tailOff;
       td.tail.position.z = tz - Math.sin(td.ang) * tailOff;
       td.tail.rotation.y = td.ang;
-      td.tail.rotation.z = Math.PI / 2 + Math.sin(t * 8 + tdi * 3) * 0.4;
+      td.tail.rotation.z = Math.PI / 2 + Math.sin(t * (8 + curRain * 2) + tdi * 3) * 0.4;
     }
   }
 }
@@ -1078,8 +1142,10 @@ function updateEchoBloom(dt, t) {
 // ================================================================
 function updateFloraReactions(dt, t) {
   const px = player.pos.x, pz = player.pos.z;
+  const curRain = getRainRate();
+  const stormDroop = isStorming ? 0.6 : (curRain > 0.3 ? curRain * 0.4 : 0);
 
-  // --- Flowers: bloom open + glow surge when player approaches (within 4m) ---
+  // --- Flowers: bloom on proximity, droop during storms (Item 7) ---
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const fx = fl.group.position.x, fz = fl.group.position.z;
@@ -1088,14 +1154,15 @@ function updateFloraReactions(dt, t) {
     const target = dist2 < 16 ? 1.0 : 0.0;
     fl._react = (fl._react || 0);
     fl._react += (target - fl._react) * dt * (target > 0 ? 4 : 1.5);
-    // Bloom scale (spread petals outward)
-    const sc = 1.0 + fl._react * 0.15;
-    fl.group.scale.set(sc, 1.0 + fl._react * 0.05, sc);
-    // Add glow boost
-    fl.petalMat.emissiveIntensity += fl._react * 0.6 * bioGlow;
+    // Bloom scale reduced during storms (Item 7)
+    const sc = (1.0 + fl._react * 0.15) * (1.0 - stormDroop * 0.12);
+    const sy = (1.0 + fl._react * 0.05) * (1.0 - stormDroop * 0.15);
+    fl.group.scale.set(sc, sy, sc);
+    // Add glow boost (dimmed in storms)
+    fl.petalMat.emissiveIntensity += fl._react * 0.6 * bioGlow * (1.0 - stormDroop * 0.4);
   }
 
-  // --- Mushrooms: bright pulse on proximity (within 2m) ---
+  // --- Mushrooms: bright pulse on proximity + glow surge after rain (Item 7) ---
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
     const ddx = m.x - px, ddz = m.z - pz;
@@ -1103,8 +1170,9 @@ function updateFloraReactions(dt, t) {
     const touch = dist2 < 4 ? 1.0 : 0.0;
     m._touch = (m._touch || 0);
     m._touch += (touch - m._touch) * dt * (touch > 0 ? 6 : 1.5);
-    // Boost emissive and slight scale pulse
-    m.capMat.emissiveIntensity += m._touch * 1.5 * bioGlow;
+    // Rain boost: mushrooms glow brighter during/after rain (Item 7)
+    const rainBoost = curRain * 0.4;
+    m.capMat.emissiveIntensity += (m._touch * 1.5 + rainBoost) * bioGlow;
     const ms = 1.0 + m._touch * 0.08;
     m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
   }
@@ -1122,7 +1190,9 @@ function updateFloraReactions(dt, t) {
     f.group.scale.set(1.0 + (1 - f._curl) * 0.3, f._curl, 1.0 + (1 - f._curl) * 0.3);
   }
 
-  // --- Crystal resonance: chain glow to nearby crystals ---
+  // --- Crystal resonance: chain glow to nearby crystals, dampened in fog (Item 7) ---
+  const fogDampen = weatherState === 'FOG_BANK' ? 0.5 : 1.0;
+  let crystalChainCount = 0;
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const ddx = c.x - px, ddz = c.z - pz;
@@ -1133,13 +1203,15 @@ function updateFloraReactions(dt, t) {
         const cdx = c.x - c2.x, cdz = c.z - c2.z;
         const cd2 = cdx * cdx + cdz * cdz;
         if (cd2 < 400) { // neighbor within 20m
-          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8;
+          crystalChainCount++;
+          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
           c2.mat.emissiveIntensity += chainStr * bioGlow;
           if (c2.light) c2.light.intensity += chainStr * 0.3 * bioGlow;
         }
       }
     }
   }
+  return crystalChainCount;
 }
 
 // ================================================================
@@ -1157,10 +1229,12 @@ function director(dt, t) {
   }
   dirState = nearCrys ? 'NEAR_CRYSTAL' : 'EXPLORE';
 
-  // Firefly spawning
+  // Firefly spawning — reduced during rain (Item 9), biased toward blooming flowers (Item 6)
   ffTimer += dt;
-  const ffRate = dirState === 'NEAR_CRYSTAL' ? 0.08 : 0.25;
-  const ffMax = dirState === 'NEAR_CRYSTAL' ? 120 : 100;
+  const curRain = getRainRate();
+  const rainDamper = Math.max(0.2, 1.0 - curRain * 0.8); // reduce spawn in rain
+  const ffRate = (dirState === 'NEAR_CRYSTAL' ? 0.08 : 0.25) / rainDamper;
+  const ffMax = Math.floor((dirState === 'NEAR_CRYSTAL' ? 120 : 100) * rainDamper);
   if (ffTimer > ffRate) {
     ffTimer = 0;
     const flyCount = updateFlies(0, t); // get count without advancing
@@ -1170,6 +1244,13 @@ function director(dt, t) {
           const dx = crys_data[i].x - player.pos.x, dz = crys_data[i].z - player.pos.z;
           if (dx * dx + dz * dz < 100)
             spawnFly(crys_data[i].x, getGroundY(crys_data[i].x, crys_data[i].z) + 1, crys_data[i].z, 3 + Math.random() * 4);
+        }
+      } else if (Math.random() < 0.3 && flowers.length > 0) {
+        // Bias toward blooming flowers (Item 6)
+        const fl = flowers[Math.floor(Math.random() * flowers.length)];
+        if (fl._react > 0.3) {
+          const fx = fl.group.position.x, fz = fl.group.position.z;
+          spawnFly(fx + (Math.random() - 0.5) * 2, getGroundY(fx, fz) + 0.5, fz + (Math.random() - 0.5) * 2, 4 + Math.random() * 6);
         }
       } else {
         const a = Math.random() * 6.28, d = 5 + Math.random() * 25;
@@ -1235,6 +1316,19 @@ function director(dt, t) {
     }
   }
 
+  // Dandelion wind dispersal — auto-scatter seeds in strong wind (Item 7)
+  if (windStrength > 0.8 && Math.random() < 0.005) {
+    for (let i = 0; i < dandelions.length; i++) {
+      const dn = dandelions[i];
+      if (!dn.dispersed && Math.random() < 0.1) {
+        dn.dispersed = true;
+        for (let s = 0; s < 8; s++) spawnDandSeed(dn.x, dn.h + 0.05, dn.z);
+        for (let c = 2; c < dn.group.children.length; c++) dn.group.children[c].visible = false;
+        dn.regrowTimer = 15 + Math.random() * 10;
+      }
+    }
+  }
+
   // Update all subsystems
   updateJellies(dt, t);
   updatePuffs(dt, t);
@@ -1259,8 +1353,15 @@ function director(dt, t) {
   updateDustMotes(dt);
   updateBubblePops(dt);
   updateEchoBloom(dt, t);
-  updateFloraReactions(dt, t);
+  const chainCount = updateFloraReactions(dt, t);
   updateQuest(dt, t);
+
+  // Audio + step cooldown
+  updateStepCooldown(dt);
+
+  // Discoveries (Item 10)
+  checkDiscoveries(player.pos, deers, puffs, jellies, moths, fairyRings, ponds, chainCount);
+  updateDiscoveryUI(dt);
 }
 
 // ================================================================
@@ -1298,6 +1399,13 @@ function animate() {
     scene.background.g = Math.min(scene.background.g + lightningFlash * 0.08, 0.25);
     scene.background.b = Math.min(scene.background.b + lightningFlash * 0.12, 0.35);
   }
+
+  // Update audio system (Items 1-3)
+  updateAudio(dt, windStrength, rainRate, isStorming, lightningFlash, dayPhase, player.pos, ponds);
+
+  // Pass wind to particle systems (Item 9)
+  setSporeWind(windX, windZ);
+  setSeedWind(windX, windZ, windStrength);
 
   if (!gameStarted) {
     // Pre-game idle animation
@@ -1385,6 +1493,23 @@ try {
   setCollisionData(trees_data, rocks_data);
   setDustBurstFn(spawnDustBurst);
 
+  // Wire up player audio callbacks (Items 1-3)
+  setAudioCallbacks(
+    (sprinting) => {
+      // Check if near water for splash sound
+      let nearWater = false;
+      for (let pi = 0; pi < ponds.length; pi++) {
+        const pdx = ponds[pi].x - player.pos.x, pdz = ponds[pi].z - player.pos.z;
+        if (pdx * pdx + pdz * pdz < 16) { nearWater = true; break; }
+      }
+      playFootstep(sprinting, nearWater);
+      // Footstep dust particles (Item 3)
+      if (Math.random() < 0.4) spawnDustBurst(player.pos.x, player.pos.z, 1);
+    },
+    () => playJumpSound(),
+    (impactStrength) => playLandSound(impactStrength)
+  );
+
   // Init weather + rain
   initWeather();
   initRain();
@@ -1402,6 +1527,12 @@ try {
   makeObelisk();
   makeMoat();
   makeRainbows();
+
+  // Init audio system (Items 1-3)
+  initAudio();
+
+  // Init discoveries (Item 10)
+  initDiscoveries();
 
   // Init UI (must be before quest so orb HUD element is available)
   initHUD();

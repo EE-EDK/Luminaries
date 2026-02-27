@@ -6,6 +6,9 @@ import { C, OBELISK_H } from '../constants.js';
 const laserBeams = [];
 const interLines = [];
 let lastTipY = OBELISK_H + 2;
+let laserFade = 1;
+
+export function setLaserFade(f) { laserFade = f; }
 
 function buildBendGeo(fromX, fromZ, skyY, tipY) {
   const pts = [];
@@ -161,5 +164,20 @@ export function updateLasers(dt, t, obeliskTipY) {
     const p = Math.sin(t * 2 + i * 0.8) * 0.5 + 0.5;
     conn.mat.opacity = conn.opacity * (0.6 + p * 0.4);
     conn.glowMat.opacity = conn.opacity * (0.2 + p * 0.15);
+  }
+
+  // Apply global laser fade (used when lasers fade out after pinnacle explosion)
+  if (laserFade < 1) {
+    for (let i = 0; i < laserBeams.length; i++) {
+      const b = laserBeams[i];
+      b.mat.opacity *= laserFade;
+      b.glowMat.opacity *= laserFade;
+      b.bendMat.opacity *= laserFade;
+      b.bendGlowMat.opacity *= laserFade;
+    }
+    for (let i = 0; i < interLines.length; i++) {
+      interLines[i].mat.opacity *= laserFade;
+      interLines[i].glowMat.opacity *= laserFade;
+    }
   }
 }

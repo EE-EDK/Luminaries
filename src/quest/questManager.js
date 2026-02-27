@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
-import { scene } from '../core/renderer.js';
+import { scene, camera } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
-import { updateLasers } from './lasers.js';
+import { updateLasers, setLaserFade } from './lasers.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
 
 // Quest state
 export let orbsFound = 0;
-export let questPhase = 'SEEK'; // SEEK → RISING → COMPLETE → FINALE
+export let questPhase = 'SEEK'; // SEEK → RISING → COMPLETE → FINALE → TRANSFORM
 export let obeliskY = -OBELISK_H;
 export let finaleTimer = 0;
 
@@ -30,6 +30,16 @@ let orbHudEl = null;
 
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
+
+// World transformation state
+let trees = [];
+let groundMesh = null;
+let finalePhaseTimer = 0;
+let transformTimer = 0;
+let treeLasers = [];
+let flashPlane = null;
+let flashMat = null;
+let transformDone = false;
 
 // Pinnacle explosion glitter
 const GLITTER_COUNT = 200;
@@ -150,6 +160,8 @@ export function initQuest(config) {
   puffs = config.puffs || [];
   jellies = config.jellies || [];
   moths = config.moths || [];
+  trees = config.trees || [];
+  groundMesh = config.groundMesh || null;
   initGlitter();
 }
 
@@ -321,6 +333,13 @@ export function updateQuest(dt, t) {
   const tipY = getObeliskTipY();
   updateLasers(dt, t, tipY);
 
+  // Fade out orb lasers after pinnacle explosion
+  if (questPhase === 'COMPLETE' && finaleTimer > 3) {
+    setLaserFade(Math.max(0, 1 - (finaleTimer - 3) / 4));
+  } else if (questPhase === 'FINALE' || questPhase === 'TRANSFORM') {
+    setLaserFade(0);
+  }
+
   // Update glitter particles
   updateGlitter(dt, t);
 
@@ -423,6 +442,7 @@ export function updateQuest(dt, t) {
 
   // Sustain finale state
   if (questPhase === 'FINALE') {
+    finalePhaseTimer += dt;
     if (obeliskMat) obeliskMat.emissiveIntensity = 1.5 + Math.sin(t * 0.5) * 0.3;
     if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = 2.5 + Math.sin(t * 0.7) * 0.5;
     if (moatMesh) moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02;
@@ -430,10 +450,175 @@ export function updateQuest(dt, t) {
       rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
       rainbowArcs[i].mat.opacity = 0.45 + Math.sin(t + i) * 0.1;
     }
+    // After 30s of finale, begin world transformation
+    if (finalePhaseTimer > 30) {
+      questPhase = 'TRANSFORM';
+      transformTimer = 0;
+      initFlashPlane();
+    }
+  }
+
+  // === WORLD TRANSFORMATION ===
+  if (questPhase === 'TRANSFORM') {
+    transformTimer += dt;
+
+    // Continue sustaining obelisk/moat/rainbow
+    if (obeliskMat) obeliskMat.emissiveIntensity = 1.5 + Math.sin(t * 0.5) * 0.3;
+    if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = 2.5 + Math.sin(t * 0.7) * 0.5;
+    if (moatMesh) moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02;
+    for (let i = 0; i < rainbowArcs.length; i++) {
+      rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
+      rainbowArcs[i].mat.opacity = 0.45 + Math.sin(t + i) * 0.1;
+    }
+
+    // Phase 1: 0-3s — Pink lasers shoot to every tree (staggered)
+    if (transformTimer < 3 && treeLasers.length < trees.length) {
+      const targetCount = Math.min(
+        Math.floor((transformTimer / 3) * trees.length),
+        trees.length
+      );
+      while (treeLasers.length < targetCount) {
+        const idx = treeLasers.length;
+        const tr = trees[idx];
+        const tY = getObeliskTipY();
+        const path = new THREE.LineCurve3(
+          new THREE.Vector3(0, tY, 0),
+          new THREE.Vector3(tr.x, 0, tr.z)
+        );
+        const tMat = new THREE.MeshBasicMaterial({
+          color: C.laserPink, transparent: true, opacity: 0,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const tube = new THREE.Mesh(
+          new THREE.TubeGeometry(path, 8, 0.04, 4, false), tMat
+        );
+        scene.add(tube);
+        const gMat = new THREE.MeshBasicMaterial({
+          color: C.laserGlow, transparent: true, opacity: 0,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const glow = new THREE.Mesh(
+          new THREE.TubeGeometry(path, 8, 0.12, 4, false), gMat
+        );
+        scene.add(glow);
+        treeLasers.push({ tube, glow, mat: tMat, glowMat: gMat, timer: 0 });
+      }
+    }
+
+    // Animate tree laser fade-in + pulse
+    for (let i = 0; i < treeLasers.length; i++) {
+      const tl = treeLasers[i];
+      tl.timer += dt;
+      const fade = Math.min(tl.timer / 0.5, 1);
+      const pulse = Math.sin(t * 3 + i * 0.5) * 0.5 + 0.5;
+      tl.mat.opacity = fade * (0.5 + pulse * 0.3);
+      tl.glowMat.opacity = fade * (0.15 + pulse * 0.1);
+    }
+
+    // Flash sequence: 3s brighten → 4s blind → 3s dim
+    let flashOpacity = 0;
+    if (transformTimer >= 3 && transformTimer < 6) {
+      flashOpacity = (transformTimer - 3) / 3;
+    } else if (transformTimer >= 6 && transformTimer < 10) {
+      flashOpacity = 1;
+      if (!transformDone) {
+        transformTreesAndGround();
+        transformDone = true;
+      }
+    } else if (transformTimer >= 10 && transformTimer < 13) {
+      flashOpacity = 1 - (transformTimer - 10) / 3;
+    }
+
+    if (flashMat) {
+      flashMat.opacity = flashOpacity;
+      if (flashPlane) flashPlane.visible = flashOpacity > 0.001;
+    }
   }
 }
 
 // Helper: current world-space Y of obelisk tip
 function getObeliskTipY() {
-  return obeliskY + OBELISK_H + 3; // shaft + capstone + pinnacle offset
+  return obeliskY + OBELISK_H + 3;
+}
+
+// Create a full-screen white plane for the blinding flash
+function initFlashPlane() {
+  if (flashPlane) return;
+  flashMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0,
+    depthTest: false, depthWrite: false
+  });
+  flashPlane = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), flashMat);
+  flashPlane.position.z = -0.15;
+  flashPlane.renderOrder = 9999;
+  flashPlane.frustumCulled = false;
+  camera.add(flashPlane);
+  if (!camera.parent) scene.add(camera);
+}
+
+// Transform all tree materials and ground to pink/purple theme
+function transformTreesAndGround() {
+  const pinkShades = [
+    { color: 0x551430, glow: 0xcc2277, core: 0xff44aa },
+    { color: 0x3a1040, glow: 0xaa33bb, core: 0xdd55ff },
+    { color: 0x441428, glow: 0xdd3388, core: 0xff66bb },
+    { color: 0x2a1050, glow: 0x8833cc, core: 0xbb55ff },
+    { color: 0x401830, glow: 0xcc4499, core: 0xff77cc },
+  ];
+
+  const darkCyan = new THREE.Color(0x0a3040);
+  const darkCyanEmissive = new THREE.Color(0x082838);
+
+  for (let i = 0; i < trees.length; i++) {
+    const group = trees[i].group;
+    const shade = pinkShades[i % pinkShades.length];
+    const processed = new Set();
+
+    group.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mat = child.material;
+      if (processed.has(mat)) return;
+      processed.add(mat);
+
+      const hsl = {};
+      mat.color.getHSL(hsl);
+
+      if (hsl.h >= 0.2 && hsl.h <= 0.6 && hsl.s > 0.08) {
+        // Green/teal/cyan → pink/purple
+        if (hsl.l > 0.45) {
+          mat.color.set(shade.core);
+        } else if (mat.transparent && mat.opacity < 0.15) {
+          mat.color.set(shade.glow);
+        } else {
+          mat.color.set(shade.color);
+        }
+        if (mat.emissive) mat.emissive.set(shade.glow);
+      } else if (hsl.h < 0.2 && hsl.s > 0.05 && hsl.l > 0.05 && hsl.l < 0.4) {
+        // Brown/orange → dark cyan
+        mat.color.copy(darkCyan);
+        if (mat.emissive) mat.emissive.copy(darkCyanEmissive);
+      } else if (hsl.l < 0.06) {
+        // Very dark (mound) → dark purple
+        mat.color.set(0x0a0818);
+      }
+    });
+  }
+
+  // Transform ground
+  if (groundMesh && groundMesh.material) {
+    groundMesh.material.emissive.set(0x200840);
+    groundMesh.material.emissiveIntensity = 0.3;
+    const colorAttr = groundMesh.geometry.attributes.color;
+    if (colorAttr) {
+      const arr = colorAttr.array;
+      for (let i = 0; i < arr.length; i += 3) {
+        const r = arr[i], g = arr[i + 1], b = arr[i + 2];
+        // Shift greens → purples
+        arr[i] = r * 0.5 + b * 0.3;
+        arr[i + 1] = g * 0.15;
+        arr[i + 2] = b * 0.7 + g * 0.4;
+      }
+      colorAttr.needsUpdate = true;
+    }
+  }
 }

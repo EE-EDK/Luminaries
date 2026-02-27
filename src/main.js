@@ -1727,7 +1727,7 @@ try {
   populate();
 
   // Create ground AFTER populate so pond/fairy ring flat zones are registered
-  createGround();
+  const groundMesh = createGround();
 
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);
@@ -1796,7 +1796,9 @@ try {
     deers: deers,
     puffs: puffs,
     jellies: jellies,
-    moths: moths
+    moths: moths,
+    trees: trees_data,
+    groundMesh: groundMesh
   });
 
   // Wire up go callback

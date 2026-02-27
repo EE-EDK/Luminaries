@@ -66,6 +66,7 @@ import { initDustMotes, spawnDustBurst } from './particles/dust.js';
 import { initDandSeeds, spawnDandSeed, updateDandSeeds, setSeedWind } from './particles/seeds.js';
 import { initBubblePops, spawnBubblePop, updateBubblePops } from './particles/bubblePops.js';
 import { updateDustMotes } from './particles/dust.js';
+import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
 
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
@@ -120,6 +121,45 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 let echoBloomTimer = 0;
 let echoBloomCenter = null;
 let echoBloomRadius = 0;
+
+// Batch 2 Item 6: Crystal resonance energy lines
+const MAX_ENERGY_LINES = 15;
+const energyLines = [];
+let energyLinesInited = false;
+function initEnergyLines() {
+  if (energyLinesInited) return;
+  energyLinesInited = true;
+  const lineMat = new THREE.LineBasicMaterial({
+    color: C.crystal, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  for (let i = 0; i < MAX_ENERGY_LINES; i++) {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(6); // 2 points x 3 coords
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
+    const line = new THREE.Line(geo, lineMat.clone());
+    line.visible = false;
+    scene.add(line);
+    energyLines.push({ line, geo, opacity: 0, active: false });
+  }
+}
+
+// Batch 2 Item 2: Visible echo bloom wave ring
+let echoBloomRing = null;
+function getEchoBloomRing() {
+  if (echoBloomRing) return echoBloomRing;
+  const ringGeo = new THREE.RingGeometry(0.9, 1.0, 48);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: C.echoBloom, transparent: true, opacity: 0.5,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  echoBloomRing = new THREE.Mesh(ringGeo, ringMat);
+  echoBloomRing.rotation.x = -Math.PI / 2;
+  echoBloomRing.visible = false;
+  scene.add(echoBloomRing);
+  return echoBloomRing;
+}
 
 // ================================================================
 // Populate world
@@ -360,9 +400,38 @@ function updateVegetation(dt, t) {
 }
 
 function updateJellies(dt, t) {
+  // Batch 2 Item 1: Nearby jellies sync glow phase over time
+  // First pass: compute sync phase for each jelly based on neighbors
   for (let i = 0; i < jellies.length; i++) {
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
+    if (j._syncPhase === undefined) j._syncPhase = j.phase;
+
+    // Find nearby jellies and blend toward their average phase
+    let syncSum = 0, syncCount = 0;
+    for (let k = 0; k < jellies.length; k++) {
+      if (k === i) continue;
+      const o = jellies[k];
+      const odx = o.group.position.x - jx, odz = o.group.position.z - jz;
+      if (odx * odx + odz * odz < 225) { // within 15m
+        syncSum += o._syncPhase || o.phase;
+        syncCount++;
+      }
+    }
+    if (syncCount > 0) {
+      const avgPhase = syncSum / syncCount;
+      // Gradually converge toward neighbor average (sync rate)
+      j._syncPhase += (avgPhase - j._syncPhase) * dt * 0.4;
+    }
+  }
+
+  // Batch 2 Item 4: Jelly day/night — higher at DEEP_NIGHT, lower at DAWN
+  const jellyAltMod = dayPhase === 'DEEP_NIGHT' ? 2.0 : (dayPhase === 'DAWN' ? -1.5 : 0);
+
+  for (let i = 0; i < jellies.length; i++) {
+    const j = jellies[i], g = j.group;
+    const jx = g.position.x, jz = g.position.z;
+    const jFloatY = j.floatY + jellyAltMod;
 
     // State transitions
     j._stT -= dt;
@@ -393,21 +462,22 @@ function updateJellies(dt, t) {
         const tz = j.homeZ + Math.sin(j.driftAng) * radius;
         g.position.x += (tx - jx) * dt * 0.3;
         g.position.z += (tz - jz) * dt * 0.3;
-        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.5;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 1.5;
         break;
       }
       case 'pulse': {
         j.driftAng += dt * 0.08;
         g.position.x += Math.cos(j.driftAng) * dt * 0.3;
         g.position.z += Math.sin(j.driftAng) * dt * 0.3;
-        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 1.0;
-        j._pulseSync = Math.sin(t * 2.0 + Math.floor(i / 2) * Math.PI) * 0.5 + 0.5;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 1.0;
+        // Use synchronized phase for coordinated pulsing
+        j._pulseSync = Math.sin(t * 2.0 + j._syncPhase) * 0.5 + 0.5;
         break;
       }
       case 'migrate': {
         g.position.x += Math.cos(j._migrateAng) * dt * 1.0;
         g.position.z += Math.sin(j._migrateAng) * dt * 1.0;
-        g.position.y = j.floatY + Math.sin(t * j.wobble + j.phase) * 0.8;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.8;
         const md2 = g.position.x * g.position.x + g.position.z * g.position.z;
         if (md2 > (WORLD_R * 0.8) * (WORLD_R * 0.8)) j._migrateAng += Math.PI;
         break;
@@ -416,7 +486,9 @@ function updateJellies(dt, t) {
         j.driftAng += dt * 0.4;
         g.position.x += Math.cos(j.driftAng) * dt * 0.8;
         g.position.z += Math.sin(j.driftAng) * dt * 0.8;
-        g.position.y = j.floatY + Math.sin(t * 2.0 + j.phase) * 2.0;
+        g.position.y = jFloatY + Math.sin(t * 2.0 + j.phase) * 2.0;
+        // Storm sync: all jellies converge to global beat
+        j._syncPhase += (0 - j._syncPhase) * dt * 2.0;
         break;
       }
     }
@@ -425,28 +497,37 @@ function updateJellies(dt, t) {
     if (j._state === 'pulse' && Math.random() < 0.003) {
       playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
     }
-    // Visual updates
-    const basePulse = Math.sin(t * 1.2 + j.phase) * 0.5 + 0.5;
+    // Visual updates — use synchronized phase for coordinated glow waves
+    const syncP = j._syncPhase || j.phase;
+    const basePulse = Math.sin(t * 1.2 + syncP) * 0.5 + 0.5;
     let emissiveMult = 1.0, opacityBoost = 0;
     if (j._state === 'pulse') {
       emissiveMult = 1.0 + j._pulseSync * 1.5;
       opacityBoost = j._pulseSync * 0.15;
     } else if (j._state === 'display') {
-      emissiveMult = 1.5 + Math.sin(t * 4 + j.phase) * 0.8;
-      opacityBoost = 0.15;
+      // Storm: all jellies flash in unison
+      const stormPulse = Math.sin(t * 4) * 0.5 + 0.5;
+      emissiveMult = 1.5 + stormPulse * 1.2;
+      opacityBoost = 0.15 + stormPulse * 0.1;
+    } else if (j._state === 'drift') {
+      // Even drifting jellies get subtle sync glow
+      emissiveMult = 1.0 + basePulse * 0.3;
     }
     j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * bioGlow * emissiveMult;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
-      g.children[ti].rotation.x = Math.sin(t * 2 + ti + j.phase) * 0.15;
-      g.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + j.phase) * 0.1;
+      g.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
+      g.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
     }
   }
 }
 
 function updatePuffs(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  // Batch 2 Item 4: Puffling day/night — sleepy at DAWN, playful at NIGHT
+  const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
+  const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
     const px = g.position.x, pz = g.position.z;
@@ -494,15 +575,38 @@ function updatePuffs(dt, t) {
     const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
     if (pdx2 * pdx2 + pdz2 * pdz2 > 0.25) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
 
+    // Batch 2 Item 7: Puffling flocking — gather neighbors for boid forces
+    const puffPos = { x: px, z: pz };
+    const puffNeighbors = [];
+    for (let j = 0; j < puffs.length; j++) {
+      if (j === i) continue;
+      const ox = puffs[j].group.position.x, oz = puffs[j].group.position.z;
+      const d2 = (ox - px) * (ox - px) + (oz - pz) * (oz - pz);
+      if (d2 < 100) puffNeighbors.push({ x: ox, z: oz }); // within 10m
+    }
+    const sep = separation(puffPos, puffNeighbors, 1.5);
+    const coh = puffNeighbors.length > 0 ? cohesion(puffPos, puffNeighbors) : { x: 0, z: 0 };
+    // Flocking steer angle: gentle blend of separation + cohesion
+    const flockX = sep.x * 2.0 + coh.x * 0.3;
+    const flockZ = sep.z * 2.0 + coh.z * 0.3;
+    const flockMag = Math.sqrt(flockX * flockX + flockZ * flockZ);
+
     switch (p.state) {
       case 'idle': {
         p.idleTimer -= dt;
         g.position.y = p._baseY + Math.sin(t * 2 + p.phase) * 0.02;
         g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
+        // Idle drift toward flock center (very gentle)
+        if (flockMag > 0.1 && puffNeighbors.length > 1) {
+          g.position.x += coh.x * 0.05 * dt;
+          g.position.z += coh.z * 0.05 * dt;
+        }
         // Random idle chirp
         if (Math.random() < 0.001) playCreatureSound('puff', { x: px, z: pz }, player.pos);
         if (p.idleTimer <= 0) {
-          p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5; p.hopTimer = 0;
+          // Bias hop direction toward flock center
+          const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
+          p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5 + flockAng * 0.3; p.hopTimer = 0;
         }
         break;
       }
@@ -511,10 +615,10 @@ function updatePuffs(dt, t) {
         const hopDur = 1.2;
         const frac = p.hopTimer / hopDur;
         if (frac >= 1.0) {
-          p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 3; g.position.y = p._baseY;
+          p.state = 'idle'; p.idleTimer = (1.5 + Math.random() * 3) * puffIdleMult; g.position.y = p._baseY;
         } else {
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
-          g.position.x += Math.sin(p.wanderAng) * p.speed * dt;
+          g.position.x += Math.sin(p.wanderAng) * p.speed * puffSpeedMult * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
           const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
@@ -528,8 +632,9 @@ function updatePuffs(dt, t) {
         p.hopTimer += dt * 1.5;
         const frac = Math.min(p.hopTimer / 0.8, 1);
         g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.5;
-        g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt;
-        g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt;
+        // Scatter with separation force (Batch 2 Item 7)
+        g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt + sep.x * 0.5 * dt;
+        g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt + sep.z * 0.5 * dt;
         g.scale.set(0.85, 1.3, 0.85);
         if (p._scaredT <= 0) {
           p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
@@ -631,6 +736,34 @@ function updateDeers(dt, t) {
       }
     }
 
+    // Batch 2 Item 8: Deer herd awareness
+    // Cascade flee: if one deer flees, nearby deer also flee
+    if (d.state !== 'flee') {
+      for (let di = 0; di < deers.length; di++) {
+        if (di === i || deers[di].state !== 'flee') continue;
+        const odx = deers[di].group.position.x - gx, odz = deers[di].group.position.z - gz;
+        if (odx * odx + odz * odz < 400) { // within 20m
+          d.state = 'flee'; d.wanderAng = deers[di].wanderAng + (Math.random() - 0.5) * 0.4;
+          d.fleeTimer = 2 + Math.random() * 1.5; d._zigTimer = 0;
+          break;
+        }
+      }
+    }
+    // Herd neighbor data for cohesion/separation
+    const deerNeighbors = [];
+    for (let di = 0; di < deers.length; di++) {
+      if (di === i) continue;
+      const ox = deers[di].group.position.x, oz = deers[di].group.position.z;
+      const d2 = (ox - gx) * (ox - gx) + (oz - gz) * (oz - gz);
+      if (d2 < 400) deerNeighbors.push({ x: ox, z: oz }); // within 20m
+    }
+    const deerSep = separation({ x: gx, z: gz }, deerNeighbors, 3);
+    const deerCoh = deerNeighbors.length > 0 ? cohesion({ x: gx, z: gz }, deerNeighbors) : { x: 0, z: 0 };
+    // Alert state: all nearby deer look at same threat
+    if (d.state === 'alert' || d.state === 'watching') {
+      d.headLook += (pAng - d.wanderAng) * 0.3 * dt;
+    }
+
     let moveSpeed = d.speed, isMoving = false;
 
     switch (d.state) {
@@ -639,9 +772,12 @@ function updateDeers(dt, t) {
         d.walkTimer -= dt;
         if (d.walkTimer <= 0) {
           const r = Math.random();
+          // Batch 2 Item 4: Deer day/night — graze more at DUSK, rest more at DEEP_NIGHT
+          const grazeThresh = dayPhase === 'DUSK' ? 0.55 : 0.4;
+          const restThresh = dayPhase === 'DEEP_NIGHT' ? 0.25 : 0.1;
           if (r < 0.25) { d.state = 'pause'; d.pauseTimer = 2 + Math.random() * 3; }
-          else if (r < 0.4) { d.state = 'graze'; d._stT = 3 + Math.random() * 4; }
-          else if (r < 0.5 && ponds.length > 0) {
+          else if (r < grazeThresh) { d.state = 'graze'; d._stT = dayPhase === 'DUSK' ? (5 + Math.random() * 6) : (3 + Math.random() * 4); }
+          else if (r < grazeThresh + 0.1 && ponds.length > 0) {
             d.state = 'drink'; d._stT = 8;
             let bestD2 = Infinity;
             for (let pi = 0; pi < ponds.length; pi++) {
@@ -650,7 +786,7 @@ function updateDeers(dt, t) {
               if (pd2 < bestD2) { bestD2 = pd2; d._drinkTgt = ponds[pi]; }
             }
           }
-          else if (r < 0.55) { d.state = 'rest'; d._stT = 5 + Math.random() * 5; }
+          else if (r < grazeThresh + 0.1 + restThresh) { d.state = 'rest'; d._stT = dayPhase === 'DEEP_NIGHT' ? (8 + Math.random() * 8) : (5 + Math.random() * 5); }
           else { d.wanderAng += (Math.random() - 0.5) * 1.2; d.walkTimer = 3 + Math.random() * 5; }
         }
         // Gently steer toward home zone
@@ -658,6 +794,11 @@ function updateDeers(dt, t) {
         if (homeD2 > 400) {
           const homeAng = Math.atan2(d.homeX - gx, d.homeZ - gz);
           d.wanderAng += (homeAng - d.wanderAng) * dt * 0.5;
+        }
+        // Batch 2 Item 8: Herd cohesion + separation during walk
+        if (deerNeighbors.length > 0) {
+          const herdAng = Math.atan2(deerCoh.x * 0.15 + deerSep.x * 0.8, deerCoh.z * 0.15 + deerSep.z * 0.8);
+          d.wanderAng += (herdAng - d.wanderAng) * dt * 0.3;
         }
         break;
       }
@@ -834,7 +975,9 @@ function updateMoths(dt, t) {
           playCreatureSound('moth', { x: mx, z: mz }, player.pos);
         }
       }
-      if (Math.random() < 0.001) {
+      // Rest chance higher at DAWN (Item 4: day/night)
+      const restChance = dayPhase === 'DAWN' ? 0.005 : (dayPhase === 'DEEP_NIGHT' ? 0.0003 : 0.001);
+      if (Math.random() < restChance) {
         let bestD2 = Infinity, bestTree = null;
         for (let ti = 0; ti < trees_data.length; ti++) {
           const tdx = trees_data[ti].x - mx, tdz = trees_data[ti].z - mz;
@@ -843,16 +986,20 @@ function updateMoths(dt, t) {
         }
         if (bestTree) {
           m._state = 'rest'; m._restTree = bestTree;
-          m._stT = 4 + Math.random() * 6;
+          m._stT = dayPhase === 'DAWN' ? (8 + Math.random() * 10) : (4 + Math.random() * 6);
         }
       }
     }
 
+    // Batch 2 Item 4: Moth day/night — DEEP_NIGHT=active, DAWN=sleepy
+    const mothSpeed = dayPhase === 'DEEP_NIGHT' ? 1.6 : (dayPhase === 'DAWN' ? 0.5 : 1.0);
+    const mothRange = dayPhase === 'DEEP_NIGHT' ? 1.4 : 1.0;
+
     switch (m._state) {
       case 'patrol': {
-        m.orbitAng += dt * 0.4;
-        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR;
-        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR;
+        m.orbitAng += dt * 0.4 * mothSpeed;
+        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR * mothRange;
+        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR * mothRange;
         g.position.x += (tx - mx) * dt * 1.5;
         g.position.z += (tz - mz) * dt * 1.5;
         g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
@@ -1111,9 +1258,25 @@ function updateEchoBloom(dt, t) {
       }
     }
   }
-  if (!echoBloomCenter) return;
+  // Batch 2 Item 2: Visible wave ring
+  const ring = getEchoBloomRing();
+  if (!echoBloomCenter) {
+    ring.visible = false;
+    return;
+  }
   echoBloomRadius += dt * 12;
-  if (echoBloomRadius > 30) { echoBloomCenter = null; echoBloomRadius = 0; return; }
+  if (echoBloomRadius > 30) {
+    echoBloomCenter = null; echoBloomRadius = 0;
+    ring.visible = false;
+    return;
+  }
+  // Position and scale the ring to match wave front
+  ring.visible = true;
+  ring.position.set(echoBloomCenter.x, 0.15, echoBloomCenter.z);
+  ring.scale.setScalar(echoBloomRadius);
+  // Fade opacity as it expands
+  ring.material.opacity = (1.0 - echoBloomRadius / 30) * 0.45;
+
   const wave = echoBloomRadius;
   const waveW = 4.0;
   for (let i = 0; i < mush_data.length; i++) {
@@ -1191,8 +1354,11 @@ function updateFloraReactions(dt, t) {
   }
 
   // --- Crystal resonance: chain glow to nearby crystals, dampened in fog (Item 7) ---
+  // Batch 2 Item 6: Draw visible energy lines between chaining crystals
+  initEnergyLines();
   const fogDampen = weatherState === 'FOG_BANK' ? 0.5 : 1.0;
   let crystalChainCount = 0;
+  let lineIdx = 0;
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const ddx = c.x - px, ddz = c.z - pz;
@@ -1207,8 +1373,34 @@ function updateFloraReactions(dt, t) {
           const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
           c2.mat.emissiveIntensity += chainStr * bioGlow;
           if (c2.light) c2.light.intensity += chainStr * 0.3 * bioGlow;
+          // Activate energy line between these two crystals
+          if (lineIdx < MAX_ENERGY_LINES) {
+            const el = energyLines[lineIdx];
+            const posArr = el.geo.attributes.position.array;
+            const cy1 = 1.0, cy2 = 1.0; // crystal height
+            posArr[0] = c.x; posArr[1] = cy1; posArr[2] = c.z;
+            posArr[3] = c2.x; posArr[4] = cy2; posArr[5] = c2.z;
+            el.geo.attributes.position.needsUpdate = true;
+            el.geo.computeBoundingSphere();
+            el.active = true;
+            // Pulse opacity with energy flow
+            const pulse = Math.sin(t * 3 + i * 1.5 + j * 0.7) * 0.3 + 0.5;
+            el.opacity = chainStr * pulse * bioGlow;
+            el.line.material.opacity = el.opacity;
+            el.line.visible = true;
+            lineIdx++;
+          }
         }
       }
+    }
+  }
+  // Fade out unused energy lines
+  for (let i = lineIdx; i < MAX_ENERGY_LINES; i++) {
+    const el = energyLines[i];
+    if (el.line.visible) {
+      el.opacity *= 0.85; // smooth fade out
+      el.line.material.opacity = el.opacity;
+      if (el.opacity < 0.01) el.line.visible = false;
     }
   }
   return crystalChainCount;
@@ -1329,6 +1521,23 @@ function director(dt, t) {
     }
   }
 
+  // Batch 2 Item 5: Leaf fall from trees during wind
+  // Spawn rate increases with wind strength; storm = many leaves
+  const leafSpawnChance = windStrength > 0.3 ? (windStrength - 0.3) * 0.02 : 0;
+  const stormLeafBoost = isStorming ? 0.03 : 0;
+  if (Math.random() < leafSpawnChance + stormLeafBoost) {
+    // Pick a random tree near the player for spawning
+    for (let i = 0; i < trees_data.length; i++) {
+      const tr = trees_data[i];
+      const dx = tr.x - player.pos.x, dz = tr.z - player.pos.z;
+      if (dx * dx + dz * dz < 900 && Math.random() < 0.15) { // within 30m
+        const canopyY = (tr.group.children[0] ? tr.group.children[0].geometry.parameters.height * 0.7 : 6) + tr.group.position.y;
+        spawnLeaf(tr.x, canopyY, tr.z);
+        break;
+      }
+    }
+  }
+
   // Update all subsystems
   updateJellies(dt, t);
   updatePuffs(dt, t);
@@ -1336,11 +1545,40 @@ function director(dt, t) {
   updateMoths(dt, t);
   updateSky(dt, t);
   updateVegetation(dt, t);
-  // Rock crystal sparkle twinkle
+  // Batch 2 Item 3: Rock sparkles reactive to crystals, player, and chain resonance
   for (let i = 0; i < rocks_data.length; i++) {
     const rk = rocks_data[i];
-    if (rk.sparkles) for (let si = 0; si < rk.sparkles.length; si++) {
-      rk.sparkles[si].material.opacity = 0.15 + Math.sin(t * 4 + i * 2.3 + si * 1.7) * 0.35;
+    if (!rk.sparkles) continue;
+    const rx = rk.x || rk.group.position.x, rz = rk.z || rk.group.position.z;
+    // Crystal proximity boost: rocks near active crystals glow brighter
+    let crystalBoost = 0;
+    for (let ci = 0; ci < crys_data.length; ci++) {
+      const cdx = crys_data[ci].x - rx, cdz = crys_data[ci].z - rz;
+      const cd2 = cdx * cdx + cdz * cdz;
+      if (cd2 < 100) { // within 10m of crystal
+        crystalBoost = Math.max(crystalBoost, (1 - Math.sqrt(cd2) / 10) * 0.6);
+      }
+    }
+    // Player proximity: subtle moss glow pulse
+    const prx = rx - player.pos.x, prz = rz - player.pos.z;
+    const pd2 = prx * prx + prz * prz;
+    const playerGlow = pd2 < 25 ? (1 - Math.sqrt(pd2) / 5) * 0.3 : 0;
+    // Chain resonance flash (uses echoBloomRadius as indicator)
+    let chainFlash = 0;
+    if (echoBloomCenter && echoBloomRadius > 0) {
+      const edx = rx - echoBloomCenter.x, edz = rz - echoBloomCenter.z;
+      const ed = Math.sqrt(edx * edx + edz * edz);
+      if (Math.abs(ed - echoBloomRadius) < 3) {
+        chainFlash = (1 - Math.abs(ed - echoBloomRadius) / 3) * 0.8;
+      }
+    }
+    for (let si = 0; si < rk.sparkles.length; si++) {
+      const baseSparkle = Math.sin(t * 4 + i * 2.3 + si * 1.7) * 0.35;
+      rk.sparkles[si].material.opacity = 0.15 + baseSparkle + crystalBoost + playerGlow + chainFlash;
+    }
+    // Animate moss emissive if rock has moss
+    if (rk.mossMat && playerGlow > 0) {
+      rk.mossMat.emissiveIntensity = 0.05 + playerGlow * 0.4 * Math.sin(t * 2 + i) * 0.5 + 0.5;
     }
   }
   updateWisps(dt, t);
@@ -1350,6 +1588,7 @@ function director(dt, t) {
   updatePonds(dt, t);
   updateStarMotes(dt, t, player.pos);
   updateDandSeeds(dt, t);
+  updateLeaves(dt, t);
   updateDustMotes(dt);
   updateBubblePops(dt);
   updateEchoBloom(dt, t);
@@ -1406,6 +1645,7 @@ function animate() {
   // Pass wind to particle systems (Item 9)
   setSporeWind(windX, windZ);
   setSeedWind(windX, windZ, windStrength);
+  setLeafWind(windX, windZ, windStrength);
 
   if (!gameStarted) {
     // Pre-game idle animation
@@ -1522,6 +1762,7 @@ try {
   initDustMotes(20);
   initDandSeeds(40);
   initBubblePops(30);
+  initLeaves(50);
 
   // Build quest structures
   makeObelisk();

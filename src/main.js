@@ -54,7 +54,7 @@ import { makeOrb } from './entities/magical/orbs.js';
 
 // Entities — World
 import { makeRock } from './entities/world/rocks.js';
-import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat } from './entities/world/obelisk.js';
+import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
 import { makeRainbows, rainbowArcs } from './entities/world/rainbows.js';
 
@@ -1785,6 +1785,8 @@ try {
     obeliskGroup: getObeliskGroup(),
     obeliskMat: getObeliskMat(),
     obeliskGlowMat: getObeliskGlowMat(),
+    pinnacleOrb: getPinnacleOrb(),
+    pinnacleRings: getPinnacleRings(),
     moatMesh: getMoatMesh(),
     moatMat: getMoatMat(),
     rainbowArcs: rainbowArcs,

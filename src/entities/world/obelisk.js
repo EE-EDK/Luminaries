@@ -7,10 +7,14 @@ import { sr } from '../../utils/rng.js';
 let obeliskGroup = null;
 let obeliskMat = null;
 let obeliskGlowMat = null;
+let pinnacleOrb = null; // pink orb at tip
+let pinnacleRings = []; // 4 rotating purple rings
 
 export function getObeliskGroup() { return obeliskGroup; }
 export function getObeliskMat() { return obeliskMat; }
 export function getObeliskGlowMat() { return obeliskGlowMat; }
+export function getPinnacleOrb() { return pinnacleOrb; }
+export function getPinnacleRings() { return pinnacleRings; }
 
 export function makeObelisk() {
   const g = new THREE.Group();
@@ -128,6 +132,47 @@ export function makeObelisk() {
         Math.sin(fAng) * 1.58 + Math.sin(fAng + 1.57) * iOff);
       dot.visible = false; g.add(dot);
     }
+  }
+
+  // Pinnacle orb — glowing pink sphere at tip with 4 purple rotating rings
+  const pinnOrbMat = new THREE.MeshBasicMaterial({
+    color: C.obeliskPink, transparent: true, opacity: 0.8,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const pinnOrbMesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), pinnOrbMat);
+  pinnOrbMesh.position.y = OBELISK_H + 3; // at tip of capstone
+  g.add(pinnOrbMesh);
+  // Outer glow haze
+  const pinnHazeMat = new THREE.MeshBasicMaterial({
+    color: C.obeliskPink, transparent: true, opacity: 0.2,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const pinnHaze = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 6), pinnHazeMat);
+  pinnHaze.position.y = OBELISK_H + 3;
+  g.add(pinnHaze);
+  pinnacleOrb = { mesh: pinnOrbMesh, haze: pinnHaze, mat: pinnOrbMat, hazeMat: pinnHazeMat };
+
+  // 4 concentric purple rings with random rotation axes
+  pinnacleRings = [];
+  const ringRadii = [0.8, 1.1, 1.4, 1.8];
+  const ringColors = [0xaa44ff, 0x9933ee, 0xbb55ff, 0x8822dd];
+  for (let ri = 0; ri < 4; ri++) {
+    const rMat = new THREE.MeshBasicMaterial({
+      color: ringColors[ri], transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+    });
+    const rMesh = new THREE.Mesh(new THREE.TorusGeometry(ringRadii[ri], 0.02, 6, 24), rMat);
+    rMesh.position.y = OBELISK_H + 3;
+    // Random initial rotation axis
+    rMesh.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
+    g.add(rMesh);
+    pinnacleRings.push({
+      mesh: rMesh, mat: rMat,
+      // Random rotation speeds per axis
+      rx: (Math.random() - 0.5) * 2,
+      ry: (Math.random() - 0.5) * 2,
+      rz: (Math.random() - 0.5) * 1.5
+    });
   }
 
   // Ground shadow disc (dark circle beneath obelisk)

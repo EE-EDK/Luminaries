@@ -1,15 +1,29 @@
-// --- Laser beam system (orb → sky → obelisk, with inter-laser connections) ---
+// --- Laser beam system (orb → sky → obelisk tip, with inter-laser connections) ---
 import * as THREE from 'three';
 import { scene } from '../core/renderer.js';
 import { C, OBELISK_H } from '../constants.js';
 
 const laserBeams = [];
 const interLines = [];
+let lastTipY = OBELISK_H + 2;
+
+function buildBendGeo(fromX, fromZ, skyY, tipY) {
+  const pts = [];
+  for (let j = 0; j <= 12; j++) {
+    const frac = j / 12;
+    const px = fromX * (1 - frac * frac);
+    const pz = fromZ * (1 - frac * frac);
+    const py = skyY + (tipY - skyY) * frac;
+    pts.push(new THREE.Vector3(px, py, pz));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  return { curve, pts };
+}
 
 // Create a laser that shoots up from orb pos, then bends to obelisk tip
-export function makeLaser(fromX, fromZ, floatY) {
-  const topY = OBELISK_H + 2; // obelisk tip
-  const skyY = floatY + 15; // laser rises high first
+export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
+  const tipY = obeliskTipY || (OBELISK_H + 2);
+  const skyY = floatY + 15;
 
   // Upward column (orb position straight up)
   const upPath = new THREE.LineCurve3(
@@ -32,15 +46,7 @@ export function makeLaser(fromX, fromZ, floatY) {
   scene.add(upGlow);
 
   // Curved beam from sky point down to obelisk tip
-  const bendPts = [];
-  for (let j = 0; j <= 12; j++) {
-    const frac = j / 12;
-    const px = fromX * (1 - frac * frac); // curves toward center
-    const pz = fromZ * (1 - frac * frac);
-    const py = skyY + (topY - skyY) * frac;
-    bendPts.push(new THREE.Vector3(px, py, pz));
-  }
-  const bendCurve = new THREE.CatmullRomCurve3(bendPts);
+  const { curve: bendCurve } = buildBendGeo(fromX, fromZ, skyY, tipY);
   const bendMat = new THREE.MeshBasicMaterial({
     color: C.laserPink, transparent: true, opacity: 0.0,
     blending: THREE.AdditiveBlending, depthWrite: false
@@ -58,9 +64,8 @@ export function makeLaser(fromX, fromZ, floatY) {
   const beam = {
     upTube, upGlow, bendTube, bendGlow,
     mat: upMat, glowMat: upGlowMat, bendMat, bendGlowMat,
-    fromX, fromZ, floatY, skyY,
-    animPhase: 0, // 0=rising, 1=bending, 2=complete
-    animTimer: 0
+    fromX, fromZ, floatY, skyY, tipY,
+    animPhase: 0, animTimer: 0
   };
   laserBeams.push(beam);
 
@@ -73,7 +78,7 @@ export function makeLaser(fromX, fromZ, floatY) {
       const frac = j / 8;
       const px = beam.fromX * (1 - frac) + other.fromX * frac;
       const pz = beam.fromZ * (1 - frac) + other.fromZ * frac;
-      const py = midY + Math.sin(frac * Math.PI) * 3; // arc between
+      const py = midY + Math.sin(frac * Math.PI) * 3;
       connPts.push(new THREE.Vector3(px, py, pz));
     }
     const connCurve = new THREE.CatmullRomCurve3(connPts);
@@ -95,20 +100,46 @@ export function makeLaser(fromX, fromZ, floatY) {
   return beam;
 }
 
+// Rebuild bend geometry when obelisk tip moves
+function rebuildBends(tipY) {
+  for (let i = 0; i < laserBeams.length; i++) {
+    const b = laserBeams[i];
+    b.tipY = tipY;
+    const { curve } = buildBendGeo(b.fromX, b.fromZ, b.skyY, tipY);
+
+    // Replace bend tube geometry
+    scene.remove(b.bendTube);
+    b.bendTube.geometry.dispose();
+    b.bendTube.geometry = new THREE.TubeGeometry(curve, 16, 0.05, 6, false);
+    scene.add(b.bendTube);
+
+    scene.remove(b.bendGlow);
+    b.bendGlow.geometry.dispose();
+    b.bendGlow.geometry = new THREE.TubeGeometry(curve, 16, 0.18, 6, false);
+    scene.add(b.bendGlow);
+  }
+}
+
 // Animate laser beams: rise phase, then bend phase
-export function updateLasers(dt, t) {
+// obeliskTipY: current world-space Y of obelisk tip
+export function updateLasers(dt, t, obeliskTipY) {
+  // Rebuild bend curves if obelisk tip moved
+  const tipY = obeliskTipY || (OBELISK_H + 2);
+  if (Math.abs(tipY - lastTipY) > 0.1 && laserBeams.length > 0) {
+    rebuildBends(tipY);
+    lastTipY = tipY;
+  }
+
   for (let i = 0; i < laserBeams.length; i++) {
     const b = laserBeams[i];
     b.animTimer += dt;
 
     if (b.animPhase === 0) {
-      // Phase 0: upward column fading in (0.5s)
       const fade = Math.min(b.animTimer / 0.5, 1);
       b.mat.opacity = fade * 0.8;
       b.glowMat.opacity = fade * 0.3;
       if (b.animTimer > 0.5) { b.animPhase = 1; b.animTimer = 0; }
     } else if (b.animPhase === 1) {
-      // Phase 1: bend beam appears (0.8s)
       const fade = Math.min(b.animTimer / 0.8, 1);
       b.bendMat.opacity = fade * 0.7;
       b.bendGlowMat.opacity = fade * 0.2;
@@ -116,7 +147,6 @@ export function updateLasers(dt, t) {
       b.glowMat.opacity = 0.3;
       if (b.animTimer > 0.8) { b.animPhase = 2; }
     } else {
-      // Phase 2: pulse sustain
       const p = Math.sin(t * 3 + i * 1.2) * 0.5 + 0.5;
       b.mat.opacity = 0.5 + p * 0.4;
       b.glowMat.opacity = 0.15 + p * 0.15;
@@ -125,7 +155,6 @@ export function updateLasers(dt, t) {
     }
   }
 
-  // Animate inter-laser connections
   for (let i = 0; i < interLines.length; i++) {
     const conn = interLines[i];
     conn.opacity = Math.min(conn.opacity + dt * 0.5, 0.3);

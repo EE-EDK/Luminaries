@@ -249,7 +249,10 @@ export function createSkyDome() {
   const savedSeed = saveSeed();
 
   const tex = paintSkyCanvas();
-  const geo = new THREE.SphereGeometry(SKY_R, 64, 32);
+  // Only render upper hemisphere + a bit below equator (thetaLength < π).
+  // The ground covers everything below the horizon; rendering the full sphere
+  // exposes the south pole's UV convergence as a visible dark disc.
+  const geo = new THREE.SphereGeometry(SKY_R, 64, 32, 0, Math.PI * 2, 0, Math.PI * 0.55);
   skyDomeMat = new THREE.MeshBasicMaterial({
     map: tex, side: THREE.BackSide, fog: false,
     transparent: false

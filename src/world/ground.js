@@ -205,7 +205,7 @@ export function createGround() {
 
     // Apply terrain height (stored in Z before rotation)
     if (dist < WORLD_R * 1.4) {
-      posAttr.setZ(i, getGroundY(x, y));
+      posAttr.setZ(i, getGroundY(x, -y));
     } else {
       posAttr.setZ(i, 0);
     }

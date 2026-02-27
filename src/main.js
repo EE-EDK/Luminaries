@@ -1370,9 +1370,8 @@ function updateFloraReactions(dt, t) {
         const cd2 = cdx * cdx + cdz * cdz;
         if (cd2 < 400) { // neighbor within 20m
           crystalChainCount++;
-          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
+          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.5 * fogDampen;
           c2.mat.emissiveIntensity += chainStr * bioGlow;
-          if (c2.light) c2.light.intensity += chainStr * 0.3 * bioGlow;
           // Activate energy line between these two crystals
           if (lineIdx < MAX_ENERGY_LINES) {
             const el = energyLines[lineIdx];
@@ -1471,13 +1470,13 @@ function director(dt, t) {
     m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
   }
 
-  // Crystal glow + rotation
+  // Crystal glow + rotation (toned down — no harsh flashes)
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    c.mat.emissiveIntensity = (1.0 + p * 1.5) * bioGlow;
+    c.mat.emissiveIntensity = (0.6 + p * 0.6) * bioGlow;
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
+    if (c.light) c.light.intensity = (0.15 + p * 0.15) * bioGlow;
   }
 
   // Crystal proximity lights — only re-sort when player moves >1m
@@ -1500,8 +1499,8 @@ function director(dt, t) {
       const c = crys_data[crystalSortBuf[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
-      crystalLights[i].distance = 16;
+      crystalLights[i].intensity = (0.4 + p * 0.4) * bioGlow;
+      crystalLights[i].distance = 12;
       crystalLights[i].color.setHex(C.crystal);
     } else {
       crystalLights[i].intensity = 0;

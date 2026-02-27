@@ -205,7 +205,7 @@ function populate() {
     }
     if (ok4) {
       const r = makeRock(rx, rz);
-      r.group.position.y = getGroundY(rx, rz);
+      r.group.position.y = getGroundY(rx, rz) - 0.08;
       rocks_data.push(r);
     }
   }
@@ -1291,11 +1291,12 @@ function animate() {
   updateRain(dt, player.pos, rainRate, windX, windZ);
 
   // Lightning flash (brief ambient light spike during storms)
+  // Keep flash moderate to avoid blowing out with tonemapping + bloom
   if (lightningFlash > 0) {
-    hemiLight.intensity += lightningFlash * 2.5;
-    scene.background.r = Math.min(1, scene.background.r + lightningFlash * 0.3);
-    scene.background.g = Math.min(1, scene.background.g + lightningFlash * 0.3);
-    scene.background.b = Math.min(1, scene.background.b + lightningFlash * 0.4);
+    hemiLight.intensity += lightningFlash * 0.8;
+    scene.background.r = Math.min(scene.background.r + lightningFlash * 0.08, 0.25);
+    scene.background.g = Math.min(scene.background.g + lightningFlash * 0.08, 0.25);
+    scene.background.b = Math.min(scene.background.b + lightningFlash * 0.12, 0.35);
   }
 
   if (!gameStarted) {

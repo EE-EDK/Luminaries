@@ -16,11 +16,12 @@ export function makeRock(x, z) {
     color: C.rockMoss, emissive: C.rockMoss, emissiveIntensity: 0.03, roughness: 0.9
   });
 
-  // Main stone
+  // Main stone — sink into ground so bottom is embedded
   const mainSz = 0.3 + sr() * 0.5;
   const main = new THREE.Mesh(new THREE.SphereGeometry(mainSz, 8, 6), sr() < 0.6 ? rockMat : rockLightMat);
-  main.scale.set(1 + sr() * 0.6, 0.4 + sr() * 0.4, 1 + sr() * 0.6);
-  main.position.y = mainSz * 0.2;
+  const scaleY = 0.4 + sr() * 0.4;
+  main.scale.set(1 + sr() * 0.6, scaleY, 1 + sr() * 0.6);
+  main.position.y = mainSz * scaleY * 0.35;
   main.rotation.set(sr() * 0.5, sr() * 3, sr() * 0.3);
   main.castShadow = true; main.receiveShadow = true;
   g.add(main);
@@ -31,8 +32,9 @@ export function makeRock(x, z) {
     const sa = sr() * 6.28, sd = mainSz * 0.6 + sr() * mainSz * 0.5;
     const sSz = mainSz * 0.3 + sr() * mainSz * 0.4;
     const sec = new THREE.Mesh(new THREE.SphereGeometry(sSz, 5, 4), sr() < 0.5 ? rockMat : rockLightMat);
-    sec.scale.set(1 + sr() * 0.5, 0.3 + sr() * 0.4, 1 + sr() * 0.5);
-    sec.position.set(Math.cos(sa) * sd, sSz * 0.15, Math.sin(sa) * sd);
+    const secScaleY = 0.3 + sr() * 0.4;
+    sec.scale.set(1 + sr() * 0.5, secScaleY, 1 + sr() * 0.5);
+    sec.position.set(Math.cos(sa) * sd, sSz * secScaleY * 0.3, Math.sin(sa) * sd);
     sec.rotation.set(sr() * 0.8, sr() * 3, sr() * 0.5);
     g.add(sec);
   }

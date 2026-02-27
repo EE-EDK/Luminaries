@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD_R } from '../constants.js';
+import { WORLD_R, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from './terrain.js';
 
@@ -183,39 +183,102 @@ function makeGroundTexture() {
 
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(5, 5);
+  tex.repeat.set(8, 8);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+// Simple 2D hash for vertex color noise (independent from terrain.js internals)
+function ghash(x, y) {
+  let h = (x * 127961 + y * 372143 + 918273) | 0;
+  h = ((h ^ (h >> 13)) * 517261) | 0;
+  return (h & 0x7fffffff) / 0x7fffffff;
+}
+function gsmooth(t) { return t * t * (3 - 2 * t); }
+function gnoise(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = gsmooth(x - ix), fy = gsmooth(y - iy);
+  const a = ghash(ix, iy), b = ghash(ix + 1, iy);
+  const c = ghash(ix, iy + 1), d = ghash(ix + 1, iy + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+function gfbm(x, y, oct) {
+  let v = 0, a = 0.5, f = 1;
+  for (let i = 0; i < oct; i++) { v += gnoise(x * f, y * f) * a; a *= 0.5; f *= 2; }
+  return v;
 }
 
 export function createGround() {
   const groundTex = makeGroundTexture();
   // Subdivided plane for terrain displacement
-  const size = WORLD_R * 3; // same coverage as before (1.5 * radius on each side)
-  const segs = 200; // vertex density for smooth hills
+  const size = WORLD_R * 3;
+  const segs = 200;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
   const posAttr = geo.attributes.position;
-  const uvAttr = geo.attributes.uv;
 
-  // Displace vertices using heightmap + clip to circular world
-  for (let i = 0; i < posAttr.count; i++) {
+  // --- Vertex color biomes ---
+  // Define biome base colors: [r, g, b] in 0-1 range
+  const biomes = [
+    [0.10, 0.28, 0.14],  // dark forest green (default)
+    [0.08, 0.22, 0.24],  // teal moss
+    [0.18, 0.10, 0.25],  // purple bioluminescent
+    [0.16, 0.12, 0.06],  // earthy brown
+    [0.12, 0.32, 0.18],  // bright emerald
+    [0.06, 0.16, 0.22],  // deep blue-green
+  ];
+  const vCount = posAttr.count;
+  const colorArr = new Float32Array(vCount * 3);
+  const tmpCol = new THREE.Color();
+
+  // Displace vertices + assign vertex colors
+  for (let i = 0; i < vCount; i++) {
     const x = posAttr.getX(i);
-    const y = posAttr.getY(i); // PlaneGeometry XY, we'll rotate to XZ
+    const y = posAttr.getY(i);
     const dist = Math.sqrt(x * x + y * y);
 
-    // Apply terrain height (stored in Z before rotation)
+    // Terrain height (Z before rotation; use -y for world-space match)
     if (dist < WORLD_R * 1.4) {
       posAttr.setZ(i, getGroundY(x, -y));
     } else {
       posAttr.setZ(i, 0);
     }
+
+    // World-space coords for color sampling
+    const wx = x, wz = -y;
+
+    // Layered noise for biome selection + color variation
+    const n1 = gfbm(wx * 0.025 + 100, wz * 0.025 + 200, 3);      // broad biome patches
+    const n2 = gfbm(wx * 0.06 + 300, wz * 0.06 + 400, 2);         // medium patches
+    const n3 = gnoise(wx * 0.15 + 500, wz * 0.15 + 600);           // fine detail
+    const n4 = gfbm(wx * 0.04 - 150, wz * 0.04 - 250, 3);         // secondary broad
+
+    // Biome index from broad noise
+    const biomeIdx = Math.floor(n1 * biomes.length * 0.999);
+    const biome2Idx = Math.floor(n4 * biomes.length * 0.999);
+    const b1 = biomes[biomeIdx], b2 = biomes[biome2Idx];
+
+    // Blend two biome layers + fine detail brightness variation
+    const blend = gsmooth(n2);
+    const brightness = 0.75 + n3 * 0.5;  // 0.75 - 1.25 range
+    const r = (b1[0] * (1 - blend) + b2[0] * blend) * brightness;
+    const g = (b1[1] * (1 - blend) + b2[1] * blend) * brightness;
+    const b = (b1[2] * (1 - blend) + b2[2] * blend) * brightness;
+
+    // Height-based tinting: higher ground slightly lighter/mossier
+    const hY = getGroundY(wx, wz);
+    const hTint = 1.0 + hY * 0.08;
+
+    colorArr[i * 3] = Math.min(r * hTint, 1);
+    colorArr[i * 3 + 1] = Math.min(g * hTint * 1.05, 1);
+    colorArr[i * 3 + 2] = Math.min(b * hTint, 1);
   }
+  geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
   geo.computeVertexNormals();
 
   const ground = new THREE.Mesh(
     geo,
     new THREE.MeshStandardMaterial({
-      map: groundTex, color: 0xeeffee, roughness: 0.75, metalness: 0.0,
+      map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
       emissive: 0x1a3820, emissiveIntensity: 0.25
     })
   );

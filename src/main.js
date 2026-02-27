@@ -403,29 +403,42 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
-  // --- Tree wind sway (Item 4) ---
+  // --- Tree wind sway (Item 4) — distance-culled for performance ---
+  const px = player.pos.x, pz = player.pos.z;
   for (let i = 0; i < trees_data.length; i++) {
     const tr = trees_data[i];
+    const tdx = tr.x - px, tdz = tr.z - pz;
+    if (tdx * tdx + tdz * tdz > 900) continue; // skip beyond 30m
     const tPhase = tr.x * 0.1 + tr.z * 0.13;
     tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
     tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
   }
+  // Grass patch vertex updates — distance-culled (most expensive CPU loop)
   for (let i = 0; i < grassPatches.length; i++) {
-    updateGrassPatch(grassPatches[i], t, wAmp, wLeanX, wLeanZ, player.pos.x, player.pos.z);
+    const gp = grassPatches[i];
+    const gdx = gp.cx - px, gdz = gp.cz - pz;
+    if (gdx * gdx + gdz * gdz > 625) continue; // skip beyond 25m
+    updateGrassPatch(gp, t, wAmp, wLeanX, wLeanZ, px, pz);
   }
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
+    const fdx = f.group.position.x - px, fdz = f.group.position.z - pz;
+    if (fdx * fdx + fdz * fdz > 900) continue; // skip beyond 30m
     f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
     f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
   }
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
+    const fldx = fl.group.position.x - px, fldz = fl.group.position.z - pz;
+    if (fldx * fldx + fldz * fldz > 900) continue; // skip beyond 30m
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
     fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
     fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
   for (let i = 0; i < reeds.length; i++) {
     const r = reeds[i];
+    const rdx = r.group.position.x - px, rdz = r.group.position.z - pz;
+    if (rdx * rdx + rdz * rdz > 900) continue; // skip beyond 30m
     r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
     r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
   }
@@ -1601,6 +1614,9 @@ function director(dt, t) {
     const rk = rocks_data[i];
     if (!rk.sparkles) continue;
     const rx = rk.x || rk.group.position.x, rz = rk.z || rk.group.position.z;
+    // Distance-cull: skip rocks far from player
+    const rrx = rx - player.pos.x, rrz = rz - player.pos.z;
+    if (rrx * rrx + rrz * rrz > 400) continue; // skip beyond 20m
     // Crystal proximity boost: rocks near active crystals glow brighter
     let crystalBoost = 0;
     for (let ci = 0; ci < crys_data.length; ci++) {

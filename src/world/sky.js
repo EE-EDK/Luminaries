@@ -11,6 +11,19 @@ import { scene } from '../core/renderer.js';
 export const skyGroup = new THREE.Group();
 let skyDomeMat = null;
 
+// Twinkling star layer data
+const TWINKLE_COUNT = 120;
+let twinklePoints = null;
+let twinkleSizes = null; // Float32Array of base sizes
+let twinklePhases = null; // Float32Array of phase offsets
+let twinkleSpeeds = null; // Float32Array of twinkle speeds
+let twinkleSizeAttr = null; // BufferAttribute reference
+
+// Shooting star state
+const shootingStars = [];
+const SHOOTING_STAR_MAX = 3;
+let shootingStarTimer = 0;
+
 // Helpers
 function rgba(hex, a) {
   const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
@@ -259,14 +272,162 @@ export function createSkyDome() {
   });
   const dome = new THREE.Mesh(geo, skyDomeMat);
   skyGroup.add(dome);
+
+  // --- Twinkling star layer (Points — single draw call) ---
+  createTwinkleStars();
+
+  // --- Shooting star pool ---
+  createShootingStars();
+
   scene.add(skyGroup);
 
   // Restore RNG state
   restoreSeed(savedSeed);
 }
 
+function createTwinkleStars() {
+  const positions = new Float32Array(TWINKLE_COUNT * 3);
+  const colors = new Float32Array(TWINKLE_COUNT * 3);
+  twinkleSizes = new Float32Array(TWINKLE_COUNT);
+  twinklePhases = new Float32Array(TWINKLE_COUNT);
+  twinkleSpeeds = new Float32Array(TWINKLE_COUNT);
+
+  const starColorOptions = [
+    [1, 1, 1], [0.85, 0.9, 1], [1, 0.94, 0.86],
+    [0.78, 0.84, 1], [1, 0.88, 0.78], [0.9, 0.95, 1]
+  ];
+  const R = Math.random;
+  const r = SKY_R * 0.97;
+
+  for (let i = 0; i < TWINKLE_COUNT; i++) {
+    const theta = R() * Math.PI * 2;
+    const phi = R() * Math.PI * 0.48; // upper hemisphere
+    const x = r * Math.cos(theta) * Math.sin(phi);
+    const y = r * Math.cos(phi);
+    const z = r * Math.sin(theta) * Math.sin(phi);
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+
+    const col = starColorOptions[Math.floor(R() * starColorOptions.length)];
+    colors[i * 3] = col[0];
+    colors[i * 3 + 1] = col[1];
+    colors[i * 3 + 2] = col[2];
+
+    twinkleSizes[i] = 2.0 + R() * 4.0; // base point size
+    twinklePhases[i] = R() * Math.PI * 2;
+    twinkleSpeeds[i] = 0.5 + R() * 2.5; // varied twinkle rates
+  }
+
+  const ptGeo = new THREE.BufferGeometry();
+  ptGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  ptGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  twinkleSizeAttr = new THREE.Float32BufferAttribute(twinkleSizes.slice(), 1);
+  twinkleSizeAttr.setUsage(THREE.DynamicDrawUsage);
+  ptGeo.setAttribute('size', twinkleSizeAttr);
+
+  const ptMat = new THREE.PointsMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.9,
+    sizeAttenuation: true,
+    fog: false,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  twinklePoints = new THREE.Points(ptGeo, ptMat);
+  skyGroup.add(twinklePoints);
+}
+
+function createShootingStars() {
+  const trailMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0, fog: false,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  for (let i = 0; i < SHOOTING_STAR_MAX; i++) {
+    const trail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0, 12, 4),
+      trailMat.clone()
+    );
+    trail.visible = false;
+    skyGroup.add(trail);
+    shootingStars.push({
+      mesh: trail, mat: trail.material,
+      active: false, life: 0, maxLife: 0,
+      sx: 0, sy: 0, sz: 0, dx: 0, dy: 0, dz: 0
+    });
+  }
+}
+
+function spawnShootingStar() {
+  let s = null;
+  for (let i = 0; i < shootingStars.length; i++) {
+    if (!shootingStars[i].active) { s = shootingStars[i]; break; }
+  }
+  if (!s) return;
+
+  const R = Math.random;
+  // Start from random upper sky position
+  const theta = R() * Math.PI * 2;
+  const phi = 0.1 + R() * 0.35;
+  const r = SKY_R * 0.85;
+  s.sx = r * Math.cos(theta) * Math.sin(phi);
+  s.sy = r * Math.cos(phi);
+  s.sz = r * Math.sin(theta) * Math.sin(phi);
+
+  // Direction: mostly downward-diagonal
+  const dTheta = theta + (R() - 0.5) * 1.0;
+  const speed = 80 + R() * 120;
+  s.dx = Math.cos(dTheta) * speed;
+  s.dy = -speed * (0.5 + R() * 0.5);
+  s.dz = Math.sin(dTheta) * speed;
+
+  s.life = 0.5 + R() * 0.8;
+  s.maxLife = s.life;
+  s.active = true;
+  s.mesh.visible = true;
+}
+
 export function updateSky(dt, t) {
   skyGroup.rotation.y = t * 0.003;
+
+  // --- Twinkling stars ---
+  if (twinkleSizeAttr) {
+    const arr = twinkleSizeAttr.array;
+    for (let i = 0; i < TWINKLE_COUNT; i++) {
+      const base = twinkleSizes[i];
+      const twinkle = Math.sin(t * twinkleSpeeds[i] + twinklePhases[i]);
+      // Oscillate between 30% and 100% of base size
+      arr[i] = base * (0.65 + twinkle * 0.35);
+    }
+    twinkleSizeAttr.needsUpdate = true;
+  }
+
+  // --- Shooting stars ---
+  shootingStarTimer -= dt;
+  if (shootingStarTimer <= 0) {
+    shootingStarTimer = 4 + Math.random() * 12; // every 4-16 seconds
+    spawnShootingStar();
+  }
+  for (let i = 0; i < shootingStars.length; i++) {
+    const s = shootingStars[i];
+    if (!s.active) continue;
+    s.life -= dt;
+    if (s.life <= 0) { s.active = false; s.mesh.visible = false; continue; }
+    const frac = s.life / s.maxLife;
+    // Move along trajectory
+    s.sx += s.dx * dt;
+    s.sy += s.dy * dt;
+    s.sz += s.dz * dt;
+    s.mesh.position.set(s.sx, s.sy, s.sz);
+    // Orient along direction of travel
+    s.mesh.lookAt(s.sx + s.dx, s.sy + s.dy, s.sz + s.dz);
+    s.mesh.rotateX(Math.PI / 2);
+    // Fade: bright at start, fading toward end
+    s.mat.opacity = frac * 0.7;
+    s.mesh.scale.setScalar(0.6 + frac * 0.4);
+  }
 }
 
 // Modulate sky brightness via color tint (called by day/night cycle)

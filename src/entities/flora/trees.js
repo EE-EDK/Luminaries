@@ -19,8 +19,8 @@ export function makeTree(x, z) {
 
   // Trunk with bioluminescent undertone
   const tM = new THREE.MeshStandardMaterial({
-    color: 0x3a2818, roughness: 0.8,
-    emissive: 0x142a18, emissiveIntensity: 0.12
+    color: 0x5a4030, roughness: 0.75,
+    emissive: 0x1a3820, emissiveIntensity: 0.18
   });
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.4, r, h, 6), tM);
   trunk.position.y = h / 2; trunk.castShadow = true; g.add(trunk);
@@ -41,8 +41,8 @@ export function makeTree(x, z) {
 
   // Exposed roots (3-5 sprawling at base) with faint glow
   const rootM = new THREE.MeshStandardMaterial({
-    color: 0x2a1c10, roughness: 0.85,
-    emissive: 0x122210, emissiveIntensity: 0.08
+    color: 0x3a2c1a, roughness: 0.85,
+    emissive: 0x182a14, emissiveIntensity: 0.12
   });
   const rootN = 3 + Math.floor(sr() * 3);
   for (let ri = 0; ri < rootN; ri++) {

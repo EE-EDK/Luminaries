@@ -23,7 +23,7 @@ export const JELLY_N = 6;
 export const PUFF_N = 8;
 export const DEER_N = 4;
 export const MOTH_N = 5;
-export const GRASS_PATCHES = 110;
+export const GRASS_PATCHES = 55;
 export const FERN_N = 35;
 export const FLOWER_N = 30;
 export const REED_N = 25;
@@ -65,7 +65,7 @@ export const DEER_FLEE_SPEED_MULT = 2.2;
 // Color palette
 export const C = {
   sky: 0x081018, fog: 0x060c14, ground: 0x1a4028,
-  bark: 0x3a2818, leaf: 0x1a4820, leafGlow: 0x44ffaa,
+  bark: 0x5a4030, leaf: 0x1a4820, leafGlow: 0x44ffaa,
   mushCap: 0x8833ee, mushGlow: 0xcc77ff, mushStem: 0x2a1140,
   crystal: 0x33ffdd, crystalCore: 0x88ffee,
   firefly: 0xeeff66, fireflyB: 0x66ffdd, spore: 0xbbff99,

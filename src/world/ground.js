@@ -217,18 +217,18 @@ export function createGround() {
   const posAttr = geo.attributes.position;
 
   // --- Vertex color biomes ---
-  // Define biome base colors: [r, g, b] in 0-1 range
+  // Colors are bright (0.5-1.2) since they multiply with the dark texture.
+  // Higher values let texture detail show through; hue shifts create biome variety.
   const biomes = [
-    [0.10, 0.28, 0.14],  // dark forest green (default)
-    [0.08, 0.22, 0.24],  // teal moss
-    [0.18, 0.10, 0.25],  // purple bioluminescent
-    [0.16, 0.12, 0.06],  // earthy brown
-    [0.12, 0.32, 0.18],  // bright emerald
-    [0.06, 0.16, 0.22],  // deep blue-green
+    [0.55, 0.95, 0.60],  // forest green (default)
+    [0.45, 0.85, 0.95],  // teal moss
+    [0.80, 0.50, 1.00],  // purple bioluminescent
+    [0.85, 0.65, 0.40],  // earthy brown
+    [0.50, 1.10, 0.65],  // bright emerald
+    [0.40, 0.70, 0.90],  // deep blue-green
   ];
   const vCount = posAttr.count;
   const colorArr = new Float32Array(vCount * 3);
-  const tmpCol = new THREE.Color();
 
   // Displace vertices + assign vertex colors
   for (let i = 0; i < vCount; i++) {
@@ -259,18 +259,18 @@ export function createGround() {
 
     // Blend two biome layers + fine detail brightness variation
     const blend = gsmooth(n2);
-    const brightness = 0.75 + n3 * 0.5;  // 0.75 - 1.25 range
+    const brightness = 0.85 + n3 * 0.3;  // 0.85 - 1.15 range
     const r = (b1[0] * (1 - blend) + b2[0] * blend) * brightness;
     const g = (b1[1] * (1 - blend) + b2[1] * blend) * brightness;
     const b = (b1[2] * (1 - blend) + b2[2] * blend) * brightness;
 
     // Height-based tinting: higher ground slightly lighter/mossier
     const hY = getGroundY(wx, wz);
-    const hTint = 1.0 + hY * 0.08;
+    const hTint = 1.0 + hY * 0.06;
 
-    colorArr[i * 3] = Math.min(r * hTint, 1);
-    colorArr[i * 3 + 1] = Math.min(g * hTint * 1.05, 1);
-    colorArr[i * 3 + 2] = Math.min(b * hTint, 1);
+    colorArr[i * 3] = r * hTint;
+    colorArr[i * 3 + 1] = g * hTint;
+    colorArr[i * 3 + 2] = b * hTint;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
   geo.computeVertexNormals();

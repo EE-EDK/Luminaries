@@ -15,6 +15,14 @@ let currentFOV = 65, targetFOV = 65;
 let landingDip = 0, wasOnGround = true, landingVelY = 0;
 export let playerIdleTime = 0;
 
+// Audio callbacks (set from main)
+let onStepFn = null, onJumpFn = null, onLandFn = null;
+let prevBobSign = 1;
+
+export function setAudioCallbacks(onStep, onJump, onLand) {
+  onStepFn = onStep; onJumpFn = onJump; onLandFn = onLand;
+}
+
 // Collision data references (set from main)
 let treesData = [];
 let rocksData = [];
@@ -37,6 +45,7 @@ export function updatePlayer(dt) {
   player.vel.y -= GRAVITY * dt;
   if ((keys['Space'] || touchJump) && player.onGround) {
     player.vel.y = JUMP_IMPULSE; player.onGround = false; setTouchJump(false);
+    if (onJumpFn) onJumpFn();
   }
   // Track pre-landing velocity for cushion
   if (!player.onGround) landingVelY = player.vel.y;
@@ -51,6 +60,7 @@ export function updatePlayer(dt) {
       const impactStrength = Math.min(Math.abs(landingVelY) / JUMP_IMPULSE, 1);
       landingDip = impactStrength * 0.15;
       if (spawnDustBurstFn) spawnDustBurstFn(player.pos.x, player.pos.z, Math.floor(3 + impactStrength * 5));
+      if (onLandFn) onLandFn(impactStrength);
     }
     player.onGround = true;
   }
@@ -97,6 +107,12 @@ export function updatePlayer(dt) {
   headBobAmp += (bobTarget - headBobAmp) * dt * 6;
   if (moving) headBobPhase += dt * (sprinting ? 12 : 8);
   const bobOffset = Math.sin(headBobPhase) * headBobAmp;
+  // Footstep detection: trigger on bob phase crossing downward through zero
+  if (moving && onStepFn) {
+    const curSign = Math.sin(headBobPhase) >= 0 ? 1 : -1;
+    if (prevBobSign > 0 && curSign < 0) onStepFn(sprinting);
+    prevBobSign = curSign;
+  }
 
   // --- Sprint FOV ---
   targetFOV = (sprinting && moving) ? 78 : 65;

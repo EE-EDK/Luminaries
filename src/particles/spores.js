@@ -40,6 +40,10 @@ export function spawnSpore(px, py, pz) {
   s.life = 3 + Math.random() * 3; s.max = s.life; s.active = true;
 }
 
+// Wind influence parameters (set by main.js)
+let _windX = 0, _windZ = 0;
+export function setSporeWind(wx, wz) { _windX = wx; _windZ = wz; }
+
 export function updateSpores(dt) {
   let ac = 0;
   let needsColorUpdate = false;
@@ -63,6 +67,9 @@ export function updateSpores(dt) {
     }
     ac++;
     s.vy += 0.3 * dt;
+    // Wind influence on spores (Item 9)
+    s.vx += _windX * 0.3 * dt;
+    s.vz += _windZ * 0.3 * dt;
     s.vx *= 0.997; s.vy *= 0.997; s.vz *= 0.997;
     s.x += s.vx * dt;
     s.y += s.vy * dt;

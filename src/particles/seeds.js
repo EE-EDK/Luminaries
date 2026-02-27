@@ -43,6 +43,10 @@ export function spawnDandSeed(px, py, pz) {
   s.drift = Math.random() * 6.28;
 }
 
+// Wind influence (set by main.js)
+let _windX = 0, _windZ = 0, _windStr = 0;
+export function setSeedWind(wx, wz, ws) { _windX = wx; _windZ = wz; _windStr = ws; }
+
 export function updateDandSeeds(dt, t) {
   let needsColorUpdate = false;
   for (let i = 0; i < dandSeeds.length; i++) {
@@ -66,7 +70,10 @@ export function updateDandSeeds(dt, t) {
     s.drift += (Math.random() - 0.5) * 1.5 * dt;
     s.vx += Math.sin(s.drift) * 0.3 * dt;
     s.vz += Math.cos(s.drift) * 0.2 * dt;
-    s.vy += (0.15 - s.vy) * dt * 0.5;
+    // Wind influence — seeds scatter farther during storms (Item 9)
+    s.vx += _windX * 0.5 * dt;
+    s.vz += _windZ * 0.5 * dt;
+    s.vy += (0.15 + _windStr * 0.1 - s.vy) * dt * 0.5;
     s.vx *= 0.998; s.vy *= 0.998; s.vz *= 0.998;
     s.x += s.vx * dt;
     s.y += s.vy * dt;

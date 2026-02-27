@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
-import { scene, camera } from '../core/renderer.js';
+import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade } from './lasers.js';
 
@@ -37,8 +37,7 @@ let groundMesh = null;
 let finalePhaseTimer = 0;
 let transformTimer = 0;
 let treeLasers = [];
-let flashPlane = null;
-let flashMat = null;
+let flashPlane = null; // DOM overlay element
 let transformDone = false;
 
 // Pinnacle explosion glitter
@@ -437,7 +436,10 @@ export function updateQuest(dt, t) {
       }
     }
 
-    if (finaleTimer > 12) questPhase = 'FINALE';
+    if (finaleTimer > 12) {
+      questPhase = 'FINALE';
+      console.log('✦ Quest → FINALE');
+    }
   }
 
   // Sustain finale state
@@ -454,7 +456,8 @@ export function updateQuest(dt, t) {
     if (finalePhaseTimer > 30) {
       questPhase = 'TRANSFORM';
       transformTimer = 0;
-      initFlashPlane();
+      initFlashOverlay();
+      console.log('✦ Quest → TRANSFORM (trees=' + trees.length + ')');
     }
   }
 
@@ -490,7 +493,7 @@ export function updateQuest(dt, t) {
           blending: THREE.AdditiveBlending, depthWrite: false
         });
         const tube = new THREE.Mesh(
-          new THREE.TubeGeometry(path, 8, 0.04, 4, false), tMat
+          new THREE.TubeGeometry(path, 8, 0.06, 4, false), tMat
         );
         scene.add(tube);
         const gMat = new THREE.MeshBasicMaterial({
@@ -498,7 +501,7 @@ export function updateQuest(dt, t) {
           blending: THREE.AdditiveBlending, depthWrite: false
         });
         const glow = new THREE.Mesh(
-          new THREE.TubeGeometry(path, 8, 0.12, 4, false), gMat
+          new THREE.TubeGeometry(path, 8, 0.18, 4, false), gMat
         );
         scene.add(glow);
         treeLasers.push({ tube, glow, mat: tMat, glowMat: gMat, timer: 0 });
@@ -511,8 +514,8 @@ export function updateQuest(dt, t) {
       tl.timer += dt;
       const fade = Math.min(tl.timer / 0.5, 1);
       const pulse = Math.sin(t * 3 + i * 0.5) * 0.5 + 0.5;
-      tl.mat.opacity = fade * (0.5 + pulse * 0.3);
-      tl.glowMat.opacity = fade * (0.15 + pulse * 0.1);
+      tl.mat.opacity = fade * (0.6 + pulse * 0.4);
+      tl.glowMat.opacity = fade * (0.2 + pulse * 0.15);
     }
 
     // Flash sequence: 3s brighten → 4s blind → 3s dim
@@ -524,14 +527,15 @@ export function updateQuest(dt, t) {
       if (!transformDone) {
         transformTreesAndGround();
         transformDone = true;
+        console.log('✦ Trees + ground transformed');
       }
     } else if (transformTimer >= 10 && transformTimer < 13) {
       flashOpacity = 1 - (transformTimer - 10) / 3;
     }
 
-    if (flashMat) {
-      flashMat.opacity = flashOpacity;
-      if (flashPlane) flashPlane.visible = flashOpacity > 0.001;
+    // Apply flash via DOM overlay
+    if (flashPlane) {
+      flashPlane.style.opacity = flashOpacity;
     }
   }
 }
@@ -541,19 +545,12 @@ function getObeliskTipY() {
   return obeliskY + OBELISK_H + 3;
 }
 
-// Create a full-screen white plane for the blinding flash
-function initFlashPlane() {
+// Create a full-screen DOM overlay for the blinding flash
+function initFlashOverlay() {
   if (flashPlane) return;
-  flashMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0,
-    depthTest: false, depthWrite: false
-  });
-  flashPlane = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), flashMat);
-  flashPlane.position.z = -0.15;
-  flashPlane.renderOrder = 9999;
-  flashPlane.frustumCulled = false;
-  camera.add(flashPlane);
-  if (!camera.parent) scene.add(camera);
+  flashPlane = document.createElement('div');
+  flashPlane.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;opacity:0;pointer-events:none;z-index:9999;';
+  document.body.appendChild(flashPlane);
 }
 
 // Transform all tree materials and ground to pink/purple theme

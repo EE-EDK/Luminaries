@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, JUMP_IMPULSE, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, WORLD_R, WISP_N, EYE_H, C } from '../constants.js';
+import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
-import { keys, touchSprint } from '../core/input.js';
+import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers } from './lasers.js';
 
@@ -19,6 +19,8 @@ let orbs = [];
 let obeliskGroup = null;
 let obeliskMat = null;
 let obeliskGlowMat = null;
+let pinnacleOrb = null;
+let pinnacleRings = [];
 let moatMesh = null;
 let moatMat = null;
 let rainbowArcs = [];
@@ -29,11 +31,115 @@ let orbHudEl = null;
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
 
+// Pinnacle explosion glitter
+const GLITTER_COUNT = 200;
+let glitterMesh = null;
+const glitterParticles = [];
+let glitterExploded = false;
+
+function initGlitter() {
+  if (glitterMesh) return;
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(GLITTER_COUNT * 3);
+  const colors = new Float32Array(GLITTER_COUNT * 3);
+  const sizes = new Float32Array(GLITTER_COUNT);
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
+  geo.attributes.color.setUsage(THREE.DynamicDrawUsage);
+  geo.attributes.size.setUsage(THREE.DynamicDrawUsage);
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.3, vertexColors: true, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+    sizeAttenuation: true
+  });
+  glitterMesh = new THREE.Points(geo, mat);
+  glitterMesh.visible = false;
+  scene.add(glitterMesh);
+
+  const pinkBase = new THREE.Color(C.obeliskPink);
+  const purpleBase = new THREE.Color(0xaa44ff);
+  for (let i = 0; i < GLITTER_COUNT; i++) {
+    const c = Math.random() < 0.7 ? pinkBase : purpleBase;
+    colors[i * 3] = c.r * (0.8 + Math.random() * 0.4);
+    colors[i * 3 + 1] = c.g * (0.8 + Math.random() * 0.4);
+    colors[i * 3 + 2] = c.b * (0.8 + Math.random() * 0.4);
+    sizes[i] = 0.15 + Math.random() * 0.25;
+    glitterParticles.push({
+      x: 0, y: 0, z: 0,
+      vx: 0, vy: 0, vz: 0,
+      life: 0, active: false,
+      sparklePhase: Math.random() * 6.28
+    });
+  }
+  geo.attributes.color.needsUpdate = true;
+  geo.attributes.size.needsUpdate = true;
+}
+
+function explodeGlitter(cx, cy, cz) {
+  glitterExploded = true;
+  glitterMesh.visible = true;
+  for (let i = 0; i < GLITTER_COUNT; i++) {
+    const p = glitterParticles[i];
+    p.x = cx; p.y = cy; p.z = cz;
+    // Burst outward in all directions
+    const theta = Math.random() * 6.28;
+    const phi = Math.random() * Math.PI;
+    const speed = 2 + Math.random() * 5;
+    p.vx = Math.sin(phi) * Math.cos(theta) * speed;
+    p.vy = Math.cos(phi) * speed * 0.5 + Math.random() * 2;
+    p.vz = Math.sin(phi) * Math.sin(theta) * speed;
+    p.life = 5 + Math.random() * 6;
+    p.active = true;
+  }
+}
+
+function updateGlitter(dt, t) {
+  if (!glitterMesh || !glitterMesh.visible) return;
+  const posArr = glitterMesh.geometry.attributes.position.array;
+  const sizeArr = glitterMesh.geometry.attributes.size.array;
+  let anyActive = false;
+  for (let i = 0; i < GLITTER_COUNT; i++) {
+    const p = glitterParticles[i];
+    if (!p.active) {
+      posArr[i * 3 + 1] = -100;
+      sizeArr[i] = 0;
+      continue;
+    }
+    anyActive = true;
+    p.life -= dt;
+    if (p.life <= 0 || p.y < -1) { p.active = false; continue; }
+    // Gravity + air resistance
+    p.vy -= 1.5 * dt;
+    p.vx *= 0.995; p.vz *= 0.995;
+    // Flutter
+    p.vx += Math.sin(t * 3 + i * 0.7) * 0.3 * dt;
+    p.vz += Math.cos(t * 2.5 + i * 1.1) * 0.2 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.z += p.vz * dt;
+    posArr[i * 3] = p.x;
+    posArr[i * 3 + 1] = p.y;
+    posArr[i * 3 + 2] = p.z;
+    // Sparkle size
+    const sparkle = Math.sin(t * 6 + p.sparklePhase) * 0.5 + 0.5;
+    const fadeFrac = Math.min(p.life / 2, 1);
+    sizeArr[i] = (0.15 + sparkle * 0.2) * fadeFrac;
+  }
+  glitterMesh.geometry.attributes.position.needsUpdate = true;
+  glitterMesh.geometry.attributes.size.needsUpdate = true;
+  if (!anyActive) glitterMesh.visible = false;
+}
+
 export function initQuest(config) {
   orbs = config.orbs;
   obeliskGroup = config.obeliskGroup;
   obeliskMat = config.obeliskMat;
   obeliskGlowMat = config.obeliskGlowMat;
+  pinnacleOrb = config.pinnacleOrb;
+  pinnacleRings = config.pinnacleRings || [];
   moatMesh = config.moatMesh;
   moatMat = config.moatMat;
   rainbowArcs = config.rainbowArcs;
@@ -44,6 +150,7 @@ export function initQuest(config) {
   puffs = config.puffs || [];
   jellies = config.jellies || [];
   moths = config.moths || [];
+  initGlitter();
 }
 
 export function updateQuest(dt, t) {
@@ -82,7 +189,7 @@ export function updateQuest(dt, t) {
       const senseR2 = ORB_SENSE_R * ORB_SENSE_R;
       if (dist2 < senseR2) {
         const proximity = 1.0 - Math.sqrt(dist2) / ORB_SENSE_R;
-        const glow = proximity * proximity; // quadratic ramp
+        const glow = proximity * proximity;
         o.glowMat.opacity = Math.min(0.3 + p * 0.4 + glow * 0.5, 1.0);
         o.hazeMat.opacity = Math.min(0.08 + p * 0.12 + glow * 0.25, 0.6);
         // White-hot core when close, gold when far
@@ -113,6 +220,7 @@ export function updateQuest(dt, t) {
         // Update HUD
         const hud = orbHudEl || document.getElementById('orb-hud');
         if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
+        // Start rising on first orb
         if (questPhase === 'SEEK') questPhase = 'RISING';
       }
     }
@@ -120,13 +228,11 @@ export function updateQuest(dt, t) {
     // Flash phase: orb goes super bright, then transitions to fly-up
     if (o._flashing) {
       o._flashTimer += dt;
-      const flashFrac = Math.min(o._flashTimer / 1.5, 1); // 1.5s flash
-      // Bright white-gold flash
+      const flashFrac = Math.min(o._flashTimer / 1.5, 1);
       const flashInt = flashFrac < 0.3 ? flashFrac / 0.3 : (1.0 - (flashFrac - 0.3) / 0.7);
       o.glowMat.opacity = 0.5 + flashInt * 0.5;
       o.hazeMat.opacity = 0.3 + flashInt * 0.5;
       o.group.scale.setScalar(1.0 + flashInt * 0.6);
-      // Vibrate
       o.group.position.x = o.x + Math.sin(t * 30) * flashInt * 0.05;
       o.group.position.z = o.z + Math.cos(t * 25) * flashInt * 0.05;
 
@@ -148,22 +254,24 @@ export function updateQuest(dt, t) {
       if (o.flyY > targetY - 1 && !o.laserLine) {
         o.flyUp = false;
         o.group.visible = false;
-        o.laserLine = makeLaserFn(o.x, o.z, targetY);
+        // Laser starts from ground level, goes all the way up
+        const tipY = getObeliskTipY();
+        o.laserLine = makeLaserFn(o.x, o.z, 0, tipY);
       }
     }
   }
 
-  // Obelisk rising
-  if (questPhase === 'RISING') {
-    if (obeliskY < 0) {
-      obeliskY += OBELISK_RISE_SPEED * dt;
-      if (obeliskY > 0) obeliskY = 0;
-      if (obeliskGroup) obeliskGroup.position.y = obeliskY;
-    }
-    if (orbsFound >= ORB_N && obeliskY >= 0) {
-      questPhase = 'COMPLETE';
-      finaleTimer = 0;
-    }
+  // --- Obelisk incremental rising: one rung per orb ---
+  const targetObeliskY = -OBELISK_H + (orbsFound / ORB_N) * OBELISK_H;
+  if (obeliskY < targetObeliskY) {
+    obeliskY += OBELISK_RISE_SPEED * dt;
+    if (obeliskY > targetObeliskY) obeliskY = targetObeliskY;
+    if (obeliskGroup) obeliskGroup.position.y = obeliskY;
+  }
+  // Transition to COMPLETE when fully risen
+  if (orbsFound >= ORB_N && obeliskY >= 0 && questPhase === 'RISING') {
+    questPhase = 'COMPLETE';
+    finaleTimer = 0;
   }
 
   // Obelisk subtle rotation + light intensity
@@ -176,8 +284,33 @@ export function updateQuest(dt, t) {
     }
   }
 
-  // Animate laser beams (new system)
-  updateLasers(dt, t);
+  // --- Pinnacle orb + rings animation ---
+  if (pinnacleOrb && pinnacleOrb.mesh.visible) {
+    const pulse = Math.sin(t * 2) * 0.5 + 0.5;
+    pinnacleOrb.mat.opacity = 0.6 + pulse * 0.3;
+    pinnacleOrb.hazeMat.opacity = 0.15 + pulse * 0.12;
+    // Brighten as more orbs are found
+    const orbFrac = orbsFound / ORB_N;
+    pinnacleOrb.mat.opacity *= (0.3 + orbFrac * 0.7);
+    pinnacleOrb.hazeMat.opacity *= (0.2 + orbFrac * 0.8);
+  }
+  for (let ri = 0; ri < pinnacleRings.length; ri++) {
+    const r = pinnacleRings[ri];
+    if (!r.mesh.visible) continue;
+    r.mesh.rotation.x += r.rx * dt;
+    r.mesh.rotation.y += r.ry * dt;
+    r.mesh.rotation.z += r.rz * dt;
+    // Rings brighten with orb count
+    const orbFrac = orbsFound / ORB_N;
+    r.mat.opacity = (0.15 + orbFrac * 0.35) * (0.8 + Math.sin(t * 1.5 + ri) * 0.2);
+  }
+
+  // Animate laser beams — pass current obelisk tip Y
+  const tipY = getObeliskTipY();
+  updateLasers(dt, t, tipY);
+
+  // Update glitter particles
+  updateGlitter(dt, t);
 
   // === FINALE ===
   if (questPhase === 'COMPLETE') {
@@ -187,8 +320,36 @@ export function updateQuest(dt, t) {
     if (obeliskMat) obeliskMat.emissiveIntensity = glowRamp * 1.5;
     if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = glowRamp * 2.5;
 
-    if (finaleTimer > 1 && moatMat) {
-      const moatFade = Math.min((finaleTimer - 1) / 4, 1);
+    // Pinnacle orb goes super bright then explodes at t=2s
+    if (pinnacleOrb && pinnacleOrb.mesh.visible && finaleTimer > 1 && finaleTimer < 3) {
+      const brightFrac = Math.min((finaleTimer - 1) / 1.5, 1);
+      pinnacleOrb.mat.opacity = 0.9 + brightFrac * 0.1;
+      pinnacleOrb.hazeMat.opacity = 0.5 + brightFrac * 0.5;
+      pinnacleOrb.mesh.scale.setScalar(1 + brightFrac * 0.5);
+      pinnacleOrb.haze.scale.setScalar(1 + brightFrac * 1.0);
+      // Rings spin faster
+      for (let ri = 0; ri < pinnacleRings.length; ri++) {
+        const r = pinnacleRings[ri];
+        r.mesh.rotation.x += r.rx * dt * (1 + brightFrac * 4);
+        r.mesh.rotation.y += r.ry * dt * (1 + brightFrac * 4);
+        r.mesh.rotation.z += r.rz * dt * (1 + brightFrac * 4);
+      }
+    }
+    if (pinnacleOrb && pinnacleOrb.mesh.visible && finaleTimer >= 3 && !glitterExploded) {
+      // EXPLODE! Get world position of pinnacle orb
+      const worldPos = new THREE.Vector3();
+      pinnacleOrb.mesh.getWorldPosition(worldPos);
+      explodeGlitter(worldPos.x, worldPos.y, worldPos.z);
+      // Hide pinnacle orb and rings
+      pinnacleOrb.mesh.visible = false;
+      pinnacleOrb.haze.visible = false;
+      for (let ri = 0; ri < pinnacleRings.length; ri++) {
+        pinnacleRings[ri].mesh.visible = false;
+      }
+    }
+
+    if (finaleTimer > 3 && moatMat) {
+      const moatFade = Math.min((finaleTimer - 3) / 4, 1);
       moatMat.opacity = moatFade * 0.6;
       if (moatMesh) {
         if (!moatMesh.visible) moatMesh.visible = true;
@@ -196,19 +357,19 @@ export function updateQuest(dt, t) {
       }
     }
 
-    if (finaleTimer > 2) {
+    if (finaleTimer > 4) {
       for (let i = 0; i < rainbowArcs.length; i++) {
         const delay = i * 0.3;
-        const arcFade = Math.min(Math.max((finaleTimer - 2 - delay) / 2, 0), 1);
+        const arcFade = Math.min(Math.max((finaleTimer - 4 - delay) / 2, 0), 1);
         if (arcFade > 0 && !rainbowArcs[i].mesh.visible) rainbowArcs[i].mesh.visible = true;
         rainbowArcs[i].mat.opacity = arcFade * 0.55;
         rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
       }
     }
 
-    // Phase 4: All creatures migrate toward center
-    if (finaleTimer > 1) {
-      const gatherStrength = Math.min((finaleTimer - 1) / 6, 1) * 2.0;
+    // All creatures migrate toward center
+    if (finaleTimer > 3) {
+      const gatherStrength = Math.min((finaleTimer - 3) / 6, 1) * 2.0;
       for (let i = 0; i < deers.length; i++) {
         const d = deers[i], g = d.group;
         const tx = -g.position.x, tz = -g.position.z;
@@ -245,7 +406,7 @@ export function updateQuest(dt, t) {
       }
     }
 
-    if (finaleTimer > 10) questPhase = 'FINALE';
+    if (finaleTimer > 12) questPhase = 'FINALE';
   }
 
   // Sustain finale state
@@ -258,4 +419,9 @@ export function updateQuest(dt, t) {
       rainbowArcs[i].mat.opacity = 0.45 + Math.sin(t + i) * 0.1;
     }
   }
+}
+
+// Helper: current world-space Y of obelisk tip
+function getObeliskTipY() {
+  return obeliskY + OBELISK_H + 3; // shaft + capstone + pinnacle offset
 }

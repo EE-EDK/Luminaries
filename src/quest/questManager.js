@@ -1,7 +1,12 @@
-import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, JUMP_IMPULSE, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, WORLD_R, WISP_N, EYE_H } from '../constants.js';
+import * as THREE from 'three';
+import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, JUMP_IMPULSE, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, WORLD_R, WISP_N, EYE_H, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
 import { keys, touchSprint } from '../core/input.js';
 import { sr } from '../utils/rng.js';
+import { updateLasers } from './lasers.js';
+
+const _orbGoldColor = new THREE.Color(C.orbGold);
+const _whiteColor = new THREE.Color(0xffffff);
 
 // Quest state
 export let orbsFound = 0;
@@ -63,13 +68,32 @@ export function updateQuest(dt, t) {
   // Animate all orbs
   for (let i = 0; i < orbs.length; i++) {
     const o = orbs[i];
-    if (o.found && !o.flyUp) continue;
+    if (o.found && !o.flyUp && !o._flashing) continue;
 
     if (!o.found) {
       const p = Math.sin(t * 1.5 + o.phase) * 0.5 + 0.5;
       o.group.position.y = o.flyY + Math.sin(t * 0.8 + o.phase) * 0.3;
       o.glowMat.opacity = 0.3 + p * 0.4;
       o.hazeMat.opacity = 0.08 + p * 0.12;
+
+      // Proximity glow boost — orb gets brighter when player is near
+      const dx = o.x - player.pos.x, dz = o.z - player.pos.z;
+      const dist2 = dx * dx + dz * dz;
+      const senseR2 = ORB_SENSE_R * ORB_SENSE_R;
+      if (dist2 < senseR2) {
+        const proximity = 1.0 - Math.sqrt(dist2) / ORB_SENSE_R;
+        const glow = proximity * proximity; // quadratic ramp
+        o.glowMat.opacity = Math.min(0.3 + p * 0.4 + glow * 0.5, 1.0);
+        o.hazeMat.opacity = Math.min(0.08 + p * 0.12 + glow * 0.25, 0.6);
+        // White-hot core when close, gold when far
+        o.coreMat.color.copy(_whiteColor).lerp(_orbGoldColor, 1.0 - glow);
+        // Scale pulse — orb swells slightly when player approaches
+        const sc = 1.0 + glow * 0.3;
+        o.group.scale.setScalar(sc);
+      } else {
+        o.group.scale.setScalar(1.0);
+      }
+
       // Rotate sparkle ring
       for (let s = 3; s < o.group.children.length; s++) {
         const ch = o.group.children[s];
@@ -78,15 +102,39 @@ export function updateQuest(dt, t) {
         ch.position.z = Math.sin(sa) * 0.4;
         ch.position.y = Math.sin(sa * 2 + t) * 0.1;
       }
+
       // Touch detection
-      const dx = o.x - player.pos.x, dz = o.z - player.pos.z;
-      if (dx * dx + dz * dz < ORB_TOUCH_R * ORB_TOUCH_R) {
-        o.found = true; o.flyUp = true; o.flyY = o.group.position.y;
+      if (dist2 < ORB_TOUCH_R * ORB_TOUCH_R) {
+        o.found = true;
+        o._flashing = true;
+        o._flashTimer = 0;
+        o.flyY = o.group.position.y;
         orbsFound++;
-        // Update HUD — query DOM directly as fallback
+        // Update HUD
         const hud = orbHudEl || document.getElementById('orb-hud');
         if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
         if (questPhase === 'SEEK') questPhase = 'RISING';
+      }
+    }
+
+    // Flash phase: orb goes super bright, then transitions to fly-up
+    if (o._flashing) {
+      o._flashTimer += dt;
+      const flashFrac = Math.min(o._flashTimer / 1.5, 1); // 1.5s flash
+      // Bright white-gold flash
+      const flashInt = flashFrac < 0.3 ? flashFrac / 0.3 : (1.0 - (flashFrac - 0.3) / 0.7);
+      o.glowMat.opacity = 0.5 + flashInt * 0.5;
+      o.hazeMat.opacity = 0.3 + flashInt * 0.5;
+      o.group.scale.setScalar(1.0 + flashInt * 0.6);
+      // Vibrate
+      o.group.position.x = o.x + Math.sin(t * 30) * flashInt * 0.05;
+      o.group.position.z = o.z + Math.cos(t * 25) * flashInt * 0.05;
+
+      if (o._flashTimer > 1.5) {
+        o._flashing = false;
+        o.flyUp = true;
+        o.group.position.x = o.x;
+        o.group.position.z = o.z;
       }
     }
 
@@ -128,14 +176,8 @@ export function updateQuest(dt, t) {
     }
   }
 
-  // Laser pulse
-  for (let i = 0; i < orbs.length; i++) {
-    const o = orbs[i];
-    if (!o.laserLine) continue;
-    const p = Math.sin(t * 3 + i) * 0.5 + 0.5;
-    o.laserLine.mat.opacity = 0.5 + p * 0.4;
-    o.laserLine.glowMat.opacity = 0.15 + p * 0.15;
-  }
+  // Animate laser beams (new system)
+  updateLasers(dt, t);
 
   // === FINALE ===
   if (questPhase === 'COMPLETE') {

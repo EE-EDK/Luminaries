@@ -15,23 +15,23 @@ export const MOUSE_SENS = 0.003;
 export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
-// Entity counts
-export const TREE_N = 60;
-export const MUSH_N = 45;
+// Entity counts (tuned for ~20 FPS target)
+export const TREE_N = 35;
+export const MUSH_N = 25;
 export const CRYSTAL_N = 10;
 export const JELLY_N = 6;
 export const PUFF_N = 8;
 export const DEER_N = 4;
 export const MOTH_N = 5;
-export const GRASS_PATCHES = 300;
-export const FERN_N = 35;
-export const FLOWER_N = 30;
-export const REED_N = 25;
-export const ROCK_N = 60;
+export const GRASS_PATCHES = 120;
+export const FERN_N = 18;
+export const FLOWER_N = 15;
+export const REED_N = 15;
+export const ROCK_N = 30;
 export const WISP_N = 3;
-export const DANDELION_N = 20;
+export const DANDELION_N = 12;
 export const FAIRY_RING_N = 5;
-export const BUBBLE_N = 30;
+export const BUBBLE_N = 15;
 export const STARMOTE_N = 40;
 export const POND_N = 6;
 export const THORNBLOOM_N = 6;

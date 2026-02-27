@@ -14,7 +14,7 @@ export let bloomEnabled = true;
 try {
   const renderPass = new RenderPass(scene, camera);
   const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    new THREE.Vector2(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2)),
     0.6,   // strength — subtle dreamy glow
     0.4,   // radius — how far bloom spreads
     0.85   // threshold — only bright emissives bloom
@@ -30,7 +30,7 @@ try {
 // Handle resize
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
-    composer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
   }
 });
 

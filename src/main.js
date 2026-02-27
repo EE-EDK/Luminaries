@@ -56,7 +56,7 @@ import { makeOrb } from './entities/magical/orbs.js';
 import { makeRock } from './entities/world/rocks.js';
 import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
-import { makeRainbows, rainbowArcs } from './entities/world/rainbows.js';
+import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/world/rainbows.js';
 
 // Particles
 import { initFlies, spawnFly, updateFlies } from './particles/fireflies.js';
@@ -1593,6 +1593,7 @@ function director(dt, t) {
   updateEchoBloom(dt, t);
   const chainCount = updateFloraReactions(dt, t);
   updateQuest(dt, t);
+  updateRainbowSparkles(t);
 
   // Audio + step cooldown
   updateStepCooldown(dt);

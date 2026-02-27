@@ -262,14 +262,26 @@ export function updateQuest(dt, t) {
   }
 
   // --- Obelisk incremental rising: one rung per orb ---
-  const targetObeliskY = -OBELISK_H + (orbsFound / ORB_N) * OBELISK_H;
-  if (obeliskY < targetObeliskY) {
-    obeliskY += OBELISK_RISE_SPEED * dt;
+  const rungHeight = OBELISK_H / ORB_N;
+  const targetObeliskY = -OBELISK_H + orbsFound * rungHeight;
+  const isRising = obeliskY < targetObeliskY - 0.01;
+  if (isRising) {
+    // Rise at 8 units/sec (fast, dramatic per-rung)
+    obeliskY += 8 * dt;
     if (obeliskY > targetObeliskY) obeliskY = targetObeliskY;
-    if (obeliskGroup) obeliskGroup.position.y = obeliskY;
+    if (obeliskGroup) {
+      obeliskGroup.position.y = obeliskY;
+      // Rumble shake while rising
+      obeliskGroup.position.x = Math.sin(t * 25) * 0.04;
+      obeliskGroup.position.z = Math.cos(t * 30) * 0.03;
+    }
+  } else if (obeliskGroup) {
+    // Settle back to center when not rising
+    obeliskGroup.position.x *= 0.9;
+    obeliskGroup.position.z *= 0.9;
   }
   // Transition to COMPLETE when fully risen
-  if (orbsFound >= ORB_N && obeliskY >= 0 && questPhase === 'RISING') {
+  if (orbsFound >= ORB_N && obeliskY >= -0.01 && questPhase === 'RISING') {
     questPhase = 'COMPLETE';
     finaleTimer = 0;
   }

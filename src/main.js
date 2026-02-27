@@ -14,7 +14,8 @@ import { GEO } from './core/geometries.js';
 import {
   WORLD_R, EYE_H, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N,
   GRASS_PATCHES, FERN_N, FLOWER_N, REED_N, ROCK_N, WISP_N, DANDELION_N,
-  FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N, STARMOTE_N, C,
+  FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N, STARMOTE_N,
+  THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N, C,
   FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, DEER_FLEE_R, DEER_FLEE_SPEED_MULT
 } from './constants.js';
 
@@ -38,6 +39,9 @@ import { makeFern } from './entities/flora/ferns.js';
 import { makeFlower } from './entities/flora/flowers.js';
 import { makeReed } from './entities/flora/reeds.js';
 import { makeDandelion, updateDandelions } from './entities/flora/dandelions.js';
+import { makeThornbloom } from './entities/flora/thornbloom.js';
+import { makeHelixvine } from './entities/flora/helixvine.js';
+import { makeSnapthorn, updateSnapthorns } from './entities/flora/snapthorn.js';
 
 // Entities — Fauna
 import { makeJelly } from './entities/fauna/jellies.js';
@@ -112,6 +116,9 @@ const fairyRings = [];
 const bubbles = [];
 const ponds = [];
 const orbs = [];
+const thornblooms = [];
+const helixvines = [];
+const snapthorns = [];
 const crystalSortBuf = []; // Reused for crystal proximity sorting
 let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 
@@ -361,6 +368,31 @@ function populate() {
       ponds.push(po);
     }
   }
+  // Thornblooms (open areas)
+  for (let i = 0; i < THORNBLOOM_N; i++) {
+    const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7);
+    const tx = Math.cos(ang) * d, tz = Math.sin(ang) * d;
+    const tb = makeThornbloom(tx, tz);
+    tb.group.position.y = getGroundY(tx, tz);
+    thornblooms.push(tb);
+  }
+  // Helixvines (near trees)
+  for (let i = 0; i < HELIXVINE_N; i++) {
+    const ref = trees_data[Math.floor(sr() * trees_data.length)];
+    const ang = sr() * 6.28, d = 2 + sr() * 4;
+    const hx = ref.x + Math.cos(ang) * d, hz = ref.z + Math.sin(ang) * d;
+    const hv = makeHelixvine(hx, hz);
+    hv.group.position.y = getGroundY(hx, hz);
+    helixvines.push(hv);
+  }
+  // Snapthorns (open areas)
+  for (let i = 0; i < SNAPTHORN_N; i++) {
+    const ang = sr() * 6.28, d = 6 + sr() * (WORLD_R * 0.65);
+    const sx = Math.cos(ang) * d, sz = Math.sin(ang) * d;
+    const sn = makeSnapthorn(sx, sz);
+    sn.group.position.y = getGroundY(sx, sz);
+    snapthorns.push(sn);
+  }
 }
 
 // ================================================================
@@ -397,6 +429,26 @@ function updateVegetation(dt, t) {
     r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
     r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
   }
+  // Thornbloom orb glow pulse + gentle sway
+  for (let i = 0; i < thornblooms.length; i++) {
+    const tb = thornblooms[i];
+    const p = Math.sin(t * 1.2 + tb.phase) * 0.5 + 0.5;
+    tb.orbMat.emissiveIntensity = (0.5 + p * 0.5) * bioGlow;
+    tb.hazeMat.opacity = (0.04 + p * 0.04) * bioGlow;
+    tb.group.rotation.z = Math.sin(t * 0.5 + tb.phase) * 0.02 * wAmp + wLeanX * 0.3;
+    tb.group.rotation.x = Math.sin(t * 0.4 + tb.phase + 1) * 0.015 * wAmp + wLeanZ * 0.3;
+  }
+  // Helixvine pod glow pulse
+  for (let i = 0; i < helixvines.length; i++) {
+    const hv = helixvines[i];
+    for (let j = 0; j < hv.podMats.length; j++) {
+      const p = Math.sin(t * 1.5 + hv.phase + j * 1.8) * 0.5 + 0.5;
+      hv.podMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+    }
+    hv.group.rotation.z = Math.sin(t * 0.35 + hv.phase) * 0.01 * wAmp + wLeanX * 0.2;
+  }
+  // Snapthorn continuous animation (tentacles + breathing)
+  updateSnapthorns(snapthorns, dt, t, bioGlow);
 }
 
 function updateJellies(dt, t) {
@@ -1370,7 +1422,7 @@ function updateFloraReactions(dt, t) {
         const cd2 = cdx * cdx + cdz * cdz;
         if (cd2 < 400) { // neighbor within 20m
           crystalChainCount++;
-          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.5 * fogDampen;
+          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
           c2.mat.emissiveIntensity += chainStr * bioGlow;
           // Activate energy line between these two crystals
           if (lineIdx < MAX_ENERGY_LINES) {
@@ -1470,13 +1522,13 @@ function director(dt, t) {
     m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
   }
 
-  // Crystal glow + rotation (toned down — no harsh flashes)
+  // Crystal glow + rotation
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    c.mat.emissiveIntensity = (0.6 + p * 0.6) * bioGlow;
+    c.mat.emissiveIntensity = (1.0 + p * 1.5) * bioGlow;
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = (0.15 + p * 0.15) * bioGlow;
+    if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
   }
 
   // Crystal proximity lights — only re-sort when player moves >1m
@@ -1499,8 +1551,8 @@ function director(dt, t) {
       const c = crys_data[crystalSortBuf[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = (0.4 + p * 0.4) * bioGlow;
-      crystalLights[i].distance = 12;
+      crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
+      crystalLights[i].distance = 16;
       crystalLights[i].color.setHex(C.crystal);
     } else {
       crystalLights[i].intensity = 0;

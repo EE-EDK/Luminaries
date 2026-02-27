@@ -23,7 +23,7 @@ export const JELLY_N = 6;
 export const PUFF_N = 8;
 export const DEER_N = 4;
 export const MOTH_N = 5;
-export const GRASS_PATCHES = 55;
+export const GRASS_PATCHES = 110;
 export const FERN_N = 35;
 export const FLOWER_N = 30;
 export const REED_N = 25;
@@ -34,6 +34,9 @@ export const FAIRY_RING_N = 5;
 export const BUBBLE_N = 30;
 export const STARMOTE_N = 40;
 export const POND_N = 6;
+export const THORNBLOOM_N = 6;
+export const HELIXVINE_N = 6;
+export const SNAPTHORN_N = 5;
 
 // Sky
 export const SKY_STARS = 600;
@@ -104,5 +107,12 @@ export const C = {
   skyNeb4: 0x0a1a22, skyNeb5: 0x180a28,
   skyStarBright: 0xffffff, skyStarDim: 0x8899bb, skyStarWarm: 0xffddaa, skyStarCool: 0xaaccff,
   skyGalaxy: 0x665588, skyAnomaly: [0xff4488, 0x44ffcc, 0xffaa22, 0x8844ff, 0x22ddff, 0xff6644],
-  skyConstLine: 0x334466
+  skyConstLine: 0x334466,
+  // Fantasy flora palette
+  thornOrb: 0xffaa44, thornOrbGlow: 0xffcc66, thornPetal: 0x661133,
+  thornSpike: 0x2a1a10, thornStem: 0x1a3320,
+  helixStem: 0x1a2840, helixPod: 0x6633ff, helixPodGlow: 0x8855ff,
+  helixRing: 0x4422aa, helixNode: 0x5544cc,
+  snapBody: 0x22aa66, snapBodyGlow: 0x44ff88,
+  snapTip: 0x66ffaa, snapTipGlow: 0x88ffcc, snapFrond: 0x1a6644
 };

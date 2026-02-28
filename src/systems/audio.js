@@ -79,9 +79,9 @@ function createReverb() {
   const delay2 = ctx.createDelay(1.0);
   delay2.delayTime.value = 0.47;
   const fb1 = ctx.createGain();
-  fb1.gain.value = 0.25;
+  fb1.gain.value = 0.15;
   const fb2 = ctx.createGain();
-  fb2.gain.value = 0.20;
+  fb2.gain.value = 0.12;
   const filter1 = ctx.createBiquadFilter();
   filter1.type = 'lowpass';
   filter1.frequency.value = 2500;
@@ -136,8 +136,8 @@ export function initAudio() {
       // Create shared reverb
       createReverb();
 
-      // --- Forest hum: gentle brown noise (quieter) ---
-      const fh = loopNoise(brownBuf, 0.08, 160);
+      // --- Forest hum: very subtle brown noise bed ---
+      const fh = loopNoise(brownBuf, 0.03, 120);
       forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
       // --- Wind: white noise filtered, volume driven by weather ---
@@ -173,8 +173,8 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // --- Forest hum: slightly quieter at dawn, louder at deep night ---
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
+  // --- Forest hum: very subtle bed ---
+  const forestVol = phase === 'DEEP_NIGHT' ? 0.04 : phase === 'DAWN' ? 0.02 : 0.03;
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
   // --- Wind volume/filter scales with wind strength ---
@@ -206,7 +206,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
     }
   }
   const waterProx = waterDist < 225 ? (1 - Math.sqrt(waterDist) / 15) : 0;
-  const waterVol = waterProx * 0.10;
+  const waterVol = waterProx * 0.06;
   waterGain.gain.linearRampToValueAtTime(waterVol, now + 0.1);
 
   // --- Creature cooldowns ---
@@ -524,11 +524,17 @@ export function toggleMute() {
 export function isMuted() { return muted; }
 
 // ================================================================
-// Ambient Creature Sounds — Cricket Chimes
+// Ambient Creature Sounds — Soft Musical Frogs & Cricket Chimes
 // ================================================================
-// Crickets: periodic soft high-pitched bell pings near grass
+// Frogs: gentle sine-based tones near ponds (not square waves)
+// Crickets: periodic soft high-pitched bell pings near grass (not noise)
 
-// Cricket layer — periodic ping system
+// Frog layer (pond proximity) — soft sine oscillators
+let frogOsc1 = null, frogOsc2 = null, frogGain = null, frogLFO = null, frogLFOGain = null;
+let frogFilter = null;
+let frogChirpTimer = 0;
+
+// Cricket layer — replaced with periodic ping system
 let cricketPingTimer = 0;
 let cricketVolTarget = 0;
 let cricketDayMult = 1;
@@ -542,6 +548,33 @@ export function initAmbientSounds() {
 function ensureAmbient() {
   if (ambientInited || !ctx) return;
   ambientInited = true;
+
+  // --- Frog layer: two soft detuned SINE oscillators (not square) ---
+  const fGain = ctx.createGain();
+  fGain.gain.value = 0;
+  const fO1 = ctx.createOscillator();
+  fO1.type = 'sine';
+  fO1.frequency.value = 160;
+  const fO2 = ctx.createOscillator();
+  fO2.type = 'sine';
+  fO2.frequency.value = 190;
+  const fFilter = ctx.createBiquadFilter();
+  fFilter.type = 'lowpass';
+  fFilter.frequency.value = 350;
+  fFilter.Q.value = 0.5;
+  // Gentle sine LFO for soft pulsing rhythm
+  const fLFO = ctx.createOscillator();
+  fLFO.type = 'sine';
+  fLFO.frequency.value = 2.0;
+  const fLFOGain = ctx.createGain();
+  fLFOGain.gain.value = 0.3; // subtle modulation depth
+  fLFO.connect(fLFOGain).connect(fGain.gain);
+  fO1.connect(fFilter).connect(fGain);
+  fO2.connect(fFilter); // both through same filter
+  fGain.connect(masterGain);
+  fO1.start(); fO2.start(); fLFO.start();
+  frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain;
+  frogLFO = fLFO; frogLFOGain = fLFOGain; frogFilter = fFilter;
 }
 
 // Cricket chime — spawn a single soft sine ping
@@ -571,11 +604,36 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
   const now = ctx.currentTime;
 
   // --- Day/night volume modifiers ---
+  const frogDayMult = (dayPhase === 'DEEP_NIGHT' || dayPhase === 'NIGHT') ? 1.0
+    : dayPhase === 'DUSK' ? 0.5 : 0.3;
   cricketDayMult = (dayPhase === 'DUSK' || dayPhase === 'NIGHT') ? 1.0
     : dayPhase === 'DEEP_NIGHT' ? 0.6 : 0.3;
 
   // Weather damping
   const weatherDamp = Math.max(0.15, 1.0 - rainRate * 0.7);
+
+  // --- Frog proximity (nearest pond within 20m) ---
+  let pondDist2 = Infinity;
+  if (playerPos && ponds) {
+    for (let i = 0; i < ponds.length; i++) {
+      const dx = ponds[i].x - playerPos.x, dz = ponds[i].z - playerPos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < pondDist2) pondDist2 = d2;
+    }
+  }
+  const frogProx = pondDist2 < 400 ? (1 - Math.sqrt(pondDist2) / 20) : 0;
+  const frogVol = frogProx * 0.025 * frogDayMult * weatherDamp;
+  frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
+
+  // Vary frog pitch gently over time
+  frogChirpTimer += dt;
+  if (frogChirpTimer > 3 + Math.random() * 4) {
+    frogChirpTimer = 0;
+    const basePitch = 150 + Math.random() * 40;
+    frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.5);
+    frogOsc2.frequency.linearRampToValueAtTime(basePitch + 20 + Math.random() * 15, now + 0.5);
+    frogLFO.frequency.linearRampToValueAtTime(1.5 + Math.random() * 1.5, now + 0.5);
+  }
 
   // --- Cricket proximity (nearest grass patch within 12m) ---
   let grassDist2 = Infinity;

@@ -410,3 +410,141 @@ export function toggleMute() {
 }
 
 export function isMuted() { return muted; }
+
+// ================================================================
+// Ambient Creature Sounds — Frogs at Ponds & Crickets in Grass
+// ================================================================
+// Persistent spatial layers: frog chorus near ponds, cricket chirps near grass.
+// Uses oscillators + filtered noise — zero GPU cost.
+
+// Frog layer (pond proximity)
+let frogOsc1 = null, frogOsc2 = null, frogGain = null, frogLFO = null, frogLFOGain = null;
+let frogChirpTimer = 0;
+
+// Cricket layer (grass proximity)
+let cricketNode = null, cricketGain = null, cricketFilter = null;
+let cricketLFO = null, cricketLFOGain = null;
+
+let ambientInited = false;
+
+export function initAmbientSounds() {
+  // Deferred — called after AudioContext is live
+}
+
+function ensureAmbient() {
+  if (ambientInited || !ctx) return;
+  ambientInited = true;
+
+  // --- Cricket layer: high-frequency filtered noise with AM chirp ---
+  const cNode = ctx.createBufferSource();
+  cNode.buffer = whiteBuf;
+  cNode.loop = true;
+  const cFilter = ctx.createBiquadFilter();
+  cFilter.type = 'bandpass';
+  cFilter.frequency.value = 4500;
+  cFilter.Q.value = 2.0;
+  const cGain = ctx.createGain();
+  cGain.gain.value = 0;
+  // AM modulation for chirp rhythm
+  const cLFO = ctx.createOscillator();
+  cLFO.type = 'square';
+  cLFO.frequency.value = 12; // chirp rate
+  const cLFOGain = ctx.createGain();
+  cLFOGain.gain.value = 0.5;
+  cLFO.connect(cLFOGain).connect(cGain.gain);
+  cNode.connect(cFilter).connect(cGain).connect(masterGain);
+  cNode.start();
+  cLFO.start();
+  cricketNode = cNode; cricketGain = cGain; cricketFilter = cFilter;
+  cricketLFO = cLFO; cricketLFOGain = cLFOGain;
+
+  // --- Frog layer: two detuned oscillators for rich croak ---
+  const fGain = ctx.createGain();
+  fGain.gain.value = 0;
+  const fO1 = ctx.createOscillator();
+  fO1.type = 'square';
+  fO1.frequency.value = 180;
+  const fO2 = ctx.createOscillator();
+  fO2.type = 'square';
+  fO2.frequency.value = 220;
+  const fFilter1 = ctx.createBiquadFilter();
+  fFilter1.type = 'lowpass';
+  fFilter1.frequency.value = 400;
+  fFilter1.Q.value = 1.5;
+  const fFilter2 = ctx.createBiquadFilter();
+  fFilter2.type = 'lowpass';
+  fFilter2.frequency.value = 450;
+  fFilter2.Q.value = 1.5;
+  // LFO for ribbit rhythm
+  const fLFO = ctx.createOscillator();
+  fLFO.type = 'sine';
+  fLFO.frequency.value = 3.5;
+  const fLFOGain = ctx.createGain();
+  fLFOGain.gain.value = 0.5;
+  fLFO.connect(fLFOGain).connect(fGain.gain);
+  fO1.connect(fFilter1).connect(fGain);
+  fO2.connect(fFilter2).connect(fGain);
+  fGain.connect(masterGain);
+  fO1.start(); fO2.start(); fLFO.start();
+  frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain;
+  frogLFO = fLFO; frogLFOGain = fLFOGain;
+}
+
+export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
+  if (!initialized || muted || !ctx) return;
+  ensureAmbient();
+  if (!ambientInited) return;
+
+  const now = ctx.currentTime;
+
+  // --- Day/night volume modifiers ---
+  // Frogs: louder at NIGHT/DEEP_NIGHT, quieter at DAWN/DUSK
+  const frogDayMult = (dayPhase === 'DEEP_NIGHT' || dayPhase === 'NIGHT') ? 1.0
+    : dayPhase === 'DUSK' ? 0.5 : 0.3;
+  // Crickets: louder at DUSK/NIGHT, quieter at DEEP_NIGHT/DAWN
+  const cricketDayMult = (dayPhase === 'DUSK' || dayPhase === 'NIGHT') ? 1.0
+    : dayPhase === 'DEEP_NIGHT' ? 0.6 : 0.3;
+
+  // Weather damping — quieter in rain/storms
+  const weatherDamp = Math.max(0.15, 1.0 - rainRate * 0.7);
+
+  // --- Frog proximity (nearest pond within 20m) ---
+  let pondDist2 = Infinity;
+  if (playerPos && ponds) {
+    for (let i = 0; i < ponds.length; i++) {
+      const dx = ponds[i].x - playerPos.x, dz = ponds[i].z - playerPos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < pondDist2) pondDist2 = d2;
+    }
+  }
+  const frogProx = pondDist2 < 400 ? (1 - Math.sqrt(pondDist2) / 20) : 0;
+  const frogVol = frogProx * 0.06 * frogDayMult * weatherDamp;
+  frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
+
+  // Vary frog pitch slightly over time
+  frogChirpTimer += dt;
+  if (frogChirpTimer > 2 + Math.random() * 3) {
+    frogChirpTimer = 0;
+    const basePitch = 160 + Math.random() * 60;
+    frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.3);
+    frogOsc2.frequency.linearRampToValueAtTime(basePitch + 30 + Math.random() * 20, now + 0.3);
+    frogLFO.frequency.linearRampToValueAtTime(2.5 + Math.random() * 3, now + 0.3);
+  }
+
+  // --- Cricket proximity (nearest grass patch within 12m) ---
+  let grassDist2 = Infinity;
+  if (playerPos && grassPatches) {
+    for (let i = 0; i < grassPatches.length; i++) {
+      const dx = grassPatches[i].cx - playerPos.x, dz = grassPatches[i].cz - playerPos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < grassDist2) grassDist2 = d2;
+    }
+  }
+  const cricketProx = grassDist2 < 144 ? (1 - Math.sqrt(grassDist2) / 12) : 0;
+  const cricketVol = cricketProx * 0.04 * cricketDayMult * weatherDamp;
+  cricketGain.gain.linearRampToValueAtTime(cricketVol, now + 0.15);
+
+  // Vary cricket chirp rate with temperature (day phase proxy)
+  const chirpRate = dayPhase === 'DUSK' ? 14 : dayPhase === 'NIGHT' ? 12 : 9;
+  cricketLFO.frequency.linearRampToValueAtTime(chirpRate, now + 0.5);
+}

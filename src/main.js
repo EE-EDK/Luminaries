@@ -26,6 +26,7 @@ import { sr } from './utils/rng.js';
 import { createGround } from './world/ground.js';
 import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
 import { getGroundY, registerFlatZone } from './world/terrain.js';
+import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
@@ -71,6 +72,7 @@ import { initDandSeeds, spawnDandSeed, updateDandSeeds, setSeedWind } from './pa
 import { initBubblePops, spawnBubblePop, updateBubblePops } from './particles/bubblePops.js';
 import { updateDustMotes } from './particles/dust.js';
 import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
+import { initFootprints, spawnFootprint, updateFootprints } from './particles/footprints.js';
 
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
@@ -82,7 +84,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds } from './systems/audio.js';
 
 // AI
 import { canSee, canHear, isNear } from './systems/ai/senses.js';
@@ -1663,6 +1665,20 @@ function director(dt, t) {
   updateQuest(dt, t);
   updateRainbowSparkles(t);
 
+  // Footprint trails — spawn from player movement
+  if (player.onGround) {
+    const speed2 = player.vel.x * player.vel.x + player.vel.z * player.vel.z;
+    if (speed2 > 0.5) {
+      const moveAngle = Math.atan2(player.vel.x, player.vel.z);
+      const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+      spawnFootprint(player.pos.x, player.pos.z, moveAngle, sprinting);
+    }
+  }
+  updateFootprints(dt, getRainRate());
+
+  // Ambient creature sounds (frogs + crickets)
+  updateAmbientSounds(dt, player.pos, ponds, grassPatches, dayPhase, getRainRate());
+
   // Audio + step cooldown
   updateStepCooldown(dt);
 
@@ -1697,6 +1713,7 @@ function animate() {
   updateDayNight(dt);
   const rainRate = updateWeather(dt, elapsed, player.pos);
   updateRain(dt, player.pos, rainRate, windX, windZ);
+  updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom
@@ -1831,6 +1848,10 @@ try {
   initDandSeeds(40);
   initBubblePops(30);
   initLeaves(50);
+  initFootprints();
+
+  // Aurora (sky event)
+  initAurora();
 
   // Build quest structures
   makeObelisk();

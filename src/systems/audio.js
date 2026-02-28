@@ -554,20 +554,20 @@ function ensureAmbient() {
   fGain.gain.value = 0;
   const fO1 = ctx.createOscillator();
   fO1.type = 'sine';
-  fO1.frequency.value = 160;
+  fO1.frequency.value = 220;
   const fO2 = ctx.createOscillator();
   fO2.type = 'sine';
-  fO2.frequency.value = 190;
+  fO2.frequency.value = 277;
   const fFilter = ctx.createBiquadFilter();
   fFilter.type = 'lowpass';
-  fFilter.frequency.value = 350;
+  fFilter.frequency.value = 400;
   fFilter.Q.value = 0.5;
   // Gentle sine LFO for soft pulsing rhythm
   const fLFO = ctx.createOscillator();
   fLFO.type = 'sine';
   fLFO.frequency.value = 2.0;
   const fLFOGain = ctx.createGain();
-  fLFOGain.gain.value = 0.3; // subtle modulation depth
+  fLFOGain.gain.value = 0.15; // subtle modulation depth
   fLFO.connect(fLFOGain).connect(fGain.gain);
   fO1.connect(fFilter).connect(fGain);
   fO2.connect(fFilter); // both through same filter
@@ -621,17 +621,17 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
       if (d2 < pondDist2) pondDist2 = d2;
     }
   }
-  const frogProx = pondDist2 < 400 ? (1 - Math.sqrt(pondDist2) / 20) : 0;
-  const frogVol = frogProx * 0.025 * frogDayMult * weatherDamp;
+  const frogProx = pondDist2 < 144 ? (1 - Math.sqrt(pondDist2) / 12) : 0;
+  const frogVol = frogProx * 0.012 * frogDayMult * weatherDamp;
   frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
 
   // Vary frog pitch gently over time
   frogChirpTimer += dt;
   if (frogChirpTimer > 3 + Math.random() * 4) {
     frogChirpTimer = 0;
-    const basePitch = 150 + Math.random() * 40;
+    const basePitch = 200 + Math.random() * 60;
     frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.5);
-    frogOsc2.frequency.linearRampToValueAtTime(basePitch + 20 + Math.random() * 15, now + 0.5);
+    frogOsc2.frequency.linearRampToValueAtTime(basePitch * 1.26 + Math.random() * 10, now + 0.5);
     frogLFO.frequency.linearRampToValueAtTime(1.5 + Math.random() * 1.5, now + 0.5);
   }
 

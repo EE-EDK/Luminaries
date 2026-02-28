@@ -79,9 +79,9 @@ function createReverb() {
   const delay2 = ctx.createDelay(1.0);
   delay2.delayTime.value = 0.47;
   const fb1 = ctx.createGain();
-  fb1.gain.value = 0.25;
+  fb1.gain.value = 0.15;
   const fb2 = ctx.createGain();
-  fb2.gain.value = 0.20;
+  fb2.gain.value = 0.12;
   const filter1 = ctx.createBiquadFilter();
   filter1.type = 'lowpass';
   filter1.frequency.value = 2500;
@@ -136,8 +136,8 @@ export function initAudio() {
       // Create shared reverb
       createReverb();
 
-      // --- Forest hum: gentle brown noise (quieter) ---
-      const fh = loopNoise(brownBuf, 0.08, 160);
+      // --- Forest hum: very subtle brown noise bed ---
+      const fh = loopNoise(brownBuf, 0.03, 120);
       forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
       // --- Wind: white noise filtered, volume driven by weather ---
@@ -173,8 +173,8 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // --- Forest hum: slightly quieter at dawn, louder at deep night ---
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
+  // --- Forest hum: very subtle bed ---
+  const forestVol = phase === 'DEEP_NIGHT' ? 0.04 : phase === 'DAWN' ? 0.02 : 0.03;
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
   // --- Wind volume/filter scales with wind strength ---
@@ -206,7 +206,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
     }
   }
   const waterProx = waterDist < 225 ? (1 - Math.sqrt(waterDist) / 15) : 0;
-  const waterVol = waterProx * 0.10;
+  const waterVol = waterProx * 0.06;
   waterGain.gain.linearRampToValueAtTime(waterVol, now + 0.1);
 
   // --- Creature cooldowns ---

@@ -549,7 +549,32 @@ function ensureAmbient() {
   if (ambientInited || !ctx) return;
   ambientInited = true;
 
-  // --- Frog layer: DISABLED for debugging ---
+  // --- Frog layer: two soft detuned SINE oscillators (not square) ---
+  const fGain = ctx.createGain();
+  fGain.gain.value = 0;
+  const fO1 = ctx.createOscillator();
+  fO1.type = 'sine';
+  fO1.frequency.value = 220;
+  const fO2 = ctx.createOscillator();
+  fO2.type = 'sine';
+  fO2.frequency.value = 277;
+  const fFilter = ctx.createBiquadFilter();
+  fFilter.type = 'lowpass';
+  fFilter.frequency.value = 400;
+  fFilter.Q.value = 0.5;
+  // Gentle sine LFO for soft pulsing rhythm
+  const fLFO = ctx.createOscillator();
+  fLFO.type = 'sine';
+  fLFO.frequency.value = 2.0;
+  const fLFOGain = ctx.createGain();
+  fLFOGain.gain.value = 0.15; // subtle modulation depth
+  fLFO.connect(fLFOGain).connect(fGain.gain);
+  fO1.connect(fFilter).connect(fGain);
+  fO2.connect(fFilter); // both through same filter
+  fGain.connect(masterGain);
+  fO1.start(); fO2.start(); fLFO.start();
+  frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain;
+  frogLFO = fLFO; frogLFOGain = fLFOGain; frogFilter = fFilter;
 }
 
 // Cricket chime — spawn a single soft sine ping
@@ -587,7 +612,28 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
   // Weather damping
   const weatherDamp = Math.max(0.15, 1.0 - rainRate * 0.7);
 
-  // --- Frog layer: DISABLED for debugging ---
+  // --- Frog proximity (nearest pond within 20m) ---
+  let pondDist2 = Infinity;
+  if (playerPos && ponds) {
+    for (let i = 0; i < ponds.length; i++) {
+      const dx = ponds[i].x - playerPos.x, dz = ponds[i].z - playerPos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < pondDist2) pondDist2 = d2;
+    }
+  }
+  const frogProx = pondDist2 < 144 ? (1 - Math.sqrt(pondDist2) / 12) : 0;
+  const frogVol = frogProx * 0.012 * frogDayMult * weatherDamp;
+  frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
+
+  // Vary frog pitch gently over time
+  frogChirpTimer += dt;
+  if (frogChirpTimer > 3 + Math.random() * 4) {
+    frogChirpTimer = 0;
+    const basePitch = 200 + Math.random() * 60;
+    frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.5);
+    frogOsc2.frequency.linearRampToValueAtTime(basePitch * 1.26 + Math.random() * 10, now + 0.5);
+    frogLFO.frequency.linearRampToValueAtTime(1.5 + Math.random() * 1.5, now + 0.5);
+  }
 
   // --- Cricket proximity (nearest grass patch within 12m) ---
   let grassDist2 = Infinity;

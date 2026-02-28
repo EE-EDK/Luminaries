@@ -31,6 +31,7 @@ export function initFlies(n) {
       active: false, phase: Math.random() * 6.28, wander: Math.random() * 6.28, colorHex: c });
   }
   iMesh.count = n;
+  iMesh.frustumCulled = false;
   scene.add(iMesh);
 }
 

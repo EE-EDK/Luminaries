@@ -29,6 +29,7 @@ export function initStarMotes(n) {
     starMotes.push({ x: 0, y: 0, z: 0, life: 0, max: 0, active: false, vy: 0, drift: 0 });
   }
   iMesh.count = n;
+  iMesh.frustumCulled = false;
   scene.add(iMesh);
 }
 

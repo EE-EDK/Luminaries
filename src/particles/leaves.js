@@ -50,6 +50,7 @@ export function initLeaves(n) {
     });
   }
   iMesh.count = n;
+  iMesh.frustumCulled = false;
   scene.add(iMesh);
 }
 

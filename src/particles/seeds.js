@@ -29,6 +29,7 @@ export function initDandSeeds(n) {
       active: false, drift: 0 });
   }
   iMesh.count = n;
+  iMesh.frustumCulled = false;
   scene.add(iMesh);
 }
 

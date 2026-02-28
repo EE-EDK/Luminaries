@@ -28,6 +28,7 @@ export function initDustMotes(n) {
     dustMotes.push({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, max: 0, active: false });
   }
   iMesh.count = n;
+  iMesh.frustumCulled = false;
   scene.add(iMesh);
 }
 

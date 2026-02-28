@@ -5,23 +5,23 @@ import { scene } from '../core/renderer.js';
 // ================================================================
 // Northern Lights (Aurora Borealis)
 // ================================================================
-// Shimmering ribbon bands on the sky dome during DEEP_NIGHT.
-// 3 overlapping ribbon strips with vertex color animation.
-// Single draw call per ribbon. MeshBasicMaterial + additive blending.
-// Only active ~25% of the day/night cycle — zero cost otherwise.
+// Subtle, ethereal aurora with many thin overlapping ribbons.
+// Vertex-animated curtain shimmer. Muted desaturated colors.
+// Only active during DEEP_NIGHT / NIGHT — zero cost otherwise.
 
-const RIBBON_COUNT = 3;
-const SEGMENTS = 60;
+const RIBBON_COUNT = 6;
+const SEGMENTS = 64;
 const ribbons = [];
 let auroraGroup = null;
 
-// Color palette for aurora bands
+// Muted, desaturated color palette for soft aurora
 const AURORA_COLORS = [
-  new THREE.Color(0x33ffaa), // green-teal
-  new THREE.Color(0x44ffdd), // bright teal
-  new THREE.Color(0x88ffcc), // pale green
-  new THREE.Color(0xaa88ff), // purple hint
-  new THREE.Color(0xff66aa), // pink edge
+  new THREE.Color(0x1a7755), // muted green
+  new THREE.Color(0x2a8877), // muted teal
+  new THREE.Color(0x557766), // pale sage
+  new THREE.Color(0x665588), // muted purple
+  new THREE.Color(0x884466), // muted rose
+  new THREE.Color(0x336655), // dark teal
 ];
 
 export function initAurora() {
@@ -29,26 +29,36 @@ export function initAurora() {
   auroraGroup.visible = false;
 
   for (let r = 0; r < RIBBON_COUNT; r++) {
-    // Each ribbon is a PlaneGeometry curved along a sky arc
-    const width = SKY_R * (1.4 + r * 0.3);
-    const height = SKY_R * (0.06 + r * 0.015);
-    const geo = new THREE.PlaneGeometry(width, height, SEGMENTS, 1);
+    // Thinner, more numerous ribbons with variation
+    const widthMult = 1.2 + r * 0.2 + Math.sin(r * 1.7) * 0.15;
+    const width = SKY_R * widthMult;
+    // Taller ribbons for a more diffuse, wispy look
+    const heightMult = 0.10 + r * 0.012 + Math.sin(r * 2.3) * 0.02;
+    const height = SKY_R * heightMult;
+    // More vertical rows for gradient falloff
+    const geo = new THREE.PlaneGeometry(width, height, SEGMENTS, 3);
 
     // Curve the ribbon into an arc across the sky
     const posArr = geo.attributes.position.array;
-    const vertCount = (SEGMENTS + 1) * 2;
-    const arcSpan = Math.PI * (0.5 + r * 0.12); // angular span
+    const rows = 4; // 0=top .. 3=bottom
+    const vertCount = (SEGMENTS + 1) * rows;
+    const arcSpan = Math.PI * (0.45 + r * 0.08 + Math.sin(r * 0.9) * 0.05);
     const arcStart = -arcSpan / 2;
-    const elevation = (0.28 + r * 0.08) * Math.PI; // altitude angle from zenith
-    const azimuthOffset = r * 0.4 - 0.3; // spread ribbons apart
+    // Tighter elevation clustering with slight spread
+    const elevation = (0.25 + r * 0.04 + Math.sin(r * 1.3) * 0.02) * Math.PI;
+    // Less azimuth spread so ribbons overlap more
+    const azimuthOffset = r * 0.18 - 0.45;
 
     for (let i = 0; i < vertCount; i++) {
-      const col = Math.floor(i / 2);
-      const row = i % 2; // 0 = top edge, 1 = bottom edge
+      const col = Math.floor(i / rows);
+      const row = i % rows;
       const t = col / SEGMENTS;
       const azimuth = arcStart + t * arcSpan + azimuthOffset;
 
-      const elev = elevation + (row === 0 ? -0.03 : 0.03);
+      // Spread rows across ribbon height
+      const rowFrac = row / (rows - 1); // 0=top, 1=bottom
+      const elevOffset = (rowFrac - 0.5) * 0.05;
+      const elev = elevation + elevOffset;
       const skyR = SKY_R * 0.92;
 
       posArr[i * 3] = Math.sin(azimuth) * Math.sin(elev) * skyR;
@@ -56,6 +66,7 @@ export function initAurora() {
       posArr[i * 3 + 2] = Math.cos(azimuth) * Math.sin(elev) * skyR;
     }
     geo.attributes.position.needsUpdate = true;
+    geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
     geo.computeVertexNormals();
 
     // Vertex colors for animation
@@ -79,11 +90,17 @@ export function initAurora() {
     ribbons.push({
       mesh, mat, geo,
       colorArr: colors,
+      posArr,
       vertCount,
+      rows,
       segments: SEGMENTS,
-      phase: r * 2.1, // offset wave phase per ribbon
-      speed: 0.3 + r * 0.1,
-      colorShift: r * 1.5
+      phase: r * 1.7 + Math.sin(r * 0.8) * 0.5,
+      speed: 0.15 + r * 0.05 + Math.sin(r * 2.1) * 0.03,
+      colorShift: r * 1.1,
+      elevation,
+      arcStart,
+      arcSpan,
+      azimuthOffset
     });
   }
 
@@ -96,50 +113,51 @@ let currentOpacity = 0;
 export function updateAurora(dt, t, dayPhase, bioGlow, weatherState) {
   if (!auroraGroup) return;
 
-  // Determine target visibility:
-  // Visible during DEEP_NIGHT (and partially during NIGHT transition)
-  // Hidden during storms, heavy rain, fog
+  // Visible during DEEP_NIGHT and partially NIGHT, hidden in storms/fog
   const obscured = weatherState === 'HEAVY_RAIN' || weatherState === 'LUMINOUS_STORM' || weatherState === 'FOG_BANK';
   let targetOpacity = 0;
   if (!obscured) {
-    if (dayPhase === 'DEEP_NIGHT') targetOpacity = 0.7;
-    else if (dayPhase === 'NIGHT') targetOpacity = 0.25;
+    if (dayPhase === 'DEEP_NIGHT') targetOpacity = 0.25;
+    else if (dayPhase === 'NIGHT') targetOpacity = 0.08;
   }
 
   // Smooth fade in/out
-  const fadeSpeed = targetOpacity > currentOpacity ? 0.3 : 0.5;
+  const fadeSpeed = targetOpacity > currentOpacity ? 0.2 : 0.4;
   currentOpacity += (targetOpacity - currentOpacity) * fadeSpeed * dt;
 
-  // Toggle visibility to avoid unnecessary draw calls
-  if (currentOpacity < 0.01) {
+  if (currentOpacity < 0.005) {
     auroraGroup.visible = false;
     return;
   }
   auroraGroup.visible = true;
 
+  const skyR = SKY_R * 0.92;
+
   // Animate each ribbon
   for (let r = 0; r < ribbons.length; r++) {
     const rb = ribbons[r];
     const colors = rb.colorArr;
+    const posArr = rb.posArr;
     const segs = rb.segments;
+    const rows = rb.rows;
 
-    rb.mat.opacity = currentOpacity * (0.6 + r * 0.15);
+    // More uniform opacity across ribbons
+    rb.mat.opacity = currentOpacity * (0.5 + r * 0.05);
 
-    // Wave propagation along ribbon length
     for (let col = 0; col <= segs; col++) {
       const u = col / segs; // 0..1 along ribbon
 
-      // Primary traveling wave
-      const wave1 = Math.sin(u * 8 + t * rb.speed + rb.phase) * 0.5 + 0.5;
-      // Secondary slower wave for complexity
-      const wave2 = Math.sin(u * 3.5 - t * rb.speed * 0.6 + rb.phase * 1.3) * 0.5 + 0.5;
-      // Slow lateral drift
-      const drift = Math.sin(u * 2 + t * 0.1) * 0.5 + 0.5;
+      // Multiple waves for organic shimmer
+      const wave1 = Math.sin(u * 6 + t * rb.speed + rb.phase) * 0.5 + 0.5;
+      const wave2 = Math.sin(u * 3 - t * rb.speed * 0.4 + rb.phase * 1.3) * 0.5 + 0.5;
+      const drift = Math.sin(u * 1.5 + t * 0.07) * 0.5 + 0.5;
+      // Slow large-scale fade — sections of ribbon appear and disappear
+      const swell = Math.sin(u * 1.2 + t * 0.05 + rb.phase * 0.7) * 0.5 + 0.5;
 
-      const brightness = (wave1 * 0.6 + wave2 * 0.3 + drift * 0.1) * currentOpacity;
+      const brightness = (wave1 * 0.3 + wave2 * 0.25 + drift * 0.2 + swell * 0.25) * currentOpacity;
 
-      // Color selection — blend between aurora palette based on position + time
-      const colorIdx = (u * 3 + t * 0.15 + rb.colorShift) % AURORA_COLORS.length;
+      // Color blend along palette
+      const colorIdx = (u * 3 + t * 0.08 + rb.colorShift) % AURORA_COLORS.length;
       const ci = Math.floor(colorIdx);
       const cf = colorIdx - ci;
       const c1 = AURORA_COLORS[ci % AURORA_COLORS.length];
@@ -149,20 +167,38 @@ export function updateAurora(dt, t, dayPhase, bioGlow, weatherState) {
       const cg = (c1.g + (c2.g - c1.g) * cf) * brightness;
       const cb = (c1.b + (c2.b - c1.b) * cf) * brightness;
 
-      // Apply to both top and bottom vertices of this column
-      const topIdx = col * 2;
-      const botIdx = col * 2 + 1;
+      // Curtain shimmer — gently undulate vertex Y positions
+      const curtainAmp = skyR * 0.025;
+      const curtainWave = Math.sin(u * 5 + t * 0.3 + rb.phase) * curtainAmp
+        + Math.sin(u * 2.5 - t * 0.15 + rb.phase * 0.6) * curtainAmp * 0.5;
 
-      // Top edge slightly dimmer for gradient effect
-      colors[topIdx * 3] = cr * 0.7;
-      colors[topIdx * 3 + 1] = cg * 0.7;
-      colors[topIdx * 3 + 2] = cb * 0.7;
+      // Apply per-row with vertical gradient falloff
+      for (let row = 0; row < rows; row++) {
+        const idx = col * rows + row;
+        const rowFrac = row / (rows - 1); // 0=top, 1=bottom
 
-      colors[botIdx * 3] = cr;
-      colors[botIdx * 3 + 1] = cg;
-      colors[botIdx * 3 + 2] = cb;
+        // Vertical gradient: top fades to near-zero, bottom brightest, middle soft
+        // Creates a soft diffuse edge instead of hard bands
+        let rowAlpha;
+        if (rowFrac < 0.33) rowAlpha = rowFrac * 1.2; // top edge fades in
+        else if (rowFrac > 0.67) rowAlpha = (1 - rowFrac) * 1.5; // bottom edge fades out
+        else rowAlpha = 0.7 + Math.sin(rowFrac * Math.PI) * 0.3; // middle peak
+
+        colors[idx * 3] = cr * rowAlpha;
+        colors[idx * 3 + 1] = cg * rowAlpha;
+        colors[idx * 3 + 2] = cb * rowAlpha;
+
+        // Update vertex position Y for curtain shimmer
+        const azimuth = rb.arcStart + u * rb.arcSpan + rb.azimuthOffset;
+        const elevOffset = (rowFrac - 0.5) * 0.05;
+        const elev = rb.elevation + elevOffset;
+        // Add curtain undulation to Y, scaled by row (more at bottom)
+        const shimmerY = curtainWave * (0.3 + rowFrac * 0.7);
+        posArr[idx * 3 + 1] = Math.cos(elev) * skyR + shimmerY;
+      }
     }
 
     rb.geo.attributes.color.needsUpdate = true;
+    rb.geo.attributes.position.needsUpdate = true;
   }
 }

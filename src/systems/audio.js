@@ -1,11 +1,14 @@
 // ================================================================
-// Audio System — Procedural Ambient Soundscape + Creature + Player
+// Audio System — Ethereal Ambient Soundscape + Musical Creature Sounds
 // ================================================================
 // Uses Web Audio API for procedural sounds (no audio files needed).
-// Layers: forest hum, wind, rain, thunder, water (spatial), creatures, footsteps.
+// All sounds designed to be soft, ethereal, and musical.
+// Layers: forest hum, wind, rain, thunder, water, creatures, footsteps.
 
 let ctx = null;
 let masterGain = null;
+let reverbGain = null; // Shared reverb send for ethereal wash
+let reverbDelay = null;
 let initialized = false;
 let muted = false;
 
@@ -45,7 +48,7 @@ function createNoiseBuffer(type, duration) {
       const w = Math.random() * 2 - 1;
       data[i] = (last + 0.02 * w) / 1.02;
       last = data[i];
-      data[i] *= 3.5; // normalize
+      data[i] *= 3.5;
     }
   }
   return buf;
@@ -67,10 +70,57 @@ function loopNoise(buffer, gainVal, filterFreq) {
 }
 
 // ================================================================
+// Shared reverb — feedback delay for ethereal wash
+// ================================================================
+function createReverb() {
+  // Simple stereo feedback delay as reverb approximation
+  const delay1 = ctx.createDelay(1.0);
+  delay1.delayTime.value = 0.32;
+  const delay2 = ctx.createDelay(1.0);
+  delay2.delayTime.value = 0.47;
+  const fb1 = ctx.createGain();
+  fb1.gain.value = 0.25;
+  const fb2 = ctx.createGain();
+  fb2.gain.value = 0.20;
+  const filter1 = ctx.createBiquadFilter();
+  filter1.type = 'lowpass';
+  filter1.frequency.value = 2500;
+  const filter2 = ctx.createBiquadFilter();
+  filter2.type = 'lowpass';
+  filter2.frequency.value = 2000;
+  const wet = ctx.createGain();
+  wet.gain.value = 0.35;
+
+  // Feedback loops
+  delay1.connect(filter1).connect(fb1).connect(delay1);
+  delay2.connect(filter2).connect(fb2).connect(delay2);
+  delay1.connect(wet);
+  delay2.connect(wet);
+  wet.connect(masterGain);
+
+  // Input node — connect sounds here for reverb
+  const input = ctx.createGain();
+  input.gain.value = 1.0;
+  input.connect(delay1);
+  input.connect(delay2);
+
+  reverbGain = input;
+}
+
+// Helper: connect a node to both dry (master) and wet (reverb) paths
+function connectWithReverb(node, dryDest, wetAmount) {
+  node.connect(dryDest);
+  if (reverbGain && wetAmount > 0) {
+    const wet = ctx.createGain();
+    wet.gain.value = wetAmount;
+    node.connect(wet).connect(reverbGain);
+  }
+}
+
+// ================================================================
 // Init
 // ================================================================
 export function initAudio() {
-  // Defer creation until first user interaction (autoplay policy)
   const handler = () => {
     if (initialized) return;
     try {
@@ -83,8 +133,11 @@ export function initAudio() {
       brownBuf = createNoiseBuffer('brown', 2);
       whiteBuf = createNoiseBuffer('white', 2);
 
-      // --- Forest hum: gentle brown noise ---
-      const fh = loopNoise(brownBuf, 0.12, 180);
+      // Create shared reverb
+      createReverb();
+
+      // --- Forest hum: gentle brown noise (quieter) ---
+      const fh = loopNoise(brownBuf, 0.08, 160);
       forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
       // --- Wind: white noise filtered, volume driven by weather ---
@@ -121,17 +174,17 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
   const now = ctx.currentTime;
 
   // --- Forest hum: slightly quieter at dawn, louder at deep night ---
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.15 : phase === 'DAWN' ? 0.08 : 0.12;
+  const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
   // --- Wind volume/filter scales with wind strength ---
-  const windVol = Math.min(windStrength * 0.18, 0.3);
+  const windVol = Math.min(windStrength * 0.15, 0.25);
   const windFreq = 200 + windStrength * 600;
   windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
   windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
 
   // --- Rain ---
-  const rainVol = rainRate * 0.25;
+  const rainVol = rainRate * 0.20;
   const rainFreq = 1200 + rainRate * 2000;
   rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
   rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
@@ -153,7 +206,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
     }
   }
   const waterProx = waterDist < 225 ? (1 - Math.sqrt(waterDist) / 15) : 0;
-  const waterVol = waterProx * 0.12;
+  const waterVol = waterProx * 0.10;
   waterGain.gain.linearRampToValueAtTime(waterVol, now + 0.1);
 
   // --- Creature cooldowns ---
@@ -168,6 +221,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 // ================================================================
 function playThunder() {
   if (!ctx) return;
+  const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   const filter = ctx.createBiquadFilter();
@@ -176,11 +230,11 @@ function playThunder() {
   filter.type = 'lowpass';
   filter.frequency.value = 100;
   filter.Q.value = 1;
-  gain.gain.setValueAtTime(0.4, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8 + Math.random() * 0.5);
+  gain.gain.setValueAtTime(0.35, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8 + Math.random() * 0.5);
   osc.connect(filter).connect(gain).connect(masterGain);
   osc.start();
-  osc.stop(ctx.currentTime + 1.5);
+  osc.stop(now + 1.5);
 
   // Rumble layer
   const noise = ctx.createBufferSource();
@@ -189,15 +243,15 @@ function playThunder() {
   const nFilter = ctx.createBiquadFilter();
   nFilter.type = 'lowpass';
   nFilter.frequency.value = 80;
-  nGain.gain.setValueAtTime(0.3, ctx.currentTime);
-  nGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+  nGain.gain.setValueAtTime(0.25, now);
+  nGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
   noise.connect(nFilter).connect(nGain).connect(masterGain);
   noise.start();
-  noise.stop(ctx.currentTime + 1.5);
+  noise.stop(now + 1.5);
 }
 
 // ================================================================
-// Creature Sounds (spatial tones)
+// Creature Sounds — Ethereal & Musical
 // ================================================================
 export function playCreatureSound(type, position, playerPos) {
   if (!initialized || muted || !ctx) return;
@@ -205,70 +259,127 @@ export function playCreatureSound(type, position, playerPos) {
 
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
   const d2 = dx * dx + dz * dz;
-  if (d2 > 900) return; // > 30m away, skip
+  if (d2 > 900) return;
 
   const dist = Math.sqrt(d2);
-  const vol = Math.max(0, 1 - dist / 30) * 0.15;
+  const vol = Math.max(0, 1 - dist / 30) * 0.10;
   const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
   const panner = ctx.createStereoPanner();
   panner.pan.value = pan;
-
   const now = ctx.currentTime;
 
   switch (type) {
-    case 'jelly': // soft harmonic hum
+    case 'jelly': {
+      // Glass-harmonica: two detuned sines with gentle vibrato
+      const baseFreq = 360 + Math.random() * 60;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(baseFreq, now);
+      osc2.frequency.setValueAtTime(baseFreq + 3, now); // slight detune for warmth
+      // Gentle descending glide
+      osc1.frequency.linearRampToValueAtTime(baseFreq - 40, now + 1.2);
+      osc2.frequency.linearRampToValueAtTime(baseFreq - 37, now + 1.2);
+      // Vibrato
+      const vib = ctx.createOscillator();
+      const vibGain = ctx.createGain();
+      vib.frequency.value = 4;
+      vibGain.gain.value = 5;
+      vib.connect(vibGain);
+      vibGain.connect(osc1.frequency);
+      vibGain.connect(osc2.frequency);
+      // Envelope: soft attack, long sustain, gentle fade
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.15);
+      gain.gain.setValueAtTime(vol, now + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(panner);
+      connectWithReverb(panner, masterGain, 0.4);
+      vib.start(now); osc1.start(now); osc2.start(now);
+      vib.stop(now + 1.5); osc1.stop(now + 1.5); osc2.stop(now + 1.5);
+      creatureCooldowns.jelly = 4 + Math.random() * 5;
+      break;
+    }
+
+    case 'puff': {
+      // Musical chirp: 3-note ascending pentatonic arpeggio
+      const base = 500 + Math.random() * 100;
+      const notes = [base, base * 1.2, base * 1.5]; // minor pentatonic intervals
+      for (let i = 0; i < notes.length; i++) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = notes[i];
+        const g = ctx.createGain();
+        const noteStart = now + i * 0.07;
+        g.gain.setValueAtTime(0, noteStart);
+        g.gain.linearRampToValueAtTime(vol * 0.5, noteStart + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.15);
+        osc.connect(g).connect(panner);
+        osc.start(noteStart);
+        osc.stop(noteStart + 0.18);
+      }
+      connectWithReverb(panner, masterGain, 0.3);
+      creatureCooldowns.puff = 3 + Math.random() * 4;
+      break;
+    }
+
+    case 'deer': {
+      // Warm distant horn: two detuned triangles with slow attack
+      const baseFreq = 100 + Math.random() * 30;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      osc1.type = 'triangle';
+      osc2.type = 'triangle';
+      osc1.frequency.setValueAtTime(baseFreq, now);
+      osc2.frequency.setValueAtTime(baseFreq + 2, now);
+      osc1.frequency.linearRampToValueAtTime(baseFreq - 15, now + 0.5);
+      osc2.frequency.linearRampToValueAtTime(baseFreq - 13, now + 0.5);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 250;
+      filter.Q.value = 0.5;
+      const gain = ctx.createGain();
+      // Slow attack for warm swell
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol * 0.7, now + 0.12);
+      gain.gain.setValueAtTime(vol * 0.7, now + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain).connect(panner);
+      connectWithReverb(panner, masterGain, 0.3);
+      osc1.start(now); osc2.start(now);
+      osc1.stop(now + 0.7); osc2.stop(now + 0.7);
+      creatureCooldowns.deer = 5 + Math.random() * 6;
+      break;
+    }
+
+    case 'moth': {
+      // Soft whisper-flutter: quiet sine with gentle FM
+      const osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(280 + Math.random() * 80, now);
-      osc.frequency.linearRampToValueAtTime(220 + Math.random() * 60, now + 0.6);
-      gain.gain.setValueAtTime(vol, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-      osc.connect(gain).connect(panner).connect(masterGain);
-      osc.start(); osc.stop(now + 0.8);
-      creatureCooldowns.jelly = 3 + Math.random() * 4;
-      break;
-
-    case 'puff': // short chirp
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(600 + Math.random() * 200, now);
-      osc.frequency.exponentialRampToValueAtTime(400, now + 0.15);
-      gain.gain.setValueAtTime(vol * 0.7, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc.connect(gain).connect(panner).connect(masterGain);
-      osc.start(); osc.stop(now + 0.2);
-      creatureCooldowns.puff = 2 + Math.random() * 3;
-      break;
-
-    case 'deer': // low snort/call
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(120 + Math.random() * 40, now);
-      osc.frequency.linearRampToValueAtTime(80, now + 0.3);
-      const deerFilter = ctx.createBiquadFilter();
-      deerFilter.type = 'lowpass'; deerFilter.frequency.value = 300;
-      gain.gain.setValueAtTime(vol, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-      osc.connect(deerFilter).connect(gain).connect(panner).connect(masterGain);
-      osc.start(); osc.stop(now + 0.5);
-      creatureCooldowns.deer = 4 + Math.random() * 5;
-      break;
-
-    case 'moth': // soft flutter
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(180 + Math.random() * 100, now);
+      osc.frequency.setValueAtTime(200 + Math.random() * 80, now);
       const lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
-      lfo.frequency.value = 20 + Math.random() * 10; // flutter rate
-      lfoGain.gain.value = 50;
+      lfo.frequency.value = 8 + Math.random() * 4;
+      lfoGain.gain.value = 12; // gentle modulation
       lfo.connect(lfoGain).connect(osc.frequency);
-      gain.gain.setValueAtTime(vol * 0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc.connect(gain).connect(panner).connect(masterGain);
-      lfo.start(); osc.start();
-      lfo.stop(now + 0.35); osc.stop(now + 0.35);
-      creatureCooldowns.moth = 3 + Math.random() * 4;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol * 0.2, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(gain).connect(panner);
+      connectWithReverb(panner, masterGain, 0.2);
+      lfo.start(now); osc.start(now);
+      lfo.stop(now + 0.3); osc.stop(now + 0.3);
+      creatureCooldowns.moth = 4 + Math.random() * 5;
       break;
+    }
   }
 }
 
@@ -290,7 +401,7 @@ export function playFootstep(sprinting, nearWater) {
     const gain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass'; filter.frequency.value = 2000; filter.Q.value = 0.5;
-    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.setValueAtTime(0.05, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
     noise.connect(filter).connect(gain).connect(masterGain);
     noise.start(); noise.stop(now + 0.15);
@@ -300,7 +411,7 @@ export function playFootstep(sprinting, nearWater) {
     osc.type = 'sine';
     osc.frequency.value = 80 + Math.random() * 40;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.setValueAtTime(0.03, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
     osc.connect(gain).connect(masterGain);
     osc.start(); osc.stop(now + 0.1);
@@ -316,7 +427,7 @@ export function playJumpSound() {
   osc.frequency.setValueAtTime(150, now);
   osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.04, now);
+  gain.gain.setValueAtTime(0.03, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
   osc.connect(gain).connect(masterGain);
   osc.start(); osc.stop(now + 0.2);
@@ -330,7 +441,7 @@ export function playLandSound(impactStrength) {
   const gain = ctx.createGain();
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass'; filter.frequency.value = 200;
-  gain.gain.setValueAtTime(impactStrength * 0.08, now);
+  gain.gain.setValueAtTime(impactStrength * 0.06, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
   noise.connect(filter).connect(gain).connect(masterGain);
   noise.start(); noise.stop(now + 0.25);
@@ -341,63 +452,64 @@ export function updateStepCooldown(dt) {
 }
 
 // ================================================================
-// Bubble pop sound
+// Bubble pop sound — gentle water drop
 // ================================================================
 export function playBubblePop(position, playerPos) {
   if (!initialized || muted || !ctx) return;
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
   const d2 = dx * dx + dz * dz;
   if (d2 > 400) return;
-  const vol = Math.max(0, 1 - Math.sqrt(d2) / 20) * 0.08;
+  const vol = Math.max(0, 1 - Math.sqrt(d2) / 20) * 0.06;
 
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(800 + Math.random() * 400, now);
-  osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+  osc.frequency.setValueAtTime(600 + Math.random() * 300, now);
+  osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(vol, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
   osc.connect(gain).connect(masterGain);
-  osc.start(); osc.stop(now + 0.12);
+  osc.start(); osc.stop(now + 0.15);
 }
 
 // ================================================================
-// Orb collection sound
+// Orb collection sound — ethereal rising chord
 // ================================================================
 export function playOrbCollect() {
   if (!initialized || muted || !ctx) return;
   const now = ctx.currentTime;
-  // Rising harmonic chord
   const freqs = [440, 554, 659, 880];
   for (let i = 0; i < freqs.length; i++) {
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(freqs[i], now + i * 0.1);
+    osc.frequency.setValueAtTime(freqs[i], now + i * 0.12);
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.06, now + i * 0.1 + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.6);
-    osc.connect(gain).connect(masterGain);
-    osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.7);
+    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.12 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.7);
+    osc.connect(gain);
+    connectWithReverb(gain, masterGain, 0.5);
+    osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.8);
   }
 }
 
 // ================================================================
-// Fairy ring bounce sound
+// Fairy ring bounce — musical chime
 // ================================================================
 export function playFairyBounce() {
   if (!initialized || muted || !ctx) return;
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(300, now);
-  osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(900, now + 0.15);
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.08, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-  osc.connect(gain).connect(masterGain);
-  osc.start(); osc.stop(now + 0.5);
+  gain.gain.setValueAtTime(0.06, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  osc.connect(gain);
+  connectWithReverb(gain, masterGain, 0.4);
+  osc.start(); osc.stop(now + 0.6);
 }
 
 // ================================================================
@@ -412,18 +524,20 @@ export function toggleMute() {
 export function isMuted() { return muted; }
 
 // ================================================================
-// Ambient Creature Sounds — Frogs at Ponds & Crickets in Grass
+// Ambient Creature Sounds — Soft Musical Frogs & Cricket Chimes
 // ================================================================
-// Persistent spatial layers: frog chorus near ponds, cricket chirps near grass.
-// Uses oscillators + filtered noise — zero GPU cost.
+// Frogs: gentle sine-based tones near ponds (not square waves)
+// Crickets: periodic soft high-pitched bell pings near grass (not noise)
 
-// Frog layer (pond proximity)
+// Frog layer (pond proximity) — soft sine oscillators
 let frogOsc1 = null, frogOsc2 = null, frogGain = null, frogLFO = null, frogLFOGain = null;
+let frogFilter = null;
 let frogChirpTimer = 0;
 
-// Cricket layer (grass proximity)
-let cricketNode = null, cricketGain = null, cricketFilter = null;
-let cricketLFO = null, cricketLFOGain = null;
+// Cricket layer — replaced with periodic ping system
+let cricketPingTimer = 0;
+let cricketVolTarget = 0;
+let cricketDayMult = 1;
 
 let ambientInited = false;
 
@@ -435,59 +549,51 @@ function ensureAmbient() {
   if (ambientInited || !ctx) return;
   ambientInited = true;
 
-  // --- Cricket layer: high-frequency filtered noise with AM chirp ---
-  const cNode = ctx.createBufferSource();
-  cNode.buffer = whiteBuf;
-  cNode.loop = true;
-  const cFilter = ctx.createBiquadFilter();
-  cFilter.type = 'bandpass';
-  cFilter.frequency.value = 4500;
-  cFilter.Q.value = 2.0;
-  const cGain = ctx.createGain();
-  cGain.gain.value = 0;
-  // AM modulation for chirp rhythm
-  const cLFO = ctx.createOscillator();
-  cLFO.type = 'square';
-  cLFO.frequency.value = 12; // chirp rate
-  const cLFOGain = ctx.createGain();
-  cLFOGain.gain.value = 0.5;
-  cLFO.connect(cLFOGain).connect(cGain.gain);
-  cNode.connect(cFilter).connect(cGain).connect(masterGain);
-  cNode.start();
-  cLFO.start();
-  cricketNode = cNode; cricketGain = cGain; cricketFilter = cFilter;
-  cricketLFO = cLFO; cricketLFOGain = cLFOGain;
-
-  // --- Frog layer: two detuned oscillators for rich croak ---
+  // --- Frog layer: two soft detuned SINE oscillators (not square) ---
   const fGain = ctx.createGain();
   fGain.gain.value = 0;
   const fO1 = ctx.createOscillator();
-  fO1.type = 'square';
-  fO1.frequency.value = 180;
+  fO1.type = 'sine';
+  fO1.frequency.value = 160;
   const fO2 = ctx.createOscillator();
-  fO2.type = 'square';
-  fO2.frequency.value = 220;
-  const fFilter1 = ctx.createBiquadFilter();
-  fFilter1.type = 'lowpass';
-  fFilter1.frequency.value = 400;
-  fFilter1.Q.value = 1.5;
-  const fFilter2 = ctx.createBiquadFilter();
-  fFilter2.type = 'lowpass';
-  fFilter2.frequency.value = 450;
-  fFilter2.Q.value = 1.5;
-  // LFO for ribbit rhythm
+  fO2.type = 'sine';
+  fO2.frequency.value = 190;
+  const fFilter = ctx.createBiquadFilter();
+  fFilter.type = 'lowpass';
+  fFilter.frequency.value = 350;
+  fFilter.Q.value = 0.5;
+  // Gentle sine LFO for soft pulsing rhythm
   const fLFO = ctx.createOscillator();
   fLFO.type = 'sine';
-  fLFO.frequency.value = 3.5;
+  fLFO.frequency.value = 2.0;
   const fLFOGain = ctx.createGain();
-  fLFOGain.gain.value = 0.5;
+  fLFOGain.gain.value = 0.3; // subtle modulation depth
   fLFO.connect(fLFOGain).connect(fGain.gain);
-  fO1.connect(fFilter1).connect(fGain);
-  fO2.connect(fFilter2).connect(fGain);
+  fO1.connect(fFilter).connect(fGain);
+  fO2.connect(fFilter); // both through same filter
   fGain.connect(masterGain);
   fO1.start(); fO2.start(); fLFO.start();
   frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain;
-  frogLFO = fLFO; frogLFOGain = fLFOGain;
+  frogLFO = fLFO; frogLFOGain = fLFOGain; frogFilter = fFilter;
+}
+
+// Cricket chime — spawn a single soft sine ping
+function spawnCricketPing(vol) {
+  if (!ctx || vol < 0.001) return;
+  const now = ctx.currentTime;
+  const freq = 3000 + Math.random() * 2000; // 3000-5000 Hz range
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  // Very slight pitch drop for bell character
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.92, now + 0.08);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  osc.connect(gain).connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.1);
 }
 
 export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
@@ -498,14 +604,12 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
   const now = ctx.currentTime;
 
   // --- Day/night volume modifiers ---
-  // Frogs: louder at NIGHT/DEEP_NIGHT, quieter at DAWN/DUSK
   const frogDayMult = (dayPhase === 'DEEP_NIGHT' || dayPhase === 'NIGHT') ? 1.0
     : dayPhase === 'DUSK' ? 0.5 : 0.3;
-  // Crickets: louder at DUSK/NIGHT, quieter at DEEP_NIGHT/DAWN
-  const cricketDayMult = (dayPhase === 'DUSK' || dayPhase === 'NIGHT') ? 1.0
+  cricketDayMult = (dayPhase === 'DUSK' || dayPhase === 'NIGHT') ? 1.0
     : dayPhase === 'DEEP_NIGHT' ? 0.6 : 0.3;
 
-  // Weather damping — quieter in rain/storms
+  // Weather damping
   const weatherDamp = Math.max(0.15, 1.0 - rainRate * 0.7);
 
   // --- Frog proximity (nearest pond within 20m) ---
@@ -518,17 +622,17 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     }
   }
   const frogProx = pondDist2 < 400 ? (1 - Math.sqrt(pondDist2) / 20) : 0;
-  const frogVol = frogProx * 0.06 * frogDayMult * weatherDamp;
+  const frogVol = frogProx * 0.025 * frogDayMult * weatherDamp;
   frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
 
-  // Vary frog pitch slightly over time
+  // Vary frog pitch gently over time
   frogChirpTimer += dt;
-  if (frogChirpTimer > 2 + Math.random() * 3) {
+  if (frogChirpTimer > 3 + Math.random() * 4) {
     frogChirpTimer = 0;
-    const basePitch = 160 + Math.random() * 60;
-    frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.3);
-    frogOsc2.frequency.linearRampToValueAtTime(basePitch + 30 + Math.random() * 20, now + 0.3);
-    frogLFO.frequency.linearRampToValueAtTime(2.5 + Math.random() * 3, now + 0.3);
+    const basePitch = 150 + Math.random() * 40;
+    frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.5);
+    frogOsc2.frequency.linearRampToValueAtTime(basePitch + 20 + Math.random() * 15, now + 0.5);
+    frogLFO.frequency.linearRampToValueAtTime(1.5 + Math.random() * 1.5, now + 0.5);
   }
 
   // --- Cricket proximity (nearest grass patch within 12m) ---
@@ -541,10 +645,18 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     }
   }
   const cricketProx = grassDist2 < 144 ? (1 - Math.sqrt(grassDist2) / 12) : 0;
-  const cricketVol = cricketProx * 0.04 * cricketDayMult * weatherDamp;
-  cricketGain.gain.linearRampToValueAtTime(cricketVol, now + 0.15);
+  cricketVolTarget = cricketProx * 0.02 * cricketDayMult * weatherDamp;
 
-  // Vary cricket chirp rate with temperature (day phase proxy)
-  const chirpRate = dayPhase === 'DUSK' ? 14 : dayPhase === 'NIGHT' ? 12 : 9;
-  cricketLFO.frequency.linearRampToValueAtTime(chirpRate, now + 0.5);
+  // Spawn periodic cricket bell-pings based on proximity
+  if (cricketVolTarget > 0.001) {
+    cricketPingTimer -= dt;
+    if (cricketPingTimer <= 0) {
+      spawnCricketPing(cricketVolTarget);
+      // Random interval — faster when closer, ranging 0.1s to 0.5s
+      const rate = 0.1 + (1 - cricketProx) * 0.4;
+      cricketPingTimer = rate + Math.random() * rate;
+    }
+  } else {
+    cricketPingTimer = 0;
+  }
 }

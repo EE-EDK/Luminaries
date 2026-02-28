@@ -22,8 +22,50 @@ const baseColor = new THREE.Color(0x44ddaa);
 let lastX = 0, lastZ = 0;
 let inited = false;
 
+function createFootShape() {
+  const s = new THREE.Shape();
+  // 3-toed dinosaur/reptile foot — approx 0.28 wide, 0.45 tall
+  // Origin at center of the shape. Y points forward (toes up).
+
+  // Start at heel center (bottom)
+  s.moveTo(0, -0.18);
+
+  // Right side of pad — curve outward
+  s.quadraticCurveTo(0.10, -0.17, 0.11, -0.06);
+
+  // Right toe — angled outward ~25deg
+  s.lineTo(0.10, -0.02);
+  s.lineTo(0.13, 0.12);
+  s.quadraticCurveTo(0.125, 0.14, 0.11, 0.12);
+  s.lineTo(0.08, 0.0);
+
+  // Valley between right and center toe
+  s.quadraticCurveTo(0.05, -0.02, 0.03, 0.0);
+
+  // Center toe — longest, pointing straight up
+  s.lineTo(0.03, 0.05);
+  s.lineTo(0.02, 0.22);
+  s.quadraticCurveTo(0, 0.245, -0.02, 0.22);
+  s.lineTo(-0.03, 0.05);
+  s.lineTo(-0.03, 0.0);
+
+  // Valley between center and left toe
+  s.quadraticCurveTo(-0.05, -0.02, -0.08, 0.0);
+
+  // Left toe — angled outward ~25deg
+  s.lineTo(-0.11, 0.12);
+  s.quadraticCurveTo(-0.125, 0.14, -0.13, 0.12);
+  s.lineTo(-0.10, -0.02);
+
+  // Left side of pad — curve back to heel
+  s.lineTo(-0.11, -0.06);
+  s.quadraticCurveTo(-0.10, -0.17, 0, -0.18);
+
+  return new THREE.ShapeGeometry(s);
+}
+
 export function initFootprints() {
-  const geo = new THREE.PlaneGeometry(0.28, 0.45);
+  const geo = createFootShape();
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1,
     blending: THREE.AdditiveBlending, depthWrite: false,

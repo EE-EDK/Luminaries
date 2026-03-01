@@ -27,10 +27,10 @@ try {
   bloomEnabled = false;
 }
 
-// Handle resize
+// Handle resize — composer uses full resolution, bloom pass internally uses reduced
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
-    composer.setSize(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
+    composer.setSize(window.innerWidth, window.innerHeight);
   }
 });
 

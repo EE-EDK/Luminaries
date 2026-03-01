@@ -332,7 +332,14 @@ function bakeTemplate(palIdx, seedOffset) {
     }
 
     // Bake material color as vertex colors
-    color.copy(mesh.material.color);
+    // For trunk category: use white vertex colors so bark texture shows through
+    // (vertexColor × textureColor — brown × brown = too dark; white × brown = correct)
+    const cat = mesh.userData._cat || 'trunk';
+    if (cat === 'trunk') {
+      color.set(0xffffff);
+    } else {
+      color.copy(mesh.material.color);
+    }
     const posAttr = geo.attributes.position;
     const vCount = posAttr.count;
     const colors = new Float32Array(vCount * 3);
@@ -342,8 +349,6 @@ function bakeTemplate(palIdx, seedOffset) {
       colors[vi * 3 + 2] = color.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const cat = mesh.userData._cat || 'trunk';
 
     // Keep UVs on trunk geometry for bark texture mapping;
     // remove UVs from other categories (not all have them, causes merge issues)
@@ -420,12 +425,12 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       scene.add(trunkMesh);
     }
 
-    // Canopy InstancedMesh (cores, mid-canopy leaves) — bright emissive, the glow source
+    // Canopy InstancedMesh (cores, mid-canopy leaves) — emissive glow source
     const canopyMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
-      emissiveIntensity: 0.9
+      emissiveIntensity: 0.35
     });
     const canopyMesh = tmpl.canopyGeo ? new THREE.InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
     if (canopyMesh) {

@@ -1609,7 +1609,7 @@ function director(dt, t) {
   // Mushroom glow pulse + visibility cull (3D distance)
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
-    const mdx = m.x - px, mdy = (m.group.position.y || 0) - py, mdz = m.z - pz;
+    const mdx = m.x - player.pos.x, mdy = (m.group.position.y || 0) - player.pos.y, mdz = m.z - player.pos.z;
     const md2 = mdx * mdx + mdy * mdy + mdz * mdz;
     if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
     if (!m.group.visible) m.group.visible = true;

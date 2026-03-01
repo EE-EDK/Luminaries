@@ -17,15 +17,15 @@ export const EYE_H = 1.7;
 
 // Entity counts — all entities use visibility culling + distance-based LOD
 export const TREE_N = 500;         // Template instanced (10 templates × InstancedMesh)
-export const MUSH_N = 60;          // visibility-culled beyond 50m
+export const MUSH_N = 120;         // visibility-culled beyond 50m (doubled)
 export const CRYSTAL_N = 18;
 export const JELLY_N = 20;         // visibility-culled beyond 55m
 export const PUFF_N = 28;         // visibility-culled beyond 40m
 export const DEER_N = 12;         // visibility-culled beyond 60m
 export const MOTH_N = 20;         // visibility-culled beyond 45m
 export const GRASS_PATCHES = 1200; // GPU vertex shader, zero CPU cost
-export const FERN_N = 50;          // visibility-culled beyond 40m
-export const FLOWER_N = 45;        // visibility-culled beyond 40m
+export const FERN_N = 80;          // visibility-culled beyond 40m
+export const FLOWER_N = 70;        // visibility-culled beyond 40m
 export const REED_N = 40;          // visibility-culled beyond 40m
 export const ROCK_N = 60;          // visibility-culled beyond 50m
 export const WISP_N = 6;
@@ -37,6 +37,12 @@ export const POND_N = 10;
 export const THORNBLOOM_N = 10;
 export const HELIXVINE_N = 10;
 export const SNAPTHORN_N = 8;
+export const SPIRALFROND_N = 15;
+export const CORPSEBLOOM_N = 8;
+export const ORBBUSH_N = 12;
+export const LANTERNPOD_N = 12;
+export const VEILMOSS_N = 15;
+export const GROUND_GLOW_N = 25;
 
 // Sky
 export const SKY_STARS = 600;
@@ -114,5 +120,17 @@ export const C = {
   helixStem: 0x1a2840, helixPod: 0x6633ff, helixPodGlow: 0x8855ff,
   helixRing: 0x4422aa, helixNode: 0x5544cc,
   snapBody: 0x22aa66, snapBodyGlow: 0x44ff88,
-  snapTip: 0x66ffaa, snapTipGlow: 0x88ffcc, snapFrond: 0x1a6644
+  snapTip: 0x66ffaa, snapTipGlow: 0x88ffcc, snapFrond: 0x1a6644,
+  // Spiral frond palette
+  spiralStem: 0x1a3040, spiralFrond: 0x22aa88, spiralGlow: 0x44ffcc, spiralTip: 0x88ffee,
+  // Corpse bloom palette
+  corpseSpathe: 0x551122, corpseColumn: 0x882244, corpseGlow: 0xcc3355, corpseLeaf: 0x1a3318,
+  // Orb bush palette
+  orbBushLeaf: 0x224422, orbBushOrb: 0xff88cc, orbBushGlow: 0xffaadd, orbBushStem: 0x1a3828,
+  // Lantern pod palette
+  lanternStem: 0x2a4422, lanternPod: 0xffdd66, lanternGlow: 0xffee88, lanternHaze: 0xffcc44,
+  // Veil moss palette
+  veilSupport: 0x3a3a40, veilMoss: 0x44cc88, veilGlow: 0x66ffaa, veilEdge: 0x88ffcc,
+  // Ground glow patch colors
+  groundGlowColors: [0x33ffdd, 0x44ffaa, 0xcc77ff, 0x44aaee, 0x88ffcc]
 };

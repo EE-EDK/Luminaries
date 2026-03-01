@@ -161,9 +161,72 @@ export function makeDeer(x, z) {
     g.add(dew);
   }
 
+  // --- Ethereal mane along neck ---
+  const maneMat = new THREE.MeshStandardMaterial({
+    color: 0xddeeff, emissive: C.deerGlow, emissiveIntensity: 0.4,
+    transparent: true, opacity: 0.3, side: THREE.DoubleSide
+  });
+  const manePlanes = [];
+  for (let mi = 0; mi < 5; mi++) {
+    const mane = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.08 + sr() * 0.04), maneMat);
+    mane.position.set(0, 0.1 + mi * 0.055, 0.04 - mi * 0.015);
+    mane.rotation.x = -0.2 + sr() * 0.15;
+    mane.rotation.z = (sr() - 0.5) * 0.25;
+    neckPivot.add(mane);
+    manePlanes.push(mane);
+  }
+
+  // --- Antler branch-point orbs ---
+  const branchOrbMat = new THREE.MeshBasicMaterial({
+    color: C.deerGlow, transparent: true, opacity: 0.5
+  });
+  const branchOrbs = [];
+  for (let i = -1; i <= 1; i += 2) {
+    // At first antler junction
+    const orb1 = new THREE.Mesh(new THREE.SphereGeometry(0.012, 3, 3), branchOrbMat.clone());
+    orb1.position.set(i * 0.1, 0.47, 0.11); neckPivot.add(orb1);
+    branchOrbs.push(orb1);
+    // At second junction
+    const orb2 = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), branchOrbMat.clone());
+    orb2.position.set(i * 0.14, 0.53, 0.12); neckPivot.add(orb2);
+    branchOrbs.push(orb2);
+  }
+
+  // --- Ghostly trail spheres ---
+  const trailMat = new THREE.MeshBasicMaterial({
+    color: C.deerGlow, transparent: true, opacity: 0.08,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const trailSpheres = [];
+  for (let ti = 0; ti < 3; ti++) {
+    const trail = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06 - ti * 0.012, 4, 3), trailMat.clone()
+    );
+    trail.position.set(0, 0.8, -0.6 - ti * 0.35);
+    scene.add(trail); // added to scene, not group — so they trail in world space
+    trailSpheres.push({ mesh: trail, mat: trail.material, prevX: x, prevY: 0, prevZ: z });
+  }
+
+  // --- Body rune markings ---
+  const runeMat = new THREE.MeshBasicMaterial({
+    color: C.deerGlow, transparent: true, opacity: 0.2, side: THREE.DoubleSide
+  });
+  for (let ri = 0; ri < 3; ri++) {
+    const ra = sr() * 6.28;
+    const rune = new THREE.Mesh(new THREE.CircleGeometry(0.03 + sr() * 0.015, 5), runeMat);
+    rune.position.set(
+      (ri === 1 ? -1 : 1) * 0.32,
+      0.8 + sr() * 0.25,
+      (sr() - 0.5) * 0.3
+    );
+    rune.rotation.y = (ri === 1 ? -1 : 1) * Math.PI / 2;
+    g.add(rune);
+  }
+
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, mat: bMat, phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.4,
+    group: g, mat: bMat, manePlanes, branchOrbs, trailSpheres,
+    phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.4,
     walkTimer: 0, legCycle: 0, homeX: x, homeZ: z, state: 'walk', pauseTimer: 0,
     neckPivot: neckPivot, legPivots: legPivots, tailPivot: tailPivot,
     fleeTimer: 0, headLook: 0, headBob: 0,

@@ -566,9 +566,10 @@ export function isMuted() { return muted; }
 // Crickets: periodic soft high-pitched bell pings near grass (not noise)
 
 // Frog layer (pond proximity) — soft sine oscillators
-let frogOsc1 = null, frogOsc2 = null, frogGain = null, frogLFO = null, frogLFOGain = null;
+let frogOsc1 = null, frogOsc2 = null, frogGain = null;
 let frogFilter = null;
 let frogChirpTimer = 0;
+let frogPulsePhase = 0; // JS-driven pulse instead of audio-rate LFO
 
 // Cricket layer — replaced with periodic ping system
 let cricketPingTimer = 0;
@@ -586,6 +587,8 @@ function ensureAmbient() {
   ambientInited = true;
 
   // --- Frog layer: two soft detuned SINE oscillators (not square) ---
+  // No audio-rate LFO — pulsing is driven from JS in updateAmbientSounds
+  // so gain is truly 0 when not near a pond.
   const fGain = ctx.createGain();
   fGain.gain.value = 0;
   const fO1 = ctx.createOscillator();
@@ -598,19 +601,11 @@ function ensureAmbient() {
   fFilter.type = 'lowpass';
   fFilter.frequency.value = 350;
   fFilter.Q.value = 0.5;
-  // Gentle sine LFO for soft pulsing rhythm
-  const fLFO = ctx.createOscillator();
-  fLFO.type = 'sine';
-  fLFO.frequency.value = 2.0;
-  const fLFOGain = ctx.createGain();
-  fLFOGain.gain.value = 0.3; // subtle modulation depth
-  fLFO.connect(fLFOGain).connect(fGain.gain);
   fO1.connect(fFilter).connect(fGain);
-  fO2.connect(fFilter); // both through same filter
+  fO2.connect(fFilter);
   fGain.connect(masterGain);
-  fO1.start(); fO2.start(); fLFO.start();
-  frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain;
-  frogLFO = fLFO; frogLFOGain = fLFOGain; frogFilter = fFilter;
+  fO1.start(); fO2.start();
+  frogOsc1 = fO1; frogOsc2 = fO2; frogGain = fGain; frogFilter = fFilter;
 }
 
 // Cricket chime — spawn a single soft sine ping
@@ -658,7 +653,10 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     }
   }
   const frogProx = pondDist2 < 400 ? (1 - Math.sqrt(pondDist2) / 20) : 0;
-  const frogVol = frogProx * 0.025 * frogDayMult * weatherDamp;
+  // JS-driven pulse replaces audio-rate LFO — truly silent when far from ponds
+  frogPulsePhase += dt * 2.0;
+  const pulse = 0.7 + 0.3 * Math.sin(frogPulsePhase * Math.PI * 2);
+  const frogVol = frogProx * 0.025 * frogDayMult * weatherDamp * pulse;
   frogGain.gain.linearRampToValueAtTime(frogVol, now + 0.15);
 
   // Vary frog pitch gently over time
@@ -668,7 +666,6 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     const basePitch = 150 + Math.random() * 40;
     frogOsc1.frequency.linearRampToValueAtTime(basePitch, now + 0.5);
     frogOsc2.frequency.linearRampToValueAtTime(basePitch + 20 + Math.random() * 15, now + 0.5);
-    frogLFO.frequency.linearRampToValueAtTime(1.5 + Math.random() * 1.5, now + 0.5);
   }
 
   // --- Cricket proximity (nearest grass patch within 12m) ---

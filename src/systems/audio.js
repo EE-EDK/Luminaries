@@ -893,7 +893,7 @@ function initMusic() {
   if (musicInited || !ctx) return;
   musicInited = true;
   musicMasterGain = ctx.createGain();
-  musicMasterGain.gain.value = 0.018;
+  musicMasterGain.gain.value = 0.011;
   musicMasterGain.connect(masterGain);
   musicTimer = 1.5; // start after 1.5s delay
   accomTimer = 3;
@@ -1081,24 +1081,28 @@ function playLuteNote(freq, vol, delay) {
 // ---- Rhythmic pulse — gentle continuous heartbeat for flow ----
 // Plays a soft, steady pattern of filtered tones to provide rhythmic continuity
 let pulseTimer = 0;
-let pulsePhase = 0;   // cycles through a 4-beat pattern
+let pulsePhase = 0;   // cycles through an 8-beat melodic pattern
 let pulseTempo = 0;   // seconds per beat, set when music inits
 let pulsePattern = []; // volume pattern for variety
+// 8-note melodic contour (pentatonic scale degree offsets from pad root)
+// Maps to roughly: G4 - E5 - D5 - C5 - A4 - G4 - C5 - E5
+const PULSE_MELODY = [3, 7, 6, 5, 4, 3, 5, 7];
 
 function initPulse() {
   pulseTempo = 2.2 + Math.random() * 0.6; // ~2.2-2.8s per beat (slow, meditative)
   pulseTimer = 2; // start after 2s
   pulsePhase = 0;
-  // 4-beat pattern with softer accents
-  pulsePattern = [0.4, 0.15, 0.3, 0.12];
+  // 8-beat pattern with varying accents to match the melodic contour
+  pulsePattern = [0.4, 0.3, 0.25, 0.35, 0.2, 0.15, 0.3, 0.25];
 }
 
 function playPulseTick(vol) {
   if (!ctx || !musicMasterGain) return;
   const now = ctx.currentTime;
 
-  // Root note of current pad, 2 octaves up for a gentle chime quality
-  const freq = noteFreq(currentPadDegree, 1);
+  // Melodic note from 8-step contour, follows pad harmony
+  const melodyStep = PULSE_MELODY[pulsePhase % PULSE_MELODY.length];
+  const freq = noteFreq(currentPadDegree + melodyStep, 0);
 
   // Soft filtered triangle tone — very short, percussive
   const osc = ctx.createOscillator();
@@ -1292,10 +1296,10 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
   currentOctaveShift = dayPhase === 'DAY' ? 1 : 0;
 
   // Volume by time of day — slightly higher overall
-  const dayVol = dayPhase === 'DEEP_NIGHT' ? 0.016 :
-    dayPhase === 'NIGHT' ? 0.020 :
-    dayPhase === 'DAWN' ? 0.024 :
-    dayPhase === 'DAY' ? 0.013 : 0.020;
+  const dayVol = dayPhase === 'DEEP_NIGHT' ? 0.010 :
+    dayPhase === 'NIGHT' ? 0.013 :
+    dayPhase === 'DAWN' ? 0.015 :
+    dayPhase === 'DAY' ? 0.008 : 0.013;
 
   // Reactive volume boost near magical areas
   const magicBoost = nearMagical ? 1.35 : 1.0;

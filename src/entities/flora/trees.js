@@ -260,24 +260,41 @@ function generateTemplateTree(palIdx) {
     g.add(mesh);
   }
 
-  // Helper: add canopy cluster at a point
+  // Helper: add organic canopy cluster — multiple small scattered leaf clouds
+  // instead of uniform spheres, creating irregular natural-looking foliage
   function addCanopy(cx, cy, cz, size) {
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.25, 1));
-    core.material = new THREE.MeshStandardMaterial({ color: pal.core });
-    core.position.set(cx, cy, cz);
-    core.userData._cat = 'canopy';
-    g.add(core);
+    // 3-6 small leaf cloud volumes scattered around branch tip
+    const cloudN = 3 + Math.floor(sr() * 4);
+    const spread = size * 0.45;
+    for (let ci = 0; ci < cloudN; ci++) {
+      const cloudR = size * (0.12 + sr() * 0.18); // varied small radii
+      const cloud = new THREE.Mesh(new THREE.IcosahedronGeometry(cloudR, 1));
+      // Alternate between leaf and brighter core colors for depth
+      const isBright = sr() < 0.3;
+      cloud.material = new THREE.MeshStandardMaterial({
+        color: isBright ? pal.core : pal.leaf
+      });
+      // Scatter position irregularly around the center
+      cloud.position.set(
+        cx + (sr() - 0.5) * spread * 2,
+        cy + (sr() - 0.3) * spread * 1.4, // bias slightly upward
+        cz + (sr() - 0.5) * spread * 2
+      );
+      // Non-uniform scale: elongated, squashed, stretched for organic shape
+      cloud.scale.set(
+        0.7 + sr() * 0.8,
+        0.5 + sr() * 0.9,
+        0.7 + sr() * 0.8
+      );
+      cloud.userData._cat = 'canopy';
+      g.add(cloud);
+    }
 
-    const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.45, 1));
-    mid.material = new THREE.MeshStandardMaterial({ color: pal.leaf });
-    mid.position.set(cx + (sr() - 0.5) * 0.3, cy + (sr() - 0.5) * 0.3, cz + (sr() - 0.5) * 0.3);
-    mid.scale.set(1 + sr() * 0.3, 0.7 + sr() * 0.4, 1 + sr() * 0.3);
-    mid.userData._cat = 'canopy';
-    g.add(mid);
-
-    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.7, 1));
+    // Soft glow haze — slightly smaller than before, centered
+    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.5, 1));
     haze.material = new THREE.MeshStandardMaterial({ color: pal.glow });
     haze.position.set(cx, cy, cz);
+    haze.scale.set(1 + sr() * 0.3, 0.7 + sr() * 0.4, 1 + sr() * 0.3);
     haze.userData._cat = 'glow';
     g.add(haze);
   }

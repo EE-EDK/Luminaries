@@ -158,6 +158,11 @@ const crystalSortBuf = []; // Reused for crystal proximity sorting
 let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 
 // ================================================================
+// Global dimming state (smoothed for natural transitions)
+// ================================================================
+let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
+
+// ================================================================
 // Echo bloom state
 // ================================================================
 let echoBloomTimer = 0;
@@ -2159,10 +2164,24 @@ function animate() {
   updateRain(dt, player.pos, rainRate, windX, windZ);
   updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
 
-  // Player light dimming — scales with local glow at player position
-  const plDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  playerLight.intensity *= (0.4 + 0.6 * plDimFactor);
-  playerLight.distance *= (0.6 + 0.4 * plDimFactor);
+  // Global dimming — scales renderer exposure, fog, ambient, and player light
+  // based on the player's local glow factor. Smoothly lerped for natural transitions.
+  const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
+  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 1.5 : 0.8; // brighten faster than dim
+  smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
+
+  // Renderer exposure: 2.8 at full glow, ~1.5 in dimmed zones
+  renderer.toneMappingExposure = 1.5 + 1.3 * smoothedDimFactor;
+
+  // Fog: thicker in dimmed zones (visibility drops)
+  scene.fog.density *= (1.0 + 0.5 * (1.0 - smoothedDimFactor));
+
+  // Hemisphere ambient: reduce in dimmed zones
+  hemiLight.intensity *= (0.6 + 0.4 * smoothedDimFactor);
+
+  // Player light: weaker in dimmed zones
+  playerLight.intensity *= (0.4 + 0.6 * smoothedDimFactor);
+  playerLight.distance *= (0.6 + 0.4 * smoothedDimFactor);
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom

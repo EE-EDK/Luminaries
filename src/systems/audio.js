@@ -254,7 +254,8 @@ function playThunder() {
 // Creature Sounds — Ethereal & Musical
 // ================================================================
 export function playCreatureSound(type, position, playerPos) {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   if (creatureCooldowns[type] > 0) return;
 
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
@@ -603,7 +604,8 @@ function spawnCricketPing(vol) {
 }
 
 export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   ensureAmbient();
   if (!ambientInited) return;
 

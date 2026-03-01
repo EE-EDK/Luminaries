@@ -110,9 +110,63 @@ export function makePuff(x, z) {
   const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.03, 3), mouthMat);
   mouth.position.set(0, 0.59, 0.22); mouth.rotation.z = Math.PI / 2; g.add(mouth);
 
+  // --- Glowing aura haze ---
+  const auraMat = new THREE.MeshBasicMaterial({
+    color: C.puffGlow, transparent: true, opacity: 0.04,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 4), auraMat);
+  aura.position.y = 0.4; g.add(aura);
+
+  // --- Orbiting sparkle motes ---
+  const sparkMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.6
+  });
+  const sparkles = [];
+  for (let si = 0; si < 3; si++) {
+    const spark = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3), sparkMat.clone());
+    spark.position.set(0, 0.5, 0);
+    g.add(spark);
+    sparkles.push({ mesh: spark, mat: spark.material, phase: sr() * 6.28, orbitR: 0.28 + sr() * 0.1 });
+  }
+
+  // --- Body pattern spots ---
+  const patternMat = new THREE.MeshBasicMaterial({
+    color: C.puffGlow, transparent: true, opacity: 0.15, side: THREE.DoubleSide
+  });
+  for (let pi = 0; pi < 4; pi++) {
+    const pa = sr() * 6.28, pEl = (sr() - 0.5) * 0.4;
+    const pat = new THREE.Mesh(new THREE.CircleGeometry(0.02 + sr() * 0.012, 5), patternMat);
+    pat.position.set(Math.cos(pa) * 0.27, 0.35 + pEl * 0.15, Math.sin(pa) * 0.27);
+    pat.lookAt(0, 0.35, 0);
+    g.add(pat);
+  }
+
+  // --- Tiny flower crown (40% chance) ---
+  let crownMat = null;
+  if (sr() < 0.4) {
+    crownMat = new THREE.MeshStandardMaterial({
+      color: C.flower, emissive: C.flowerGlow, emissiveIntensity: 0.3
+    });
+    // Petal ring
+    for (let ci = 0; ci < 3; ci++) {
+      const ca = (ci / 3) * 6.28;
+      const petal = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.03, 3), crownMat);
+      petal.position.set(Math.cos(ca) * 0.035, 0.88, Math.sin(ca) * 0.035);
+      petal.rotation.z = -Math.cos(ca) * 0.5;
+      petal.rotation.x = Math.sin(ca) * 0.5;
+      g.add(petal);
+    }
+    // Center dot
+    const bud = new THREE.Mesh(new THREE.SphereGeometry(0.01, 3, 3),
+      new THREE.MeshStandardMaterial({ color: 0xffee44, emissive: 0xffdd22, emissiveIntensity: 0.4 }));
+    bud.position.set(0, 0.89, 0); g.add(bud);
+  }
+
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, ears, eyes, tail, phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
+    group: g, ears, eyes, tail, sparkles, auraMat, crownMat,
+    phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _followT: 0, _scaredT: 0, _huddleTarget: -1,
     _baseY: 0, _lastTX: x, _lastTZ: z,

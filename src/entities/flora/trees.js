@@ -4,6 +4,7 @@ import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { saveSeed, restoreSeed } from '../../utils/rng.js';
+import { lerp } from '../../utils/math.js';
 
 // ================================================================
 // Procedural bark texture — generated once, shared by all trunk InstancedMeshes
@@ -660,21 +661,54 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       const dy = (inst.y + (inst.treeH || 10) * 0.4) - py;
       const d2 = dx * dx + dy * dy + dz * dz;
       const posIdx = inst.posIdx;
+      const impostor = treeImpostors[posIdx];
 
-      // Tier 3 (>110m): hidden entirely
-      if (d2 > 12100) {
-        if (treeImpostors[posIdx]) treeImpostors[posIdx].visible = false;
+      // Tier 3 (>115m): hidden entirely
+      if (d2 > 13225) {
+        if (impostor) impostor.visible = false;
         continue;
       }
 
-      // Tier 2 (70-110m): impostor only
-      if (d2 > 4900) {
-        if (treeImpostors[posIdx]) treeImpostors[posIdx].visible = true;
+      // Fade-out zone (105-115m): impostor fading to invisible
+      if (d2 > 11025) {
+        if (impostor) {
+          const d = Math.sqrt(d2);
+          impostor.visible = true;
+          impostor.material.opacity = lerp(0.65, 0, (d - 105) / 10);
+        }
         continue;
       }
 
-      // Tier 0-1 (<70m): show 3D instanced mesh
-      if (treeImpostors[posIdx]) treeImpostors[posIdx].visible = false;
+      // Tier 2 (75-105m): impostor at full opacity
+      if (d2 > 5625) {
+        if (impostor) {
+          impostor.visible = true;
+          impostor.material.opacity = 0.65;
+        }
+        continue;
+      }
+
+      // Cross-fade zone (63-75m): impostor fading out, 3D mesh also shown
+      if (d2 > 3969) {
+        const d = Math.sqrt(d2);
+        const fadeFrac = (d - 63) / 12; // 0 at 63m, 1 at 75m
+        if (impostor) {
+          impostor.visible = true;
+          impostor.material.opacity = lerp(0, 0.65, fadeFrac);
+        }
+        // Also render the 3D mesh during cross-fade
+        _dummy.position.set(inst.x, inst.y, inst.z);
+        _dummy.rotation.set(0, inst.yRot, 0);
+        _dummy.scale.setScalar(inst.scale);
+        _dummy.updateMatrix();
+        if (mesh.trunk) mesh.trunk.setMatrixAt(trunkCount++, _dummy.matrix);
+        if (mesh.canopy) mesh.canopy.setMatrixAt(canopyCount++, _dummy.matrix);
+        if (mesh.glow) mesh.glow.setMatrixAt(glowCount++, _dummy.matrix);
+        continue;
+      }
+
+      // Tier 0-1 (<63m): show 3D instanced mesh only
+      if (impostor) impostor.visible = false;
 
       _dummy.position.set(inst.x, inst.y, inst.z);
       _dummy.scale.setScalar(inst.scale);
@@ -690,7 +724,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
         _dummy.updateMatrix();
         if (mesh.detail) mesh.detail.setMatrixAt(detailCount++, _dummy.matrix);
       } else {
-        // Tier 1 (20-70m): no detail, no sway
+        // Tier 1 (20-63m): no detail, no sway
         _dummy.rotation.set(0, inst.yRot, 0);
         _dummy.updateMatrix();
       }

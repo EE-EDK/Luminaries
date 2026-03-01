@@ -15,7 +15,9 @@ import {
   WORLD_R, EYE_H, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N,
   GRASS_PATCHES, FERN_N, FLOWER_N, REED_N, ROCK_N, WISP_N, DANDELION_N,
   FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N, STARMOTE_N,
-  THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N, C,
+  THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N,
+  SPIRALFROND_N, CORPSEBLOOM_N, ORBBUSH_N, LANTERNPOD_N, VEILMOSS_N, GROUND_GLOW_N,
+  C,
   FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, DEER_FLEE_R, DEER_FLEE_SPEED_MULT
 } from './constants.js';
 
@@ -43,6 +45,11 @@ import { makeDandelion, updateDandelions } from './entities/flora/dandelions.js'
 import { makeThornbloom } from './entities/flora/thornbloom.js';
 import { makeHelixvine } from './entities/flora/helixvine.js';
 import { makeSnapthorn, updateSnapthorns } from './entities/flora/snapthorn.js';
+import { makeSpiralFrond } from './entities/flora/spiralfrond.js';
+import { makeCorpseBloom } from './entities/flora/corpsebloom.js';
+import { makeOrbBush } from './entities/flora/orbbush.js';
+import { makeLanternPod } from './entities/flora/lanternpod.js';
+import { makeVeilMoss } from './entities/flora/veilmoss.js';
 
 // Entities — Fauna
 import { makeJelly } from './entities/fauna/jellies.js';
@@ -123,6 +130,12 @@ const orbs = [];
 const thornblooms = [];
 const helixvines = [];
 const snapthorns = [];
+const spiralfronds = [];
+const corpseblooms = [];
+const orbbushes = [];
+const lanternpods = [];
+const veilmosses = [];
+const groundGlows = [];
 const crystalSortBuf = []; // Reused for crystal proximity sorting
 let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 
@@ -486,6 +499,78 @@ function populate() {
     snapthorns.push(sn);
     keepOutZones.push({ x: sx, z: sz, r2: 2.25 });
   }
+  // SpiralFronds (near trees)
+  for (let i = 0; i < SPIRALFROND_N; i++) {
+    const ref = trees_data[Math.floor(sr() * trees_data.length)];
+    const ang = sr() * 6.28, d = 2 + sr() * 5;
+    const sfx = ref.x + Math.cos(ang) * d, sfz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(sfx, sfz)) continue;
+    const sf = makeSpiralFrond(sfx, sfz);
+    sf.group.position.y = getGroundY(sfx, sfz);
+    spiralfronds.push(sf);
+    keepOutZones.push({ x: sfx, z: sfz, r2: 1.5 });
+  }
+  // CorpseBlooms (open areas)
+  for (let i = 0; i < CORPSEBLOOM_N; i++) {
+    const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.6);
+    const cbx = Math.cos(ang) * d, cbz = Math.sin(ang) * d;
+    if (inKeepOut(cbx, cbz)) continue;
+    const cb = makeCorpseBloom(cbx, cbz);
+    cb.group.position.y = getGroundY(cbx, cbz);
+    corpseblooms.push(cb);
+    keepOutZones.push({ x: cbx, z: cbz, r2: 3 });
+  }
+  // OrbBushes (scattered)
+  for (let i = 0; i < ORBBUSH_N; i++) {
+    const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7);
+    const obx = Math.cos(ang) * d, obz = Math.sin(ang) * d;
+    if (inKeepOut(obx, obz)) continue;
+    const ob = makeOrbBush(obx, obz);
+    ob.group.position.y = getGroundY(obx, obz);
+    orbbushes.push(ob);
+    keepOutZones.push({ x: obx, z: obz, r2: 1.5 });
+  }
+  // LanternPods (near trees)
+  for (let i = 0; i < LANTERNPOD_N; i++) {
+    const ref = trees_data[Math.floor(sr() * trees_data.length)];
+    const ang = sr() * 6.28, d = 2 + sr() * 4;
+    const lpx = ref.x + Math.cos(ang) * d, lpz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(lpx, lpz)) continue;
+    const lp = makeLanternPod(lpx, lpz);
+    lp.group.position.y = getGroundY(lpx, lpz);
+    lanternpods.push(lp);
+    keepOutZones.push({ x: lpx, z: lpz, r2: 1.5 });
+  }
+  // VeilMoss (near rocks)
+  for (let i = 0; i < VEILMOSS_N; i++) {
+    const ref = rocks_data.length > 0
+      ? rocks_data[Math.floor(sr() * rocks_data.length)]
+      : { x: 0, z: 0 };
+    const ang = sr() * 6.28, d = 1 + sr() * 3;
+    const vmx = ref.x + Math.cos(ang) * d, vmz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(vmx, vmz)) continue;
+    const vm = makeVeilMoss(vmx, vmz);
+    vm.group.position.y = getGroundY(vmx, vmz);
+    veilmosses.push(vm);
+    keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
+  }
+  // Ground glow patches (subtle bioluminescent light on terrain)
+  for (let i = 0; i < GROUND_GLOW_N; i++) {
+    const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.8);
+    const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
+    const patchR = 1.5 + sr() * 3.5;
+    const col = C.groundGlowColors[Math.floor(sr() * C.groundGlowColors.length)];
+    const baseOp = 0.03 + sr() * 0.05;
+    const mat = new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: baseOp,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(patchR, 10), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(gx, getGroundY(gx, gz) + 0.02, gz);
+    scene.add(mesh);
+    groundGlows.push({ mesh, mat, phase: sr() * 6.28, baseOpacity: baseOp, speed: 0.3 + sr() * 0.3, x: gx, z: gz });
+  }
 
   // Re-sample tree heights after all flat zones are registered
   // (ponds/fairy rings register flat zones that modify getGroundY retroactively)
@@ -594,6 +679,96 @@ function updateVegetation(dt, t) {
   }
   // Snapthorn continuous animation (tentacles + breathing)
   updateSnapthorns(snapthorns, dt, t, bioGlow);
+  // SpiralFrond tip glow pulse + sway
+  for (let i = 0; i < spiralfronds.length; i++) {
+    const sf = spiralfronds[i];
+    const sdx = sf.x - px, sdz = sf.z - pz;
+    const sd2 = sdx * sdx + sdz * sdz;
+    if (sd2 > 1600) { if (sf.group.visible) sf.group.visible = false; continue; }
+    if (!sf.group.visible) sf.group.visible = true;
+    if (sd2 < 900) {
+      for (let j = 0; j < sf.tipMats.length; j++) {
+        const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
+        sf.tipMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+      }
+      sf.group.rotation.z = Math.sin(t * 0.4 + sf.phase) * 0.015 * wAmp + wLeanX * 0.2;
+      sf.group.rotation.x = Math.sin(t * 0.35 + sf.phase + 1) * 0.01 * wAmp + wLeanZ * 0.2;
+    }
+  }
+  // CorpseBloom fly orbiting + glow pulse
+  for (let i = 0; i < corpseblooms.length; i++) {
+    const cb = corpseblooms[i];
+    const cdx = cb.x - px, cdz = cb.z - pz;
+    const cd2 = cdx * cdx + cdz * cdz;
+    if (cd2 > 1600) { if (cb.group.visible) cb.group.visible = false; continue; }
+    if (!cb.group.visible) cb.group.visible = true;
+    if (cd2 < 900) {
+      cb.columnMat.emissiveIntensity = (0.3 + Math.sin(t * 1.0 + cb.phase) * 0.25) * bioGlow;
+      cb.hazeMat.opacity = (0.03 + Math.sin(t * 0.8 + cb.phase) * 0.02) * bioGlow;
+      for (let fi = 0; fi < cb.flies.length; fi++) {
+        const flyAng = t * (2 + fi * 0.5) + fi * 2.1;
+        const flyR = 0.2 + Math.sin(t * 0.7 + fi) * 0.08;
+        const flyH = 0.1 + Math.sin(t * 1.3 + fi * 1.7) * 0.15;
+        cb.flies[fi].position.set(Math.cos(flyAng) * flyR, cb.spadixY + flyH, Math.sin(flyAng) * flyR);
+      }
+      cb.group.rotation.z = Math.sin(t * 0.3 + cb.phase) * 0.01 * wAmp + wLeanX * 0.15;
+    }
+  }
+  // OrbBush orb pulse + sway
+  for (let i = 0; i < orbbushes.length; i++) {
+    const ob = orbbushes[i];
+    const odx = ob.x - px, odz = ob.z - pz;
+    const od2 = odx * odx + odz * odz;
+    if (od2 > 1600) { if (ob.group.visible) ob.group.visible = false; continue; }
+    if (!ob.group.visible) ob.group.visible = true;
+    if (od2 < 900) {
+      for (let j = 0; j < ob.orbMats.length; j++) {
+        const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
+        ob.orbMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+      }
+      ob.group.rotation.z = Math.sin(t * 0.45 + ob.phase) * 0.012 * wAmp + wLeanX * 0.2;
+      ob.group.rotation.x = Math.sin(t * 0.4 + ob.phase + 1) * 0.008 * wAmp + wLeanZ * 0.2;
+    }
+  }
+  // LanternPod pod sway + glow
+  for (let i = 0; i < lanternpods.length; i++) {
+    const lp = lanternpods[i];
+    const ldx = lp.x - px, ldz = lp.z - pz;
+    const ld2 = ldx * ldx + ldz * ldz;
+    if (ld2 > 1600) { if (lp.group.visible) lp.group.visible = false; continue; }
+    if (!lp.group.visible) lp.group.visible = true;
+    if (ld2 < 900) {
+      for (let j = 0; j < lp.podMats.length; j++) {
+        const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
+        lp.podMats[j].emissiveIntensity = (0.3 + p * 0.4) * bioGlow;
+      }
+      lp.group.rotation.z = Math.sin(t * 0.6 + lp.phase) * 0.02 * wAmp + wLeanX * 0.25;
+      lp.group.rotation.x = Math.sin(t * 0.5 + lp.phase + 1) * 0.015 * wAmp + wLeanZ * 0.25;
+    }
+  }
+  // VeilMoss curtain sway + glow
+  for (let i = 0; i < veilmosses.length; i++) {
+    const vm = veilmosses[i];
+    const vdx = vm.x - px, vdz = vm.z - pz;
+    const vd2 = vdx * vdx + vdz * vdz;
+    if (vd2 > 1600) { if (vm.group.visible) vm.group.visible = false; continue; }
+    if (!vm.group.visible) vm.group.visible = true;
+    if (vd2 < 900) {
+      for (let j = 0; j < vm.veilMats.length; j++) {
+        vm.veilMats[j].rotation.z = Math.sin(t * 0.8 + vm.phase + j * 0.7) * 0.06 * wAmp;
+      }
+      vm.group.rotation.z = Math.sin(t * 0.35 + vm.phase) * 0.01 * wAmp + wLeanX * 0.15;
+    }
+  }
+  // Ground glow patch pulse
+  for (let i = 0; i < groundGlows.length; i++) {
+    const gg = groundGlows[i];
+    const gdx = gg.x - px, gdz = gg.z - pz;
+    if (gdx * gdx + gdz * gdz > 3600) { gg.mesh.visible = false; continue; }
+    gg.mesh.visible = true;
+    const pulse = Math.sin(t * gg.speed + gg.phase) * 0.3 + 0.7;
+    gg.mat.opacity = gg.baseOpacity * pulse * bioGlow;
+  }
 }
 
 function updateJellies(dt, t) {
@@ -909,6 +1084,28 @@ function updatePuffs(dt, t) {
     // Tail pom bounce
     p.tail.position.y = 0.38 + Math.sin(t * 4 + p.phase) * 0.015;
 
+    // Sparkle mote orbiting
+    if (p.sparkles) {
+      for (let si = 0; si < p.sparkles.length; si++) {
+        const sp = p.sparkles[si];
+        const sa = t * (2 + si * 0.7) + sp.phase;
+        sp.mesh.position.set(
+          Math.cos(sa) * sp.orbitR,
+          0.5 + Math.sin(sa * 1.3) * 0.1,
+          Math.sin(sa) * sp.orbitR
+        );
+        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * bioGlow;
+      }
+    }
+    // Aura pulse
+    if (p.auraMat) {
+      p.auraMat.opacity = (0.02 + Math.sin(t * 1.5 + p.phase) * 0.02) * bioGlow;
+    }
+    // Crown glow
+    if (p.crownMat) {
+      p.crownMat.emissiveIntensity = (0.2 + Math.sin(t * 2 + p.phase) * 0.15) * bioGlow;
+    }
+
     // World bounds
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
@@ -1160,6 +1357,32 @@ function updateDeers(dt, t) {
     // Emissive
     d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * bioGlow;
     d.headLook *= 0.98;
+
+    // Mane flutter
+    if (d.manePlanes) {
+      for (let mi = 0; mi < d.manePlanes.length; mi++) {
+        d.manePlanes[mi].rotation.z = Math.sin(t * 3 + mi * 1.2 + d.phase) * 0.15;
+      }
+    }
+    // Branch orb glow pulse
+    if (d.branchOrbs) {
+      for (let bi = 0; bi < d.branchOrbs.length; bi++) {
+        d.branchOrbs[bi].material.opacity = (0.3 + Math.sin(t * 2.5 + d.phase + bi * 1.5) * 0.3) * bioGlow;
+      }
+    }
+    // Ghost trail spheres — lerp toward previous positions in world space
+    if (d.trailSpheres) {
+      const isMoving = d.state === 'walk' || d.state === 'flee';
+      for (let ti = 0; ti < d.trailSpheres.length; ti++) {
+        const trail = d.trailSpheres[ti];
+        const lerpSpeed = 0.03 + ti * 0.02;
+        trail.prevX += (gx - trail.prevX) * lerpSpeed;
+        trail.prevY += (g.position.y + 0.8 - trail.prevY) * lerpSpeed;
+        trail.prevZ += (gz - trail.prevZ) * lerpSpeed;
+        trail.mesh.position.set(trail.prevX, trail.prevY + Math.sin(t * 2 + ti * 1.5) * 0.04, trail.prevZ);
+        trail.mat.opacity = isMoving ? (0.12 - ti * 0.03) * bioGlow : 0.02 * bioGlow;
+      }
+    }
   }
 }
 

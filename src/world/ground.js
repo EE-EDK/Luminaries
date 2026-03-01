@@ -14,19 +14,21 @@ function makeGroundTexture() {
   const ctx = cv.getContext('2d');
   const R = Math.random;
 
-  // ---- 1. Base: varied earth tones (not uniform) ----
-  ctx.fillStyle = '#2a5038'; ctx.fillRect(0, 0, S, S);
+  // ---- 1. Base: dark earthy tone (not green) ----
+  ctx.fillStyle = '#22301e'; ctx.fillRect(0, 0, S, S);
 
-  // Large biome patches (some mossy, some bare, some rich humus)
+  // Large biome patches — warm earth tones dominate, green is accent
   const biomes = [
-    { col: 'rgba(40,80,50,0.35)', n: 15, r: 120 },  // mossy green
-    { col: 'rgba(60,50,25,0.25)', n: 12, r: 100 },  // brown earth
-    { col: 'rgba(30,65,55,0.25)', n: 10, r: 110 },  // teal moss
-    { col: 'rgba(55,70,35,0.2)', n: 8, r: 90 },     // olive
-    { col: 'rgba(35,40,25,0.25)', n: 8, r: 80 },    // dark soil
-    { col: 'rgba(80,55,25,0.22)', n: 8, r: 95 },    // warm amber/ochre
-    { col: 'rgba(70,35,20,0.20)', n: 6, r: 85 },    // russet earth
-    { col: 'rgba(85,70,35,0.18)', n: 6, r: 80 },    // golden leaf litter
+    { col: 'rgba(50,40,22,0.35)', n: 14, r: 120 },  // dark earth
+    { col: 'rgba(60,50,25,0.30)', n: 14, r: 110 },  // brown earth
+    { col: 'rgba(35,55,30,0.22)', n: 10, r: 100 },  // mossy green (reduced)
+    { col: 'rgba(55,35,18,0.28)', n: 12, r: 105 },  // warm umber
+    { col: 'rgba(40,32,18,0.28)', n: 10, r: 90 },   // dark soil
+    { col: 'rgba(80,55,25,0.28)', n: 12, r: 100 },  // warm amber/ochre
+    { col: 'rgba(70,35,20,0.25)', n: 10, r: 95 },   // russet earth
+    { col: 'rgba(85,70,35,0.22)', n: 10, r: 90 },   // golden leaf litter
+    { col: 'rgba(45,30,15,0.25)', n: 8, r: 85 },    // deep loam
+    { col: 'rgba(65,50,30,0.20)', n: 8, r: 80 },    // sandy brown
   ];
   for (const b of biomes) {
     for (let i = 0; i < b.n; i++) {
@@ -46,11 +48,11 @@ function makeGroundTexture() {
     }
   }
 
-  // ---- 2. Organic cell noise (multi-scale, varied colors) ----
+  // ---- 2. Organic cell noise (multi-scale, earthy colors) ----
   const cellPasses = [
-    { n: 80, r: 25, colors: ['rgba(20,45,25,0.2)', 'rgba(35,55,28,0.18)', 'rgba(28,22,12,0.2)', 'rgba(15,38,30,0.15)', 'rgba(55,35,15,0.2)', 'rgba(48,28,12,0.18)'] },
-    { n: 200, r: 10, colors: ['rgba(30,55,30,0.14)', 'rgba(45,35,18,0.12)', 'rgba(22,48,35,0.12)', 'rgba(38,28,14,0.1)', 'rgba(52,38,18,0.12)', 'rgba(42,25,10,0.1)'] },
-    { n: 500, r: 4, colors: ['rgba(25,50,28,0.1)', 'rgba(40,30,15,0.08)', 'rgba(18,42,32,0.08)', 'rgba(32,25,10,0.06)', 'rgba(45,32,12,0.08)', 'rgba(38,22,8,0.06)'] },
+    { n: 80, r: 25, colors: ['rgba(45,35,18,0.22)', 'rgba(55,40,20,0.2)', 'rgba(28,22,12,0.22)', 'rgba(35,28,15,0.18)', 'rgba(55,35,15,0.2)', 'rgba(25,40,22,0.15)'] },
+    { n: 200, r: 10, colors: ['rgba(45,35,18,0.14)', 'rgba(55,42,22,0.12)', 'rgba(35,28,14,0.12)', 'rgba(38,28,14,0.1)', 'rgba(52,38,18,0.12)', 'rgba(25,38,22,0.08)'] },
+    { n: 500, r: 4, colors: ['rgba(40,30,15,0.1)', 'rgba(50,38,18,0.08)', 'rgba(30,25,12,0.08)', 'rgba(32,25,10,0.06)', 'rgba(45,32,12,0.08)', 'rgba(22,35,20,0.05)'] },
   ];
   for (const pass of cellPasses) {
     for (let i = 0; i < pass.n; i++) {
@@ -124,20 +126,20 @@ function makeGroundTexture() {
     const mrad = 15 + R() * 35;
     const grad = ctx.createRadialGradient(mx, my, 0, mx, my, mrad);
     const mCol = R();
-    if (mCol < 0.3) {
-      grad.addColorStop(0, 'rgba(45,90,50,0.18)');
-      grad.addColorStop(1, 'rgba(25,55,30,0)');
-    } else if (mCol < 0.5) {
-      grad.addColorStop(0, 'rgba(35,75,60,0.16)');
-      grad.addColorStop(1, 'rgba(20,50,38,0)');
-    } else if (mCol < 0.7) {
-      grad.addColorStop(0, 'rgba(55,75,35,0.14)');
-      grad.addColorStop(1, 'rgba(30,45,20,0)');
-    } else if (mCol < 0.85) {
-      grad.addColorStop(0, 'rgba(75,55,25,0.14)');  // amber lichen
+    if (mCol < 0.2) {
+      grad.addColorStop(0, 'rgba(40,70,40,0.16)');   // muted moss
+      grad.addColorStop(1, 'rgba(22,40,22,0)');
+    } else if (mCol < 0.4) {
+      grad.addColorStop(0, 'rgba(65,48,22,0.18)');   // warm earth
+      grad.addColorStop(1, 'rgba(35,25,12,0)');
+    } else if (mCol < 0.6) {
+      grad.addColorStop(0, 'rgba(75,55,25,0.16)');   // amber lichen
       grad.addColorStop(1, 'rgba(45,30,12,0)');
+    } else if (mCol < 0.8) {
+      grad.addColorStop(0, 'rgba(55,40,20,0.16)');   // brown loam
+      grad.addColorStop(1, 'rgba(30,22,10,0)');
     } else {
-      grad.addColorStop(0, 'rgba(65,35,20,0.12)');  // copper-tinted earth
+      grad.addColorStop(0, 'rgba(65,35,20,0.14)');   // copper-tinted earth
       grad.addColorStop(1, 'rgba(35,18,10,0)');
     }
     ctx.fillStyle = grad;
@@ -231,14 +233,16 @@ export function createGround() {
   // Colors are bright (0.5-1.2) since they multiply with the dark texture.
   // Higher values let texture detail show through; hue shifts create biome variety.
   const biomes = [
-    [0.55, 0.95, 0.60],  // forest green (default)
-    [0.45, 0.85, 0.95],  // teal moss
-    [0.80, 0.50, 1.00],  // purple bioluminescent
-    [0.85, 0.65, 0.40],  // earthy brown
-    [0.50, 1.10, 0.65],  // bright emerald
-    [0.40, 0.70, 0.90],  // deep blue-green
+    [0.70, 0.65, 0.40],  // earthy brown (most common)
+    [0.85, 0.60, 0.35],  // warm umber
+    [0.50, 0.75, 0.50],  // muted forest green
     [0.90, 0.55, 0.35],  // warm russet
     [0.80, 0.75, 0.45],  // golden earth
+    [0.60, 0.50, 0.30],  // dark loam
+    [0.45, 0.70, 0.55],  // teal moss (accent)
+    [0.75, 0.50, 0.30],  // deep sienna
+    [0.55, 0.80, 0.55],  // soft green (accent)
+    [0.65, 0.55, 0.35],  // dusty brown
   ];
   const vCount = posAttr.count;
   const colorArr = new Float32Array(vCount * 3);

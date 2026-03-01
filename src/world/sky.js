@@ -265,13 +265,27 @@ export function createSkyDome() {
   // Only render upper hemisphere + a bit below equator (thetaLength < π).
   // The ground covers everything below the horizon; rendering the full sphere
   // exposes the south pole's UV convergence as a visible dark disc.
-  const geo = new THREE.SphereGeometry(SKY_R, 64, 32, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  // Start slightly below the pole (thetaStart=0.03) to avoid the north pole
+  // UV pinch, then cover the gap with a flat zenith cap.
+  const thetaStart = 0.03;
+  const geo = new THREE.SphereGeometry(SKY_R, 64, 32, 0, Math.PI * 2, thetaStart, Math.PI * 0.55);
   skyDomeMat = new THREE.MeshBasicMaterial({
     map: tex, side: THREE.BackSide, fog: false,
     transparent: false
   });
   const dome = new THREE.Mesh(geo, skyDomeMat);
   skyGroup.add(dome);
+
+  // Zenith cap — covers the pole convergence hole with a flat disc
+  const capRadius = SKY_R * Math.sin(thetaStart) * 1.05; // slightly oversized to ensure overlap
+  const capGeo = new THREE.CircleGeometry(capRadius, 32);
+  const capMat = new THREE.MeshBasicMaterial({
+    color: 0x030610, side: THREE.BackSide, fog: false
+  });
+  const cap = new THREE.Mesh(capGeo, capMat);
+  cap.position.y = SKY_R * Math.cos(thetaStart);
+  cap.rotation.x = Math.PI / 2; // face downward (seen from inside as BackSide)
+  skyGroup.add(cap);
 
   // --- Twinkling star layer (Points — single draw call) ---
   createTwinkleStars();

@@ -25,7 +25,7 @@ import {
 import { sr } from './utils/rng.js';
 
 // World
-import { createGround } from './world/ground.js';
+import { createGround, updateGroundUniforms } from './world/ground.js';
 import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
 import { getGroundY, registerFlatZone } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
@@ -656,6 +656,8 @@ function updateVegetation(dt, t) {
   updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ);
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
+  // Ground shader uniforms (procedural patterns + player proximity glow)
+  updateGroundUniforms(t, px, pz);
   // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];

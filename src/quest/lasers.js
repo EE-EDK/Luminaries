@@ -10,6 +10,24 @@ let laserFade = 1;
 
 export function setLaserFade(f) { laserFade = f; }
 
+// Remove all orb laser meshes from the scene and dispose geometry/materials
+export function cleanupLasers() {
+  for (let i = 0; i < laserBeams.length; i++) {
+    const b = laserBeams[i];
+    scene.remove(b.upTube); b.upTube.geometry.dispose(); b.mat.dispose();
+    scene.remove(b.upGlow); b.upGlow.geometry.dispose(); b.glowMat.dispose();
+    scene.remove(b.bendTube); b.bendTube.geometry.dispose(); b.bendMat.dispose();
+    scene.remove(b.bendGlow); b.bendGlow.geometry.dispose(); b.bendGlowMat.dispose();
+  }
+  laserBeams.length = 0;
+  for (let i = 0; i < interLines.length; i++) {
+    const conn = interLines[i];
+    scene.remove(conn.tube); conn.tube.geometry.dispose(); conn.mat.dispose();
+    scene.remove(conn.glow); conn.glow.geometry.dispose(); conn.glowMat.dispose();
+  }
+  interLines.length = 0;
+}
+
 function buildBendGeo(fromX, fromZ, skyY, tipY) {
   const pts = [];
   for (let j = 0; j <= 12; j++) {

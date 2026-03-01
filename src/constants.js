@@ -15,28 +15,28 @@ export const MOUSE_SENS = 0.003;
 export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
-// Entity counts (tuned for ~20 FPS target)
-export const TREE_N = 35;
-export const MUSH_N = 25;
-export const CRYSTAL_N = 10;
-export const JELLY_N = 6;
-export const PUFF_N = 8;
-export const DEER_N = 4;
-export const MOTH_N = 5;
-export const GRASS_PATCHES = 120;
-export const FERN_N = 18;
-export const FLOWER_N = 15;
-export const REED_N = 15;
-export const ROCK_N = 30;
-export const WISP_N = 3;
-export const DANDELION_N = 12;
-export const FAIRY_RING_N = 5;
-export const BUBBLE_N = 15;
+// Entity counts — grass is GPU-driven, others use distance-culled CPU animation
+export const TREE_N = 50;          // was 35 — more canopy coverage
+export const MUSH_N = 40;          // was 25
+export const CRYSTAL_N = 14;       // was 10
+export const JELLY_N = 8;          // was 6
+export const PUFF_N = 12;          // was 8
+export const DEER_N = 5;           // was 4
+export const MOTH_N = 7;           // was 5
+export const GRASS_PATCHES = 200;  // was 120 — GPU sway, zero CPU cost
+export const FERN_N = 30;          // was 18
+export const FLOWER_N = 25;        // was 15
+export const REED_N = 25;          // was 15
+export const ROCK_N = 45;          // was 30
+export const WISP_N = 5;           // was 3
+export const DANDELION_N = 18;     // was 12
+export const FAIRY_RING_N = 7;     // was 5
+export const BUBBLE_N = 20;        // was 15
 export const STARMOTE_N = 40;
-export const POND_N = 6;
-export const THORNBLOOM_N = 6;
-export const HELIXVINE_N = 6;
-export const SNAPTHORN_N = 5;
+export const POND_N = 8;           // was 6
+export const THORNBLOOM_N = 8;     // was 6
+export const HELIXVINE_N = 8;      // was 6
+export const SNAPTHORN_N = 7;      // was 5
 
 // Sky
 export const SKY_STARS = 600;

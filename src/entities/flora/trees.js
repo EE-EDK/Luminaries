@@ -283,12 +283,12 @@ function generateTemplateTree(palIdx) {
   }
 
   // ---- Lower scaffold branches (2-3, at 30-55% height) ----
-  // Shorter, thicker, slightly drooping, no canopy — just structural
+  // Shorter, thicker, angled upward — reaching for light
   const lowerN = 2 + Math.floor(sr() * 2);
   for (let i = 0; i < lowerN; i++) {
     const by = h * (0.30 + sr() * 0.25);
     const ang = i / lowerN * Math.PI * 2 + sr() * 1.0;
-    const upAngle = -0.05 + sr() * 0.25; // slightly drooping to gently upward
+    const upAngle = 0.35 + sr() * 0.45; // 20-46° upward
     const len = 1.0 + sr() * 1.8;
     const baseR = r * 0.4;
     const tipR = r * 0.08;
@@ -316,7 +316,7 @@ function generateTemplateTree(palIdx) {
   for (let i = 0; i < crownN; i++) {
     const by = h * (0.55 + sr() * 0.37);
     const ang = i / crownN * Math.PI * 2 + sr() * 0.5; // evenly spaced + jitter
-    const upAngle = 0.25 + sr() * 0.5; // 14-43° above horizontal, reaching upward
+    const upAngle = 0.6 + sr() * 0.55; // 34-66° above horizontal, strongly upward
     const len = 1.5 + sr() * 3.0;
     const baseR = r * 0.35;
     const tipR = 0.03 + sr() * 0.02;
@@ -344,7 +344,7 @@ function generateTemplateTree(palIdx) {
         base.z + dz * len * subT
       );
       const subAng = ang + (sr() - 0.5) * 1.8;
-      const subUp = 0.15 + sr() * 0.55;
+      const subUp = 0.45 + sr() * 0.55; // 26-57° upward
       const subLen = 0.6 + sr() * 1.4;
       const subDir = new THREE.Vector3(
         Math.cos(subAng) * Math.cos(subUp),

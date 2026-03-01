@@ -136,9 +136,9 @@ export function initAudio() {
       // Create shared reverb
       createReverb();
 
-      // --- Forest hum: gentle brown noise (quieter) ---
-      const fh = loopNoise(brownBuf, 0.08, 160);
-      forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
+      // --- Forest hum: DISABLED (was brown noise, caused low rumble) ---
+      // const fh = loopNoise(brownBuf, 0.08, 160);
+      // forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
       // --- Wind: white noise filtered, volume driven by weather ---
       const wn = loopNoise(whiteBuf, 0, 400);
@@ -173,9 +173,9 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // --- Forest hum: slightly quieter at dawn, louder at deep night ---
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
-  forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
+  // --- Forest hum: DISABLED ---
+  // const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
+  // forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
   // --- Wind volume/filter scales with wind strength ---
   const windVol = Math.min(windStrength * 0.15, 0.25);

@@ -169,14 +169,15 @@ function generateTemplateTree(palIdx) {
   const g = new THREE.Group();
   const h = 6 + sr() * 10, r = 0.2 + sr() * 0.3;
 
-  // Trunk
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.4, r, h, 6));
+  // Trunk — wider flared base tapering upward (like the reference image)
+  const baseFlare = r * 1.8; // wide buttress base
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.4, baseFlare, h, 8));
   trunk.material = new THREE.MeshStandardMaterial({ color: 0x5a4030 });
   trunk.position.y = h / 2;
   trunk.userData._cat = 'trunk';
   g.add(trunk);
 
-  // Veins
+  // Bioluminescent veins on trunk surface
   const veinN = 2 + Math.floor(sr() * 3);
   for (let vi = 0; vi < veinN; vi++) {
     const va = vi / veinN * 6.28 + sr() * 0.5;
@@ -188,77 +189,188 @@ function generateTemplateTree(palIdx) {
     g.add(vein);
   }
 
-  // Roots
-  const rootN = 3 + Math.floor(sr() * 3);
+  // Buttress roots — thick roots spreading along the ground surface
+  // Like the reference: wide, prominent roots radiating outward from the flared base
+  const _rootUp = new THREE.Vector3(0, 1, 0);
+  const rootN = 4 + Math.floor(sr() * 4); // 4-7 major roots
   for (let ri = 0; ri < rootN; ri++) {
-    const ra = ri / rootN * 6.28 + sr() * 0.5;
-    const rLen = 0.8 + sr() * 1.5;
-    const root = new THREE.Mesh(new THREE.CylinderGeometry(0.02, r * 0.3, rLen, 4));
-    root.material = new THREE.MeshStandardMaterial({ color: 0x3a2c1a });
-    root.position.set(Math.cos(ra) * r * 0.5, 0.08, Math.sin(ra) * r * 0.5);
-    root.rotation.z = ra < 3.14 ? (1.2 + sr() * 0.3) : -(1.2 + sr() * 0.3);
-    root.rotation.y = ra;
-    root.userData._cat = 'detail';
-    g.add(root);
+    const ra = ri / rootN * 6.28 + sr() * 0.4;
+    const rLen = 1.2 + sr() * 2.5; // long roots
+    const rBaseR = baseFlare * (0.3 + sr() * 0.2); // thick at trunk junction
+    const rTipR = 0.03 + sr() * 0.03;
+    // Roots angle slightly downward, mostly horizontal
+    const rootDown = -0.1 - sr() * 0.15; // slight downward angle
+    const rdx = Math.cos(ra) * Math.cos(rootDown);
+    const rdy = Math.sin(rootDown);
+    const rdz = Math.sin(ra) * Math.cos(rootDown);
+    const rootDir = new THREE.Vector3(rdx, rdy, rdz).normalize();
+
+    const rootGeo = new THREE.CylinderGeometry(rTipR, rBaseR, rLen, 5);
+    rootGeo.translate(0, rLen / 2, 0); // base at origin
+    const rootMesh = new THREE.Mesh(rootGeo, new THREE.MeshStandardMaterial({ color: 0x4a3828 }));
+    rootMesh.position.set(Math.cos(ra) * baseFlare * 0.6, 0.05, Math.sin(ra) * baseFlare * 0.6);
+    const rq = new THREE.Quaternion().setFromUnitVectors(_rootUp, rootDir);
+    rootMesh.quaternion.copy(rq);
+    rootMesh.userData._cat = 'trunk';
+    g.add(rootMesh);
+
+    // Secondary smaller root splitting off each major root
+    if (sr() < 0.6) {
+      const subT = 0.4 + sr() * 0.3;
+      const subAng = ra + (sr() - 0.5) * 1.2;
+      const subLen = 0.5 + sr() * 1.0;
+      const subDir = new THREE.Vector3(
+        Math.cos(subAng) * Math.cos(-0.1),
+        Math.sin(-0.1),
+        Math.sin(subAng) * Math.cos(-0.1)
+      ).normalize();
+      const subGeo = new THREE.CylinderGeometry(0.02, rBaseR * 0.3, subLen, 4);
+      subGeo.translate(0, subLen / 2, 0);
+      const subMesh = new THREE.Mesh(subGeo, new THREE.MeshStandardMaterial({ color: 0x4a3828 }));
+      const sBase = new THREE.Vector3(
+        Math.cos(ra) * baseFlare * 0.6 + rdx * rLen * subT,
+        0.05 + rdy * rLen * subT,
+        Math.sin(ra) * baseFlare * 0.6 + rdz * rLen * subT
+      );
+      subMesh.position.copy(sBase);
+      const sq = new THREE.Quaternion().setFromUnitVectors(_rootUp, subDir);
+      subMesh.quaternion.copy(sq);
+      subMesh.userData._cat = 'trunk';
+      g.add(subMesh);
+    } else { sr(); sr(); }
   }
 
-  // Branches with canopy clusters — force palette to palIdx
+  // ---- Realistic branching system ----
+  // Lower scaffold branches + crown branches with sub-branching + canopy at tips
   const pal = GLOW_PALETTES[palIdx % GLOW_PALETTES.length];
-  const bc = 3 + Math.floor(sr() * 4);
-  for (let i = 0; i < bc; i++) {
-    const by = h * (0.70 + sr() * 0.25), ang = sr() * Math.PI * 2, bl = 1.5 + sr() * 3;
+  const _branchMat = new THREE.MeshStandardMaterial({ color: 0x5a4030 });
+  const _branchMatDark = new THREE.MeshStandardMaterial({ color: 0x4a3525 });
+  const _up = new THREE.Vector3(0, 1, 0);
 
-    // Branch (wooden — goes with trunk)
-    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.06, bl, 4));
-    br.material = new THREE.MeshStandardMaterial({ color: 0x5a4030 });
-    br.position.set(Math.cos(ang) * 0.3, by, Math.sin(ang) * 0.3);
-    br.rotation.z = (sr() - 0.5) * 1.2; br.rotation.y = ang;
-    br.userData._cat = 'trunk';
-    g.add(br);
+  // Helper: create a tapered branch cylinder oriented from base toward direction
+  function addBranch(basePos, dir, len, baseR, tipR, mat) {
+    const geo = new THREE.CylinderGeometry(tipR, baseR, len, 5);
+    geo.translate(0, len / 2, 0); // base at local origin, tip at (0,len,0)
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(basePos);
+    const d = dir.clone().normalize();
+    const quat = new THREE.Quaternion().setFromUnitVectors(_up, d);
+    mesh.quaternion.copy(quat);
+    mesh.userData._cat = 'trunk';
+    g.add(mesh);
+  }
 
-    // Consume palette sr() call to keep RNG alignment
-    sr();
-    const cx = Math.cos(ang) * (bl * 0.5);
-    const cy = by + sr() * 1.5;
-    const cz = Math.sin(ang) * (bl * 0.5);
-    const leafSize = 1 + sr() * 2;
-
-    // Core (bright emissive canopy)
-    sr(); // consume emissiveIntensity random
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.3, 1));
+  // Helper: add canopy cluster at a point
+  function addCanopy(cx, cy, cz, size) {
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.25, 1));
     core.material = new THREE.MeshStandardMaterial({ color: pal.core });
     core.position.set(cx, cy, cz);
     core.userData._cat = 'canopy';
     g.add(core);
 
-    // Mid canopy — smaller to avoid solid-looking blobs
-    sr(); // emissiveIntensity
-    const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.5, 1));
+    const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.45, 1));
     mid.material = new THREE.MeshStandardMaterial({ color: pal.leaf });
-    mid.position.set(cx + (sr() - 0.5) * 0.4, cy + (sr() - 0.5) * 0.4, cz + (sr() - 0.5) * 0.4);
-    mid.scale.set(1 + sr() * 0.4, 0.65 + sr() * 0.5, 1 + sr() * 0.4);
+    mid.position.set(cx + (sr() - 0.5) * 0.3, cy + (sr() - 0.5) * 0.3, cz + (sr() - 0.5) * 0.3);
+    mid.scale.set(1 + sr() * 0.3, 0.7 + sr() * 0.4, 1 + sr() * 0.3);
     mid.userData._cat = 'canopy';
     g.add(mid);
 
-    // Haze — softer, smaller glow halo
-    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.85, 1));
+    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.7, 1));
     haze.material = new THREE.MeshStandardMaterial({ color: pal.glow });
     haze.position.set(cx, cy, cz);
     haze.userData._cat = 'glow';
     g.add(haze);
+  }
 
-    // Hanging moss
-    if (sr() < 0.35) {
-      const mLen = 0.3 + sr() * 0.8;
+  // ---- Lower scaffold branches (2-3, at 30-55% height) ----
+  // Shorter, thicker, slightly drooping, no canopy — just structural
+  const lowerN = 2 + Math.floor(sr() * 2);
+  for (let i = 0; i < lowerN; i++) {
+    const by = h * (0.30 + sr() * 0.25);
+    const ang = i / lowerN * Math.PI * 2 + sr() * 1.0;
+    const upAngle = -0.05 + sr() * 0.25; // slightly drooping to gently upward
+    const len = 1.0 + sr() * 1.8;
+    const baseR = r * 0.4;
+    const tipR = r * 0.08;
+    const dx = Math.cos(ang) * Math.cos(upAngle);
+    const dy = Math.sin(upAngle);
+    const dz = Math.sin(ang) * Math.cos(upAngle);
+    const dir = new THREE.Vector3(dx, dy, dz);
+    const base = new THREE.Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
+    addBranch(base, dir, len, baseR, tipR, _branchMat);
+
+    // Occasional hanging moss from lower branches
+    if (sr() < 0.4) {
+      const mLen = 0.4 + sr() * 0.8;
       const moss = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, mLen, 3));
       moss.material = new THREE.MeshStandardMaterial({ color: 0x2a5030 });
-      const mOff = sr() * bl * 0.4;
-      moss.position.set(Math.cos(ang) * (0.3 + mOff), by - mLen / 2 - sr() * 0.3, Math.sin(ang) * (0.3 + mOff));
+      const mT = 0.4 + sr() * 0.4; // along branch
+      moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
       moss.userData._cat = 'detail';
       g.add(moss);
-    } else {
-      sr(); sr(); sr(); // consume same sr() calls as the moss branch for RNG consistency
+    } else { sr(); sr(); }
+  }
+
+  // ---- Crown branches (5-8, at 55-92% height) with sub-branches ----
+  const crownN = 5 + Math.floor(sr() * 4);
+  for (let i = 0; i < crownN; i++) {
+    const by = h * (0.55 + sr() * 0.37);
+    const ang = i / crownN * Math.PI * 2 + sr() * 0.5; // evenly spaced + jitter
+    const upAngle = 0.25 + sr() * 0.5; // 14-43° above horizontal, reaching upward
+    const len = 1.5 + sr() * 3.0;
+    const baseR = r * 0.35;
+    const tipR = 0.03 + sr() * 0.02;
+    const dx = Math.cos(ang) * Math.cos(upAngle);
+    const dy = Math.sin(upAngle);
+    const dz = Math.sin(ang) * Math.cos(upAngle);
+    const dir = new THREE.Vector3(dx, dy, dz);
+    const base = new THREE.Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
+    addBranch(base, dir, len, baseR, tipR, _branchMat);
+
+    // Tip position for canopy
+    const tipX = base.x + dx * len;
+    const tipY = base.y + dy * len;
+    const tipZ = base.z + dz * len;
+    const leafSize = 0.8 + sr() * 1.5;
+    addCanopy(tipX, tipY, tipZ, leafSize);
+
+    // 1-3 sub-branches splitting off main branch
+    const subN = 1 + Math.floor(sr() * 3);
+    for (let si = 0; si < subN; si++) {
+      const subT = 0.35 + sr() * 0.35; // 35-70% along parent
+      const subBase = new THREE.Vector3(
+        base.x + dx * len * subT,
+        base.y + dy * len * subT,
+        base.z + dz * len * subT
+      );
+      const subAng = ang + (sr() - 0.5) * 1.8;
+      const subUp = 0.15 + sr() * 0.55;
+      const subLen = 0.6 + sr() * 1.4;
+      const subDir = new THREE.Vector3(
+        Math.cos(subAng) * Math.cos(subUp),
+        Math.sin(subUp),
+        Math.sin(subAng) * Math.cos(subUp)
+      );
+      addBranch(subBase, subDir, subLen, 0.04, 0.012, _branchMatDark);
+
+      // Small canopy cluster at sub-branch tip
+      const stx = subBase.x + subDir.x * subLen;
+      const sty = subBase.y + subDir.y * subLen;
+      const stz = subBase.z + subDir.z * subLen;
+      const subLeaf = 0.5 + sr() * 0.8;
+      addCanopy(stx, sty, stz, subLeaf);
     }
+
+    // Hanging moss on some crown branches
+    if (sr() < 0.3) {
+      const mLen = 0.3 + sr() * 0.7;
+      const moss = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, mLen, 3));
+      moss.material = new THREE.MeshStandardMaterial({ color: 0x2a5030 });
+      const mT = 0.5 + sr() * 0.3;
+      moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
+      moss.userData._cat = 'detail';
+      g.add(moss);
+    } else { sr(); sr(); }
   }
 
   // Shelf fungi
@@ -282,13 +394,6 @@ function generateTemplateTree(palIdx) {
   under.position.y = h * 0.85;
   under.userData._cat = 'glow';
   g.add(under);
-
-  // Base mound
-  const mound = new THREE.Mesh(new THREE.SphereGeometry(r * 2.5, 6, 3));
-  mound.material = new THREE.MeshStandardMaterial({ color: 0x121008 });
-  mound.scale.set(1, 0.12, 1); mound.position.y = 0.02;
-  mound.userData._cat = 'trunk';
-  g.add(mound);
 
   g.userData.treeH = h;
   return g;

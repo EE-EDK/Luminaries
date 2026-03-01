@@ -28,11 +28,19 @@ let player = null;
 let makeLaserFn = null;
 let orbHudEl = null;
 
+// Audio callbacks (passed from main via config)
+let playOrbCollectFn = null;
+let playOrbWarbleFn = null;
+let playLaserZapFn = null;
+let playLaserHumFn = null;
+let stopLaserHumsFn = null;
+
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
 
 // World transformation state
 let trees = [];
+let treeMeshesRef = [];
 let groundMesh = null;
 let finalePhaseTimer = 0;
 let transformTimer = 0;
@@ -160,7 +168,13 @@ export function initQuest(config) {
   jellies = config.jellies || [];
   moths = config.moths || [];
   trees = config.trees || [];
+  treeMeshesRef = config.treeMeshes || [];
   groundMesh = config.groundMesh || null;
+  playOrbCollectFn = config.playOrbCollect || null;
+  playOrbWarbleFn = config.playOrbWarble || null;
+  playLaserZapFn = config.playLaserZap || null;
+  playLaserHumFn = config.playLaserHum || null;
+  stopLaserHumsFn = config.stopLaserHums || null;
   initGlitter();
 }
 
@@ -233,6 +247,8 @@ export function updateQuest(dt, t) {
         if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
         // Start rising on first orb
         if (questPhase === 'SEEK') questPhase = 'RISING';
+        // Play collection sound
+        if (playOrbCollectFn) playOrbCollectFn();
       }
     }
 
@@ -252,6 +268,8 @@ export function updateQuest(dt, t) {
         o.flyUp = true;
         o.group.position.x = o.x;
         o.group.position.z = o.z;
+        // Play ascending warble as orb flies up
+        if (playOrbWarbleFn) playOrbWarbleFn();
       }
     }
 
@@ -268,6 +286,9 @@ export function updateQuest(dt, t) {
         // Laser starts from ground level, goes all the way up
         const tipY = getObeliskTipY();
         o.laserLine = makeLaserFn(o.x, o.z, 0, tipY);
+        // Electrical zap + continuous hum at laser position
+        if (playLaserZapFn) playLaserZapFn();
+        if (playLaserHumFn) playLaserHumFn(o.x, o.z);
       }
     }
   }
@@ -337,6 +358,7 @@ export function updateQuest(dt, t) {
     setLaserFade(Math.max(0, 1 - (finaleTimer - 3) / 4));
   } else if (questPhase === 'FINALE' || questPhase === 'TRANSFORM') {
     setLaserFade(0);
+    if (stopLaserHumsFn) { stopLaserHumsFn(); stopLaserHumsFn = null; }
   }
 
   // Update glitter particles
@@ -563,42 +585,34 @@ function transformTreesAndGround() {
     { color: 0x401830, glow: 0xcc4499, core: 0xff77cc },
   ];
 
-  const darkCyan = new THREE.Color(0x0a3040);
-  const darkCyanEmissive = new THREE.Color(0x082838);
-
-  for (let i = 0; i < trees.length; i++) {
-    const group = trees[i].group;
+  // With instanced trees, modify shared materials per template
+  for (let i = 0; i < treeMeshesRef.length; i++) {
+    const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    const processed = new Set();
-
-    group.traverse((child) => {
-      if (!child.isMesh || !child.material) return;
-      const mat = child.material;
-      if (processed.has(mat)) return;
-      processed.add(mat);
-
-      const hsl = {};
-      mat.color.getHSL(hsl);
-
-      if (hsl.h >= 0.2 && hsl.h <= 0.6 && hsl.s > 0.08) {
-        // Green/teal/cyan → pink/purple
-        if (hsl.l > 0.45) {
-          mat.color.set(shade.core);
-        } else if (mat.transparent && mat.opacity < 0.15) {
-          mat.color.set(shade.glow);
-        } else {
-          mat.color.set(shade.color);
-        }
-        if (mat.emissive) mat.emissive.set(shade.glow);
-      } else if (hsl.h < 0.2 && hsl.s > 0.05 && hsl.l > 0.05 && hsl.l < 0.4) {
-        // Brown/orange → dark cyan
-        mat.color.copy(darkCyan);
-        if (mat.emissive) mat.emissive.copy(darkCyanEmissive);
-      } else if (hsl.l < 0.06) {
-        // Very dark (mound) → dark purple
-        mat.color.set(0x0a0818);
-      }
-    });
+    // Trunk material (bark, branches, mound) — dark cyan tint
+    if (mesh.trunkMat) {
+      mesh.trunkMat.color.set(0x0a3040);
+      mesh.trunkMat.emissive.set(0x082838);
+      mesh.trunkMat.emissiveIntensity = 0.1;
+    }
+    // Canopy material (cores, mid-canopy) — pink/purple glow
+    if (mesh.canopyMat) {
+      mesh.canopyMat.color.set(shade.core);
+      mesh.canopyMat.emissive.set(shade.glow);
+      mesh.canopyMat.emissiveIntensity = 0.9;
+    }
+    // Glow material (haze, underglow) — shift emissive to pink
+    if (mesh.glowMat) {
+      mesh.glowMat.color.set(shade.glow);
+      mesh.glowMat.emissive.set(shade.glow);
+      mesh.glowMat.emissiveIntensity = 0.15;
+    }
+    // Detail material (veins, roots, moss, fungi)
+    if (mesh.detailMat) {
+      mesh.detailMat.color.set(shade.color);
+      mesh.detailMat.emissive.set(shade.glow);
+      mesh.detailMat.emissiveIntensity = 0.3;
+    }
   }
 
   // Transform ground

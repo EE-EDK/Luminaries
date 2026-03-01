@@ -32,7 +32,7 @@ import { initAurora, updateAurora } from './world/aurora.js';
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
 
 // Entities — Flora
-import { makeTree, makeTreeImpostor } from './entities/flora/trees.js';
+import { makeTreeImpostor, createTreeTemplates, createTreeInstances, updateTreeLOD, transformTreeMaterials } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
 import { makeGrassPatch, updateGrassGlobals } from './entities/flora/grass.js';
@@ -84,7 +84,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic } from './systems/audio.js';
 
 // AI
 import { canSee, canHear, isNear } from './systems/ai/senses.js';
@@ -100,7 +100,9 @@ import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 // ================================================================
 // Entity arrays
 // ================================================================
-const trees_data = [];
+const trees_data = []; // { x, z, y, treeH, yRot, scale }
+let treeMeshes = []; // InstancedMesh groups per template
+const treeImpostors = []; // billboard sprites per tree
 const mush_data = [];
 const crys_data = [];
 const jellies = [];
@@ -187,7 +189,7 @@ function inKeepOut(x, z) {
 // Populate world
 // ================================================================
 function populate() {
-  // Trees
+  // Trees — generate positions, then use InstancedMesh templates
   for (let i = 0; i < TREE_N; i++) {
     let x, z, ok = false;
     for (let a = 0; a < 20; a++) {
@@ -200,17 +202,24 @@ function populate() {
       if (ok) break;
     }
     if (ok) {
-      const g = makeTree(x, z);
+      // Consume same sr() calls as old makeTree for RNG alignment
+      const treeH = 6 + sr() * 10;
+      sr(); // radius
       const gy = getGroundY(x, z);
-      g.position.y = gy;
-      const treeH = g.userData.treeH || 10;
+      const yRot = sr() * Math.PI * 2;
+      const scale = 0.8 + sr() * 0.4;
       const impostor = makeTreeImpostor(treeH, gy);
       impostor.position.x = x;
       impostor.position.z = z;
-      trees_data.push({ group: g, x, z, impostor, treeH });
+      treeImpostors.push(impostor);
+      trees_data.push({ x, z, y: gy, treeH, yRot, scale });
       keepOutZones.push({ x, z, r2: 4 }); // 2m radius
     }
   }
+  // Create 10 instanced templates (2 per palette × 5 palettes)
+  const treeTemplates = createTreeTemplates(10);
+  const maxPerTemplate = Math.ceil(TREE_N / 10) + 10;
+  treeMeshes = createTreeInstances(treeTemplates, trees_data, maxPerTemplate);
   // Fairy rings — spawn early so other entities respect keep-out zones
   for (let i = 0; i < FAIRY_RING_N; i++) {
     let fx, fz, ok2 = false;
@@ -225,7 +234,7 @@ function populate() {
       const fr = makeFairyRing(fx, fz);
       fr.group.position.y = getGroundY(fx, fz);
       fairyRings.push(fr);
-      keepOutZones.push({ x: fx, z: fz, r2: 25 }); // 5m radius
+      keepOutZones.push({ x: fx, z: fz, r2: 64 }); // 8m radius — matches flat zone effect range
     }
   }
   // Ponds — spawn early so other entities respect keep-out zones
@@ -242,7 +251,7 @@ function populate() {
       const po = makePond(px, pz);
       po.group.position.y = getGroundY(px, pz);
       ponds.push(po);
-      keepOutZones.push({ x: px, z: pz, r2: 16 }); // 4m radius
+      keepOutZones.push({ x: px, z: pz, r2: 49 }); // 7m radius — matches flat zone effect range
     }
   }
   // Mushrooms near trees
@@ -431,6 +440,41 @@ function populate() {
     snapthorns.push(sn);
     keepOutZones.push({ x: sx, z: sz, r2: 2.25 });
   }
+
+  // Re-sample tree heights after all flat zones are registered
+  // (ponds/fairy rings register flat zones that modify getGroundY retroactively)
+  for (let i = 0; i < trees_data.length; i++) {
+    const tr = trees_data[i];
+    const newY = getGroundY(tr.x, tr.z);
+    tr.y = newY;
+    if (treeImpostors[i]) {
+      treeImpostors[i].position.y = newY + (tr.treeH || 10) * 0.6;
+    }
+  }
+  // Rebuild instanced tree matrices with corrected heights
+  if (treeMeshes.length > 0) {
+    const _d = new THREE.Object3D();
+    for (let ti = 0; ti < treeMeshes.length; ti++) {
+      const mesh = treeMeshes[ti];
+      for (let ii = 0; ii < mesh.instances.length; ii++) {
+        const inst = mesh.instances[ii];
+        const td = trees_data[inst.posIdx];
+        inst.y = td.y;
+        _d.position.set(td.x, td.y, td.z);
+        _d.rotation.set(0, td.yRot, 0);
+        _d.scale.setScalar(td.scale);
+        _d.updateMatrix();
+        if (mesh.trunk) mesh.trunk.setMatrixAt(ii, _d.matrix);
+        if (mesh.canopy) mesh.canopy.setMatrixAt(ii, _d.matrix);
+        if (mesh.glow) mesh.glow.setMatrixAt(ii, _d.matrix);
+        if (mesh.detail) mesh.detail.setMatrixAt(ii, _d.matrix);
+      }
+      if (mesh.trunk) mesh.trunk.instanceMatrix.needsUpdate = true;
+      if (mesh.canopy) mesh.canopy.instanceMatrix.needsUpdate = true;
+      if (mesh.glow) mesh.glow.instanceMatrix.needsUpdate = true;
+      if (mesh.detail) mesh.detail.instanceMatrix.needsUpdate = true;
+    }
+  }
 }
 
 // ================================================================
@@ -441,49 +485,13 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
-  // --- Tree 4-tier LOD with 3D distance (Y-aware for high jumps) ---
-  // Tier 0 (<20m): full detail — all children, wind sway
-  // Tier 1 (20-70m): reduced — hide detail children (veins, roots, moss, fungi)
-  // Tier 2 (70-110m): impostor — hide tree group, show billboard sprite
+  // --- Tree 4-tier LOD with instanced meshes ---
+  // Tier 0 (<20m): full detail — main + detail + glow InstancedMesh, wind sway
+  // Tier 1 (20-70m): reduced — main + glow only (no detail)
+  // Tier 2 (70-110m): impostor — billboard sprite only
   // Tier 3 (>110m): hidden entirely
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
-  for (let i = 0; i < trees_data.length; i++) {
-    const tr = trees_data[i];
-    const tdx = tr.x - px, tdz = tr.z - pz;
-    const tdy = (tr.group.position.y + (tr.treeH || 10) * 0.4) - py;
-    const d2 = tdx * tdx + tdy * tdy + tdz * tdz;
-    if (d2 > 12100) { // >110m — hide everything
-      if (tr.group.visible) tr.group.visible = false;
-      if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
-      continue;
-    }
-    if (d2 > 4900) { // 70-110m — billboard impostor only
-      if (tr.group.visible) tr.group.visible = false;
-      if (tr.impostor) tr.impostor.visible = true;
-      tr._lod = 2;
-      continue;
-    }
-    // <70m — show tree group, hide impostor
-    if (!tr.group.visible) tr.group.visible = true;
-    if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
-    if (d2 > 400) { // 20-70m — reduced detail
-      if (tr._lod !== 1) {
-        const children = tr.group.children;
-        for (let c = 0; c < children.length; c++)
-          children[c].visible = !children[c].userData.detail;
-        tr._lod = 1;
-      }
-    } else { // <20m — full detail
-      if (tr._lod !== 0) {
-        const children = tr.group.children;
-        for (let c = 0; c < children.length; c++) children[c].visible = true;
-        tr._lod = 0;
-      }
-      const tPhase = tr.x * 0.1 + tr.z * 0.13;
-      tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
-      tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
-    }
-  }
+  updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ);
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
   // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
@@ -1677,7 +1685,7 @@ function director(dt, t) {
       const tr = trees_data[i];
       const dx = tr.x - player.pos.x, dz = tr.z - player.pos.z;
       if (dx * dx + dz * dz < 900 && Math.random() < 0.15) { // within 30m
-        const canopyY = (tr.group.children[0] ? tr.group.children[0].geometry.parameters.height * 0.7 : 6) + tr.group.position.y;
+        const canopyY = (tr.treeH || 10) * 0.7 + (tr.y || 0);
         spawnLeaf(tr.x, canopyY, tr.z);
         break;
       }
@@ -1810,6 +1818,22 @@ function animate() {
 
   // Update audio system (Items 1-3)
   updateAudio(dt, windStrength, rainRate, isStorming, lightningFlash, dayPhase, player.pos, ponds);
+  updateLaserHums(player.pos);
+
+  // Background music — dynamic/reactive
+  const pSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
+  let nearMagic = false;
+  for (let i = 0; i < ponds.length; i++) {
+    const dx = ponds[i].x - player.pos.x, dz = ponds[i].z - player.pos.z;
+    if (dx * dx + dz * dz < 225) { nearMagic = true; break; } // 15m
+  }
+  if (!nearMagic) {
+    for (let i = 0; i < fairyRings.length; i++) {
+      const dx = fairyRings[i].x - player.pos.x, dz = fairyRings[i].z - player.pos.z;
+      if (dx * dx + dz * dz < 144) { nearMagic = true; break; } // 12m
+    }
+  }
+  updateMusic(dt, dayPhase, pSpeed, nearMagic);
 
   // Pass wind to particle systems (Item 9)
   setSporeWind(windX, windZ);
@@ -1971,7 +1995,13 @@ try {
     jellies: jellies,
     moths: moths,
     trees: trees_data,
-    groundMesh: groundMesh
+    treeMeshes: treeMeshes,
+    groundMesh: groundMesh,
+    playOrbCollect: playOrbCollect,
+    playOrbWarble: playOrbWarble,
+    playLaserZap: playLaserZap,
+    playLaserHum: playLaserHum,
+    stopLaserHums: stopLaserHums
   });
 
   // Wire up go callback

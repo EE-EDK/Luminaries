@@ -53,12 +53,13 @@ function createNoiseBuffer(type, duration) {
       data[i] *= 1.8;
     }
   }
-  // Crossfade the loop seam so the splice point isn't audible
-  const fade = Math.min(Math.floor(ctx.sampleRate * 0.05), len >> 1); // 50ms
-  for (let i = 0; i < fade; i++) {
-    const t = i / fade;
-    data[i] *= t;
-    data[len - 1 - i] *= t;
+  // Overlap-add crossfade for seamless looping
+  const fadeLen = Math.min(Math.floor(ctx.sampleRate * 0.5), len >> 2); // 500ms
+  for (let i = 0; i < fadeLen; i++) {
+    const t = i / fadeLen;
+    const endIdx = len - fadeLen + i;
+    // Blend end of buffer with beginning for seamless wrap
+    data[endIdx] = data[endIdx] * (1 - t) + data[i] * t;
   }
   return buf;
 }
@@ -150,13 +151,13 @@ export function initAudio() {
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.35;
+      masterGain.gain.value = 0.42;
       masterGain.connect(ctx.destination);
 
-      // Generate noise buffers — longer durations to avoid audible loop repetition
-      brownBuf = createNoiseBuffer('brown', 8);
-      brownBuf2 = createNoiseBuffer('brown', 5); // co-prime length so layers never align
-      whiteBuf = createNoiseBuffer('white', 4);
+      // Generate noise buffers — long durations + co-prime lengths to mask loop seams
+      brownBuf = createNoiseBuffer('brown', 16);
+      brownBuf2 = createNoiseBuffer('brown', 11); // co-prime with 16
+      whiteBuf = createNoiseBuffer('white', 9);   // co-prime with 16 and 11
 
       // Shared reverb (feedback delays with highpass to prevent rumble)
       createReverb();
@@ -531,6 +532,175 @@ export function playOrbCollect() {
 }
 
 // ================================================================
+// Orb fly-up warble — ascending FM synthesis
+// ================================================================
+export function playOrbWarble() {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // Ascending carrier with vibrato
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(300, now);
+  osc.frequency.exponentialRampToValueAtTime(1200, now + 3.0);
+
+  // Warble modulator — speeds up as pitch rises
+  const vib = ctx.createOscillator();
+  const vibGain = ctx.createGain();
+  vib.frequency.setValueAtTime(6, now);
+  vib.frequency.linearRampToValueAtTime(12, now + 3.0);
+  vibGain.gain.value = 20;
+  vib.connect(vibGain).connect(osc.frequency);
+
+  // Second harmonic for richness
+  const osc2 = ctx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(600, now);
+  osc2.frequency.exponentialRampToValueAtTime(2400, now + 3.0);
+
+  // Envelope: fade in, sustain, fade out
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.04, now + 0.2);
+  gain.gain.setValueAtTime(0.04, now + 2.0);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 3.5);
+
+  osc.connect(gain);
+  osc2.connect(gain);
+  connectWithReverb(gain, masterGain, 0.6);
+
+  vib.start(now); osc.start(now); osc2.start(now);
+  vib.stop(now + 4); osc.stop(now + 4); osc2.stop(now + 4);
+}
+
+// ================================================================
+// Laser zap — electrical discharge when laser spawns
+// ================================================================
+export function playLaserZap() {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // White noise burst — electrical crackle
+  const noise = ctx.createBufferSource();
+  noise.buffer = whiteBuf;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.setValueAtTime(3000, now);
+  noiseFilter.frequency.exponentialRampToValueAtTime(500, now + 0.3);
+  noiseFilter.Q.value = 2;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.08, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  noise.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+
+  // Descending zap tone
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(2000, now);
+  osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+  const oscFilter = ctx.createBiquadFilter();
+  oscFilter.type = 'lowpass';
+  oscFilter.frequency.value = 4000;
+  const oscGain = ctx.createGain();
+  oscGain.gain.setValueAtTime(0.06, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(oscFilter).connect(oscGain);
+  connectWithReverb(oscGain, masterGain, 0.3);
+
+  // Sustained electrical tail
+  const tail = ctx.createOscillator();
+  tail.type = 'sawtooth';
+  tail.frequency.setValueAtTime(80, now + 0.15);
+  tail.frequency.linearRampToValueAtTime(55, now + 2.0);
+  const tailFilter = ctx.createBiquadFilter();
+  tailFilter.type = 'bandpass';
+  tailFilter.frequency.value = 180;
+  tailFilter.Q.value = 3;
+  const tailGain = ctx.createGain();
+  tailGain.gain.setValueAtTime(0, now);
+  tailGain.gain.linearRampToValueAtTime(0.03, now + 0.2);
+  tailGain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  tail.connect(tailFilter).connect(tailGain).connect(masterGain);
+
+  noise.start(now); noise.stop(now + 0.4);
+  osc.start(now); osc.stop(now + 0.25);
+  tail.start(now + 0.1); tail.stop(now + 2.2);
+}
+
+// ================================================================
+// Laser electrical hum — continuous buzzing near active lasers
+// ================================================================
+const laserHums = []; // { osc, mod, gain, panner, filter, x, z }
+
+export function playLaserHum(x, z) {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // Low buzz (detuned sawtooths for beating)
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 55 + Math.random() * 10;
+
+  // FM modulator for crackle character
+  const mod = ctx.createOscillator();
+  const modGain = ctx.createGain();
+  mod.type = 'square';
+  mod.frequency.value = 120 + Math.random() * 60;
+  modGain.gain.value = 15;
+  mod.connect(modGain).connect(osc.frequency);
+
+  // Harsh bandpass for electrical buzzy quality
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 200;
+  filter.Q.value = 3;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+
+  const panner = ctx.createStereoPanner();
+
+  osc.connect(filter).connect(gain).connect(panner).connect(masterGain);
+  mod.start(now); osc.start(now);
+
+  laserHums.push({ osc, mod, gain, panner, filter, x, z });
+}
+
+export function updateLaserHums(playerPos) {
+  if (!initialized || !ctx) return;
+  const now = ctx.currentTime;
+  for (let i = 0; i < laserHums.length; i++) {
+    const h = laserHums[i];
+    const dx = h.x - playerPos.x, dz = h.z - playerPos.z;
+    const d2 = dx * dx + dz * dz;
+    const dist = Math.sqrt(d2);
+
+    // Audible within 25m, louder within 10m
+    const vol = d2 < 625 ? Math.max(0, 1 - dist / 25) * 0.04 : 0;
+    h.gain.gain.linearRampToValueAtTime(vol, now + 0.1);
+
+    // Spatial panning
+    const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
+    h.panner.pan.linearRampToValueAtTime(pan, now + 0.1);
+
+    // Subtle filter sweep for variation
+    h.filter.frequency.value = 180 + Math.sin(now * 0.5 + i) * 40;
+  }
+}
+
+export function stopLaserHums() {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  for (let i = 0; i < laserHums.length; i++) {
+    const h = laserHums[i];
+    h.gain.gain.linearRampToValueAtTime(0, now + 0.5);
+    h.osc.stop(now + 0.6);
+    h.mod.stop(now + 0.6);
+  }
+  laserHums.length = 0;
+}
+
+// ================================================================
 // Fairy ring bounce — musical chime
 // ================================================================
 export function playFairyBounce() {
@@ -553,7 +723,7 @@ export function playFairyBounce() {
 // ================================================================
 export function toggleMute() {
   muted = !muted;
-  if (masterGain) masterGain.gain.value = muted ? 0 : 0.35;
+  if (masterGain) masterGain.gain.value = muted ? 0 : 0.42;
   return muted;
 }
 
@@ -691,5 +861,190 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     }
   } else {
     cricketPingTimer = 0;
+  }
+}
+
+// ================================================================
+// Procedural Background Music — Dynamic/Reactive Generative Ambience
+// Harp (plucked triangle), Flute (sine + vibrato), Lute (detuned triangle)
+// ================================================================
+
+const PENTATONIC = [0, 2, 4, 7, 9]; // C D E G A (semitones)
+const DORIAN = [0, 2, 3, 5, 7, 9, 10]; // C D Eb F G A Bb
+const BASE_FREQ = 220; // A3
+
+let musicInited = false;
+let musicMasterGain = null;
+let musicTimer = 0;
+let currentScale = PENTATONIC;
+let currentOctaveShift = 0;
+let musicActivity = 0; // 0=sparse, 1=active — driven by player movement
+
+function initMusic() {
+  if (musicInited || !ctx) return;
+  musicInited = true;
+  musicMasterGain = ctx.createGain();
+  musicMasterGain.gain.value = 0.015;
+  musicMasterGain.connect(masterGain);
+  musicTimer = 2; // start after 2s delay
+}
+
+function noteFreq(degree, octShift) {
+  const scaleLen = currentScale.length;
+  const octave = Math.floor(degree / scaleLen) + (octShift || 0);
+  const idx = ((degree % scaleLen) + scaleLen) % scaleLen;
+  const semitone = currentScale[idx];
+  return BASE_FREQ * Math.pow(2, octave + semitone / 12);
+}
+
+function playHarpNote(freq, vol, delay) {
+  if (!ctx) return;
+  const now = ctx.currentTime + (delay || 0);
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.3, now + 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(freq * 4, now);
+  filter.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 1.0);
+  filter.Q.value = 1;
+
+  osc.connect(filter).connect(gain);
+  connectWithReverb(gain, musicMasterGain, 0.6);
+  osc.start(now); osc.stop(now + 2.0);
+}
+
+function playFluteNote(freq, vol, duration, delay) {
+  if (!ctx) return;
+  const now = ctx.currentTime + (delay || 0);
+  const dur = duration || 2;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.3);
+  gain.gain.setValueAtTime(vol, now + Math.max(dur - 0.5, 0.4));
+  gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+  // Vibrato
+  const vib = ctx.createOscillator();
+  const vibGain = ctx.createGain();
+  vib.frequency.value = 4.5 + Math.random();
+  vibGain.gain.value = freq * 0.008;
+  vib.connect(vibGain).connect(osc.frequency);
+
+  osc.connect(gain);
+  connectWithReverb(gain, musicMasterGain, 0.5);
+  vib.start(now); osc.start(now);
+  vib.stop(now + dur + 0.1); osc.stop(now + dur + 0.1);
+}
+
+function playLuteNote(freq, vol, delay) {
+  if (!ctx) return;
+  const now = ctx.currentTime + (delay || 0);
+
+  const osc1 = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  osc1.type = 'triangle';
+  osc2.type = 'triangle';
+  osc1.frequency.value = freq;
+  osc2.frequency.value = freq * 1.003; // slight detune for warmth
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.15, now + 0.4);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+
+  // Body resonance filter
+  const body = ctx.createBiquadFilter();
+  body.type = 'peaking';
+  body.frequency.value = freq * 0.5;
+  body.Q.value = 2;
+  body.gain.value = 4;
+
+  osc1.connect(body).connect(gain);
+  osc2.connect(body);
+  connectWithReverb(gain, musicMasterGain, 0.4);
+  osc1.start(now); osc2.start(now);
+  osc1.stop(now + 2.5); osc2.stop(now + 2.5);
+}
+
+function generatePhrase() {
+  if (!ctx || !musicInited) return 3;
+
+  const phraseLen = 3 + Math.floor(Math.random() * 4); // 3-6 notes
+  const noteSpacing = 0.6 + Math.random() * 0.8;
+
+  // Voice selection weighted by time of day
+  const voiceRoll = Math.random();
+  const voice = voiceRoll < 0.45 ? 'harp' : voiceRoll < 0.75 ? 'flute' : 'lute';
+
+  // Melodic contour with stepwise motion
+  let degree = Math.floor(Math.random() * 5);
+  const vol = 0.5 + Math.random() * 0.5;
+
+  for (let i = 0; i < phraseLen; i++) {
+    const delay = i * noteSpacing;
+    const freq = noteFreq(degree, currentOctaveShift);
+
+    if (voice === 'harp') playHarpNote(freq, vol, delay);
+    else if (voice === 'flute') playFluteNote(freq, vol, noteSpacing * 0.8, delay);
+    else playLuteNote(freq, vol * 0.8, delay);
+
+    // Melodic movement
+    const m = Math.random();
+    if (m < 0.3) degree += 1;
+    else if (m < 0.6) degree -= 1;
+    else if (m < 0.8) degree += 2;
+    else degree -= 2;
+    degree = Math.max(-3, Math.min(8, degree));
+  }
+
+  return phraseLen * noteSpacing + 1;
+}
+
+export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
+  if (!initialized || muted) return;
+  if (!musicInited) initMusic();
+  if (!musicInited) return;
+
+  const now = ctx.currentTime;
+
+  // Scale + octave by time of day
+  currentScale = (dayPhase === 'DEEP_NIGHT' || dayPhase === 'NIGHT') ? DORIAN : PENTATONIC;
+  currentOctaveShift = dayPhase === 'DAY' ? 1 : 0;
+
+  // Volume by time of day
+  const dayVol = dayPhase === 'DEEP_NIGHT' ? 0.012 :
+    dayPhase === 'NIGHT' ? 0.015 :
+    dayPhase === 'DAWN' ? 0.018 :
+    dayPhase === 'DAY' ? 0.010 : 0.015;
+
+  // Reactive volume boost when near magical areas
+  const magicBoost = nearMagical ? 1.3 : 1.0;
+  musicMasterGain.gain.linearRampToValueAtTime(dayVol * magicBoost, now + 2);
+
+  // Reactivity: player movement controls phrase density
+  musicActivity = Math.min(1, (playerSpeed || 0) / 5); // 0-1 based on walking speed
+
+  // Schedule phrases with dynamic pauses
+  musicTimer -= dt;
+  if (musicTimer <= 0) {
+    const phraseDuration = generatePhrase();
+    // Sparse when still, more active when moving
+    const baseGap = musicActivity > 0.3 ? 3 : 6;
+    const gapRange = musicActivity > 0.3 ? 5 : 8;
+    musicTimer = phraseDuration + baseGap + Math.random() * gapRange;
   }
 }

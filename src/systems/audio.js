@@ -140,13 +140,13 @@ export function initAudio() {
       const fh = loopNoise(brownBuf, 0.08, 160);
       forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
-      // --- Wind: DISABLED (testing if this causes the rumble) ---
-      // const wn = loopNoise(whiteBuf, 0, 400);
-      // windNode = wn.node; windGain = wn.gain; windFilter = wn.filter;
+      // --- Wind: white noise filtered, volume driven by weather ---
+      const wn = loopNoise(whiteBuf, 0, 400);
+      windNode = wn.node; windGain = wn.gain; windFilter = wn.filter;
 
-      // --- Rain: DISABLED (testing if this causes the rumble) ---
-      // const rn = loopNoise(whiteBuf, 0, 2000);
-      // rainNode = rn.node; rainGain = rn.gain; rainFilter = rn.filter;
+      // --- Rain: white noise, higher filter, volume driven by rain rate ---
+      const rn = loopNoise(whiteBuf, 0, 2000);
+      rainNode = rn.node; rainGain = rn.gain; rainFilter = rn.filter;
 
       // --- Water: brown noise for pond proximity ---
       const wt = loopNoise(brownBuf, 0, 600);
@@ -177,17 +177,17 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
   const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
-  // --- Wind: DISABLED ---
-  // const windVol = Math.min(windStrength * 0.15, 0.25);
-  // const windFreq = 200 + windStrength * 600;
-  // windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
-  // windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
+  // --- Wind volume/filter scales with wind strength ---
+  const windVol = Math.min(windStrength * 0.15, 0.25);
+  const windFreq = 200 + windStrength * 600;
+  windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
+  windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
 
-  // --- Rain: DISABLED ---
-  // const rainVol = rainRate * 0.20;
-  // const rainFreq = 1200 + rainRate * 2000;
-  // rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
-  // rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
+  // --- Rain ---
+  const rainVol = rainRate * 0.20;
+  const rainFreq = 1200 + rainRate * 2000;
+  rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
+  rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
 
   // --- Thunder ---
   if (lightningFlash > 0.5 && thunderTimer <= 0) {
@@ -254,6 +254,8 @@ function playThunder() {
 // Creature Sounds — Ethereal & Musical
 // ================================================================
 export function playCreatureSound(type, position, playerPos) {
+  // DISABLED — testing if creature sounds cause the rumble
+  return;
   if (!initialized || muted || !ctx) return;
   if (creatureCooldowns[type] > 0) return;
 
@@ -597,6 +599,8 @@ function spawnCricketPing(vol) {
 }
 
 export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
+  // DISABLED — testing if frogs/crickets cause the rumble
+  return;
   if (!initialized || muted || !ctx) return;
   ensureAmbient();
   if (!ambientInited) return;

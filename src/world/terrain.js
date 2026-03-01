@@ -4,6 +4,11 @@ import { WORLD_R } from '../constants.js';
 // Procedural terrain heightmap — gentle rolling hills
 // Uses layered sine-based noise (no dependencies needed)
 // ================================================================
+// GEOLOGICAL SURVEY (automated, timestamp corrupted):
+//   Terrain profile does not match any erosion model. The hills are
+//   too gentle, the valleys too deliberate. Flat zones appear exactly
+//   where structures need them. It's as if the ground was shaped
+//   for habitation — but the shaping predates the inhabitants.
 
 // Simple 2D hash-based noise (value noise approximation)
 function hash(x, y) {

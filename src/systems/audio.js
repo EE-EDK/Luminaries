@@ -4,6 +4,14 @@
 // Uses Web Audio API for procedural sounds (no audio files needed).
 // All sounds designed to be soft, ethereal, and musical.
 // Layers: forest hum, wind, rain, thunder, water, creatures, footsteps.
+//
+// LAB NOTE (Dr. Chen, acoustic analysis):
+//   Every sound in this forest is synthesized from pure waveforms.
+//   No recordings. No samples. Just math. And yet — participants
+//   consistently report the soundscape feels "alive" and "aware."
+//   One subject described hearing her own name in the wind harmonics.
+//   We checked. It's a 3rd-order lowpass on brown noise. There are
+//   no names. There shouldn't be names.
 
 import { setupMusic, updateMusic as _updateMusic } from './music.js';
 

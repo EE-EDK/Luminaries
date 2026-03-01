@@ -5,6 +5,9 @@ import { sr } from '../../utils/rng.js';
 import { GEO } from '../../core/geometries.js';
 
 // --- Mushrooms (emissive pulse, NO PointLights) ---
+// They pulse in waves. Step near a cluster and the rhythm changes —
+// faster, brighter, then settling back. Dr. Chen called it "the
+// greeting response." We still don't know what they're greeting.
 export function makeMush(x, z) {
   const g = new THREE.Group();
   const sc = 0.4 + sr() * 1.2;

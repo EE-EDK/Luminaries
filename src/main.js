@@ -1,6 +1,21 @@
 // ================================================================
 // Luminaries — Main Entry Point
 // ================================================================
+// Welcome, Inspector.
+// This is a procedurally generated bioluminescent forest. Everything
+// you see, hear, and feel is built from mathematics — no textures,
+// no audio files, no borrowed assets. Just numbers becoming light.
+//
+// If you're reading this, you've gone deeper than most. The forest
+// has layers. So does its source. There are notes scattered through
+// these files — field reports, lab entries, observations from people
+// who studied this place before you arrived. Some made it out.
+//
+// Explore. The mushrooms pulse when you're near. The deer aren't
+// running from you. The orbs are waiting.
+//
+// — L
+// ================================================================
 import * as THREE from 'three';
 
 // Core systems
@@ -96,6 +111,9 @@ import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound,
 // AI
 import { canSee, canHear, isNear } from './systems/ai/senses.js';
 import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBounds, avoidObstacles } from './systems/ai/steering.js';
+
+// Dimming (Phase 2)
+import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected } from './systems/dimming.js';
 
 // Discoveries
 import { initDiscoveries, checkDiscoveries, updateDiscoveryUI } from './systems/discoveries.js';
@@ -678,7 +696,7 @@ function updateVegetation(dt, t) {
     if (!fl.group.visible) fl.group.visible = true;
     if (fld2 > 900) continue;
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
-    fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+    fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow);
     fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
   // Reeds — visibility cull beyond 40m, animate within 30m (3D distance)
@@ -696,8 +714,9 @@ function updateVegetation(dt, t) {
   for (let i = 0; i < thornblooms.length; i++) {
     const tb = thornblooms[i];
     const p = Math.sin(t * 1.2 + tb.phase) * 0.5 + 0.5;
-    tb.orbMat.emissiveIntensity = (0.5 + p * 0.5) * bioGlow;
-    tb.hazeMat.opacity = (0.04 + p * 0.04) * bioGlow;
+    const tbGlow = getLocalGlow(tb.group.position.x, tb.group.position.z, bioGlow);
+    tb.orbMat.emissiveIntensity = (0.5 + p * 0.5) * tbGlow;
+    tb.hazeMat.opacity = (0.04 + p * 0.04) * tbGlow;
     tb.group.rotation.z = Math.sin(t * 0.5 + tb.phase) * 0.02 * wAmp + wLeanX * 0.3;
     tb.group.rotation.x = Math.sin(t * 0.4 + tb.phase + 1) * 0.015 * wAmp + wLeanZ * 0.3;
   }
@@ -706,12 +725,12 @@ function updateVegetation(dt, t) {
     const hv = helixvines[i];
     for (let j = 0; j < hv.podMats.length; j++) {
       const p = Math.sin(t * 1.5 + hv.phase + j * 1.8) * 0.5 + 0.5;
-      hv.podMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+      hv.podMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow);
     }
     hv.group.rotation.z = Math.sin(t * 0.35 + hv.phase) * 0.01 * wAmp + wLeanX * 0.2;
   }
   // Snapthorn continuous animation (tentacles + breathing)
-  updateSnapthorns(snapthorns, dt, t, bioGlow);
+  updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlow);
   // SpiralFrond tip glow pulse + sway
   for (let i = 0; i < spiralfronds.length; i++) {
     const sf = spiralfronds[i];
@@ -722,7 +741,7 @@ function updateVegetation(dt, t) {
     if (sd2 < 900) {
       for (let j = 0; j < sf.tipMats.length; j++) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
-        sf.tipMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+        sf.tipMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(sf.x, sf.z, bioGlow);
       }
       sf.group.rotation.z = Math.sin(t * 0.4 + sf.phase) * 0.015 * wAmp + wLeanX * 0.2;
       sf.group.rotation.x = Math.sin(t * 0.35 + sf.phase + 1) * 0.01 * wAmp + wLeanZ * 0.2;
@@ -736,8 +755,9 @@ function updateVegetation(dt, t) {
     if (cd2 > 1600) { if (cb.group.visible) cb.group.visible = false; continue; }
     if (!cb.group.visible) cb.group.visible = true;
     if (cd2 < 900) {
-      cb.columnMat.emissiveIntensity = (0.3 + Math.sin(t * 1.0 + cb.phase) * 0.25) * bioGlow;
-      cb.hazeMat.opacity = (0.03 + Math.sin(t * 0.8 + cb.phase) * 0.02) * bioGlow;
+      const cbGlow = getLocalGlow(cb.x, cb.z, bioGlow);
+      cb.columnMat.emissiveIntensity = (0.3 + Math.sin(t * 1.0 + cb.phase) * 0.25) * cbGlow;
+      cb.hazeMat.opacity = (0.03 + Math.sin(t * 0.8 + cb.phase) * 0.02) * cbGlow;
       for (let fi = 0; fi < cb.flies.length; fi++) {
         const flyAng = t * (2 + fi * 0.5) + fi * 2.1;
         const flyR = 0.2 + Math.sin(t * 0.7 + fi) * 0.08;
@@ -757,7 +777,7 @@ function updateVegetation(dt, t) {
     if (od2 < 900) {
       for (let j = 0; j < ob.orbMats.length; j++) {
         const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
-        ob.orbMats[j].emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
+        ob.orbMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(ob.x, ob.z, bioGlow);
       }
       ob.group.rotation.z = Math.sin(t * 0.45 + ob.phase) * 0.012 * wAmp + wLeanX * 0.2;
       ob.group.rotation.x = Math.sin(t * 0.4 + ob.phase + 1) * 0.008 * wAmp + wLeanZ * 0.2;
@@ -773,7 +793,7 @@ function updateVegetation(dt, t) {
     if (ld2 < 900) {
       for (let j = 0; j < lp.podMats.length; j++) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
-        lp.podMats[j].emissiveIntensity = (0.3 + p * 0.4) * bioGlow;
+        lp.podMats[j].emissiveIntensity = (0.3 + p * 0.4) * getLocalGlow(lp.x, lp.z, bioGlow);
       }
       lp.group.rotation.z = Math.sin(t * 0.6 + lp.phase) * 0.02 * wAmp + wLeanX * 0.25;
       lp.group.rotation.x = Math.sin(t * 0.5 + lp.phase + 1) * 0.015 * wAmp + wLeanZ * 0.25;
@@ -800,7 +820,7 @@ function updateVegetation(dt, t) {
     if (gdx * gdx + gdz * gdz > 3600) { gg.mesh.visible = false; continue; }
     gg.mesh.visible = true;
     const pulse = Math.sin(t * gg.speed + gg.phase) * 0.3 + 0.7;
-    gg.mat.opacity = gg.baseOpacity * pulse * bioGlow;
+    gg.mat.opacity = gg.baseOpacity * pulse * getLocalGlow(gg.x, gg.z, bioGlow);
   }
 }
 
@@ -928,7 +948,7 @@ function updateJellies(dt, t) {
       // Even drifting jellies get subtle sync glow
       emissiveMult = 1.0 + basePulse * 0.3;
     }
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * bioGlow * emissiveMult;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow) * emissiveMult;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
@@ -1127,12 +1147,12 @@ function updatePuffs(dt, t) {
           0.5 + Math.sin(sa * 1.3) * 0.1,
           Math.sin(sa) * sp.orbitR
         );
-        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * bioGlow;
+        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow);
       }
     }
     // Crown glow
     if (p.crownMat) {
-      p.crownMat.emissiveIntensity = (0.2 + Math.sin(t * 2 + p.phase) * 0.15) * bioGlow;
+      p.crownMat.emissiveIntensity = (0.2 + Math.sin(t * 2 + p.phase) * 0.15) * getLocalGlow(g.position.x, g.position.z, bioGlow);
     }
 
     // World bounds
@@ -1384,7 +1404,8 @@ function updateDeers(dt, t) {
     else d.tailPivot.rotation.z *= 0.9;
 
     // Emissive
-    d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * bioGlow;
+    const deerGlow = getLocalGlow(gx, gz, bioGlow);
+    d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * deerGlow;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -1396,7 +1417,7 @@ function updateDeers(dt, t) {
     // Branch orb glow pulse
     if (d.branchOrbs) {
       for (let bi = 0; bi < d.branchOrbs.length; bi++) {
-        d.branchOrbs[bi].material.opacity = (0.3 + Math.sin(t * 2.5 + d.phase + bi * 1.5) * 0.3) * bioGlow;
+        d.branchOrbs[bi].material.opacity = (0.3 + Math.sin(t * 2.5 + d.phase + bi * 1.5) * 0.3) * deerGlow;
       }
     }
     // Ghost trail spheres — lerp toward previous positions in world space
@@ -1409,7 +1430,7 @@ function updateDeers(dt, t) {
         trail.prevY += (g.position.y + 0.8 - trail.prevY) * lerpSpeed;
         trail.prevZ += (gz - trail.prevZ) * lerpSpeed;
         trail.mesh.position.set(trail.prevX, trail.prevY + Math.sin(t * 2 + ti * 1.5) * 0.04, trail.prevZ);
-        trail.mat.opacity = isMoving ? (0.12 - ti * 0.03) * bioGlow : 0.02 * bioGlow;
+        trail.mat.opacity = isMoving ? (0.12 - ti * 0.03) * deerGlow : 0.02 * deerGlow;
       }
     }
   }
@@ -1530,7 +1551,7 @@ function updateMoths(dt, t) {
     // Emissive
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
     const attractBoost = m._state === 'attracted' ? 0.4 : 0;
-    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * bioGlow;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow);
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
@@ -1612,7 +1633,7 @@ function updateFairyRings(dt, t) {
     const targetGlow = inRing ? 1.0 : 0.0;
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
     fr.discMat.opacity = fr.glowIntensity * 0.25 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
-    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * bioGlow;
+    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow);
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
       fr.glowIntensity = 1.5;
@@ -1691,9 +1712,10 @@ function updatePonds(dt, t) {
     }
     // Water glow — slightly brighter during/after rain (Item 8)
     const rainGlowBoost = curRain * 0.08;
-    po.waterMat.emissiveIntensity = (0.15 + rainGlowBoost + Math.sin(t * 1.0 + po.phase) * 0.1) * bioGlow;
+    const pondGlow = getLocalGlow(po.x, po.z, bioGlow);
+    po.waterMat.emissiveIntensity = (0.15 + rainGlowBoost + Math.sin(t * 1.0 + po.phase) * 0.1) * pondGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
-    po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * bioGlow;
+    po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * pondGlow;
     // Animated ripple rings — faster and more visible during rain (Item 8)
     const rippleSpeed = 0.25 + curRain * 0.2;
     const rippleAlpha = 0.12 + curRain * 0.08;
@@ -1762,7 +1784,7 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * bioGlow);
+      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * getLocalGlow(m.x, m.z, bioGlow));
     }
   }
   for (let i = 0; i < flowers.length; i++) {
@@ -1772,7 +1794,7 @@ function updateEchoBloom(dt, t) {
     const d = Math.sqrt(fx * fx + fz * fz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * bioGlow);
+      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow));
     }
   }
 }
@@ -1799,7 +1821,7 @@ function updateFloraReactions(dt, t) {
     const sy = (1.0 + fl._react * 0.05) * (1.0 - stormDroop * 0.15);
     fl.group.scale.set(sc, sy, sc);
     // Add glow boost (dimmed in storms)
-    fl.petalMat.emissiveIntensity += fl._react * 0.6 * bioGlow * (1.0 - stormDroop * 0.4);
+    fl.petalMat.emissiveIntensity += fl._react * 0.6 * getLocalGlow(fx, fz, bioGlow) * (1.0 - stormDroop * 0.4);
   }
 
   // --- Mushrooms: bright pulse on proximity + glow surge after rain (Item 7) ---
@@ -1812,7 +1834,7 @@ function updateFloraReactions(dt, t) {
     m._touch += (touch - m._touch) * dt * (touch > 0 ? 6 : 1.5);
     // Rain boost: mushrooms glow brighter during/after rain (Item 7)
     const rainBoost = curRain * 0.4;
-    m.capMat.emissiveIntensity += (m._touch * 1.5 + rainBoost) * bioGlow;
+    m.capMat.emissiveIntensity += (m._touch * 1.5 + rainBoost) * getLocalGlow(m.x, m.z, bioGlow);
     const ms = 1.0 + m._touch * 0.08;
     m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
   }
@@ -1848,7 +1870,7 @@ function updateFloraReactions(dt, t) {
         if (cd2 < 400) { // neighbor within 20m
           crystalChainCount++;
           const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
-          c2.mat.emissiveIntensity += chainStr * bioGlow;
+          c2.mat.emissiveIntensity += chainStr * getLocalGlow(c2.x, c2.z, bioGlow);
           // Activate energy line between these two crystals
           if (lineIdx < MAX_ENERGY_LINES) {
             const el = energyLines[lineIdx];
@@ -1861,7 +1883,7 @@ function updateFloraReactions(dt, t) {
             el.active = true;
             // Pulse opacity with energy flow
             const pulse = Math.sin(t * 3 + i * 1.5 + j * 0.7) * 0.3 + 0.5;
-            el.opacity = chainStr * pulse * bioGlow;
+            el.opacity = chainStr * pulse * getLocalGlow(c.x, c.z, bioGlow);
             el.line.material.opacity = el.opacity;
             el.line.visible = true;
             lineIdx++;
@@ -1889,6 +1911,9 @@ let dirState = 'EXPLORE';
 let ffTimer = 0, spTimer = 0;
 
 function director(dt, t) {
+  // Advance dimming restoration waves
+  updateDimming(dt);
+
   // Crystal proximity check
   let nearCrys = false;
   for (let i = 0; i < crys_data.length; i++) {
@@ -1948,16 +1973,17 @@ function director(dt, t) {
     if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
-    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
+    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * getLocalGlow(m.x, m.z, bioGlow);
   }
 
   // Crystal glow + rotation
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    c.mat.emissiveIntensity = (1.0 + p * 1.5) * bioGlow;
+    const cGlow = getLocalGlow(c.x, c.z, bioGlow);
+    c.mat.emissiveIntensity = (1.0 + p * 1.5) * cGlow;
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = (0.3 + p * 0.4) * bioGlow;
+    if (c.light) c.light.intensity = (0.3 + p * 0.4) * cGlow;
   }
 
   // Crystal proximity lights — only re-sort when player moves >1m
@@ -1980,7 +2006,7 @@ function director(dt, t) {
       const c = crys_data[crystalSortBuf[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = (1.5 + p * 2.0) * bioGlow;
+      crystalLights[i].intensity = (1.5 + p * 2.0) * getLocalGlow(c.x, c.z, bioGlow);
       crystalLights[i].distance = 16;
       crystalLights[i].color.setHex(C.crystal);
     } else {
@@ -2132,6 +2158,11 @@ function animate() {
   const rainRate = updateWeather(dt, elapsed, player.pos);
   updateRain(dt, player.pos, rainRate, windX, windZ);
   updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
+
+  // Player light dimming — scales with local glow at player position
+  const plDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
+  playerLight.intensity *= (0.4 + 0.6 * plDimFactor);
+  playerLight.distance *= (0.6 + 0.4 * plDimFactor);
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom
@@ -2302,6 +2333,9 @@ try {
   initHUD();
   initOverlay();
 
+  // Init dimming system (Phase 2 — must be before quest so orb collection can notify)
+  initDimming(orbs);
+
   // Init quest system
   initQuest({
     orbs: orbs,
@@ -2327,7 +2361,8 @@ try {
     playOrbWarble: playOrbWarble,
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
-    stopLaserHums: stopLaserHums
+    stopLaserHums: stopLaserHums,
+    notifyOrbCollected: notifyOrbCollected
   });
 
   // Wire up go callback

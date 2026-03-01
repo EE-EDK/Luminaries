@@ -3,6 +3,13 @@
 // ================================================================
 // Full cycle: DUSK → NIGHT → DEEP NIGHT → DAWN → DUSK
 // 10-minute default cycle. Starts at NIGHT (t=0.25).
+//
+// OBSERVATION (anonymous, date unknown):
+//   The cycle doesn't match any known solar body. It runs on its own
+//   clock. 600 seconds. Always 600 seconds. We tried lengthening it
+//   once — the organisms compensated within minutes, as if they'd
+//   already memorized the rhythm. The forest doesn't follow the sun.
+//   The sun follows the forest.
 
 import * as THREE from 'three';
 import { setSkyBrightness } from '../world/sky.js';

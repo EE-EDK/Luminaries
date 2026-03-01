@@ -1,4 +1,11 @@
 // --- Golden Orb (enhanced multi-shell glow) ---
+// FIELD REPORT (Dr. R. Vasquez, final entry):
+//   Five of them. Always five. Placed at positions that look random
+//   until you map them — then you see the pentagonal symmetry. They
+//   pulse at 0.8 Hz, exactly matching human resting heart rate.
+//   Coincidence? I stopped believing in coincidence on day 3.
+//   The forest put them here for someone to find. I just don't think
+//   that someone was us.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';

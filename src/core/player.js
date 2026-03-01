@@ -6,6 +6,10 @@ import { getInput, keys, yaw, pitch, touchJump, setTouchJump, touchSprint } from
 import { getGroundY } from '../world/terrain.js';
 
 // Player state
+// You start at (0, 1.7, 0). Eye height of an average human adult.
+// The forest built itself around this exact vantage point. 1.7 meters.
+// Every canopy gap, every mushroom cluster, every distant shimmer —
+// framed for eyes at this height. Yours.
 export const player = { pos: new THREE.Vector3(0, EYE_H, 0), vel: new THREE.Vector3(), onGround: true };
 
 // Head bob / Sprint FOV / Landing Cushion state

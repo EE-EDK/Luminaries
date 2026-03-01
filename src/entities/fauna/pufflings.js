@@ -110,14 +110,6 @@ export function makePuff(x, z) {
   const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.03, 3), mouthMat);
   mouth.position.set(0, 0.59, 0.22); mouth.rotation.z = Math.PI / 2; g.add(mouth);
 
-  // --- Glowing aura haze ---
-  const auraMat = new THREE.MeshBasicMaterial({
-    color: C.puffGlow, transparent: true, opacity: 0.04,
-    blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 4), auraMat);
-  aura.position.y = 0.4; g.add(aura);
-
   // --- Orbiting sparkle motes ---
   const sparkMat = new THREE.MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 0.6
@@ -165,7 +157,7 @@ export function makePuff(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, ears, eyes, tail, sparkles, auraMat, crownMat,
+    group: g, ears, eyes, tail, sparkles, crownMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _followT: 0, _scaredT: 0, _huddleTarget: -1,

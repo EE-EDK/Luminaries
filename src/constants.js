@@ -17,15 +17,15 @@ export const EYE_H = 1.7;
 
 // Entity counts — all entities use visibility culling + distance-based LOD
 export const TREE_N = 500;         // Template instanced (10 templates × InstancedMesh)
-export const MUSH_N = 120;         // visibility-culled beyond 50m (doubled)
+export const MUSH_N = 250;         // visibility-culled beyond 50m (3x)
 export const CRYSTAL_N = 18;
 export const JELLY_N = 20;         // visibility-culled beyond 55m
 export const PUFF_N = 28;         // visibility-culled beyond 40m
 export const DEER_N = 12;         // visibility-culled beyond 60m
 export const MOTH_N = 20;         // visibility-culled beyond 45m
 export const GRASS_PATCHES = 1200; // GPU vertex shader, zero CPU cost
-export const FERN_N = 80;          // visibility-culled beyond 40m
-export const FLOWER_N = 70;        // visibility-culled beyond 40m
+export const FERN_N = 160;         // visibility-culled beyond 40m (3x)
+export const FLOWER_N = 140;       // visibility-culled beyond 40m (3x)
 export const REED_N = 40;          // visibility-culled beyond 40m
 export const ROCK_N = 60;          // visibility-culled beyond 50m
 export const WISP_N = 6;
@@ -34,14 +34,14 @@ export const FAIRY_RING_N = 8;
 export const BUBBLE_N = 25;
 export const STARMOTE_N = 50;
 export const POND_N = 10;
-export const THORNBLOOM_N = 10;
-export const HELIXVINE_N = 10;
-export const SNAPTHORN_N = 8;
-export const SPIRALFROND_N = 15;
-export const CORPSEBLOOM_N = 8;
-export const ORBBUSH_N = 12;
-export const LANTERNPOD_N = 12;
-export const VEILMOSS_N = 15;
+export const THORNBLOOM_N = 30;
+export const HELIXVINE_N = 30;
+export const SNAPTHORN_N = 24;
+export const SPIRALFROND_N = 45;
+export const CORPSEBLOOM_N = 24;
+export const ORBBUSH_N = 36;
+export const LANTERNPOD_N = 36;
+export const VEILMOSS_N = 45;
 export const GROUND_GLOW_N = 25;
 
 // Sky

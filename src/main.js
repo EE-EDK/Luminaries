@@ -1097,10 +1097,6 @@ function updatePuffs(dt, t) {
         sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * bioGlow;
       }
     }
-    // Aura pulse
-    if (p.auraMat) {
-      p.auraMat.opacity = (0.02 + Math.sin(t * 1.5 + p.phase) * 0.02) * bioGlow;
-    }
     // Crown glow
     if (p.crownMat) {
       p.crownMat.emissiveIntensity = (0.2 + Math.sin(t * 2 + p.phase) * 0.15) * bioGlow;

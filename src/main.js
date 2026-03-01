@@ -35,7 +35,7 @@ import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, set
 import { makeTree } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
-import { makeGrassPatch, updateGrassPatch } from './entities/flora/grass.js';
+import { makeGrassPatch, updateGrassGlobals } from './entities/flora/grass.js';
 import { makeFern } from './entities/flora/ferns.js';
 import { makeFlower } from './entities/flora/flowers.js';
 import { makeReed } from './entities/flora/reeds.js';
@@ -446,13 +446,8 @@ function updateVegetation(dt, t) {
     tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
     tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
   }
-  // Grass patch vertex updates — distance-culled (most expensive CPU loop)
-  for (let i = 0; i < grassPatches.length; i++) {
-    const gp = grassPatches[i];
-    const gdx = gp.cx - px, gdz = gp.cz - pz;
-    if (gdx * gdx + gdz * gdz > 625) continue; // skip beyond 25m
-    updateGrassPatch(gp, t, wAmp, wLeanX, wLeanZ, px, pz);
-  }
+  // Grass sway — single call updates shared GPU uniforms for all patches
+  updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
     const fdx = f.group.position.x - px, fdz = f.group.position.z - pz;

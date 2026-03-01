@@ -2,7 +2,34 @@ import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { sr } from '../../utils/rng.js';
 
-// --- Grass Patch (procedural blade geometry with vertex-level sway) ---
+// ================================================================
+// Grass Patch — GPU vertex shader sway (zero CPU per-frame cost)
+// ================================================================
+// Wind sway + player proximity flatten run entirely on the GPU.
+// Each patch gets its own material instance with onBeforeCompile
+// injecting custom vertex shader code. WebGL caches the compiled
+// shader program so only uniform uploads differ between patches.
+
+// Shared uniforms updated once per frame from main.js
+const sharedUniforms = {
+  uTime: { value: 0 },
+  uWindAmp: { value: 1.0 },
+  uWindLeanX: { value: 0 },
+  uWindLeanZ: { value: 0 },
+  uPlayerX: { value: 0 },
+  uPlayerZ: { value: 0 }
+};
+
+// Call once per frame to update wind/player uniforms for all patches
+export function updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, playerX, playerZ) {
+  sharedUniforms.uTime.value = t;
+  sharedUniforms.uWindAmp.value = wAmp;
+  sharedUniforms.uWindLeanX.value = wLeanX;
+  sharedUniforms.uWindLeanZ.value = wLeanZ;
+  sharedUniforms.uPlayerX.value = playerX;
+  sharedUniforms.uPlayerZ.value = playerZ;
+}
+
 // palette: [base1, base2, mid, tip1, tip2, tip3, clover, cloverBr, emissive] hex array (optional)
 export function makeGrassPatch(cx, cz, radius, density, palette) {
   const geo = new THREE.BufferGeometry();
@@ -88,60 +115,85 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverBr.r, cloverBr.g, cloverBr.b);
   }
-  const posAttr = new THREE.Float32BufferAttribute(verts, 3);
-  posAttr.setUsage(THREE.DynamicDrawUsage);
-  geo.setAttribute('position', posAttr);
+  // Static geometry — no DynamicDrawUsage, no origPos needed
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  // Store height fraction (0=ground, 1=tip) for per-vertex sway
   geo.setAttribute('bladeHeight', new THREE.Float32BufferAttribute(heights, 1));
   geo.computeVertexNormals();
-  // Store original positions for deformation
-  const origPos = new Float32Array(verts.length);
-  origPos.set(posAttr.array);
+
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.7, side: THREE.DoubleSide,
     emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.08
   });
+
+  // Inject GPU sway into the vertex shader — same math as the old CPU path
+  // but runs entirely on the GPU with zero per-frame CPU cost
+  const patchX = cx, patchZ = cz;
+  mat.onBeforeCompile = (shader) => {
+    // Bind shared uniforms (updated once per frame for all patches)
+    shader.uniforms.uTime = sharedUniforms.uTime;
+    shader.uniforms.uWindAmp = sharedUniforms.uWindAmp;
+    shader.uniforms.uWindLeanX = sharedUniforms.uWindLeanX;
+    shader.uniforms.uWindLeanZ = sharedUniforms.uWindLeanZ;
+    shader.uniforms.uPlayerX = sharedUniforms.uPlayerX;
+    shader.uniforms.uPlayerZ = sharedUniforms.uPlayerZ;
+    // Per-patch constants (set once at compile time)
+    shader.uniforms.uPatchX = { value: patchX };
+    shader.uniforms.uPatchZ = { value: patchZ };
+
+    // Declare uniforms + attribute in vertex shader
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+      attribute float bladeHeight;
+      uniform float uTime;
+      uniform float uWindAmp;
+      uniform float uWindLeanX;
+      uniform float uWindLeanZ;
+      uniform float uPlayerX;
+      uniform float uPlayerZ;
+      uniform float uPatchX;
+      uniform float uPatchZ;
+      `
+    );
+
+    // Apply sway + player flatten in model space
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      if (bladeHeight > 0.01) {
+        float hFrac = bladeHeight;
+        float hf2 = hFrac * hFrac;
+        float worldX = uPatchX + position.x;
+        float worldZ = uPatchZ + position.z;
+
+        // Wind sway — same formula as original CPU path
+        float swayX = (sin(uTime * 0.7 + worldX * 0.05) * 0.06
+                     + sin(uTime * 1.3 + worldZ * 0.08) * 0.03) * uWindAmp * hf2;
+        float swayZ = (sin(uTime * 0.9 + worldZ * 0.06) * 0.04
+                     + sin(uTime * 1.7 + worldX * 0.04) * 0.02) * uWindAmp * hf2;
+        transformed.x += swayX + uWindLeanX * hFrac;
+        transformed.z += swayZ + uWindLeanZ * hFrac;
+
+        // Player proximity flatten (1.2m radius)
+        float pdx = position.x - (uPlayerX - uPatchX);
+        float pdz = position.z - (uPlayerZ - uPatchZ);
+        float pd2 = pdx * pdx + pdz * pdz;
+        if (pd2 < 1.44) {
+          float proximity = 1.0 - sqrt(pd2) / 1.2;
+          float flatten = proximity * proximity * 0.7;
+          float pAng = atan(pdx, pdz);
+          transformed.x += sin(pAng) * flatten * hFrac * 0.15;
+          transformed.z += cos(pAng) * flatten * hFrac * 0.15;
+          transformed.y *= (1.0 - flatten * hFrac);
+        }
+      }
+      `
+    );
+  };
+
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(cx, 0, cz);
   scene.add(mesh);
-  return { mesh, geo, cx, cz, origPos };
-}
-
-// Per-vertex grass sway: deforms blade tips based on wind + player proximity
-export function updateGrassPatch(gp, t, wAmp, wLeanX, wLeanZ, playerX, playerZ) {
-  const posArr = gp.geo.attributes.position.array;
-  const htArr = gp.geo.attributes.bladeHeight.array;
-  const orig = gp.origPos;
-  const cx = gp.cx, cz = gp.cz;
-  // Player proximity flatten (world-space)
-  const pLocalX = playerX - cx, pLocalZ = playerZ - cz;
-  for (let i = 0, n = htArr.length; i < n; i++) {
-    const hFrac = htArr[i];
-    if (hFrac < 0.01) continue; // ground verts don't move
-    const i3 = i * 3;
-    const ox = orig[i3], oy = orig[i3 + 1], oz = orig[i3 + 2];
-    // Wind-based per-vertex sway (tip moves most)
-    const swayX = (Math.sin(t * 0.7 + (cx + ox) * 0.05) * 0.06 + Math.sin(t * 1.3 + (cz + oz) * 0.08) * 0.03) * wAmp * hFrac * hFrac;
-    const swayZ = (Math.sin(t * 0.9 + (cz + oz) * 0.06) * 0.04 + Math.sin(t * 1.7 + (cx + ox) * 0.04) * 0.02) * wAmp * hFrac * hFrac;
-    let dx = swayX + wLeanX * hFrac;
-    let dz = swayZ + wLeanZ * hFrac;
-    // Player proximity: flatten blades within 1.2m
-    const pdx = ox - pLocalX, pdz = oz - pLocalZ;
-    const pd2 = pdx * pdx + pdz * pdz;
-    if (pd2 < 1.44) { // 1.2^2
-      const proximity = 1.0 - Math.sqrt(pd2) / 1.2;
-      const flatten = proximity * proximity * 0.7;
-      // Push blade tip away from player and down
-      const pAng = Math.atan2(pdx, pdz);
-      dx += Math.sin(pAng) * flatten * hFrac * 0.15;
-      dz += Math.cos(pAng) * flatten * hFrac * 0.15;
-      posArr[i3 + 1] = oy * (1.0 - flatten * hFrac); // squash Y
-    } else {
-      posArr[i3 + 1] = oy;
-    }
-    posArr[i3] = ox + dx;
-    posArr[i3 + 2] = oz + dz;
-  }
-  gp.geo.attributes.position.needsUpdate = true;
+  return { mesh, geo, cx, cz };
 }

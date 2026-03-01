@@ -436,12 +436,37 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
-  // --- Tree wind sway (Item 4) — distance-culled for performance ---
+  // --- Tree visibility LOD + wind sway ---
+  // Near (<35m): full detail, wind sway animation
+  // Mid (35-55m): only underglow haze visible (cheap distant glow)
+  // Far (>55m): hidden entirely (saves all draw calls)
   const px = player.pos.x, pz = player.pos.z;
   for (let i = 0; i < trees_data.length; i++) {
     const tr = trees_data[i];
     const tdx = tr.x - px, tdz = tr.z - pz;
-    if (tdx * tdx + tdz * tdz > 900) continue; // skip beyond 30m
+    const d2 = tdx * tdx + tdz * tdz;
+    if (d2 > 3025) { // >55m — hide entirely
+      if (tr.group.visible) tr.group.visible = false;
+      continue;
+    }
+    if (!tr.group.visible) tr.group.visible = true;
+    if (d2 > 1225) { // 35-55m — show only underglow haze (last child)
+      if (tr._lod !== 1) {
+        const children = tr.group.children;
+        for (let c = 0; c < children.length - 2; c++) children[c].visible = false;
+        // Keep underglow sphere + base mound visible
+        children[children.length - 2].visible = true;
+        children[children.length - 1].visible = true;
+        tr._lod = 1;
+      }
+      continue;
+    }
+    // <35m — full detail
+    if (tr._lod !== 0) {
+      const children = tr.group.children;
+      for (let c = 0; c < children.length; c++) children[c].visible = true;
+      tr._lod = 0;
+    }
     const tPhase = tr.x * 0.1 + tr.z * 0.13;
     tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
     tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
@@ -694,8 +719,8 @@ function updatePuffs(dt, t) {
           g.position.x += coh.x * 0.05 * dt;
           g.position.z += coh.z * 0.05 * dt;
         }
-        // Random idle chirp
-        if (Math.random() < 0.001) playCreatureSound('puff', { x: px, z: pz }, player.pos);
+        // Random idle chirp (rare)
+        if (Math.random() < 0.0002) playCreatureSound('puff', { x: px, z: pz }, player.pos);
         if (p.idleTimer <= 0) {
           // Bias hop direction toward flock center
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;

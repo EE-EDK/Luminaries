@@ -358,7 +358,7 @@ export function playCreatureSound(type, position, playerPos) {
         osc.stop(noteStart + 0.18);
       }
       connectWithReverb(panner, masterGain, 0.3);
-      creatureCooldowns.puff = 3 + Math.random() * 4;
+      creatureCooldowns.puff = 8 + Math.random() * 10;
       break;
     }
 

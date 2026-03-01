@@ -16,14 +16,14 @@ export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
 // Entity counts — grass is GPU-driven, others use distance-culled CPU animation
-export const TREE_N = 50;          // was 35 — more canopy coverage
+export const TREE_N = 75;          // visibility-culled beyond 55m
 export const MUSH_N = 40;          // was 25
 export const CRYSTAL_N = 14;       // was 10
 export const JELLY_N = 8;          // was 6
 export const PUFF_N = 12;          // was 8
 export const DEER_N = 5;           // was 4
 export const MOTH_N = 7;           // was 5
-export const GRASS_PATCHES = 200;  // was 120 — GPU sway, zero CPU cost
+export const GRASS_PATCHES = 350;  // GPU sway, zero CPU cost
 export const FERN_N = 30;          // was 18
 export const FLOWER_N = 25;        // was 15
 export const REED_N = 25;          // was 15

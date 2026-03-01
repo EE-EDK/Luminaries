@@ -898,6 +898,7 @@ function initMusic() {
   musicTimer = 1.5; // start after 1.5s delay
   accomTimer = 3;
   padRefreshTimer = 0;
+  initPulse();
 }
 
 function noteFreq(degree, octShift) {
@@ -937,19 +938,19 @@ function updatePad() {
 
   padGain = ctx.createGain();
   padGain.gain.setValueAtTime(0, now);
-  padGain.gain.linearRampToValueAtTime(0.35, now + 4); // slow fade in
+  padGain.gain.linearRampToValueAtTime(0.15, now + 4); // gentle fade in (lighter drone)
 
   padFilter = ctx.createBiquadFilter();
   padFilter.type = 'lowpass';
-  padFilter.frequency.value = 400;
-  padFilter.Q.value = 0.7;
+  padFilter.frequency.value = 550; // higher cutoff — less boomy, more warmth
+  padFilter.Q.value = 0.5;
 
   // Slow LFO on filter cutoff for breathing quality
   padLfo = ctx.createOscillator();
   padLfoGain = ctx.createGain();
   padLfo.type = 'sine';
   padLfo.frequency.value = 0.08 + Math.random() * 0.06; // very slow ~0.08-0.14 Hz
-  padLfoGain.gain.value = 150;
+  padLfoGain.gain.value = 80; // gentler modulation
   padLfo.connect(padLfoGain).connect(padFilter.frequency);
 
   // Also add a fifth above at very low volume for richness
@@ -957,7 +958,7 @@ function updatePad() {
   osc3.type = 'sine';
   osc3.frequency.value = freq * 1.5; // perfect fifth
   const fifthGain = ctx.createGain();
-  fifthGain.gain.value = 0.15; // much quieter than root
+  fifthGain.gain.value = 0.08; // subtle overtone
   osc3.connect(fifthGain).connect(padFilter);
 
   padOsc1.connect(padFilter);
@@ -1075,6 +1076,70 @@ function playLuteNote(freq, vol, delay) {
   connectWithReverb(gain, musicMasterGain, 0.45);
   osc1.start(now); osc2.start(now);
   osc1.stop(now + 3.0); osc2.stop(now + 3.0);
+}
+
+// ---- Rhythmic pulse — gentle continuous heartbeat for flow ----
+// Plays a soft, steady pattern of filtered tones to provide rhythmic continuity
+let pulseTimer = 0;
+let pulsePhase = 0;   // cycles through a 4-beat pattern
+let pulseTempo = 0;   // seconds per beat, set when music inits
+let pulsePattern = []; // volume pattern for variety
+
+function initPulse() {
+  pulseTempo = 1.1 + Math.random() * 0.3; // ~1.1-1.4s per beat (gentle walking pace)
+  pulseTimer = 2; // start after 2s
+  pulsePhase = 0;
+  // 4-beat pattern with accent: [strong, soft, medium, soft]
+  pulsePattern = [0.6, 0.25, 0.45, 0.2];
+}
+
+function playPulseTick(vol) {
+  if (!ctx || !musicMasterGain) return;
+  const now = ctx.currentTime;
+
+  // Root note of current pad, 2 octaves up for a gentle chime quality
+  const freq = noteFreq(currentPadDegree, 1);
+
+  // Soft filtered triangle tone — very short, percussive
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol * 0.35, now + 0.008);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.08, now + 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+  // Gentle highpass to remove low-end thud, keep it airy
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 300;
+  hp.Q.value = 0.5;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = freq * 3;
+  lp.Q.value = 0.7;
+
+  osc.connect(hp).connect(lp).connect(gain);
+  connectWithReverb(gain, musicMasterGain, 0.65);
+  osc.start(now);
+  osc.stop(now + 1.0);
+
+  // On strong beats, add a very quiet octave-above shimmer
+  if (vol > 0.4) {
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 2;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0, now);
+    g2.gain.linearRampToValueAtTime(vol * 0.08, now + 0.005);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc2.connect(g2).connect(gain);
+    osc2.start(now);
+    osc2.stop(now + 0.6);
+  }
 }
 
 // ---- Shimmer/bell — ethereal high-register accent ----
@@ -1263,5 +1328,21 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
     // Accompaniment fills gaps between primary phrases
     const accomGap = musicActivity > 0.3 ? 3 : 6;
     accomTimer = accomDuration + accomGap + Math.random() * 4;
+  }
+
+  // ---- Rhythmic pulse — gentle continuous heartbeat ----
+  pulseTimer -= dt;
+  if (pulseTimer <= 0) {
+    const beatVol = pulsePattern[pulsePhase % pulsePattern.length];
+    // Slight tempo variation for organic feel (±5%)
+    const tempoJitter = pulseTempo * (0.95 + Math.random() * 0.1);
+    playPulseTick(beatVol);
+    pulsePhase++;
+    pulseTimer = tempoJitter;
+
+    // Occasionally shift tempo slightly for natural drift (~every 16 beats)
+    if (pulsePhase % 16 === 0) {
+      pulseTempo = 1.1 + Math.random() * 0.3;
+    }
   }
 }

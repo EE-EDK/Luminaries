@@ -292,7 +292,7 @@ export function createGround() {
     geo,
     new THREE.MeshStandardMaterial({
       map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
-      emissive: 0x1a3820, emissiveIntensity: 0.25
+      emissive: 0x171410, emissiveIntensity: 0.28
     })
   );
   ground.rotation.x = -Math.PI / 2;

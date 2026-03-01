@@ -580,6 +580,12 @@ function updateJellies(dt, t) {
   const jellyAltMod = dayPhase === 'DEEP_NIGHT' ? 2.0 : (dayPhase === 'DAWN' ? -1.5 : 0);
 
   for (let i = 0; i < jellies.length; i++) {
+    // Visibility culling — skip rendering/update for distant jellies
+    const _jg = jellies[i].group;
+    const _jdx = _jg.position.x - player.pos.x, _jdz = _jg.position.z - player.pos.z;
+    const _jdy = _jg.position.y - player.pos.y;
+    if (_jdx * _jdx + _jdy * _jdy + _jdz * _jdz > 3025) { _jg.visible = false; continue; }
+    _jg.visible = true;
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
     const jFloatY = j.floatY + jellyAltMod;
@@ -684,6 +690,10 @@ function updatePuffs(dt, t) {
     const px = g.position.x, pz = g.position.z;
     const ddx = px - player.pos.x, ddz = pz - player.pos.z;
     const pDist2 = ddx * ddx + ddz * ddz;
+
+    // Visibility culling — skip rendering/update for distant pufflings
+    if (pDist2 > 1600) { g.visible = false; continue; }
+    g.visible = true;
 
     // Startle check (also startled by nearby fleeing deer — Item 6: cross-species)
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
@@ -862,6 +872,11 @@ function updateDeers(dt, t) {
     const gx = g.position.x, gz = g.position.z;
     const ddx = gx - player.pos.x, ddz = gz - player.pos.z;
     const pDist2 = ddx * ddx + ddz * ddz;
+
+    // Visibility culling — skip rendering/update for distant deer
+    if (pDist2 > 3600) { g.visible = false; continue; }
+    g.visible = true;
+
     const pAng = Math.atan2(ddx, ddz);
     const alertR = sprinting ? 18 : 12;
     const alertR2 = alertR * alertR;
@@ -1102,6 +1117,11 @@ function updateMoths(dt, t) {
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
     const mx = g.position.x, mz = g.position.z;
+
+    // Visibility culling — skip rendering/update for distant moths
+    const _mdx = mx - player.pos.x, _mdz = mz - player.pos.z;
+    if (_mdx * _mdx + _mdz * _mdz > 2025) { g.visible = false; continue; }
+    g.visible = true;
 
     // State transitions from patrol
     if (m._state === 'patrol') {

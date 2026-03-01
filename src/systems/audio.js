@@ -91,19 +91,19 @@ function createReverb() {
   // Simple stereo feedback delay as reverb approximation
   // Irrational delay times so echoes don't align with buffer loop points
   const delay1 = ctx.createDelay(1.0);
-  delay1.delayTime.value = 0.37;
+  delay1.delayTime.value = 0.55;
   const delay2 = ctx.createDelay(1.0);
-  delay2.delayTime.value = 0.53;
+  delay2.delayTime.value = 0.79;
   const fb1 = ctx.createGain();
-  fb1.gain.value = 0.20; // reduced from 0.25
+  fb1.gain.value = 0.35;
   const fb2 = ctx.createGain();
-  fb2.gain.value = 0.15; // reduced from 0.20
+  fb2.gain.value = 0.28;
   const filter1 = ctx.createBiquadFilter();
   filter1.type = 'lowpass';
-  filter1.frequency.value = 2500;
+  filter1.frequency.value = 2200;
   const filter2 = ctx.createBiquadFilter();
   filter2.type = 'lowpass';
-  filter2.frequency.value = 2000;
+  filter2.frequency.value = 1800;
   // Highpass in feedback path — prevents sub-bass accumulation / rumble
   const hp1 = ctx.createBiquadFilter();
   hp1.type = 'highpass';
@@ -114,7 +114,7 @@ function createReverb() {
   hp2.frequency.value = 120;
   hp2.Q.value = 0.5;
   const wet = ctx.createGain();
-  wet.gain.value = 0.30; // reduced from 0.35
+  wet.gain.value = 0.50;
 
   // Feedback loops with highpass to kill rumble buildup
   delay1.connect(filter1).connect(hp1).connect(fb1).connect(delay1);
@@ -949,8 +949,8 @@ function updatePad() {
   padLfo = ctx.createOscillator();
   padLfoGain = ctx.createGain();
   padLfo.type = 'sine';
-  padLfo.frequency.value = 0.08 + Math.random() * 0.06; // very slow ~0.08-0.14 Hz
-  padLfoGain.gain.value = 80; // gentler modulation
+  padLfo.frequency.value = 0.04 + Math.random() * 0.04; // very slow ~0.04-0.08 Hz
+  padLfoGain.gain.value = 60; // gentler modulation
   padLfo.connect(padLfoGain).connect(padFilter.frequency);
 
   // Also add a fifth above at very low volume for richness
@@ -988,32 +988,32 @@ function playHarpNote(freq, vol, delay) {
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol, now + 0.008);
-  gain.gain.exponentialRampToValueAtTime(vol * 0.4, now + 0.2);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.5, now + 0.5);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 4.0);
 
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(freq * 4, now);
-  filter.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 1.2);
-  filter.Q.value = 1;
+  filter.frequency.setValueAtTime(freq * 3, now);
+  filter.frequency.exponentialRampToValueAtTime(freq * 1.2, now + 2.5);
+  filter.Q.value = 0.7;
 
   osc.connect(filter).connect(gain);
-  connectWithReverb(gain, musicMasterGain, 0.6);
-  osc.start(now); osc.stop(now + 2.5);
+  connectWithReverb(gain, musicMasterGain, 0.75);
+  osc.start(now); osc.stop(now + 5.0);
 }
 
 function playFluteNote(freq, vol, duration, delay) {
   if (!ctx) return;
   const now = ctx.currentTime + (delay || 0);
-  const dur = duration || 2;
+  const dur = duration || 3;
 
   const osc = ctx.createOscillator();
   osc.type = 'sine';
   osc.frequency.value = freq;
 
   // Add breathy component — very quiet noise
-  const noiseLen = Math.min(dur, 3);
+  const noiseLen = Math.min(dur, 5);
   const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * noiseLen, ctx.sampleRate);
   const nd = noiseBuf.getChannelData(0);
   for (let s = 0; s < nd.length; s++) nd[s] = (Math.random() * 2 - 1) * 0.03;
@@ -1022,28 +1022,28 @@ function playFluteNote(freq, vol, duration, delay) {
   const noiseFilter = ctx.createBiquadFilter();
   noiseFilter.type = 'bandpass';
   noiseFilter.frequency.value = freq * 2;
-  noiseFilter.Q.value = 3;
+  noiseFilter.Q.value = 2;
   const noiseGain = ctx.createGain();
   noiseGain.gain.setValueAtTime(0, now);
-  noiseGain.gain.linearRampToValueAtTime(vol * 0.15, now + 0.2);
+  noiseGain.gain.linearRampToValueAtTime(vol * 0.12, now + 0.5);
   noiseGain.gain.linearRampToValueAtTime(0, now + dur);
   noiseSrc.connect(noiseFilter).connect(noiseGain).connect(musicMasterGain);
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol, now + 0.25);
-  gain.gain.setValueAtTime(vol, now + Math.max(dur - 0.6, 0.4));
+  gain.gain.linearRampToValueAtTime(vol, now + 0.5);
+  gain.gain.setValueAtTime(vol, now + Math.max(dur - 1.0, 0.6));
   gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
-  // Vibrato with slight random variation
+  // Vibrato — slower, subtler
   const vib = ctx.createOscillator();
   const vibGain = ctx.createGain();
-  vib.frequency.value = 4.5 + Math.random() * 1.5;
-  vibGain.gain.value = freq * 0.01;
+  vib.frequency.value = 3.0 + Math.random() * 1.5;
+  vibGain.gain.value = freq * 0.008;
   vib.connect(vibGain).connect(osc.frequency);
 
   osc.connect(gain);
-  connectWithReverb(gain, musicMasterGain, 0.55);
+  connectWithReverb(gain, musicMasterGain, 0.7);
   vib.start(now); osc.start(now); noiseSrc.start(now);
   vib.stop(now + dur + 0.1); osc.stop(now + dur + 0.1); noiseSrc.stop(now + dur + 0.1);
 }
@@ -1061,21 +1061,21 @@ function playLuteNote(freq, vol, delay) {
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol, now + 0.01);
-  gain.gain.exponentialRampToValueAtTime(vol * 0.2, now + 0.5);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.3, now + 1.0);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 5.0);
 
   const body = ctx.createBiquadFilter();
   body.type = 'peaking';
   body.frequency.value = freq * 0.5;
-  body.Q.value = 2;
-  body.gain.value = 4;
+  body.Q.value = 1.5;
+  body.gain.value = 3;
 
   osc1.connect(body).connect(gain);
   osc2.connect(body);
-  connectWithReverb(gain, musicMasterGain, 0.45);
+  connectWithReverb(gain, musicMasterGain, 0.65);
   osc1.start(now); osc2.start(now);
-  osc1.stop(now + 3.0); osc2.stop(now + 3.0);
+  osc1.stop(now + 6.0); osc2.stop(now + 6.0);
 }
 
 // ---- Rhythmic pulse — gentle continuous heartbeat for flow ----
@@ -1086,11 +1086,11 @@ let pulseTempo = 0;   // seconds per beat, set when music inits
 let pulsePattern = []; // volume pattern for variety
 
 function initPulse() {
-  pulseTempo = 1.1 + Math.random() * 0.3; // ~1.1-1.4s per beat (gentle walking pace)
+  pulseTempo = 2.2 + Math.random() * 0.6; // ~2.2-2.8s per beat (slow, meditative)
   pulseTimer = 2; // start after 2s
   pulsePhase = 0;
-  // 4-beat pattern with accent: [strong, soft, medium, soft]
-  pulsePattern = [0.6, 0.25, 0.45, 0.2];
+  // 4-beat pattern with softer accents
+  pulsePattern = [0.4, 0.15, 0.3, 0.12];
 }
 
 function playPulseTick(vol) {
@@ -1107,9 +1107,9 @@ function playPulseTick(vol) {
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol * 0.35, now + 0.008);
-  gain.gain.exponentialRampToValueAtTime(vol * 0.08, now + 0.15);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  gain.gain.linearRampToValueAtTime(vol * 0.25, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.06, now + 0.4);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
 
   // Gentle highpass to remove low-end thud, keep it airy
   const hp = ctx.createBiquadFilter();
@@ -1119,26 +1119,26 @@ function playPulseTick(vol) {
 
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = freq * 3;
-  lp.Q.value = 0.7;
+  lp.frequency.value = freq * 2.5;
+  lp.Q.value = 0.5;
 
   osc.connect(hp).connect(lp).connect(gain);
-  connectWithReverb(gain, musicMasterGain, 0.65);
+  connectWithReverb(gain, musicMasterGain, 0.75);
   osc.start(now);
-  osc.stop(now + 1.0);
+  osc.stop(now + 2.0);
 
   // On strong beats, add a very quiet octave-above shimmer
-  if (vol > 0.4) {
+  if (vol > 0.3) {
     const osc2 = ctx.createOscillator();
     osc2.type = 'sine';
     osc2.frequency.value = freq * 2;
     const g2 = ctx.createGain();
     g2.gain.setValueAtTime(0, now);
-    g2.gain.linearRampToValueAtTime(vol * 0.08, now + 0.005);
-    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    g2.gain.linearRampToValueAtTime(vol * 0.06, now + 0.02);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
     osc2.connect(g2).connect(gain);
     osc2.start(now);
-    osc2.stop(now + 0.6);
+    osc2.stop(now + 1.2);
   }
 }
 
@@ -1156,18 +1156,18 @@ function playShimmer(freq, vol, delay) {
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol * 0.3, now + 0.005);
-  gain.gain.exponentialRampToValueAtTime(vol * 0.08, now + 0.4);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+  gain.gain.linearRampToValueAtTime(vol * 0.25, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(vol * 0.08, now + 0.8);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 5.0);
 
   const gain2 = ctx.createGain();
-  gain2.gain.value = 0.15;
+  gain2.gain.value = 0.12;
 
   osc.connect(gain);
   osc2.connect(gain2).connect(gain);
-  connectWithReverb(gain, musicMasterGain, 0.8);
+  connectWithReverb(gain, musicMasterGain, 0.85);
   osc.start(now); osc2.start(now);
-  osc.stop(now + 3.5); osc2.stop(now + 3.5);
+  osc.stop(now + 5.5); osc2.stop(now + 5.5);
 }
 
 // ---- Arpeggio — broken chord for harp ----
@@ -1175,7 +1175,7 @@ function playArpeggio(rootDegree, vol, delay) {
   if (!ctx) return;
   // Play root, third (2 scale steps), fifth (4 scale steps) as quick succession
   const intervals = [0, 2, 4, 2]; // up-down pattern
-  const spacing = 0.12 + Math.random() * 0.08;
+  const spacing = 0.24 + Math.random() * 0.16;
   for (let i = 0; i < intervals.length; i++) {
     const freq = noteFreq(rootDegree + intervals[i], currentOctaveShift);
     playHarpNote(freq, vol * (i === 0 ? 1 : 0.7), (delay || 0) + i * spacing);
@@ -1201,7 +1201,7 @@ function generatePhrase() {
 
   const phraseLen = 3 + Math.floor(Math.random() * 5); // 3-7 notes
   // Rhythmic patterns: either steady or swing feel
-  const baseSpacing = 0.5 + Math.random() * 0.6;
+  const baseSpacing = 1.0 + Math.random() * 1.2;
   const swing = Math.random() < 0.4; // 40% chance of swing rhythm
 
   // Pick a voice different from last if possible
@@ -1234,7 +1234,7 @@ function generatePhrase() {
     } else if (voice === 'harp') {
       playHarpNote(freq, vol, totalDelay);
     } else if (voice === 'flute') {
-      const dur = spacing * 1.3 + 0.3; // overlap with next note slightly
+      const dur = spacing * 1.5 + 0.5; // overlap with next note for legato
       playFluteNote(freq, vol * 0.9, dur, totalDelay);
     } else {
       playLuteNote(freq, vol * 0.7, totalDelay);
@@ -1262,7 +1262,7 @@ function generateAccompaniment() {
     lastVoice === 'lute' ? (Math.random() < 0.5 ? 'harp' : 'shimmer') :
     (Math.random() < 0.5 ? 'lute' : 'shimmer');
 
-  const spacing = 1.0 + Math.random() * 1.5; // wider spacing than primary
+  const spacing = 2.0 + Math.random() * 3.0; // slow, spacious accompaniment
   const vol = 0.3 + Math.random() * 0.3; // quieter than primary
   let degree = currentPadDegree; // harmonically anchored to drone
 
@@ -1316,8 +1316,8 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
   if (musicTimer <= 0) {
     const phraseDuration = generatePhrase();
     // Tighter gaps when active, but never silent for too long
-    const baseGap = musicActivity > 0.3 ? 1.5 : 3;
-    const gapRange = musicActivity > 0.3 ? 3 : 5;
+    const baseGap = musicActivity > 0.3 ? 3 : 6;
+    const gapRange = musicActivity > 0.3 ? 6 : 10;
     musicTimer = phraseDuration + baseGap + Math.random() * gapRange;
   }
 
@@ -1326,8 +1326,8 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
   if (accomTimer <= 0) {
     const accomDuration = generateAccompaniment();
     // Accompaniment fills gaps between primary phrases
-    const accomGap = musicActivity > 0.3 ? 3 : 6;
-    accomTimer = accomDuration + accomGap + Math.random() * 4;
+    const accomGap = musicActivity > 0.3 ? 6 : 12;
+    accomTimer = accomDuration + accomGap + Math.random() * 8;
   }
 
   // ---- Rhythmic pulse — gentle continuous heartbeat ----
@@ -1342,7 +1342,7 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
 
     // Occasionally shift tempo slightly for natural drift (~every 16 beats)
     if (pulsePhase % 16 === 0) {
-      pulseTempo = 1.1 + Math.random() * 0.3;
+      pulseTempo = 2.2 + Math.random() * 0.6;
     }
   }
 }

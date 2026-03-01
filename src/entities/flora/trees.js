@@ -5,6 +5,111 @@ import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { saveSeed, restoreSeed } from '../../utils/rng.js';
 
+// ================================================================
+// Procedural bark texture — generated once, shared by all trunk InstancedMeshes
+// ================================================================
+let _barkTexture = null;
+function getBarkTexture() {
+  if (_barkTexture) return _barkTexture;
+  const W = 256, H = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Base: warm dark brown gradient (darker at base, lighter at top)
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, H);
+  baseGrad.addColorStop(0, '#5a4030');
+  baseGrad.addColorStop(0.3, '#4d3528');
+  baseGrad.addColorStop(0.7, '#3a2a1e');
+  baseGrad.addColorStop(1, '#2e2015');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Vertical bark ridges — irregular parallel streaks
+  for (let ridge = 0; ridge < 28; ridge++) {
+    const rx = (ridge / 28) * W + (Math.sin(ridge * 3.7) * 6);
+    const rw = 2 + Math.sin(ridge * 2.1) * 1.5;
+    const bright = Math.sin(ridge * 1.3 + 0.5) * 0.5 + 0.5;
+    const r = Math.floor(50 + bright * 30);
+    const g = Math.floor(30 + bright * 20);
+    const b = Math.floor(15 + bright * 12);
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.4)`;
+    ctx.lineWidth = rw;
+    ctx.beginPath();
+    let y = 0;
+    ctx.moveTo(rx, y);
+    while (y < H) {
+      y += 8 + Math.random() * 12;
+      const wobble = Math.sin(y * 0.03 + ridge) * 3;
+      ctx.lineTo(rx + wobble, y);
+    }
+    ctx.stroke();
+  }
+
+  // Deep bark fissures — darker cracks between ridges
+  for (let fissure = 0; fissure < 18; fissure++) {
+    const fx = (fissure / 18) * W + Math.sin(fissure * 5.3) * 8;
+    ctx.strokeStyle = 'rgba(20,12,6,0.35)';
+    ctx.lineWidth = 0.8 + Math.random() * 1.2;
+    ctx.beginPath();
+    let fy = Math.random() * 40;
+    ctx.moveTo(fx, fy);
+    while (fy < H) {
+      fy += 5 + Math.random() * 10;
+      ctx.lineTo(fx + Math.sin(fy * 0.05 + fissure * 2) * 4, fy);
+    }
+    ctx.stroke();
+  }
+
+  // Horizontal bark bands — subtle cross-grain texture
+  for (let band = 0; band < 30; band++) {
+    const by = (band / 30) * H + Math.random() * 10;
+    ctx.strokeStyle = `rgba(${30 + Math.random() * 20},${18 + Math.random() * 12},${8 + Math.random() * 8},0.15)`;
+    ctx.lineWidth = 0.5 + Math.random() * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, by);
+    for (let bx = 0; bx < W; bx += 10) {
+      ctx.lineTo(bx, by + Math.sin(bx * 0.04 + band) * 2);
+    }
+    ctx.stroke();
+  }
+
+  // Knots — small dark ovals
+  for (let k = 0; k < 5; k++) {
+    const kx = Math.random() * W, ky = 50 + Math.random() * (H - 100);
+    const kw = 4 + Math.random() * 6, kh = 3 + Math.random() * 5;
+    const kGrad = ctx.createRadialGradient(kx, ky, 0, kx, ky, kw);
+    kGrad.addColorStop(0, 'rgba(15,8,4,0.5)');
+    kGrad.addColorStop(0.5, 'rgba(30,18,10,0.3)');
+    kGrad.addColorStop(1, 'rgba(40,25,14,0)');
+    ctx.fillStyle = kGrad;
+    ctx.beginPath();
+    ctx.ellipse(kx, ky, kw, kh, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Bioluminescent vein hints — faint green streaks in some cracks
+  for (let v = 0; v < 8; v++) {
+    const vx = Math.random() * W;
+    ctx.strokeStyle = 'rgba(34,136,85,0.08)';
+    ctx.lineWidth = 0.5 + Math.random() * 0.8;
+    ctx.beginPath();
+    let vy = Math.random() * H * 0.3;
+    ctx.moveTo(vx, vy);
+    const vLen = 30 + Math.random() * 80;
+    while (vy < vy + vLen && vy < H) {
+      vy += 4 + Math.random() * 6;
+      ctx.lineTo(vx + Math.sin(vy * 0.08 + v * 2) * 2, vy);
+    }
+    ctx.stroke();
+  }
+
+  _barkTexture = new THREE.CanvasTexture(canvas);
+  _barkTexture.wrapS = THREE.RepeatWrapping;
+  _barkTexture.wrapT = THREE.RepeatWrapping;
+  return _barkTexture;
+}
+
 // Bioluminescent color palettes for canopy variety
 const GLOW_PALETTES = [
   { leaf: 0x145528, glow: 0x22cc77, core: 0x44ffaa },  // emerald
@@ -238,10 +343,21 @@ function bakeTemplate(palIdx, seedOffset) {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    // Remove UVs if present (not all have them, causes merge issues)
-    if (geo.attributes.uv) geo.deleteAttribute('uv');
-
     const cat = mesh.userData._cat || 'trunk';
+
+    // Keep UVs on trunk geometry for bark texture mapping;
+    // remove UVs from other categories (not all have them, causes merge issues)
+    if (cat === 'trunk') {
+      // Ensure trunk geo has UVs (CylinderGeometry and SphereGeometry do)
+      if (!geo.attributes.uv) {
+        // Safety: generate placeholder UVs if missing
+        const uvs = new Float32Array(vCount * 2);
+        geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      }
+    } else {
+      if (geo.attributes.uv) geo.deleteAttribute('uv');
+    }
+
     if (cat === 'trunk') trunkGeoms.push(geo);
     else if (cat === 'canopy') canopyGeoms.push(geo);
     else if (cat === 'glow') glowGeoms.push(geo);
@@ -288,9 +404,11 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const tmpl = templates[t];
     const palData = GLOW_PALETTES[tmpl.palIdx];
 
-    // Trunk InstancedMesh (bark, branches, mound) — opaque, low emissive
+    // Trunk InstancedMesh (bark, branches, mound) — bark texture, low emissive
+    const barkTex = getBarkTexture();
     const trunkMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
+      map: barkTex,
       roughness: 0.85,
       emissive: palData.glow,
       emissiveIntensity: 0.08

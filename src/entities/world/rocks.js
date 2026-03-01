@@ -1,78 +1,39 @@
 // ================================================================
-// Rock Formations — varied rock types, angular geometry, three size classes
+// Rock Formations — natural rounded rocks, boulders, pebbles
 // ================================================================
-// Granite, sandstone, limestone, slate, basalt — each with unique color,
-// roughness, and displacement. Higher subdivision + multi-octave noise +
-// vertex colors + canvas bump maps for realistic surface detail.
-// Boulders are dramatic large formations. Pebbles scatter as InstancedMesh.
+// SphereGeometry base with gentle noise displacement for organic lumpy
+// shapes. Three size classes: boulders, medium rocks, pebbles.
+// Five rock types with distinct color palettes.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, PEBBLE_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 
 // ================================================================
-// Rock type definitions — increased displacement amplitudes
+// Rock type definitions
 // ================================================================
 const ROCK_TYPES = [
-  { palette: 'rockGranite',   roughness: 0.82, metalness: 0.08, dispAmp: 0.25, bumpIdx: 0 },
-  { palette: 'rockSandstone', roughness: 0.90, metalness: 0.03, dispAmp: 0.20, bumpIdx: 1 },
-  { palette: 'rockLimestone', roughness: 0.78, metalness: 0.05, dispAmp: 0.18, bumpIdx: 2 },
-  { palette: 'rockSlate',     roughness: 0.85, metalness: 0.10, dispAmp: 0.28, bumpIdx: 3 },
-  { palette: 'rockBasalt',    roughness: 0.92, metalness: 0.06, dispAmp: 0.22, bumpIdx: 4 },
+  { palette: 'rockGranite',   roughness: 0.88, metalness: 0.04 },
+  { palette: 'rockSandstone', roughness: 0.92, metalness: 0.02 },
+  { palette: 'rockLimestone', roughness: 0.85, metalness: 0.03 },
+  { palette: 'rockSlate',     roughness: 0.90, metalness: 0.06 },
+  { palette: 'rockBasalt',    roughness: 0.94, metalness: 0.04 },
 ];
 
 // ================================================================
-// Canvas-generated bump maps — one per rock type, cached
+// Gentle noise displacement — lumpy, organic, NOT spiky
 // ================================================================
-const _bumpMaps = [];
-
-function generateRockBumpMap(seed) {
-  const size = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const imgData = ctx.createImageData(size, size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const v = Math.sin(x * 0.3 + seed) * Math.cos(y * 0.4 + seed * 0.7) * 0.5
-              + Math.sin(x * 0.7 + y * 0.5 + seed * 1.3) * 0.3
-              + Math.sin(x * 1.3 + y * 1.1 + seed * 2.1) * 0.15
-              + (Math.sin(x * seed * 0.01 + y * 0.02) * 0.5 + 0.5) * 0.15;
-      const val = Math.floor(Math.max(0, Math.min(1, v * 0.5 + 0.5)) * 255);
-      const idx = (y * size + x) * 4;
-      imgData.data[idx] = imgData.data[idx + 1] = imgData.data[idx + 2] = val;
-      imgData.data[idx + 3] = 255;
-    }
-  }
-  ctx.putImageData(imgData, 0, 0);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
-// Generate bump maps for all 5 rock types at module load
-for (let i = 0; i < 5; i++) {
-  _bumpMaps.push(generateRockBumpMap(i * 7.3 + 1.7));
-}
-
-// ================================================================
-// Multi-octave vertex displacement — rough, natural rock profile
-// ================================================================
-function displaceVertices(geo, amplitude, frequency) {
-  geo.computeVertexNormals();
+function displaceSmooth(geo, amplitude, seed) {
   const pos = geo.attributes.position;
-  const norm = geo.attributes.normal;
   for (let i = 0; i < pos.count; i++) {
     const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
-    const nx = norm.getX(i), ny = norm.getY(i), nz = norm.getZ(i);
-    // Multi-octave noise for natural roughness
-    const n1 = Math.sin(px * frequency + py * 3.7) *
-               Math.cos(pz * frequency + px * 2.3);
-    const n2 = Math.sin(px * frequency * 2.1 + pz * 5.3) *
-               Math.cos(py * frequency * 1.7 + px * 4.1) * 0.5;
-    const n3 = Math.sin(pz * frequency * 3.7 + py * 8.1) * 0.25;
-    const noise = n1 + n2 + n3;
-    const disp = noise * amplitude;
+    const len = Math.sqrt(px * px + py * py + pz * pz) || 1;
+    const nx = px / len, ny = py / len, nz = pz / len;
+    // Multi-frequency smooth noise — no sharp features
+    const n1 = Math.sin(px * 4.3 + seed) * Math.sin(py * 3.7 + pz * 2.1 + seed * 0.7);
+    const n2 = Math.sin(pz * 5.1 + seed * 1.3) * Math.sin(px * 2.9 + py * 4.7) * 0.5;
+    const n3 = Math.sin((px + py) * 3.1 + seed * 2.1) * Math.sin((pz - px) * 2.7) * 0.3;
+    const disp = (n1 + n2 + n3) * amplitude;
     pos.setX(i, px + nx * disp);
     pos.setY(i, py + ny * disp);
     pos.setZ(i, pz + nz * disp);
@@ -82,316 +43,193 @@ function displaceVertices(geo, amplitude, frequency) {
 }
 
 // ================================================================
-// Per-vertex color variation — simulates grain, strata, weathering
+// Vertex color variation — subtle grain and weathering
 // ================================================================
-const _vtxColor = new THREE.Color();
-const _vtxBase = new THREE.Color();
-const _vtxHi = new THREE.Color();
-const _vtxWth = new THREE.Color();
+const _vc = new THREE.Color();
+const _vcBase = new THREE.Color();
+const _vcHi = new THREE.Color();
+const _vcDark = new THREE.Color();
 
-function addVertexColors(geo, baseHex, hiHex, weatherHex) {
+function applyVertexColors(geo, pal) {
   const pos = geo.attributes.position;
   const count = pos.count;
   const colors = new Float32Array(count * 3);
-  _vtxBase.set(baseHex);
-  _vtxHi.set(hiHex);
-  _vtxWth.set(weatherHex);
+  _vcBase.set(pal[0]);
+  _vcHi.set(pal[1]);
+  _vcDark.set(pal[2]);
   for (let i = 0; i < count; i++) {
     const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
-    // Height-based blend (top = highlight, bottom = weathering)
-    const heightT = Math.max(0, Math.min(1, py * 0.5 + 0.5));
-    // Position-based noise for grain
-    const noise = Math.sin(px * 7.3 + pz * 5.1) * 0.5 + 0.5;
-    _vtxColor.copy(_vtxBase);
-    _vtxColor.lerp(_vtxHi, heightT * 0.4 + noise * 0.3);
-    _vtxColor.lerp(_vtxWth, (1 - heightT) * 0.3);
-    colors[i * 3] = _vtxColor.r;
-    colors[i * 3 + 1] = _vtxColor.g;
-    colors[i * 3 + 2] = _vtxColor.b;
+    // Height blend: lighter on top, darker at base
+    const len = Math.sqrt(px * px + py * py + pz * pz) || 1;
+    const heightT = Math.max(0, Math.min(1, (py / len) * 0.5 + 0.5));
+    // Position noise for grain variation
+    const grain = Math.sin(px * 11.3 + pz * 7.7) * 0.5 + 0.5;
+    _vc.copy(_vcBase);
+    _vc.lerp(_vcHi, heightT * 0.35 + grain * 0.2);
+    _vc.lerp(_vcDark, (1 - heightT) * 0.25);
+    colors[i * 3] = _vc.r;
+    colors[i * 3 + 1] = _vc.g;
+    colors[i * 3 + 2] = _vc.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 // ================================================================
-// Pick a random rock type and create materials with bump map + vertex colors
+// Pick random rock type, return material + palette
 // ================================================================
-function pickRockMaterials() {
+function pickRockType() {
   const type = ROCK_TYPES[Math.floor(sr() * ROCK_TYPES.length)];
-  const pal = C[type.palette]; // [base, hi, weather, accent]
-  const bump = _bumpMaps[type.bumpIdx];
-  const base = new THREE.MeshStandardMaterial({
+  const pal = C[type.palette]; // [base, hi, dark, accent]
+  const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: type.roughness, metalness: type.metalness,
-    bumpMap: bump, bumpScale: 0.15
+    roughness: type.roughness,
+    metalness: type.metalness,
   });
-  const hi = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: type.roughness - 0.05, metalness: type.metalness,
-    bumpMap: bump, bumpScale: 0.12
-  });
-  const weather = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: type.roughness + 0.05, metalness: 0.02,
-    bumpMap: bump, bumpScale: 0.18
-  });
-  return { base, hi, weather, type, pal };
+  return { mat, pal, type };
 }
 
 // ================================================================
 // Shared moss material
 // ================================================================
 const mossMat = new THREE.MeshStandardMaterial({
-  color: C.rockMoss, emissive: C.rockMoss, emissiveIntensity: 0.03, roughness: 0.9
+  color: C.rockMoss, emissive: C.rockMoss, emissiveIntensity: 0.03, roughness: 0.95
 });
 
 // ================================================================
-// makeRock — medium rocks (0.3-0.8m radius)
+// makeRock — medium rocks (0.3-0.8m)
 // ================================================================
 export function makeRock(x, z) {
   const g = new THREE.Group();
-  const { base, hi, weather, type, pal } = pickRockMaterials();
+  const { mat, pal } = pickRockType();
+  const seed = sr() * 100;
 
-  // Main stone — subdivision 2 (80 faces) with multi-octave displacement
-  const mainSz = 0.3 + sr() * 0.5;
-  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 2);
-  displaceVertices(mainGeo, mainSz * type.dispAmp, 5.0 + sr() * 3.0);
-  addVertexColors(mainGeo, pal[0], pal[1], pal[2]);
-  const main = new THREE.Mesh(mainGeo, sr() < 0.6 ? base : hi);
-  const scaleY = 0.4 + sr() * 0.4;
-  main.scale.set(1 + sr() * 0.6, scaleY, 1 + sr() * 0.6);
-  // Embed deeper into terrain
-  main.position.y = mainSz * scaleY * 0.15;
-  main.rotation.set(sr() * 0.5, sr() * 3, sr() * 0.3);
-  main.castShadow = true; main.receiveShadow = true;
+  // Main stone — smooth sphere with gentle lumps
+  const mainR = 0.3 + sr() * 0.5;
+  const mainGeo = new THREE.SphereGeometry(mainR, 10, 8);
+  displaceSmooth(mainGeo, mainR * 0.08, seed);
+  applyVertexColors(mainGeo, pal);
+  const main = new THREE.Mesh(mainGeo, mat);
+  // Flatten and stretch for natural rock proportions
+  const sy = 0.35 + sr() * 0.3;
+  const sx = 0.9 + sr() * 0.5;
+  const sz2 = 0.9 + sr() * 0.5;
+  main.scale.set(sx, sy, sz2);
+  // Embed bottom half into ground
+  main.position.y = mainR * sy * 0.25;
+  main.rotation.set(sr() * 0.4, sr() * 6.28, sr() * 0.3);
+  main.castShadow = true;
+  main.receiveShadow = true;
   g.add(main);
 
-  // Secondary stones (1-3 companions) — subdivision 1 (20 faces)
-  const secN = 1 + Math.floor(sr() * 3);
-  for (let si = 0; si < secN; si++) {
-    const sa = sr() * 6.28, sd = mainSz * 0.6 + sr() * mainSz * 0.5;
-    const sSz = mainSz * 0.3 + sr() * mainSz * 0.4;
-    const secGeo = new THREE.IcosahedronGeometry(sSz, 1);
-    displaceVertices(secGeo, sSz * type.dispAmp * 0.8, 6.0);
-    addVertexColors(secGeo, pal[0], pal[1], pal[2]);
-    const sec = new THREE.Mesh(secGeo, sr() < 0.5 ? base : weather);
-    const secScaleY = 0.3 + sr() * 0.4;
-    sec.scale.set(1 + sr() * 0.5, secScaleY, 1 + sr() * 0.5);
-    sec.position.set(Math.cos(sa) * sd, sSz * secScaleY * 0.15, Math.sin(sa) * sd);
-    sec.rotation.set(sr() * 0.8, sr() * 3, sr() * 0.5);
-    g.add(sec);
+  // 1-2 companion stones nestled against the main rock
+  const compN = 1 + Math.floor(sr() * 2);
+  for (let ci = 0; ci < compN; ci++) {
+    const { mat: cMat, pal: cPal } = pickRockType();
+    const cR = mainR * (0.25 + sr() * 0.35);
+    const cGeo = new THREE.SphereGeometry(cR, 8, 6);
+    displaceSmooth(cGeo, cR * 0.07, seed + ci * 13.7);
+    applyVertexColors(cGeo, cPal);
+    const comp = new THREE.Mesh(cGeo, cMat);
+    const cSy = 0.3 + sr() * 0.35;
+    comp.scale.set(0.9 + sr() * 0.4, cSy, 0.9 + sr() * 0.4);
+    const ang = sr() * 6.28;
+    const dist = mainR * 0.5 + sr() * mainR * 0.4;
+    comp.position.set(Math.cos(ang) * dist, cR * cSy * 0.2, Math.sin(ang) * dist);
+    comp.rotation.set(sr() * 0.5, sr() * 6.28, sr() * 0.4);
+    comp.receiveShadow = true;
+    g.add(comp);
   }
 
-  // Moss patches on top surfaces
-  const mossN = 2 + Math.floor(sr() * 3);
-  for (let mi = 0; mi < mossN; mi++) {
-    const ma = sr() * 6.28, md = sr() * mainSz * 0.6;
-    const mSz = mainSz * 0.15 + sr() * mainSz * 0.2;
-    const moss = new THREE.Mesh(new THREE.SphereGeometry(mSz, 4, 3), mossMat);
-    moss.scale.set(1.5, 0.2, 1.5);
-    moss.position.set(Math.cos(ma) * md, mainSz * 0.35 + sr() * 0.05, Math.sin(ma) * md);
+  // Small moss patch on top (50% chance)
+  if (sr() < 0.5) {
+    const mSz = mainR * 0.2 + sr() * mainR * 0.15;
+    const moss = new THREE.Mesh(new THREE.SphereGeometry(mSz, 5, 4), mossMat);
+    moss.scale.set(1.3, 0.15, 1.3);
+    moss.position.set(sr() * mainR * 0.2, mainR * sy * 0.4, sr() * mainR * 0.2);
     g.add(moss);
   }
 
-  // Lichen spots
-  const lichenColors = [0x887744, 0x998855, 0x667755, 0xaa9966];
-  for (let li = 0; li < 3; li++) {
-    const lichenMat = new THREE.MeshStandardMaterial({
-      color: lichenColors[Math.floor(sr() * lichenColors.length)],
-      roughness: 0.9, transparent: true, opacity: 0.5
-    });
-    const la = sr() * 6.28;
-    const lichen = new THREE.Mesh(new THREE.SphereGeometry(mainSz * 0.06 + sr() * mainSz * 0.08, 3, 3), lichenMat);
-    lichen.scale.set(2, 0.15, 2);
-    lichen.position.set(Math.cos(la) * mainSz * 0.5, mainSz * 0.25 + sr() * 0.1, Math.sin(la) * mainSz * 0.5);
-    g.add(lichen);
-  }
-
-  // Weathering cracks
-  const crackMat = new THREE.MeshBasicMaterial({
-    color: 0x252528, transparent: true, opacity: 0.3
-  });
-  const crackN = 2 + Math.floor(sr() * 3);
-  for (let ci = 0; ci < crackN; ci++) {
-    const ca = sr() * 6.28;
-    const cLen = mainSz * 0.3 + sr() * mainSz * 0.4;
-    const crack = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, cLen, 3), crackMat);
-    const cR = mainSz * 0.3 + sr() * mainSz * 0.2;
-    crack.position.set(Math.cos(ca) * cR, mainSz * 0.2 + sr() * mainSz * 0.15, Math.sin(ca) * cR);
-    crack.rotation.set(sr() * 0.5, ca, Math.PI / 2 + sr() * 0.4);
-    g.add(crack);
-  }
-
-  // Crystal sparkle hints
-  const sparkles = [];
-  const sparkleMat = new THREE.MeshBasicMaterial({
-    color: 0x88ccff, transparent: true, opacity: 0.4
-  });
-  if (sr() < 0.5) {
-    const sparkN = 2 + Math.floor(sr() * 3);
-    for (let spi = 0; spi < sparkN; spi++) {
-      const spa = sr() * 6.28;
-      const spr = mainSz * 0.25 + sr() * mainSz * 0.25;
-      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.006, 3, 3), sparkleMat);
-      spark.position.set(Math.cos(spa) * spr, mainSz * 0.15 + sr() * mainSz * 0.2, Math.sin(spa) * spr);
-      g.add(spark);
-      sparkles.push(spark);
-    }
-  }
-
-  // Soil ring
-  const soilMat = new THREE.MeshBasicMaterial({
-    color: 0x1a1a12, transparent: true, opacity: 0.10, side: THREE.DoubleSide
-  });
-  const soil = new THREE.Mesh(new THREE.RingGeometry(mainSz * 0.5, mainSz * 1.0, 8), soilMat);
-  soil.rotation.x = -Math.PI / 2; soil.position.y = 0.005; g.add(soil);
-
-  // Embedded pebbles
-  const pebMat = new THREE.MeshStandardMaterial({ color: 0x7a7a82, roughness: 0.9 });
-  const pebN = 4 + Math.floor(sr() * 3);
-  for (let pi = 0; pi < pebN; pi++) {
-    const pa = sr() * 6.28, pd = mainSz * 0.5 + sr() * mainSz * 0.6;
-    const pSz = 0.03 + sr() * 0.05;
-    const peb = new THREE.Mesh(new THREE.SphereGeometry(pSz, 3, 3), pebMat);
-    peb.scale.set(1 + sr() * 0.5, 0.4, 1 + sr() * 0.5);
-    peb.position.set(Math.cos(pa) * pd, pSz * 0.15, Math.sin(pa) * pd);
-    g.add(peb);
-  }
-
-  // Grass tuft
-  if (sr() < 0.6) {
-    const grassMat = new THREE.MeshStandardMaterial({
-      color: 0x33aa55, emissive: C.grassTip, emissiveIntensity: 0.05,
-      roughness: 0.7, side: THREE.DoubleSide
-    });
-    for (let gi = 0; gi < 3; gi++) {
-      const ga = sr() * 6.28;
-      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.015, 0.08 + sr() * 0.06), grassMat);
-      blade.position.set(Math.cos(ga) * mainSz * 0.3, mainSz * 0.3, Math.sin(ga) * mainSz * 0.3);
-      blade.rotation.y = sr() * 3; blade.rotation.x = -0.2 - sr() * 0.3;
-      g.add(blade);
-    }
-  }
-
-  g.position.set(x, 0, z); scene.add(g);
-  return { group: g, x, z, colR: mainSz * 0.8, sparkles, sparkleMat };
+  g.position.set(x, 0, z);
+  scene.add(g);
+  return { group: g, x, z, colR: mainR * 0.8 };
 }
 
 // ================================================================
-// makeBoulder — large dramatic rock formations (1.5-3.5m radius)
+// makeBoulder — large rock formations (1.2-3.0m)
 // ================================================================
 export function makeBoulder(x, z) {
   const g = new THREE.Group();
-  const { base, hi, weather, type, pal } = pickRockMaterials();
+  const { mat, pal } = pickRockType();
+  const seed = sr() * 100;
 
-  // Main boulder — subdivision 3 (320 faces) with aggressive displacement
-  const mainSz = 1.5 + sr() * 2.0;
-  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 3);
-  displaceVertices(mainGeo, mainSz * (type.dispAmp + 0.08), 2.5 + sr() * 2.0);
-  addVertexColors(mainGeo, pal[0], pal[1], pal[2]);
-  const main = new THREE.Mesh(mainGeo, base);
-  const scaleY = 0.5 + sr() * 0.3;
-  main.scale.set(1 + sr() * 0.4, scaleY, 1 + sr() * 0.4);
-  // Embed 35% into terrain so it looks grounded
-  main.position.y = mainSz * scaleY * 0.15;
-  main.rotation.set(sr() * 0.3, sr() * 3, sr() * 0.2);
-  main.castShadow = true; main.receiveShadow = true;
+  // Main boulder — larger sphere, more segments for smoother appearance
+  const mainR = 1.2 + sr() * 1.8;
+  const mainGeo = new THREE.SphereGeometry(mainR, 14, 10);
+  displaceSmooth(mainGeo, mainR * 0.10, seed);
+  applyVertexColors(mainGeo, pal);
+  const main = new THREE.Mesh(mainGeo, mat);
+  const sy = 0.45 + sr() * 0.25;
+  main.scale.set(1 + sr() * 0.4, sy, 1 + sr() * 0.4);
+  // Sink into ground — boulders look heavy and embedded
+  main.position.y = mainR * sy * 0.3;
+  main.rotation.set(sr() * 0.2, sr() * 6.28, sr() * 0.15);
+  main.castShadow = true;
+  main.receiveShadow = true;
   g.add(main);
 
-  // Accent slab — a wedge broken off the main mass
-  if (sr() < 0.7) {
-    const slabSz = mainSz * 0.3 + sr() * mainSz * 0.3;
-    const slabGeo = new THREE.IcosahedronGeometry(slabSz, 2);
-    displaceVertices(slabGeo, slabSz * type.dispAmp, 4.0);
-    addVertexColors(slabGeo, pal[0], pal[1], pal[2]);
-    const slab = new THREE.Mesh(slabGeo, sr() < 0.5 ? hi : weather);
+  // Leaning slab companion (60% chance)
+  if (sr() < 0.6) {
+    const { mat: sMat, pal: sPal } = pickRockType();
+    const sR = mainR * (0.3 + sr() * 0.25);
+    const sGeo = new THREE.SphereGeometry(sR, 10, 8);
+    displaceSmooth(sGeo, sR * 0.09, seed + 37.1);
+    applyVertexColors(sGeo, sPal);
+    const slab = new THREE.Mesh(sGeo, sMat);
+    const sSy = 0.3 + sr() * 0.25;
+    slab.scale.set(1.2 + sr() * 0.4, sSy, 0.9 + sr() * 0.4);
     const slabAng = sr() * 6.28;
-    slab.scale.set(1.3 + sr() * 0.4, 0.3 + sr() * 0.3, 1 + sr() * 0.5);
     slab.position.set(
-      Math.cos(slabAng) * mainSz * 0.8,
-      slabSz * 0.1,
-      Math.sin(slabAng) * mainSz * 0.8
+      Math.cos(slabAng) * mainR * 0.7,
+      sR * sSy * 0.2,
+      Math.sin(slabAng) * mainR * 0.7
     );
-    slab.rotation.set(sr() * 0.6, sr() * 3, sr() * 0.4);
+    slab.rotation.set(sr() * 0.4, sr() * 6.28, sr() * 0.3);
     slab.castShadow = true;
     g.add(slab);
   }
 
-  // Heavy moss coverage on boulders
-  const mossN = 4 + Math.floor(sr() * 5);
+  // Moss on top of boulders
+  const mossN = 2 + Math.floor(sr() * 3);
   for (let mi = 0; mi < mossN; mi++) {
-    const ma = sr() * 6.28, md = sr() * mainSz * 0.5;
-    const mSz = mainSz * 0.1 + sr() * mainSz * 0.12;
-    const moss = new THREE.Mesh(new THREE.SphereGeometry(mSz, 4, 3), mossMat);
-    moss.scale.set(1.5, 0.2, 1.5);
-    moss.position.set(Math.cos(ma) * md, mainSz * scaleY * 0.45 + sr() * 0.1, Math.sin(ma) * md);
+    const mR = mainR * 0.12 + sr() * mainR * 0.1;
+    const moss = new THREE.Mesh(new THREE.SphereGeometry(mR, 5, 4), mossMat);
+    moss.scale.set(1.4, 0.15, 1.4);
+    const ma = sr() * 6.28;
+    moss.position.set(
+      Math.cos(ma) * mainR * 0.3,
+      mainR * sy * 0.45 + sr() * 0.05,
+      Math.sin(ma) * mainR * 0.3
+    );
     g.add(moss);
   }
 
-  // Lichen clusters
-  const lichenColors = [0x887744, 0x998855, 0x667755, 0xaa9966];
-  const lichN = 3 + Math.floor(sr() * 3);
-  for (let li = 0; li < lichN; li++) {
-    const lichenMat = new THREE.MeshStandardMaterial({
-      color: lichenColors[Math.floor(sr() * lichenColors.length)],
-      roughness: 0.9, transparent: true, opacity: 0.5
-    });
-    const la = sr() * 6.28;
-    const lichen = new THREE.Mesh(
-      new THREE.SphereGeometry(mainSz * 0.05 + sr() * mainSz * 0.06, 3, 3), lichenMat
-    );
-    lichen.scale.set(2, 0.15, 2);
-    lichen.position.set(
-      Math.cos(la) * mainSz * 0.45,
-      mainSz * scaleY * 0.3 + sr() * 0.1,
-      Math.sin(la) * mainSz * 0.45
-    );
-    g.add(lichen);
-  }
-
-  // Crystal sparkles
-  const sparkles = [];
-  const sparkleMat = new THREE.MeshBasicMaterial({
-    color: 0x88ccff, transparent: true, opacity: 0.4
-  });
-  if (sr() < 0.6) {
-    const sparkN = 3 + Math.floor(sr() * 4);
-    for (let spi = 0; spi < sparkN; spi++) {
-      const spa = sr() * 6.28;
-      const spr = mainSz * 0.3 + sr() * mainSz * 0.2;
-      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.008, 3, 3), sparkleMat);
-      spark.position.set(
-        Math.cos(spa) * spr,
-        mainSz * 0.2 + sr() * mainSz * 0.3,
-        Math.sin(spa) * spr
-      );
-      g.add(spark);
-      sparkles.push(spark);
-    }
-  }
-
-  // Soil ring
-  const soilMat = new THREE.MeshBasicMaterial({
-    color: 0x1a1a12, transparent: true, opacity: 0.10, side: THREE.DoubleSide
-  });
-  const soil = new THREE.Mesh(new THREE.RingGeometry(mainSz * 0.6, mainSz * 1.3, 10), soilMat);
-  soil.rotation.x = -Math.PI / 2; soil.position.y = 0.005; g.add(soil);
-
-  g.position.set(x, 0, z); scene.add(g);
-  return { group: g, x, z, colR: mainSz * 0.9, sparkles, sparkleMat };
+  g.position.set(x, 0, z);
+  scene.add(g);
+  return { group: g, x, z, colR: mainR * 0.9 };
 }
 
 // ================================================================
-// Pebble InstancedMesh — scattered tiny stones, 1 draw call for all
+// Pebble InstancedMesh — scattered tiny stones, 1 draw call
 // ================================================================
 let pebbleMesh = null;
 const _pebDummy = new THREE.Object3D();
 
 export function initPebbles() {
-  const geo = new THREE.IcosahedronGeometry(1, 0); // unit icosahedron, scaled per instance
-  // Slight displacement for irregularity
-  displaceVertices(geo, 0.15, 8.0);
+  // Smooth sphere pebble — flattened per instance
+  const geo = new THREE.SphereGeometry(1, 6, 5);
+  displaceSmooth(geo, 0.08, 42.7);
   const mat = new THREE.MeshStandardMaterial({
-    color: C.rockBase, roughness: 0.88, metalness: 0.05
+    color: C.rockBase, roughness: 0.90, metalness: 0.03
   });
   pebbleMesh = new THREE.InstancedMesh(geo, mat, PEBBLE_N);
   pebbleMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
@@ -402,7 +240,7 @@ export function initPebbles() {
 
 // Color variation for pebble instances
 const _pebColor = new THREE.Color();
-const PEBBLE_COLORS = [0x8a8a90, 0x9a8a70, 0xa0a098, 0x607080, 0x7a7a82, 0x706860];
+const PEBBLE_COLORS = [0x8a8a90, 0x9a8a70, 0xa0a098, 0x607080, 0x7a7a82, 0x706860, 0x908880];
 
 export function addPebble(x, z, groundY) {
   if (!pebbleMesh) return;
@@ -410,17 +248,16 @@ export function addPebble(x, z, groundY) {
   if (idx >= PEBBLE_N) return;
 
   const sz = 0.04 + sr() * 0.10;
-  _pebDummy.position.set(x, groundY + sz * 0.15, z);
-  _pebDummy.rotation.set(sr() * 3, sr() * 3, sr() * 3);
+  _pebDummy.position.set(x, groundY + sz * 0.08, z);
+  _pebDummy.rotation.set(sr() * 0.5, sr() * 6.28, sr() * 0.5);
   _pebDummy.scale.set(
-    sz * (1 + sr() * 0.6),
-    sz * (0.25 + sr() * 0.4),
-    sz * (1 + sr() * 0.6)
+    sz * (0.9 + sr() * 0.5),
+    sz * (0.2 + sr() * 0.3),
+    sz * (0.9 + sr() * 0.5)
   );
   _pebDummy.updateMatrix();
   pebbleMesh.setMatrixAt(idx, _pebDummy.matrix);
 
-  // Per-instance color variation
   _pebColor.set(PEBBLE_COLORS[Math.floor(sr() * PEBBLE_COLORS.length)]);
   pebbleMesh.setColorAt(idx, _pebColor);
 

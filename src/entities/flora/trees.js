@@ -521,7 +521,7 @@ const _slopeQ = new THREE.Quaternion();
 const _identQ = new THREE.Quaternion();
 const _swayQ = new THREE.Quaternion();
 const _yRotQ = new THREE.Quaternion();
-const SLOPE_FACTOR = 0.65; // Apply 65% of slope — aggressive tilt to ground roots on hillsides
+const SLOPE_FACTOR = 0.15; // Subtle tilt — keeps trunks vertical, roots do the work via steep template angles
 
 // Apply slope tilt + Y rotation to _dummy quaternion using cached normal
 function applySlopeTilt(nx, ny, nz, yRot) {

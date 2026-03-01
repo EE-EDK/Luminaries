@@ -14,10 +14,12 @@ let muted = false;
 
 // Noise buffers (generated once)
 let brownBuf = null;
+let brownBuf2 = null; // second brown buffer at different length for layering
 let whiteBuf = null;
 
 // Ambient layers
 let forestNode = null, forestGain = null, forestFilter = null;
+let forest2Node = null, forest2Gain = null;
 let windNode = null, windGain = null, windFilter = null;
 let rainNode = null, rainGain = null, rainFilter = null;
 
@@ -48,8 +50,15 @@ function createNoiseBuffer(type, duration) {
       const w = Math.random() * 2 - 1;
       data[i] = (last + 0.02 * w) / 1.02;
       last = data[i];
-      data[i] *= 1.8; // was 3.5 — reduced to tame sub-bass energy
+      data[i] *= 1.8;
     }
+  }
+  // Crossfade the loop seam so the splice point isn't audible
+  const fade = Math.min(Math.floor(ctx.sampleRate * 0.05), len >> 1); // 50ms
+  for (let i = 0; i < fade; i++) {
+    const t = i / fade;
+    data[i] *= t;
+    data[len - 1 - i] *= t;
   }
   return buf;
 }
@@ -79,10 +88,11 @@ function loopNoise(buffer, gainVal, filterFreq, highpassFreq) {
 // ================================================================
 function createReverb() {
   // Simple stereo feedback delay as reverb approximation
+  // Irrational delay times so echoes don't align with buffer loop points
   const delay1 = ctx.createDelay(1.0);
-  delay1.delayTime.value = 0.32;
+  delay1.delayTime.value = 0.37;
   const delay2 = ctx.createDelay(1.0);
-  delay2.delayTime.value = 0.47;
+  delay2.delayTime.value = 0.53;
   const fb1 = ctx.createGain();
   fb1.gain.value = 0.20; // reduced from 0.25
   const fb2 = ctx.createGain();
@@ -143,16 +153,21 @@ export function initAudio() {
       masterGain.gain.value = 0.35;
       masterGain.connect(ctx.destination);
 
-      // Generate noise buffers (2s looped)
-      brownBuf = createNoiseBuffer('brown', 2);
-      whiteBuf = createNoiseBuffer('white', 2);
+      // Generate noise buffers — longer durations to avoid audible loop repetition
+      brownBuf = createNoiseBuffer('brown', 8);
+      brownBuf2 = createNoiseBuffer('brown', 5); // co-prime length so layers never align
+      whiteBuf = createNoiseBuffer('white', 4);
 
       // Shared reverb (feedback delays with highpass to prevent rumble)
       createReverb();
 
-      // Forest hum: warm brown noise band (50-200Hz), gentle volume
-      const fh = loopNoise(brownBuf, 0.06, 200, 50);
+      // Forest hum: two layers at co-prime buffer lengths so repetition is masked
+      // Layer 1: warm low band (50-200Hz)
+      const fh = loopNoise(brownBuf, 0.05, 200, 50);
       forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
+      // Layer 2: softer higher band (80-350Hz) on different buffer
+      const fh2 = loopNoise(brownBuf2, 0.03, 350, 80);
+      forest2Node = fh2.node; forest2Gain = fh2.gain;
 
       // --- Wind: DISABLED ---
       // const wn = loopNoise(whiteBuf, 0, 400);
@@ -187,9 +202,10 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // Forest hum — subtle volume shift by time of day
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.08 : phase === 'DAWN' ? 0.04 : 0.06;
+  // Forest hum — subtle volume shift by time of day (both layers)
+  const forestVol = phase === 'DEEP_NIGHT' ? 0.07 : phase === 'DAWN' ? 0.03 : 0.05;
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
+  forest2Gain.gain.linearRampToValueAtTime(forestVol * 0.6, now + 0.1);
 
   // --- Wind: DISABLED ---
   // const windVol = Math.min(windStrength * 0.15, 0.25);

@@ -161,6 +161,8 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 // Global dimming state (smoothed for natural transitions)
 // ================================================================
 let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
+const _dimGrey = new THREE.Color(); // reusable temp for desaturation blend
+const _playerLightBaseColor = new THREE.Color(0x668888); // matches lighting.js init
 
 // ================================================================
 // Echo bloom state
@@ -2164,24 +2166,47 @@ function animate() {
   updateRain(dt, player.pos, rainRate, windX, windZ);
   updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
 
-  // Global dimming — scales renderer exposure, fog, ambient, and player light
-  // based on the player's local glow factor. Smoothly lerped for natural transitions.
+  // Global dimming — scales renderer exposure, fog, ambient, player light, and
+  // color saturation based on the player's local glow factor. Smoothly lerped.
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
   const lerpSpeed = rawDimFactor > smoothedDimFactor ? 1.5 : 0.8; // brighten faster than dim
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
+  const desatT = 1.0 - smoothedDimFactor; // 0 = full color, 1 = fully desaturated
 
   // Renderer exposure: 2.8 at full glow, ~1.5 in dimmed zones
   renderer.toneMappingExposure = 1.5 + 1.3 * smoothedDimFactor;
 
-  // Fog: thicker in dimmed zones (visibility drops)
-  scene.fog.density *= (1.0 + 0.5 * (1.0 - smoothedDimFactor));
+  // Fog: thicker + desaturated in dimmed zones
+  scene.fog.density *= (1.0 + 0.5 * desatT);
+  const fogLuma = scene.fog.color.r * 0.299 + scene.fog.color.g * 0.587 + scene.fog.color.b * 0.114;
+  _dimGrey.setRGB(fogLuma, fogLuma, fogLuma);
+  scene.fog.color.lerp(_dimGrey, desatT * 0.7);
 
-  // Hemisphere ambient: reduce in dimmed zones
+  // Hemisphere sky color: desaturate toward grey in dimmed zones
+  const skyLuma = hemiLight.color.r * 0.299 + hemiLight.color.g * 0.587 + hemiLight.color.b * 0.114;
+  _dimGrey.setRGB(skyLuma, skyLuma, skyLuma);
+  hemiLight.color.lerp(_dimGrey, desatT * 0.7);
+
+  // Hemisphere ground color: desaturate toward grey in dimmed zones
+  const gndLuma = hemiLight.groundColor.r * 0.299 + hemiLight.groundColor.g * 0.587 + hemiLight.groundColor.b * 0.114;
+  _dimGrey.setRGB(gndLuma, gndLuma, gndLuma);
+  hemiLight.groundColor.lerp(_dimGrey, desatT * 0.7);
+
+  // Scene background: desaturate
+  const bgLuma = scene.background.r * 0.299 + scene.background.g * 0.587 + scene.background.b * 0.114;
+  _dimGrey.setRGB(bgLuma, bgLuma, bgLuma);
+  scene.background.lerp(_dimGrey, desatT * 0.5);
+
+  // Hemisphere ambient: reduce intensity in dimmed zones
   hemiLight.intensity *= (0.6 + 0.4 * smoothedDimFactor);
 
-  // Player light: weaker in dimmed zones
+  // Player light: weaker + desaturated in dimmed zones
   playerLight.intensity *= (0.4 + 0.6 * smoothedDimFactor);
   playerLight.distance *= (0.6 + 0.4 * smoothedDimFactor);
+  playerLight.color.copy(_playerLightBaseColor); // reset before desaturating
+  const plLuma = _playerLightBaseColor.r * 0.299 + _playerLightBaseColor.g * 0.587 + _playerLightBaseColor.b * 0.114;
+  _dimGrey.setRGB(plLuma, plLuma, plLuma);
+  playerLight.color.lerp(_dimGrey, desatT * 0.5);
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom

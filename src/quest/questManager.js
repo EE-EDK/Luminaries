@@ -4,6 +4,7 @@ import { orbLight } from '../core/lighting.js';
 import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade } from './lasers.js';
+import { transformTreeMaterials } from '../entities/flora/trees.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
@@ -555,51 +556,8 @@ function initFlashOverlay() {
 
 // Transform all tree materials and ground to pink/purple theme
 function transformTreesAndGround() {
-  const pinkShades = [
-    { color: 0x551430, glow: 0xcc2277, core: 0xff44aa },
-    { color: 0x3a1040, glow: 0xaa33bb, core: 0xdd55ff },
-    { color: 0x441428, glow: 0xdd3388, core: 0xff66bb },
-    { color: 0x2a1050, glow: 0x8833cc, core: 0xbb55ff },
-    { color: 0x401830, glow: 0xcc4499, core: 0xff77cc },
-  ];
-
-  const darkCyan = new THREE.Color(0x0a3040);
-  const darkCyanEmissive = new THREE.Color(0x082838);
-
-  for (let i = 0; i < trees.length; i++) {
-    const group = trees[i].group;
-    const shade = pinkShades[i % pinkShades.length];
-    const processed = new Set();
-
-    group.traverse((child) => {
-      if (!child.isMesh || !child.material) return;
-      const mat = child.material;
-      if (processed.has(mat)) return;
-      processed.add(mat);
-
-      const hsl = {};
-      mat.color.getHSL(hsl);
-
-      if (hsl.h >= 0.2 && hsl.h <= 0.6 && hsl.s > 0.08) {
-        // Green/teal/cyan → pink/purple
-        if (hsl.l > 0.45) {
-          mat.color.set(shade.core);
-        } else if (mat.transparent && mat.opacity < 0.15) {
-          mat.color.set(shade.glow);
-        } else {
-          mat.color.set(shade.color);
-        }
-        if (mat.emissive) mat.emissive.set(shade.glow);
-      } else if (hsl.h < 0.2 && hsl.s > 0.05 && hsl.l > 0.05 && hsl.l < 0.4) {
-        // Brown/orange → dark cyan
-        mat.color.copy(darkCyan);
-        if (mat.emissive) mat.emissive.copy(darkCyanEmissive);
-      } else if (hsl.l < 0.06) {
-        // Very dark (mound) → dark purple
-        mat.color.set(0x0a0818);
-      }
-    });
-  }
+  // Transform instanced tree materials (handled in trees.js)
+  transformTreeMaterials();
 
   // Transform ground
   if (groundMesh && groundMesh.material) {

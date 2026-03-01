@@ -32,7 +32,7 @@ import { initAurora, updateAurora } from './world/aurora.js';
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
 
 // Entities — Flora
-import { makeTree, makeTreeImpostor } from './entities/flora/trees.js';
+import { initTreeTemplates, createTreeInstances, updateTreeLOD, makeTreeImpostor, transformTreeMaterials } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
 import { makeGrassPatch, updateGrassGlobals } from './entities/flora/grass.js';
@@ -187,7 +187,9 @@ function inKeepOut(x, z) {
 // Populate world
 // ================================================================
 function populate() {
-  // Trees
+  // Trees — template instancing: generate positions, then batch-create InstancedMeshes
+  initTreeTemplates();
+  // Generate positions (same spacing logic as before)
   for (let i = 0; i < TREE_N; i++) {
     let x, z, ok = false;
     for (let a = 0; a < 20; a++) {
@@ -200,16 +202,20 @@ function populate() {
       if (ok) break;
     }
     if (ok) {
-      const g = makeTree(x, z);
       const gy = getGroundY(x, z);
-      g.position.y = gy;
-      const treeH = g.userData.treeH || 10;
-      const impostor = makeTreeImpostor(treeH, gy);
-      impostor.position.x = x;
-      impostor.position.z = z;
-      trees_data.push({ group: g, x, z, impostor, treeH });
+      trees_data.push({ x, z, groundY: gy });
       keepOutZones.push({ x, z, r2: 4 }); // 2m radius
     }
+  }
+  // Create InstancedMeshes from templates (assigns treeH per instance)
+  createTreeInstances(trees_data);
+  // Create billboard impostors for each tree
+  for (let i = 0; i < trees_data.length; i++) {
+    const tr = trees_data[i];
+    const impostor = makeTreeImpostor(tr.treeH, tr.groundY);
+    impostor.position.x = tr.x;
+    impostor.position.z = tr.z;
+    tr.impostor = impostor;
   }
   // Fairy rings — spawn early so other entities respect keep-out zones
   for (let i = 0; i < FAIRY_RING_N; i++) {
@@ -441,49 +447,9 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
-  // --- Tree 4-tier LOD with 3D distance (Y-aware for high jumps) ---
-  // Tier 0 (<20m): full detail — all children, wind sway
-  // Tier 1 (20-70m): reduced — hide detail children (veins, roots, moss, fungi)
-  // Tier 2 (70-110m): impostor — hide tree group, show billboard sprite
-  // Tier 3 (>110m): hidden entirely
+  // --- Tree LOD via InstancedMesh (all tiers handled in trees.js) ---
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
-  for (let i = 0; i < trees_data.length; i++) {
-    const tr = trees_data[i];
-    const tdx = tr.x - px, tdz = tr.z - pz;
-    const tdy = (tr.group.position.y + (tr.treeH || 10) * 0.4) - py;
-    const d2 = tdx * tdx + tdy * tdy + tdz * tdz;
-    if (d2 > 12100) { // >110m — hide everything
-      if (tr.group.visible) tr.group.visible = false;
-      if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
-      continue;
-    }
-    if (d2 > 4900) { // 70-110m — billboard impostor only
-      if (tr.group.visible) tr.group.visible = false;
-      if (tr.impostor) tr.impostor.visible = true;
-      tr._lod = 2;
-      continue;
-    }
-    // <70m — show tree group, hide impostor
-    if (!tr.group.visible) tr.group.visible = true;
-    if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
-    if (d2 > 400) { // 20-70m — reduced detail
-      if (tr._lod !== 1) {
-        const children = tr.group.children;
-        for (let c = 0; c < children.length; c++)
-          children[c].visible = !children[c].userData.detail;
-        tr._lod = 1;
-      }
-    } else { // <20m — full detail
-      if (tr._lod !== 0) {
-        const children = tr.group.children;
-        for (let c = 0; c < children.length; c++) children[c].visible = true;
-        tr._lod = 0;
-      }
-      const tPhase = tr.x * 0.1 + tr.z * 0.13;
-      tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
-      tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
-    }
-  }
+  updateTreeLOD(trees_data, px, py, pz, t, wAmp, wLeanX, wLeanZ);
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
   // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
@@ -1677,7 +1643,7 @@ function director(dt, t) {
       const tr = trees_data[i];
       const dx = tr.x - player.pos.x, dz = tr.z - player.pos.z;
       if (dx * dx + dz * dz < 900 && Math.random() < 0.15) { // within 30m
-        const canopyY = (tr.group.children[0] ? tr.group.children[0].geometry.parameters.height * 0.7 : 6) + tr.group.position.y;
+        const canopyY = (tr.treeH || 10) * 0.7 + (tr.groundY || 0);
         spawnLeaf(tr.x, canopyY, tr.z);
         break;
       }

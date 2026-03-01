@@ -16,7 +16,7 @@ export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
 // Entity counts — all entities use visibility culling + distance-based LOD
-export const TREE_N = 200;         // 4-tier LOD: full/reduced/impostor/hidden
+export const TREE_N = 500;         // Template instanced (10 templates × InstancedMesh)
 export const MUSH_N = 60;          // visibility-culled beyond 50m
 export const CRYSTAL_N = 18;
 export const JELLY_N = 10;

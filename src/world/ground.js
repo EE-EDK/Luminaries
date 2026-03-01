@@ -24,6 +24,9 @@ function makeGroundTexture() {
     { col: 'rgba(30,65,55,0.25)', n: 10, r: 110 },  // teal moss
     { col: 'rgba(55,70,35,0.2)', n: 8, r: 90 },     // olive
     { col: 'rgba(35,40,25,0.25)', n: 8, r: 80 },    // dark soil
+    { col: 'rgba(80,55,25,0.22)', n: 8, r: 95 },    // warm amber/ochre
+    { col: 'rgba(70,35,20,0.20)', n: 6, r: 85 },    // russet earth
+    { col: 'rgba(85,70,35,0.18)', n: 6, r: 80 },    // golden leaf litter
   ];
   for (const b of biomes) {
     for (let i = 0; i < b.n; i++) {
@@ -45,9 +48,9 @@ function makeGroundTexture() {
 
   // ---- 2. Organic cell noise (multi-scale, varied colors) ----
   const cellPasses = [
-    { n: 80, r: 25, colors: ['rgba(20,45,25,0.2)', 'rgba(35,55,28,0.18)', 'rgba(28,22,12,0.2)', 'rgba(15,38,30,0.15)'] },
-    { n: 200, r: 10, colors: ['rgba(30,55,30,0.14)', 'rgba(45,35,18,0.12)', 'rgba(22,48,35,0.12)', 'rgba(38,28,14,0.1)'] },
-    { n: 500, r: 4, colors: ['rgba(25,50,28,0.1)', 'rgba(40,30,15,0.08)', 'rgba(18,42,32,0.08)', 'rgba(32,25,10,0.06)'] },
+    { n: 80, r: 25, colors: ['rgba(20,45,25,0.2)', 'rgba(35,55,28,0.18)', 'rgba(28,22,12,0.2)', 'rgba(15,38,30,0.15)', 'rgba(55,35,15,0.2)', 'rgba(48,28,12,0.18)'] },
+    { n: 200, r: 10, colors: ['rgba(30,55,30,0.14)', 'rgba(45,35,18,0.12)', 'rgba(22,48,35,0.12)', 'rgba(38,28,14,0.1)', 'rgba(52,38,18,0.12)', 'rgba(42,25,10,0.1)'] },
+    { n: 500, r: 4, colors: ['rgba(25,50,28,0.1)', 'rgba(40,30,15,0.08)', 'rgba(18,42,32,0.08)', 'rgba(32,25,10,0.06)', 'rgba(45,32,12,0.08)', 'rgba(38,22,8,0.06)'] },
   ];
   for (const pass of cellPasses) {
     for (let i = 0; i < pass.n; i++) {
@@ -104,9 +107,11 @@ function makeGroundTexture() {
   const leafCols = [
     'rgba(55,32,12,0.3)', 'rgba(70,42,18,0.25)', 'rgba(40,55,22,0.22)',
     'rgba(22,50,28,0.2)', 'rgba(60,45,20,0.25)', 'rgba(30,60,35,0.18)',
-    'rgba(50,25,8,0.22)', 'rgba(65,55,25,0.18)'
+    'rgba(50,25,8,0.22)', 'rgba(65,55,25,0.18)',
+    'rgba(75,50,20,0.28)', 'rgba(85,60,30,0.22)',  // deep amber, golden brown
+    'rgba(45,25,10,0.25)', 'rgba(90,75,45,0.18)'   // dark rust, pale tan
   ];
-  for (let i = 0; i < 3000; i++) {
+  for (let i = 0; i < 3500; i++) {
     ctx.fillStyle = leafCols[Math.floor(R() * leafCols.length)];
     const lx = R() * S, ly = R() * S;
     const lr = 0.8 + R() * 2.5;
@@ -119,15 +124,21 @@ function makeGroundTexture() {
     const mrad = 15 + R() * 35;
     const grad = ctx.createRadialGradient(mx, my, 0, mx, my, mrad);
     const mCol = R();
-    if (mCol < 0.4) {
+    if (mCol < 0.3) {
       grad.addColorStop(0, 'rgba(45,90,50,0.18)');
       grad.addColorStop(1, 'rgba(25,55,30,0)');
-    } else if (mCol < 0.7) {
+    } else if (mCol < 0.5) {
       grad.addColorStop(0, 'rgba(35,75,60,0.16)');
       grad.addColorStop(1, 'rgba(20,50,38,0)');
-    } else {
+    } else if (mCol < 0.7) {
       grad.addColorStop(0, 'rgba(55,75,35,0.14)');
       grad.addColorStop(1, 'rgba(30,45,20,0)');
+    } else if (mCol < 0.85) {
+      grad.addColorStop(0, 'rgba(75,55,25,0.14)');  // amber lichen
+      grad.addColorStop(1, 'rgba(45,30,12,0)');
+    } else {
+      grad.addColorStop(0, 'rgba(65,35,20,0.12)');  // copper-tinted earth
+      grad.addColorStop(1, 'rgba(35,18,10,0)');
     }
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.arc(mx, my, mrad, 0, 6.28); ctx.fill();
@@ -226,6 +237,8 @@ export function createGround() {
     [0.85, 0.65, 0.40],  // earthy brown
     [0.50, 1.10, 0.65],  // bright emerald
     [0.40, 0.70, 0.90],  // deep blue-green
+    [0.90, 0.55, 0.35],  // warm russet
+    [0.80, 0.75, 0.45],  // golden earth
   ];
   const vCount = posAttr.count;
   const colorArr = new Float32Array(vCount * 3);

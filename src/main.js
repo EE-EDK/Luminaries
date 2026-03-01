@@ -189,22 +189,68 @@ function inKeepOut(x, z) {
 // Populate world
 // ================================================================
 function populate() {
-  // Trees — generate positions, then use InstancedMesh templates
+  // Trees — clustered placement: dense groves + sparse clearings
+  // 1. Generate cluster centers
+  const clusterN = 25 + Math.floor(sr() * 15); // 25-39 grove clusters
+  const clusters = [];
+  for (let ci = 0; ci < clusterN; ci++) {
+    const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R - 15);
+    clusters.push({
+      x: Math.cos(ang) * d,
+      z: Math.sin(ang) * d,
+      r: 6 + sr() * 18,          // cluster radius 6-24m
+      density: 0.5 + sr() * 0.5  // density weight
+    });
+  }
+  // 2. Generate clearing zones (areas with no trees)
+  const clearingN = 5 + Math.floor(sr() * 4); // 5-8 clearings
+  const clearings = [];
+  for (let ci = 0; ci < clearingN; ci++) {
+    const ang = sr() * 6.28, d = 12 + sr() * (WORLD_R * 0.65);
+    clearings.push({
+      x: Math.cos(ang) * d,
+      z: Math.sin(ang) * d,
+      r2: (10 + sr() * 15) ** 2  // clearing radius 10-25m, stored squared
+    });
+  }
+  // 3. Place trees: ~80% in clusters, ~20% scattered
   for (let i = 0; i < TREE_N; i++) {
     let x, z, ok = false;
-    for (let a = 0; a < 20; a++) {
-      const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R - 10);
-      x = Math.cos(ang) * d; z = Math.sin(ang) * d; ok = true;
+    for (let a = 0; a < 25; a++) {
+      if (sr() < 0.2) {
+        // Scattered lone tree — uniform random placement
+        const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R - 10);
+        x = Math.cos(ang) * d; z = Math.sin(ang) * d;
+      } else {
+        // Cluster tree — pick a random cluster, offset from center with gaussian-like spread
+        const ci = Math.floor(sr() * clusterN);
+        const cl = clusters[ci];
+        // Box-Muller-ish: average of 2 uniform samples for bell-shaped distribution
+        const offR = cl.r * (sr() + sr()) * 0.5 * cl.density;
+        const offA = sr() * 6.28;
+        x = cl.x + Math.cos(offA) * offR;
+        z = cl.z + Math.sin(offA) * offR;
+      }
+      // Check within world bounds
+      if (x * x + z * z > (WORLD_R - 5) * (WORLD_R - 5)) continue;
+      // Check clearings — reject if inside a clearing
+      let inClearing = false;
+      for (let ci = 0; ci < clearings.length; ci++) {
+        const dx = clearings[ci].x - x, dz = clearings[ci].z - z;
+        if (dx * dx + dz * dz < clearings[ci].r2) { inClearing = true; break; }
+      }
+      if (inClearing) continue;
+      // Minimum spacing between trees (2.5m)
+      ok = true;
       for (let j = 0; j < trees_data.length; j++) {
         const dx = trees_data[j].x - x, dz = trees_data[j].z - z;
-        if (dx * dx + dz * dz < 9) { ok = false; break; }
+        if (dx * dx + dz * dz < 6.25) { ok = false; break; }
       }
       if (ok) break;
     }
     if (ok) {
-      // Consume same sr() calls as old makeTree for RNG alignment
       const treeH = 6 + sr() * 10;
-      sr(); // radius
+      sr(); // radius (consumed for RNG alignment)
       const gy = getGroundY(x, z);
       const yRot = sr() * Math.PI * 2;
       const scale = 0.8 + sr() * 0.4;

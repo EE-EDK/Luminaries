@@ -127,14 +127,14 @@ export function spawnFootprint(x, z, angle, sprinting) {
   const offZ = Math.cos(angle + Math.PI / 2) * 0.12 * side;
 
   const scale = sprinting ? 1.15 : 1.0;
-  dummy.position.set(x + offX, groundY + 0.015, z + offZ);
+  dummy.position.set(x + offX, groundY + 0.04, z + offZ);
   dummy.rotation.set(-Math.PI / 2, 0, -angle + (Math.random() - 0.5) * 0.15);
   dummy.scale.set(scale, scale, scale);
   dummy.updateMatrix();
   iMesh.setMatrixAt(si, dummy.matrix);
 
   // Brighter start color when sprinting
-  const brightness = sprinting ? 0.9 : 0.6;
+  const brightness = sprinting ? 1.2 : 0.85;
   tmpColor.copy(baseColor).multiplyScalar(brightness);
   iMesh.setColorAt(si, tmpColor);
 }
@@ -166,7 +166,7 @@ export function updateFootprints(dt, rainRate) {
     const frac = p.life / p.maxLife;
     // Smooth ease-out fade
     const alpha = frac * frac;
-    tmpColor.copy(baseColor).multiplyScalar(alpha * 0.6);
+    tmpColor.copy(baseColor).multiplyScalar(alpha * 0.85);
     iMesh.setColorAt(i, tmpColor);
     needsColor = true;
   }

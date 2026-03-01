@@ -136,21 +136,21 @@ export function initAudio() {
       // Create shared reverb
       createReverb();
 
-      // --- Forest hum: gentle brown noise ---
-      const fh = loopNoise(brownBuf, 0.08, 160);
-      forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
+      // --- Forest hum: DISABLED ---
+      // const fh = loopNoise(brownBuf, 0.08, 160);
+      // forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
-      // --- Wind: white noise filtered, volume driven by weather ---
-      const wn = loopNoise(whiteBuf, 0, 400);
-      windNode = wn.node; windGain = wn.gain; windFilter = wn.filter;
+      // --- Wind: DISABLED ---
+      // const wn = loopNoise(whiteBuf, 0, 400);
+      // windNode = wn.node; windGain = wn.gain; windFilter = wn.filter;
 
-      // --- Rain: white noise, higher filter, volume driven by rain rate ---
-      const rn = loopNoise(whiteBuf, 0, 2000);
-      rainNode = rn.node; rainGain = rn.gain; rainFilter = rn.filter;
+      // --- Rain: DISABLED ---
+      // const rn = loopNoise(whiteBuf, 0, 2000);
+      // rainNode = rn.node; rainGain = rn.gain; rainFilter = rn.filter;
 
-      // --- Water: brown noise for pond proximity ---
-      const wt = loopNoise(brownBuf, 0, 600);
-      waterNode = wt.node; waterGain = wt.gain; waterFilter = wt.filter;
+      // --- Water: DISABLED ---
+      // const wt = loopNoise(brownBuf, 0, 600);
+      // waterNode = wt.node; waterGain = wt.gain; waterFilter = wt.filter;
 
       initialized = true;
     } catch (e) {
@@ -173,41 +173,41 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // --- Forest hum: slightly quieter at dawn, louder at deep night ---
-  const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
-  forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
+  // --- Forest hum: DISABLED ---
+  // const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
+  // forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
-  // --- Wind volume/filter scales with wind strength ---
-  const windVol = Math.min(windStrength * 0.15, 0.25);
-  const windFreq = 200 + windStrength * 600;
-  windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
-  windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
+  // --- Wind: DISABLED ---
+  // const windVol = Math.min(windStrength * 0.15, 0.25);
+  // const windFreq = 200 + windStrength * 600;
+  // windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
+  // windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
 
-  // --- Rain ---
-  const rainVol = rainRate * 0.20;
-  const rainFreq = 1200 + rainRate * 2000;
-  rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
-  rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
+  // --- Rain: DISABLED ---
+  // const rainVol = rainRate * 0.20;
+  // const rainFreq = 1200 + rainRate * 2000;
+  // rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
+  // rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
 
-  // --- Thunder ---
-  if (lightningFlash > 0.5 && thunderTimer <= 0) {
-    playThunder();
-    thunderTimer = 2 + Math.random() * 3;
-  }
-  thunderTimer -= dt;
+  // --- Thunder: DISABLED ---
+  // if (lightningFlash > 0.5 && thunderTimer <= 0) {
+  //   playThunder();
+  //   thunderTimer = 2 + Math.random() * 3;
+  // }
+  // thunderTimer -= dt;
 
-  // --- Water proximity (nearest pond within 15m) ---
-  let waterDist = Infinity;
-  if (playerPos && ponds) {
-    for (let i = 0; i < ponds.length; i++) {
-      const dx = ponds[i].x - playerPos.x, dz = ponds[i].z - playerPos.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < waterDist) waterDist = d2;
-    }
-  }
-  const waterProx = waterDist < 225 ? (1 - Math.sqrt(waterDist) / 15) : 0;
-  const waterVol = waterProx * 0.10;
-  waterGain.gain.linearRampToValueAtTime(waterVol, now + 0.1);
+  // --- Water: DISABLED ---
+  // let waterDist = Infinity;
+  // if (playerPos && ponds) {
+  //   for (let i = 0; i < ponds.length; i++) {
+  //     const dx = ponds[i].x - playerPos.x, dz = ponds[i].z - playerPos.z;
+  //     const d2 = dx * dx + dz * dz;
+  //     if (d2 < waterDist) waterDist = d2;
+  //   }
+  // }
+  // const waterProx = waterDist < 225 ? (1 - Math.sqrt(waterDist) / 15) : 0;
+  // const waterVol = waterProx * 0.10;
+  // waterGain.gain.linearRampToValueAtTime(waterVol, now + 0.1);
 
   // --- Creature cooldowns ---
   creatureCooldowns.jelly -= dt;
@@ -254,8 +254,6 @@ function playThunder() {
 // Creature Sounds — Ethereal & Musical
 // ================================================================
 export function playCreatureSound(type, position, playerPos) {
-  // DISABLED — testing if creature sounds cause the rumble
-  return;
   if (!initialized || muted || !ctx) return;
   if (creatureCooldowns[type] > 0) return;
 
@@ -391,7 +389,8 @@ export function playCreatureSound(type, position, playerPos) {
 let stepCooldown = 0;
 
 export function playFootstep(sprinting, nearWater) {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   if (stepCooldown > 0) return;
 
   const now = ctx.currentTime;
@@ -422,7 +421,8 @@ export function playFootstep(sprinting, nearWater) {
 }
 
 export function playJumpSound() {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
@@ -436,7 +436,8 @@ export function playJumpSound() {
 }
 
 export function playLandSound(impactStrength) {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   const now = ctx.currentTime;
   const noise = ctx.createBufferSource();
   noise.buffer = brownBuf;
@@ -457,7 +458,8 @@ export function updateStepCooldown(dt) {
 // Bubble pop sound — gentle water drop
 // ================================================================
 export function playBubblePop(position, playerPos) {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
   const d2 = dx * dx + dz * dz;
   if (d2 > 400) return;
@@ -479,7 +481,8 @@ export function playBubblePop(position, playerPos) {
 // Orb collection sound — ethereal rising chord
 // ================================================================
 export function playOrbCollect() {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   const now = ctx.currentTime;
   const freqs = [440, 554, 659, 880];
   for (let i = 0; i < freqs.length; i++) {
@@ -500,7 +503,8 @@ export function playOrbCollect() {
 // Fairy ring bounce — musical chime
 // ================================================================
 export function playFairyBounce() {
-  if (!initialized || muted || !ctx) return;
+  // DISABLED — isolating rumble source
+  return;
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
@@ -599,8 +603,6 @@ function spawnCricketPing(vol) {
 }
 
 export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
-  // DISABLED — testing if frogs/crickets cause the rumble
-  return;
   if (!initialized || muted || !ctx) return;
   ensureAmbient();
   if (!ambientInited) return;

@@ -141,7 +141,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     shader.uniforms.uPatchX = { value: patchX };
     shader.uniforms.uPatchZ = { value: patchZ };
 
-    // Declare uniforms + attribute in vertex shader
+    // Declare uniforms + attribute + glow varying in vertex shader
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
       `#include <common>
@@ -154,6 +154,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
       uniform float uPlayerZ;
       uniform float uPatchX;
       uniform float uPatchZ;
+      varying float vGlow;
       `
     );
 
@@ -187,7 +188,27 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
           transformed.z += cos(pAng) * flatten * hFrac * 0.15;
           transformed.y *= (1.0 - flatten * hFrac);
         }
+
+        // Proximity glow (5m radius, quadratic falloff)
+        vGlow = pd2 < 25.0 ? (1.0 - sqrt(pd2) / 5.0) * hFrac : 0.0;
+        vGlow *= vGlow;
+      } else {
+        vGlow = 0.0;
       }
+      `
+    );
+
+    // Fragment shader: declare glow varying + boost emissive near player
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+      varying float vGlow;
+      `
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+      totalEmissiveRadiance *= (1.0 + vGlow * 4.0);
       `
     );
   };

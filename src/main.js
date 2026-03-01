@@ -313,9 +313,37 @@ function populate() {
       keepOutZones.push({ x: px, z: pz, r2: 49 }); // 7m radius — matches flat zone effect range
     }
   }
-  // Mushrooms near trees
+  // Precompute tree density weights for biome-aware flora placement
+  const treeDensity = new Float32Array(trees_data.length);
+  let totalDensity = 0;
+  for (let i = 0; i < trees_data.length; i++) {
+    let count = 0;
+    for (let j = 0; j < trees_data.length; j++) {
+      if (i === j) continue;
+      const dx = trees_data[i].x - trees_data[j].x;
+      const dz = trees_data[i].z - trees_data[j].z;
+      if (dx * dx + dz * dz < 144) count++; // within 12m
+    }
+    treeDensity[i] = Math.max(count, 0.2); // floor so isolated trees aren't zero-weight
+    totalDensity += treeDensity[i];
+  }
+  // Helper: count trees within 10m of a position (for open-area detection)
+  function countNearTrees(x, z) {
+    let count = 0;
+    for (let j = 0; j < trees_data.length; j++) {
+      const dx = x - trees_data[j].x, dz = z - trees_data[j].z;
+      if (dx * dx + dz * dz < 100) count++;
+    }
+    return count;
+  }
+  // Mushrooms near trees — weighted toward dense groves
   for (let i = 0; i < MUSH_N; i++) {
-    const ref = trees_data[Math.floor(sr() * trees_data.length)];
+    let r = sr() * totalDensity, refIdx = 0;
+    for (let j = 0; j < treeDensity.length; j++) {
+      r -= treeDensity[j];
+      if (r <= 0) { refIdx = j; break; }
+    }
+    const ref = trees_data[refIdx];
     const ang = sr() * 6.28, d = 1 + sr() * 4;
     const mx = ref.x + Math.cos(ang) * d, mz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(mx, mz)) continue;
@@ -407,21 +435,23 @@ function populate() {
     ferns.push(f);
     keepOutZones.push({ x: fx, z: fz, r2: 1 });
   }
-  // Flowers
+  // Flowers — biased toward open areas
   for (let i = 0; i < FLOWER_N; i++) {
     const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7);
     const flx = Math.cos(ang) * d, flz = Math.sin(ang) * d;
     if (inKeepOut(flx, flz)) continue;
+    if (countNearTrees(flx, flz) > 1 && sr() < 0.8) continue;
     const fl = makeFlower(flx, flz);
     fl.group.position.y = getGroundY(flx, flz);
     flowers.push(fl);
     keepOutZones.push({ x: flx, z: flz, r2: 1 });
   }
-  // Reeds
+  // Reeds — biased toward open areas
   for (let i = 0; i < REED_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8);
     const rdx = Math.cos(ang) * d, rdz = Math.sin(ang) * d;
     if (inKeepOut(rdx, rdz)) continue;
+    if (countNearTrees(rdx, rdz) > 1 && sr() < 0.8) continue;
     const rd = makeReed(rdx, rdz);
     rd.group.position.y = getGroundY(rdx, rdz);
     reeds.push(rd);
@@ -452,11 +482,12 @@ function populate() {
     const wx = Math.cos(wa) * wd, wz = Math.sin(wa) * wd;
     wisps.push(makeWisp(wx, getGroundY(wx, wz) + 1.0 + sr() * 0.5, wz));
   }
-  // Dandelions
+  // Dandelions — biased toward open areas
   for (let i = 0; i < DANDELION_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7);
     const dnx = Math.cos(ang) * d, dnz = Math.sin(ang) * d;
     if (inKeepOut(dnx, dnz)) continue;
+    if (countNearTrees(dnx, dnz) > 1 && sr() < 0.8) continue;
     const dn = makeDandelion(dnx, dnz);
     dn.group.position.y = getGroundY(dnx, dnz);
     dandelions.push(dn);

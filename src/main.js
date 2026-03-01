@@ -32,7 +32,7 @@ import { initAurora, updateAurora } from './world/aurora.js';
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
 
 // Entities — Flora
-import { makeTree } from './entities/flora/trees.js';
+import { makeTree, makeTreeImpostor } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
 import { makeGrassPatch, updateGrassGlobals } from './entities/flora/grass.js';
@@ -201,8 +201,13 @@ function populate() {
     }
     if (ok) {
       const g = makeTree(x, z);
-      g.position.y = getGroundY(x, z);
-      trees_data.push({ group: g, x: x, z: z });
+      const gy = getGroundY(x, z);
+      g.position.y = gy;
+      const treeH = g.userData.treeH || 10;
+      const impostor = makeTreeImpostor(treeH, gy);
+      impostor.position.x = x;
+      impostor.position.z = z;
+      trees_data.push({ group: g, x, z, impostor, treeH });
       keepOutZones.push({ x, z, r2: 4 }); // 2m radius
     }
   }
@@ -436,37 +441,44 @@ function updateVegetation(dt, t) {
   const wAmp = 1.0 + windStrength * 1.5; // wind amplifies sway
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
-  // --- Tree visibility LOD + wind sway ---
-  // Near (<70m): full detail, wind sway animation
-  // Mid (70-110m): only underglow haze visible (cheap distant glow)
-  // Far (>110m): hidden entirely (saves all draw calls)
-  const px = player.pos.x, pz = player.pos.z;
+  // --- Tree 4-tier LOD with 3D distance (Y-aware for high jumps) ---
+  // Tier 0 (<20m): full detail — all children, wind sway
+  // Tier 1 (20-70m): reduced — hide detail children (veins, roots, moss, fungi)
+  // Tier 2 (70-110m): impostor — hide tree group, show billboard sprite
+  // Tier 3 (>110m): hidden entirely
+  const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
   for (let i = 0; i < trees_data.length; i++) {
     const tr = trees_data[i];
     const tdx = tr.x - px, tdz = tr.z - pz;
-    const d2 = tdx * tdx + tdz * tdz;
-    if (d2 > 12100) { // >110m — hide entirely
+    const tdy = (tr.group.position.y + (tr.treeH || 10) * 0.4) - py;
+    const d2 = tdx * tdx + tdy * tdy + tdz * tdz;
+    if (d2 > 12100) { // >110m — hide everything
       if (tr.group.visible) tr.group.visible = false;
+      if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
       continue;
     }
+    if (d2 > 4900) { // 70-110m — billboard impostor only
+      if (tr.group.visible) tr.group.visible = false;
+      if (tr.impostor) tr.impostor.visible = true;
+      tr._lod = 2;
+      continue;
+    }
+    // <70m — show tree group, hide impostor
     if (!tr.group.visible) tr.group.visible = true;
-    if (d2 > 4900) { // 70-110m — show only underglow haze
+    if (tr.impostor && tr.impostor.visible) tr.impostor.visible = false;
+    if (d2 > 400) { // 20-70m — reduced detail
       if (tr._lod !== 1) {
         const children = tr.group.children;
-        for (let c = 0; c < children.length - 2; c++) children[c].visible = false;
-        children[children.length - 2].visible = true;
-        children[children.length - 1].visible = true;
+        for (let c = 0; c < children.length; c++)
+          children[c].visible = !children[c].userData.detail;
         tr._lod = 1;
       }
-      continue;
-    }
-    // <70m — full detail
-    if (tr._lod !== 0) {
-      const children = tr.group.children;
-      for (let c = 0; c < children.length; c++) children[c].visible = true;
-      tr._lod = 0;
-    }
-    if (d2 < 900) { // only animate sway within 30m
+    } else { // <20m — full detail
+      if (tr._lod !== 0) {
+        const children = tr.group.children;
+        for (let c = 0; c < children.length; c++) children[c].visible = true;
+        tr._lod = 0;
+      }
       const tPhase = tr.x * 0.1 + tr.z * 0.13;
       tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
       tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
@@ -474,22 +486,22 @@ function updateVegetation(dt, t) {
   }
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
-  // Ferns — visibility cull beyond 40m, animate within 30m
+  // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
-    const fdx = f.group.position.x - px, fdz = f.group.position.z - pz;
-    const fd2 = fdx * fdx + fdz * fdz;
+    const fdx = f.group.position.x - px, fdy = f.group.position.y - py, fdz = f.group.position.z - pz;
+    const fd2 = fdx * fdx + fdy * fdy + fdz * fdz;
     if (fd2 > 1600) { if (f.group.visible) f.group.visible = false; continue; }
     if (!f.group.visible) f.group.visible = true;
     if (fd2 > 900) continue;
     f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
     f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
   }
-  // Flowers — visibility cull beyond 40m, animate within 30m
+  // Flowers — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
-    const fldx = fl.group.position.x - px, fldz = fl.group.position.z - pz;
-    const fld2 = fldx * fldx + fldz * fldz;
+    const fldx = fl.group.position.x - px, fldy = fl.group.position.y - py, fldz = fl.group.position.z - pz;
+    const fld2 = fldx * fldx + fldy * fldy + fldz * fldz;
     if (fld2 > 1600) { if (fl.group.visible) fl.group.visible = false; continue; }
     if (!fl.group.visible) fl.group.visible = true;
     if (fld2 > 900) continue;
@@ -497,11 +509,11 @@ function updateVegetation(dt, t) {
     fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
     fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
-  // Reeds — visibility cull beyond 40m, animate within 30m
+  // Reeds — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < reeds.length; i++) {
     const r = reeds[i];
-    const rdx = r.group.position.x - px, rdz = r.group.position.z - pz;
-    const rd2 = rdx * rdx + rdz * rdz;
+    const rdx = r.group.position.x - px, rdy = r.group.position.y - py, rdz = r.group.position.z - pz;
+    const rd2 = rdx * rdx + rdy * rdy + rdz * rdz;
     if (rd2 > 1600) { if (r.group.visible) r.group.visible = false; continue; }
     if (!r.group.visible) r.group.visible = true;
     if (rd2 > 900) continue;
@@ -1435,7 +1447,7 @@ function updateEchoBloom(dt, t) {
 // Reactive Flora (proximity/touch responses)
 // ================================================================
 function updateFloraReactions(dt, t) {
-  const px = player.pos.x, pz = player.pos.z;
+  const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
   const curRain = getRainRate();
   const stormDroop = isStorming ? 0.6 : (curRain > 0.3 ? curRain * 0.4 : 0);
 
@@ -1594,11 +1606,11 @@ function director(dt, t) {
     }
   }
 
-  // Mushroom glow pulse + visibility cull
+  // Mushroom glow pulse + visibility cull (3D distance)
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
-    const mdx = m.x - player.pos.x, mdz = m.z - player.pos.z;
-    const md2 = mdx * mdx + mdz * mdz;
+    const mdx = m.x - px, mdy = (m.group.position.y || 0) - py, mdz = m.z - pz;
+    const md2 = mdx * mdx + mdy * mdy + mdz * mdz;
     if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
@@ -1680,11 +1692,12 @@ function director(dt, t) {
   updateSky(dt, t);
   updateVegetation(dt, t);
   // Batch 2 Item 3: Rock sparkles reactive to crystals, player, and chain resonance
+  const rpx = player.pos.x, rpy = player.pos.y, rpz = player.pos.z;
   for (let i = 0; i < rocks_data.length; i++) {
     const rk = rocks_data[i];
     const rx = rk.x || rk.group.position.x, rz = rk.z || rk.group.position.z;
-    const rrx = rx - player.pos.x, rrz = rz - player.pos.z;
-    const rd2 = rrx * rrx + rrz * rrz;
+    const rrx = rx - rpx, rry = (rk.group.position.y || 0) - rpy, rrz = rz - rpz;
+    const rd2 = rrx * rrx + rry * rry + rrz * rrz;
     // Visibility cull beyond 50m
     if (rd2 > 2500) { if (rk.group.visible) rk.group.visible = false; continue; }
     if (!rk.group.visible) rk.group.visible = true;

@@ -12,7 +12,48 @@ const GLOW_PALETTES = [
   { leaf: 0x182844, glow: 0x3388cc, core: 0x55bbff },  // blue (rare)
 ];
 
+// ================================================================
+// Billboard impostor — procedural glow texture for distant trees
+// ================================================================
+let _glowTexture = null;
+function getGlowTexture() {
+  if (_glowTexture) return _glowTexture;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const c = canvas.getContext('2d');
+  const grad = c.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(68, 255, 136, 0.55)');
+  grad.addColorStop(0.25, 'rgba(34, 204, 100, 0.35)');
+  grad.addColorStop(0.6, 'rgba(20, 120, 60, 0.12)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  c.fillStyle = grad;
+  c.fillRect(0, 0, size, size);
+  _glowTexture = new THREE.CanvasTexture(canvas);
+  return _glowTexture;
+}
+
+// Create a billboard impostor sprite for a tree (1 draw call at distance)
+export function makeTreeImpostor(treeH, groundY) {
+  const mat = new THREE.SpriteMaterial({
+    map: getGlowTexture(),
+    color: 0x33cc88,
+    transparent: true,
+    opacity: 0.65,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  const sprite = new THREE.Sprite(mat);
+  const canopyW = treeH * 0.55;
+  sprite.scale.set(canopyW * 2.2, canopyW * 1.6, 1);
+  sprite.position.y = groundY + treeH * 0.6;
+  sprite.visible = false;
+  scene.add(sprite);
+  return sprite;
+}
+
 // --- Trees (bioluminescent canopy with layered glow, bark veins, roots) ---
+// Child meshes tagged with userData.detail = true are hidden at medium distance
 export function makeTree(x, z) {
   const g = new THREE.Group();
   const h = 6 + sr() * 10, r = 0.2 + sr() * 0.3;
@@ -36,6 +77,7 @@ export function makeTree(x, z) {
     const vH = h * 0.4 + sr() * h * 0.4;
     const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.015, vH, 3), veinM);
     vein.position.set(Math.cos(va) * r * 0.74, h * 0.15 + vH / 2, Math.sin(va) * r * 0.74);
+    vein.userData.detail = true;
     g.add(vein);
   }
 
@@ -51,7 +93,9 @@ export function makeTree(x, z) {
     const root = new THREE.Mesh(new THREE.CylinderGeometry(0.02, r * 0.3, rLen, 4), rootM);
     root.position.set(Math.cos(ra) * r * 0.5, 0.08, Math.sin(ra) * r * 0.5);
     root.rotation.z = ra < 3.14 ? (1.2 + sr() * 0.3) : -(1.2 + sr() * 0.3);
-    root.rotation.y = ra; g.add(root);
+    root.rotation.y = ra;
+    root.userData.detail = true;
+    g.add(root);
   }
 
   // Branches with multi-layered bioluminescent canopy clusters
@@ -62,7 +106,9 @@ export function makeTree(x, z) {
     // Branch
     const br = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.06, bl, 4), tM);
     br.position.set(Math.cos(ang) * 0.3, by, Math.sin(ang) * 0.3);
-    br.rotation.z = (sr() - 0.5) * 1.2; br.rotation.y = ang; br.castShadow = true; g.add(br);
+    br.rotation.z = (sr() - 0.5) * 1.2; br.rotation.y = ang; br.castShadow = true;
+    br.userData.detail = true;
+    g.add(br);
 
     // Pick a glow palette for this cluster (color variety between branches)
     const pal = GLOW_PALETTES[Math.floor(sr() * GLOW_PALETTES.length)];
@@ -114,6 +160,7 @@ export function makeTree(x, z) {
       const moss = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, mLen, 3), mossMat);
       const mOff = sr() * bl * 0.4;
       moss.position.set(Math.cos(ang) * (0.3 + mOff), by - mLen / 2 - sr() * 0.3, Math.sin(ang) * (0.3 + mOff));
+      moss.userData.detail = true;
       g.add(moss);
     }
   }
@@ -129,7 +176,9 @@ export function makeTree(x, z) {
     const fung = new THREE.Mesh(new THREE.SphereGeometry(0.08 + sr() * 0.08, 5, 3), fungM);
     fung.scale.set(1.5, 0.3, 1);
     fung.position.set(Math.cos(fa) * r * 0.8, fy, Math.sin(fa) * r * 0.8);
-    fung.rotation.y = -fa; g.add(fung);
+    fung.rotation.y = -fa;
+    fung.userData.detail = true;
+    g.add(fung);
   }
 
   // Canopy underglow — overall glow aura below the leaf clusters
@@ -146,5 +195,6 @@ export function makeTree(x, z) {
   mound.scale.set(1, 0.12, 1); mound.position.y = 0.02; g.add(mound);
 
   g.position.set(x, 0, z); scene.add(g);
+  g.userData.treeH = h;
   return g;
 }

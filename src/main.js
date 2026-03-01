@@ -20,7 +20,7 @@ import * as THREE from 'three';
 
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
-import { render as postRender } from './core/postprocessing.js';
+import { render as postRender, bloomPass } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
 import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump } from './core/input.js';
 import { GEO } from './core/geometries.js';
@@ -753,7 +753,7 @@ function populate() {
         // Slope tilt + Y rotation
         _tNorm.set(n.x, n.y, n.z);
         _tSQ.setFromUnitVectors(_tUp, _tNorm);
-        _tSQ.slerp(_tIQ, 0.65); // 35% tilt
+        _tSQ.slerp(_tIQ, 0.35); // 65% tilt
         _tYQ.setFromAxisAngle(_tUp, td.yRot);
         _d.quaternion.copy(_tSQ).multiply(_tYQ);
         _d.scale.setScalar(td.scale);
@@ -2341,40 +2341,45 @@ function animate() {
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
   const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.65 = deeply dimmed
 
-  // Renderer exposure: 2.8 at full glow → 0.7 in dimmed zones (4x ratio)
-  renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
+  // Renderer exposure: 2.8 at full glow → 0.45 in dimmed zones (6x ratio)
+  renderer.toneMappingExposure = 0.45 + 2.35 * smoothedDimFactor;
 
   // Fog: 2.5× thicker + heavily desaturated in dimmed zones
   scene.fog.density *= (1.0 + 1.5 * desatT);
   const fogLuma = scene.fog.color.r * 0.299 + scene.fog.color.g * 0.587 + scene.fog.color.b * 0.114;
   _dimGrey.setRGB(fogLuma, fogLuma, fogLuma);
-  scene.fog.color.lerp(_dimGrey, desatT * 0.92);
+  scene.fog.color.lerp(_dimGrey, desatT * 0.98);
 
   // Hemisphere sky color: near-monochrome in dimmed zones
   const skyLuma = hemiLight.color.r * 0.299 + hemiLight.color.g * 0.587 + hemiLight.color.b * 0.114;
   _dimGrey.setRGB(skyLuma, skyLuma, skyLuma);
-  hemiLight.color.lerp(_dimGrey, desatT * 0.92);
+  hemiLight.color.lerp(_dimGrey, desatT * 0.98);
 
   // Hemisphere ground color: near-monochrome in dimmed zones
   const gndLuma = hemiLight.groundColor.r * 0.299 + hemiLight.groundColor.g * 0.587 + hemiLight.groundColor.b * 0.114;
   _dimGrey.setRGB(gndLuma, gndLuma, gndLuma);
-  hemiLight.groundColor.lerp(_dimGrey, desatT * 0.92);
+  hemiLight.groundColor.lerp(_dimGrey, desatT * 0.98);
 
-  // Scene background: heavily desaturated
+  // Scene background: near-monochrome in dimmed zones
   const bgLuma = scene.background.r * 0.299 + scene.background.g * 0.587 + scene.background.b * 0.114;
   _dimGrey.setRGB(bgLuma, bgLuma, bgLuma);
-  scene.background.lerp(_dimGrey, desatT * 0.85);
+  scene.background.lerp(_dimGrey, desatT * 0.95);
 
-  // Hemisphere ambient: 75% reduction at full dimming
-  hemiLight.intensity *= (0.25 + 0.75 * smoothedDimFactor);
+  // Hemisphere ambient: 88% reduction at full dimming
+  hemiLight.intensity *= (0.12 + 0.88 * smoothedDimFactor);
 
-  // Player light: barely a glow in dimmed zones
-  playerLight.intensity *= (0.15 + 0.85 * smoothedDimFactor);
-  playerLight.distance *= (0.35 + 0.65 * smoothedDimFactor);
+  // Player light: nearly invisible in dimmed zones
+  playerLight.intensity *= (0.08 + 0.92 * smoothedDimFactor);
+  playerLight.distance *= (0.20 + 0.80 * smoothedDimFactor);
   playerLight.color.copy(_playerLightBaseColor);
   const plLuma = _playerLightBaseColor.r * 0.299 + _playerLightBaseColor.g * 0.587 + _playerLightBaseColor.b * 0.114;
   _dimGrey.setRGB(plLuma, plLuma, plLuma);
-  playerLight.color.lerp(_dimGrey, desatT * 0.8);
+  playerLight.color.lerp(_dimGrey, desatT * 0.95);
+
+  // Bloom threshold: higher in dimmed zones → suppresses glow, makes orb pop dramatic
+  if (bloomPass) {
+    bloomPass.threshold = 0.85 + desatT * 0.35; // 0.85 → 1.20 during dimming
+  }
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom

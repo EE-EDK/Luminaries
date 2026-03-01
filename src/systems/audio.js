@@ -893,7 +893,7 @@ function initMusic() {
   if (musicInited || !ctx) return;
   musicInited = true;
   musicMasterGain = ctx.createGain();
-  musicMasterGain.gain.value = 0.011;
+  musicMasterGain.gain.value = 0.004;
   musicMasterGain.connect(masterGain);
   musicTimer = 1.5; // start after 1.5s delay
   accomTimer = 3;
@@ -938,7 +938,7 @@ function updatePad() {
 
   padGain = ctx.createGain();
   padGain.gain.setValueAtTime(0, now);
-  padGain.gain.linearRampToValueAtTime(0.15, now + 4); // gentle fade in (lighter drone)
+  padGain.gain.linearRampToValueAtTime(0.07, now + 4); // gentle fade in — low drone
 
   padFilter = ctx.createBiquadFilter();
   padFilter.type = 'lowpass';
@@ -958,7 +958,7 @@ function updatePad() {
   osc3.type = 'sine';
   osc3.frequency.value = freq * 1.5; // perfect fifth
   const fifthGain = ctx.createGain();
-  fifthGain.gain.value = 0.08; // subtle overtone
+  fifthGain.gain.value = 0.04; // subtle overtone
   osc3.connect(fifthGain).connect(padFilter);
 
   padOsc1.connect(padFilter);
@@ -1093,7 +1093,7 @@ function initPulse() {
   pulseTimer = 2; // start after 2s
   pulsePhase = 0;
   // 8-beat pattern with varying accents to match the melodic contour
-  pulsePattern = [0.4, 0.3, 0.25, 0.35, 0.2, 0.15, 0.3, 0.25];
+  pulsePattern = [0.2, 0.15, 0.12, 0.18, 0.1, 0.08, 0.15, 0.12];
 }
 
 function playPulseTick(vol) {
@@ -1224,7 +1224,7 @@ function generatePhrase() {
   let degree = lastDegree + (Math.random() < 0.7 ? 0 : (Math.random() < 0.5 ? 1 : -1));
   degree = Math.max(-2, Math.min(8, degree));
 
-  const vol = 0.5 + Math.random() * 0.4;
+  const vol = 0.25 + Math.random() * 0.2;
   let totalDelay = 0;
 
   for (let i = 0; i < phraseLen; i++) {
@@ -1267,7 +1267,7 @@ function generateAccompaniment() {
     (Math.random() < 0.5 ? 'lute' : 'shimmer');
 
   const spacing = 2.0 + Math.random() * 3.0; // slow, spacious accompaniment
-  const vol = 0.3 + Math.random() * 0.3; // quieter than primary
+  const vol = 0.15 + Math.random() * 0.15; // quieter than primary
   let degree = currentPadDegree; // harmonically anchored to drone
 
   for (let i = 0; i < accomLen; i++) {
@@ -1295,14 +1295,14 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
   currentScale = (dayPhase === 'DEEP_NIGHT' || dayPhase === 'NIGHT') ? DORIAN : PENTATONIC;
   currentOctaveShift = dayPhase === 'DAY' ? 1 : 0;
 
-  // Volume by time of day — slightly higher overall
-  const dayVol = dayPhase === 'DEEP_NIGHT' ? 0.010 :
-    dayPhase === 'NIGHT' ? 0.013 :
-    dayPhase === 'DAWN' ? 0.015 :
-    dayPhase === 'DAY' ? 0.008 : 0.013;
+  // Volume by time of day — kept low to avoid overdrive
+  const dayVol = dayPhase === 'DEEP_NIGHT' ? 0.004 :
+    dayPhase === 'NIGHT' ? 0.005 :
+    dayPhase === 'DAWN' ? 0.006 :
+    dayPhase === 'DAY' ? 0.003 : 0.005;
 
   // Reactive volume boost near magical areas
-  const magicBoost = nearMagical ? 1.35 : 1.0;
+  const magicBoost = nearMagical ? 1.15 : 1.0;
   musicMasterGain.gain.linearRampToValueAtTime(dayVol * magicBoost, now + 2);
 
   // Reactivity: player movement controls phrase density

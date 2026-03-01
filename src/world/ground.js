@@ -27,21 +27,21 @@ function makeGroundTexture() {
   const ctx = cv.getContext('2d');
   const R = Math.random;
 
-  // ---- 1. Base: rich dark green (visible, not black) ----
-  ctx.fillStyle = '#2a4a2e'; ctx.fillRect(0, 0, S, S);
+  // ---- 1. Base: dark earthy green ----
+  ctx.fillStyle = '#223822'; ctx.fillRect(0, 0, S, S);
 
-  // Large biome patches — green-dominant with earth accents
+  // Large biome patches — mixed earth tones and muted greens
   const biomes = [
-    { col: 'rgba(40,75,40,0.40)', n: 16, r: 130 },  // forest green
-    { col: 'rgba(50,85,45,0.35)', n: 14, r: 120 },  // bright moss
-    { col: 'rgba(30,60,35,0.38)', n: 14, r: 115 },  // deep green
-    { col: 'rgba(55,70,30,0.32)', n: 12, r: 110 },  // olive green
-    { col: 'rgba(35,55,45,0.35)', n: 10, r: 100 },  // teal-green
-    { col: 'rgba(60,50,28,0.28)', n: 10, r: 100 },  // warm earth accent
-    { col: 'rgba(45,80,50,0.30)', n: 10, r: 105 },  // emerald
-    { col: 'rgba(70,55,25,0.22)', n: 8, r: 90 },    // golden earth accent
-    { col: 'rgba(25,65,50,0.28)', n: 8, r: 95 },    // deep teal
-    { col: 'rgba(50,40,22,0.20)', n: 6, r: 85 },    // brown accent (sparse)
+    { col: 'rgba(50,45,25,0.38)', n: 16, r: 130 },  // warm earth (dominant)
+    { col: 'rgba(35,55,30,0.35)', n: 14, r: 120 },  // muted forest green
+    { col: 'rgba(55,40,22,0.35)', n: 14, r: 115 },  // brown earth
+    { col: 'rgba(45,55,28,0.32)', n: 12, r: 110 },  // olive
+    { col: 'rgba(60,48,25,0.32)', n: 12, r: 105 },  // warm umber
+    { col: 'rgba(30,50,32,0.30)', n: 10, r: 100 },  // deep green
+    { col: 'rgba(65,50,28,0.28)', n: 10, r: 100 },  // golden earth
+    { col: 'rgba(40,60,35,0.26)', n: 10, r: 95 },   // mossy
+    { col: 'rgba(70,45,22,0.24)', n: 8, r: 90 },    // russet
+    { col: 'rgba(45,35,18,0.22)', n: 8, r: 85 },    // dark loam
   ];
   for (const b of biomes) {
     for (let i = 0; i < b.n; i++) {
@@ -60,11 +60,11 @@ function makeGroundTexture() {
     }
   }
 
-  // ---- 2. Organic cell noise (multi-scale, green-shifted) ----
+  // ---- 2. Organic cell noise (multi-scale, earthy with green) ----
   const cellPasses = [
-    { n: 80, r: 25, colors: ['rgba(35,60,30,0.25)', 'rgba(45,70,35,0.22)', 'rgba(28,50,28,0.22)', 'rgba(40,55,25,0.20)', 'rgba(55,45,20,0.18)', 'rgba(30,65,40,0.18)'] },
-    { n: 200, r: 10, colors: ['rgba(40,65,35,0.16)', 'rgba(50,55,28,0.14)', 'rgba(30,55,30,0.14)', 'rgba(35,70,40,0.12)', 'rgba(45,50,22,0.12)', 'rgba(28,60,38,0.10)'] },
-    { n: 500, r: 4, colors: ['rgba(40,60,30,0.12)', 'rgba(50,50,25,0.10)', 'rgba(30,55,28,0.10)', 'rgba(35,65,35,0.08)', 'rgba(48,45,18,0.08)', 'rgba(25,58,35,0.06)'] },
+    { n: 80, r: 25, colors: ['rgba(45,40,22,0.24)', 'rgba(38,55,30,0.20)', 'rgba(50,38,18,0.22)', 'rgba(35,48,25,0.18)', 'rgba(55,42,20,0.20)', 'rgba(30,52,32,0.16)'] },
+    { n: 200, r: 10, colors: ['rgba(45,40,20,0.14)', 'rgba(35,50,28,0.12)', 'rgba(50,38,18,0.12)', 'rgba(30,48,28,0.10)', 'rgba(48,42,18,0.12)', 'rgba(28,45,30,0.08)'] },
+    { n: 500, r: 4, colors: ['rgba(42,38,18,0.10)', 'rgba(35,48,25,0.08)', 'rgba(48,36,16,0.08)', 'rgba(30,45,28,0.06)', 'rgba(45,40,16,0.08)', 'rgba(25,42,28,0.05)'] },
   ];
   for (const pass of cellPasses) {
     for (let i = 0; i < pass.n; i++) {
@@ -74,8 +74,8 @@ function makeGroundTexture() {
     }
   }
 
-  // ---- 3. Bioluminescent mycelium network (prominent glowing veins) ----
-  const glowCols = ['rgba(60,220,110,0.14)', 'rgba(50,200,130,0.12)', 'rgba(80,180,220,0.10)', 'rgba(100,240,160,0.13)', 'rgba(70,190,170,0.11)'];
+  // ---- 3. Bioluminescent mycelium network (glowing veins) ----
+  const glowCols = ['rgba(50,180,90,0.10)', 'rgba(40,160,100,0.08)', 'rgba(65,145,170,0.07)', 'rgba(80,200,130,0.09)', 'rgba(55,155,135,0.08)'];
   for (let vi = 0; vi < 45; vi++) {
     let vx = R() * S, vy = R() * S;
     const vCol = glowCols[Math.floor(R() * glowCols.length)];
@@ -159,13 +159,13 @@ function makeGroundTexture() {
     ctx.stroke();
   }
 
-  // ---- 6. Leaf litter and debris (green-shifted) ----
+  // ---- 6. Leaf litter and debris (earthy mix) ----
   const leafCols = [
-    'rgba(40,65,25,0.28)', 'rgba(55,50,20,0.25)', 'rgba(35,70,30,0.25)',
-    'rgba(25,55,30,0.22)', 'rgba(50,60,22,0.22)', 'rgba(30,75,40,0.20)',
-    'rgba(60,45,18,0.20)', 'rgba(45,55,20,0.18)',
-    'rgba(65,55,25,0.22)', 'rgba(70,50,20,0.18)',
-    'rgba(35,60,35,0.22)', 'rgba(50,80,40,0.16)'
+    'rgba(55,40,18,0.28)', 'rgba(50,50,22,0.25)', 'rgba(35,55,25,0.22)',
+    'rgba(60,45,20,0.25)', 'rgba(45,52,22,0.22)', 'rgba(65,48,22,0.22)',
+    'rgba(40,55,28,0.20)', 'rgba(55,42,16,0.20)',
+    'rgba(70,50,22,0.22)', 'rgba(48,38,15,0.20)',
+    'rgba(30,50,28,0.18)', 'rgba(60,55,25,0.16)'
   ];
   for (let i = 0; i < 3500; i++) {
     ctx.fillStyle = leafCols[Math.floor(R() * leafCols.length)];
@@ -174,24 +174,27 @@ function makeGroundTexture() {
     ctx.beginPath(); ctx.arc(lx, ly, lr, 0, 6.28); ctx.fill();
   }
 
-  // ---- 7. Moss cluster blobs (prominent, green-dominant) ----
-  for (let mci = 0; mci < 60; mci++) {
+  // ---- 7. Moss and earth cluster blobs ----
+  for (let mci = 0; mci < 50; mci++) {
     const mx = R() * S, my = R() * S;
-    const mrad = 15 + R() * 40;
+    const mrad = 15 + R() * 35;
     const grad = ctx.createRadialGradient(mx, my, 0, mx, my, mrad);
     const mCol = R();
-    if (mCol < 0.35) {
-      grad.addColorStop(0, 'rgba(40,80,45,0.22)');
-      grad.addColorStop(1, 'rgba(22,45,25,0)');
-    } else if (mCol < 0.6) {
-      grad.addColorStop(0, 'rgba(35,90,50,0.20)');
-      grad.addColorStop(1, 'rgba(20,50,30,0)');
-    } else if (mCol < 0.8) {
-      grad.addColorStop(0, 'rgba(50,70,35,0.18)');
-      grad.addColorStop(1, 'rgba(28,40,20,0)');
+    if (mCol < 0.25) {
+      grad.addColorStop(0, 'rgba(35,60,35,0.18)');   // muted moss
+      grad.addColorStop(1, 'rgba(20,35,20,0)');
+    } else if (mCol < 0.5) {
+      grad.addColorStop(0, 'rgba(55,42,20,0.18)');   // warm earth
+      grad.addColorStop(1, 'rgba(30,22,10,0)');
+    } else if (mCol < 0.7) {
+      grad.addColorStop(0, 'rgba(45,55,28,0.16)');   // olive
+      grad.addColorStop(1, 'rgba(25,30,15,0)');
+    } else if (mCol < 0.85) {
+      grad.addColorStop(0, 'rgba(60,45,22,0.15)');   // brown loam
+      grad.addColorStop(1, 'rgba(32,24,12,0)');
     } else {
-      grad.addColorStop(0, 'rgba(45,85,55,0.16)');
-      grad.addColorStop(1, 'rgba(25,48,30,0)');
+      grad.addColorStop(0, 'rgba(38,65,40,0.14)');   // green accent
+      grad.addColorStop(1, 'rgba(22,38,22,0)');
     }
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.arc(mx, my, mrad, 0, 6.28); ctx.fill();
@@ -218,10 +221,10 @@ function makeGroundTexture() {
     ctx.stroke();
   }
 
-  // ---- 10. Bioluminescent spore spots (brighter) ----
+  // ---- 10. Bioluminescent spore spots ----
   const sporeCols = [
-    'rgba(80,240,120,0.14)', 'rgba(60,220,160,0.12)', 'rgba(100,200,230,0.10)',
-    'rgba(130,110,220,0.08)', 'rgba(200,170,80,0.06)', 'rgba(60,200,190,0.10)'
+    'rgba(60,190,100,0.10)', 'rgba(50,175,130,0.08)', 'rgba(80,160,180,0.07)',
+    'rgba(100,90,170,0.06)', 'rgba(160,130,60,0.05)', 'rgba(50,160,150,0.07)'
   ];
   for (let ri = 0; ri < 400; ri++) {
     const rx = R() * S, ry = R() * S;
@@ -238,10 +241,10 @@ function makeGroundTexture() {
     }
   }
 
-  // ---- 11. Dew/moisture highlights (greener) ----
-  for (let dsi = 0; dsi < 200; dsi++) {
+  // ---- 11. Dew/moisture highlights ----
+  for (let dsi = 0; dsi < 150; dsi++) {
     const dx = R() * S, dy = R() * S;
-    ctx.fillStyle = `rgba(100,200,140,${0.05 + R() * 0.05})`;
+    ctx.fillStyle = `rgba(90,150,110,${0.04 + R() * 0.04})`;
     ctx.beginPath(); ctx.arc(dx, dy, 0.5 + R() * 1.5, 0, 6.28); ctx.fill();
   }
 
@@ -280,18 +283,18 @@ export function createGround() {
   const posAttr = geo.attributes.position;
 
   // --- Vertex color biomes ---
-  // Green-dominant palette — multiplies with the canvas texture
+  // Earthy mix with muted greens — multiplies with canvas texture
   const biomes = [
-    [0.55, 0.90, 0.55],  // forest green (most common)
-    [0.50, 0.85, 0.50],  // deep forest
-    [0.60, 0.95, 0.60],  // bright moss
-    [0.45, 0.80, 0.55],  // teal-green
-    [0.65, 0.85, 0.45],  // olive-green
-    [0.70, 0.70, 0.40],  // earthy accent
-    [0.40, 0.75, 0.60],  // cool green
-    [0.55, 0.95, 0.65],  // emerald
-    [0.75, 0.65, 0.38],  // warm earth accent
-    [0.50, 0.88, 0.58],  // soft green
+    [0.65, 0.60, 0.38],  // earthy brown (common)
+    [0.50, 0.70, 0.42],  // muted forest green
+    [0.72, 0.58, 0.35],  // warm umber
+    [0.55, 0.68, 0.40],  // olive
+    [0.60, 0.55, 0.32],  // dark earth
+    [0.45, 0.65, 0.45],  // mossy green
+    [0.68, 0.62, 0.36],  // golden earth
+    [0.48, 0.72, 0.48],  // forest accent
+    [0.75, 0.55, 0.32],  // russet
+    [0.55, 0.60, 0.38],  // dusty olive
   ];
   const vCount = posAttr.count;
   const colorArr = new Float32Array(vCount * 3);
@@ -319,7 +322,7 @@ export function createGround() {
     const b1 = biomes[biomeIdx], b2 = biomes[biome2Idx];
 
     const blend = gsmooth(n2);
-    const brightness = 0.90 + n3 * 0.25;
+    const brightness = 0.82 + n3 * 0.25;
     const r = (b1[0] * (1 - blend) + b2[0] * blend) * brightness;
     const g = (b1[1] * (1 - blend) + b2[1] * blend) * brightness;
     const b = (b1[2] * (1 - blend) + b2[2] * blend) * brightness;
@@ -336,7 +339,7 @@ export function createGround() {
 
   const mat = new THREE.MeshStandardMaterial({
     map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
-    emissive: 0x1a3820, emissiveIntensity: 0.35
+    emissive: 0x152e18, emissiveIntensity: 0.25
   });
 
   // Inject procedural patterns + player proximity glow via shader
@@ -409,13 +412,13 @@ export function createGround() {
       float veins = max(vein1, vein2 * 0.7);
       // Subtle pulse on mycelium
       float veinPulse = 0.7 + 0.3 * sin(uTime * 0.4 + vn1 * 8.0);
-      totalEmissiveRadiance += veins * vec3(0.12, 0.45, 0.25) * veinPulse * 0.5;
+      totalEmissiveRadiance += veins * vec3(0.08, 0.30, 0.16) * veinPulse * 0.4;
 
       // --- Organic ring patterns (growth rings from noise) ---
       float ringN = gNoise(wp * 0.06 + 10.0);
       float ring = sin(ringN * 25.0) * 0.5 + 0.5;
-      ring = smoothstep(0.88, 1.0, ring) * 0.35;
-      totalEmissiveRadiance += ring * vec3(0.08, 0.30, 0.15);
+      ring = smoothstep(0.88, 1.0, ring) * 0.25;
+      totalEmissiveRadiance += ring * vec3(0.06, 0.20, 0.10);
 
       // --- Scattered fairy ring glows ---
       vec2 cell = floor(wp * 0.07);
@@ -423,18 +426,18 @@ export function createGround() {
       float rd = length(wp - cellCenter);
       float ringR = 3.0 + gHash(cell + 200.0) * 4.0;
       float fRing = smoothstep(0.4, 0.0, abs(rd - ringR)) * step(0.75, gHash(cell + 300.0));
-      totalEmissiveRadiance += fRing * vec3(0.10, 0.35, 0.20) * 0.6;
+      totalEmissiveRadiance += fRing * vec3(0.07, 0.22, 0.12) * 0.5;
 
       // --- Fine noise for per-pixel detail ---
-      float fineN = gNoise(wp * 1.5) * 0.08;
-      totalEmissiveRadiance += fineN * vec3(0.05, 0.15, 0.08);
+      float fineN = gNoise(wp * 1.5) * 0.05;
+      totalEmissiveRadiance += fineN * vec3(0.04, 0.10, 0.05);
 
       // --- Player proximity ground glow (8m radius) ---
       if (vPlayerDist2 < 64.0) {
         float pDist = sqrt(vPlayerDist2);
         float pGlow = (1.0 - pDist / 8.0);
         pGlow = pGlow * pGlow * pGlow;
-        totalEmissiveRadiance += pGlow * vec3(0.15, 0.50, 0.30) * 0.6;
+        totalEmissiveRadiance += pGlow * vec3(0.10, 0.32, 0.18) * 0.5;
       }
       `
     );

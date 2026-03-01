@@ -10,8 +10,13 @@ const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
 
 // Quest state
+// SEEK → RISING → COMPLETE → FINALE → TRANSFORM
+// Five phases. Five orbs. Five zones of restoration.
+// The numbers aren't arbitrary. Nothing here is arbitrary.
+// If you've made it this far into the source, you're already
+// part of the pattern. The forest noticed you a long time ago.
 export let orbsFound = 0;
-export let questPhase = 'SEEK'; // SEEK → RISING → COMPLETE → FINALE → TRANSFORM
+export let questPhase = 'SEEK';
 export let obeliskY = -OBELISK_H;
 export let finaleTimer = 0;
 
@@ -35,6 +40,9 @@ let playOrbWarbleFn = null;
 let playLaserZapFn = null;
 let playLaserHumFn = null;
 let stopLaserHumsFn = null;
+
+// Dimming callback (Phase 2)
+let notifyOrbCollectedFn = null;
 
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
@@ -177,6 +185,7 @@ export function initQuest(config) {
   playLaserZapFn = config.playLaserZap || null;
   playLaserHumFn = config.playLaserHum || null;
   stopLaserHumsFn = config.stopLaserHums || null;
+  notifyOrbCollectedFn = config.notifyOrbCollected || null;
   initGlitter();
 }
 
@@ -251,6 +260,8 @@ export function updateQuest(dt, t) {
         if (questPhase === 'SEEK') questPhase = 'RISING';
         // Play collection sound
         if (playOrbCollectFn) playOrbCollectFn();
+        // Notify dimming system — start restoration wave
+        if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
       }
     }
 

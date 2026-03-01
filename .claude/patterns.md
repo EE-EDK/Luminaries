@@ -274,3 +274,27 @@ if (entity.stateTimer <= 0) {
 - **Banner comments** — Major sections use `// ===...===` banners
 - **Module-scoped state** — state lives at module scope, not in closures or globals
 - **No `Math.random()` for placement** — use `sr()` (seeded RNG). `Math.random()` only for runtime variation (particle effects, etc.)
+
+## Source Code Lore (4th Wall Layer)
+
+The source code contains an embedded narrative layer for F12 inspectors. This is a deliberate design choice that fits the adult "Chronobiological Archive" narrative from MANIFESTO.md.
+
+**Guidelines for adding lore comments:**
+
+1. **Voice**: Use pseudoscientific field reports, lab notes, and personal logs from unnamed researchers who studied the forest. Key recurring characters:
+   - Dr. R. Vasquez — lead researcher, wrote final reports
+   - Dr. Chen — acoustic specialist
+   - Anonymous/unnamed — miscellaneous observers
+
+2. **Tone**: Clinical-becoming-unsettled. Start with scientific observation, end with something that doesn't quite add up. Never explain the mystery — only deepen it.
+
+3. **Placement**: Near the top of entity/system files, after the banner comment but before code. Never inline with logic.
+
+4. **Content rules**:
+   - Reference real properties of the code (pulse rates, distances, counts) as if they're observed phenomena
+   - Hint that the forest is aware, intentional, designed — but never confirm by whom
+   - The "L" signature (seen in main.js) is the only direct address to the reader
+   - Keep each note to 4-7 lines of comment text
+   - Use `//` line comments, not block comments
+
+5. **Coverage**: Aim for ~1 lore comment per major system/entity file. Not every file needs one. Prioritize files an inspector would naturally explore first (main.js, player.js, audio.js, orbs, deer, obelisk).

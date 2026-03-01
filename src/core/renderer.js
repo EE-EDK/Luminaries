@@ -4,6 +4,10 @@ import { C } from '../constants.js';
 // ================================================================
 // PHASE 0 — Scaffold
 // ================================================================
+// You opened the console. Good.
+// Not everyone looks behind the curtain. The forest rewards curiosity.
+// Keep looking. There are notes in here — left by people who studied
+// this place before you. Some of them are... still here.
 export const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'default' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));

@@ -1,4 +1,10 @@
 // --- Will-o'-Wisp (luminous companion — enhanced detail) ---
+// PERSONAL LOG (unnamed researcher):
+//   The wisps move with apparent intention. They orbit points of
+//   interest. I've started following them, and they seem to know —
+//   they slow down when I fall behind. Today one hovered at my
+//   tent entrance for three minutes before drifting toward the
+//   eastern grove. I found a crystal formation I'd missed for weeks.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';

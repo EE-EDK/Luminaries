@@ -1,4 +1,10 @@
 // --- Obelisk (tall dark monolith at world center) ---
+// ARCHIVE NOTE (excavation team, day 1):
+//   It was already here when we arrived. Carbon dating returned
+//   NaN. Not old. Not young. Just... undefined. It sits at the exact
+//   geometric center of the forest's boundary. The probability of
+//   that being natural is 0. It rises when the orbs return to it.
+//   We think it's waiting for something. Or someone.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, OBELISK_H } from '../../constants.js';

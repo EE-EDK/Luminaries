@@ -7,6 +7,12 @@ import { sr } from '../../utils/rng.js';
 // CorpseBloom — Large exotic flower resembling a corpse flower,
 // with dark spathe petal, glowing spadix column, orbiting flies
 // ================================================================
+// SPECIMEN NOTES (Dr. R. Vasquez):
+//   Amorphophallus nocturnum — closest Earth analogue, but the
+//   similarities end at morphology. These bloom in sync with the
+//   deep night phase to within 0.3 seconds. No chemical trigger
+//   detected. They just... know. The flies orbiting them aren't
+//   feeding. They're listening.
 
 export function makeCorpseBloom(x, z) {
   const g = new THREE.Group();

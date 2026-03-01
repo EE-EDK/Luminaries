@@ -1,4 +1,10 @@
 // --- Spirit Deer (ethereal translucent — enhanced detail) ---
+// ARCHIVE NOTE (Monitoring Station C, automated transcript):
+//   Subject classification: Cervidae luminalis (unofficial).
+//   They flee when approached but not from fear. The antler
+//   bioluminescence spikes 200% during retreat — they're not hiding.
+//   They're leading. Follow one long enough and it will circle back
+//   to something important. We don't know how they know.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';

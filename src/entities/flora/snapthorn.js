@@ -7,6 +7,12 @@ import { sr } from '../../utils/rng.js';
 // Snapthorn — Moving plant with waving tentacle-like fronds,
 // a breathing bioluminescent body, and glowing tips
 // ================================================================
+// INCIDENT LOG (Station B, 03:41):
+//   The snaphorns are not predatory. Repeat: NOT predatory. The
+//   tentacle motion is respiratory, not aggressive. But they do
+//   respond to proximity. Their tips brighten when you're near, as
+//   if tasting the air. One researcher described them as "curious."
+//   We've stopped sending anyone to the eastern cluster alone.
 
 export function makeSnapthorn(x, z) {
   const g = new THREE.Group();
@@ -145,16 +151,17 @@ export function makeSnapthorn(x, z) {
 }
 
 // Animate snapthorns — tentacle waving + body breathing
-export function updateSnapthorns(snapthorns, dt, t, bioGlow) {
+export function updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlowFn) {
   for (let i = 0; i < snapthorns.length; i++) {
     const s = snapthorns[i];
+    const localGlow = getLocalGlowFn ? getLocalGlowFn(s.x, s.z, bioGlow) : bioGlow;
 
     // Body breathing — gentle scale pulse
     const breathe = Math.sin(t * 1.5 + s.phase) * 0.08;
     s.body.scale.set(1 + breathe, 0.85 + breathe * 0.5, 1 + breathe);
 
     // Body glow pulse
-    s.bodyMat.emissiveIntensity = (0.3 + Math.sin(t * 2 + s.phase) * 0.15) * bioGlow;
+    s.bodyMat.emissiveIntensity = (0.3 + Math.sin(t * 2 + s.phase) * 0.15) * localGlow;
 
     // Frond waving — cascading sine waves through segments
     for (let fi = 0; fi < s.fronds.length; fi++) {
@@ -175,7 +182,7 @@ export function updateSnapthorns(snapthorns, dt, t, bioGlow) {
     // Tip glow pulse
     for (let ti = 0; ti < s.tipMats.length; ti++) {
       const p = Math.sin(t * 2.5 + s.phase + ti * 1.2) * 0.5 + 0.5;
-      s.tipMats[ti].emissiveIntensity = (0.4 + p * 0.4) * bioGlow;
+      s.tipMats[ti].emissiveIntensity = (0.4 + p * 0.4) * localGlow;
     }
   }
 }

@@ -3,6 +3,9 @@
 // Drone + Harp + Flute + Chime + Bass Pulse over Major Pentatonic
 // Chord progression: I - IV - vi - V (16s per chord)
 // ================================================================
+// The chord progression is I - IV - vi - V. The oldest progression
+// in human music. Every lullaby, every hymn, every song you half-
+// remember from childhood. The forest chose it. We didn't.
 
 // ---- Injected dependencies (set via setupMusic) ----
 let ctx = null;

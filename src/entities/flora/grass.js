@@ -123,7 +123,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
 
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.7, side: THREE.DoubleSide,
-    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.08
+    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.15
   });
 
   // Inject GPU sway into the vertex shader — same math as the old CPU path
@@ -189,8 +189,8 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
           transformed.y *= (1.0 - flatten * hFrac);
         }
 
-        // Proximity glow (5m radius, quadratic falloff)
-        vGlow = pd2 < 25.0 ? (1.0 - sqrt(pd2) / 5.0) * hFrac : 0.0;
+        // Proximity glow (6m radius, quadratic falloff)
+        vGlow = pd2 < 36.0 ? (1.0 - sqrt(pd2) / 6.0) * hFrac : 0.0;
         vGlow *= vGlow;
       } else {
         vGlow = 0.0;
@@ -208,7 +208,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
-      totalEmissiveRadiance *= (1.0 + vGlow * 4.0);
+      totalEmissiveRadiance *= (1.0 + vGlow * 10.0);
       `
     );
   };

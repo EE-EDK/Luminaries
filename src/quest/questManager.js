@@ -3,7 +3,7 @@ import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } fro
 import { orbLight } from '../core/lighting.js';
 import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
-import { updateLasers, setLaserFade } from './lasers.js';
+import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
@@ -48,6 +48,7 @@ let transformTimer = 0;
 let treeLasers = [];
 let flashPlane = null; // DOM overlay element
 let transformDone = false;
+let orbLasersCleaned = false;
 
 // Pinnacle explosion glitter
 const GLITTER_COUNT = 200;
@@ -532,23 +533,32 @@ export function updateQuest(dt, t) {
     }
 
     // Animate tree laser fade-in + pulse, then fade out after flash clears
-    const laserFadeOut = transformTimer >= 13 ? Math.min((transformTimer - 13) / 30, 1) : 0;
+    // Cubic curve: drops fast early so additive overlap becomes invisible quickly
+    const fadeLinear = transformTimer >= 13 ? Math.min((transformTimer - 13) / 30, 1) : 0;
+    const laserFadeOut = fadeLinear * fadeLinear * (3 - 2 * fadeLinear); // smoothstep — fast start + end
     for (let i = 0; i < treeLasers.length; i++) {
       const tl = treeLasers[i];
       tl.timer += dt;
       const fade = Math.min(tl.timer / 0.5, 1) * (1 - laserFadeOut);
-      const pulse = Math.sin(t * 3 + i * 0.5) * 0.5 + 0.5;
+      // Suppress pulsing as lasers fade so they don't flicker back
+      const pulseAmp = 1 - laserFadeOut;
+      const pulse = Math.sin(t * 3 + i * 0.5) * 0.5 * pulseAmp + 0.5;
       tl.mat.opacity = fade * (0.6 + pulse * 0.4);
       tl.glowMat.opacity = fade * (0.2 + pulse * 0.15);
     }
     // Remove tree lasers from scene once fully faded
-    if (laserFadeOut >= 1 && treeLasers.length > 0) {
+    if (fadeLinear >= 1 && treeLasers.length > 0) {
       for (let i = 0; i < treeLasers.length; i++) {
         const tl = treeLasers[i];
         scene.remove(tl.tube); tl.tube.geometry.dispose(); tl.mat.dispose();
         scene.remove(tl.glow); tl.glow.geometry.dispose(); tl.glowMat.dispose();
       }
       treeLasers.length = 0;
+    }
+    // Clean up orb lasers (from lasers.js) once flash clears
+    if (transformTimer >= 13 && !orbLasersCleaned) {
+      cleanupLasers();
+      orbLasersCleaned = true;
     }
 
     // Flash sequence: 3s brighten → 4s blind → 3s dim

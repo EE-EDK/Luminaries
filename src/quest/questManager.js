@@ -531,14 +531,24 @@ export function updateQuest(dt, t) {
       }
     }
 
-    // Animate tree laser fade-in + pulse
+    // Animate tree laser fade-in + pulse, then fade out after flash clears
+    const laserFadeOut = transformTimer >= 13 ? Math.min((transformTimer - 13) / 30, 1) : 0;
     for (let i = 0; i < treeLasers.length; i++) {
       const tl = treeLasers[i];
       tl.timer += dt;
-      const fade = Math.min(tl.timer / 0.5, 1);
+      const fade = Math.min(tl.timer / 0.5, 1) * (1 - laserFadeOut);
       const pulse = Math.sin(t * 3 + i * 0.5) * 0.5 + 0.5;
       tl.mat.opacity = fade * (0.6 + pulse * 0.4);
       tl.glowMat.opacity = fade * (0.2 + pulse * 0.15);
+    }
+    // Remove tree lasers from scene once fully faded
+    if (laserFadeOut >= 1 && treeLasers.length > 0) {
+      for (let i = 0; i < treeLasers.length; i++) {
+        const tl = treeLasers[i];
+        scene.remove(tl.tube); tl.tube.geometry.dispose(); tl.mat.dispose();
+        scene.remove(tl.glow); tl.glow.geometry.dispose(); tl.glowMat.dispose();
+      }
+      treeLasers.length = 0;
     }
 
     // Flash sequence: 3s brighten → 4s blind → 3s dim
@@ -559,6 +569,19 @@ export function updateQuest(dt, t) {
     // Apply flash via DOM overlay
     if (flashPlane) {
       flashPlane.style.opacity = flashOpacity;
+    }
+
+    // Re-show pinnacle orb as bright pink beacon after flash clears
+    if (transformTimer >= 13 && pinnacleOrb && !pinnacleOrb.mesh.visible) {
+      pinnacleOrb.mesh.visible = true;
+      pinnacleOrb.haze.visible = true;
+      pinnacleOrb.mesh.scale.setScalar(1.2);
+      pinnacleOrb.haze.scale.setScalar(1.8);
+    }
+    if (transformTimer >= 13 && pinnacleOrb && pinnacleOrb.mesh.visible) {
+      const pulse = Math.sin(t * 1.5) * 0.5 + 0.5;
+      pinnacleOrb.mat.opacity = 0.85 + pulse * 0.15;
+      pinnacleOrb.hazeMat.opacity = 0.3 + pulse * 0.2;
     }
   }
 }

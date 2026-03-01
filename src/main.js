@@ -171,6 +171,19 @@ function getEchoBloomRing() {
 }
 
 // ================================================================
+// Keep-out zones — prevent entities from spawning on fairy rings / ponds
+// ================================================================
+const keepOutZones = []; // { x, z, r2 } — r2 is squared radius
+
+function inKeepOut(x, z) {
+  for (let i = 0; i < keepOutZones.length; i++) {
+    const dx = keepOutZones[i].x - x, dz = keepOutZones[i].z - z;
+    if (dx * dx + dz * dz < keepOutZones[i].r2) return true;
+  }
+  return false;
+}
+
+// ================================================================
 // Populate world
 // ================================================================
 function populate() {
@@ -190,6 +203,41 @@ function populate() {
       const g = makeTree(x, z);
       g.position.y = getGroundY(x, z);
       trees_data.push({ group: g, x: x, z: z });
+      keepOutZones.push({ x, z, r2: 4 }); // 2m radius
+    }
+  }
+  // Fairy rings — spawn early so other entities respect keep-out zones
+  for (let i = 0; i < FAIRY_RING_N; i++) {
+    let fx, fz, ok2 = false;
+    for (let a = 0; a < 20; a++) {
+      const ang = sr() * 6.28, d = 10 + sr() * (WORLD_R * 0.6);
+      fx = Math.cos(ang) * d; fz = Math.sin(ang) * d;
+      ok2 = !inKeepOut(fx, fz);
+      if (ok2) break;
+    }
+    if (ok2) {
+      registerFlatZone(fx, fz, 4);
+      const fr = makeFairyRing(fx, fz);
+      fr.group.position.y = getGroundY(fx, fz);
+      fairyRings.push(fr);
+      keepOutZones.push({ x: fx, z: fz, r2: 25 }); // 5m radius
+    }
+  }
+  // Ponds — spawn early so other entities respect keep-out zones
+  for (let i = 0; i < POND_N; i++) {
+    let px, pz, ok3 = false;
+    for (let a = 0; a < 20; a++) {
+      const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.6);
+      px = Math.cos(ang) * d; pz = Math.sin(ang) * d;
+      ok3 = !inKeepOut(px, pz);
+      if (ok3) break;
+    }
+    if (ok3) {
+      registerFlatZone(px, pz, 3);
+      const po = makePond(px, pz);
+      po.group.position.y = getGroundY(px, pz);
+      ponds.push(po);
+      keepOutZones.push({ x: px, z: pz, r2: 16 }); // 4m radius
     }
   }
   // Mushrooms near trees
@@ -197,17 +245,21 @@ function populate() {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 4;
     const mx = ref.x + Math.cos(ang) * d, mz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(mx, mz)) continue;
     const m = makeMush(mx, mz);
     m.group.position.y = getGroundY(mx, mz);
     mush_data.push(m);
+    keepOutZones.push({ x: mx, z: mz, r2: 1 });
   }
   // Crystals
   for (let i = 0; i < CRYSTAL_N; i++) {
     const ang = sr() * 6.28, d = 8 + sr() * WORLD_R * 0.6;
     const cx = Math.cos(ang) * d, cz = Math.sin(ang) * d;
+    if (inKeepOut(cx, cz)) continue;
     const c = makeCrystal(cx, cz);
     c.group.position.y = getGroundY(cx, cz);
     crys_data.push(c);
+    keepOutZones.push({ x: cx, z: cz, r2: 4 });
   }
   // Jellies (float above ground)
   for (let i = 0; i < JELLY_N; i++) {
@@ -220,6 +272,7 @@ function populate() {
     const ref = mush_data[Math.floor(sr() * mush_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 5;
     const px = ref.x + Math.cos(ang) * d, pz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(px, pz)) continue;
     const p = makePuff(px, pz);
     p.group.position.y = getGroundY(px, pz);
     p._baseY = getGroundY(px, pz);
@@ -229,6 +282,7 @@ function populate() {
   for (let i = 0; i < DEER_N; i++) {
     const ang = sr() * 6.28, d = 12 + sr() * WORLD_R * 0.5;
     const dx = Math.cos(ang) * d, dz = Math.sin(ang) * d;
+    if (inKeepOut(dx, dz)) continue;
     const de = makeDeer(dx, dz);
     const deerY = getGroundY(dx, dz);
     de.group.position.y = deerY;
@@ -246,26 +300,27 @@ function populate() {
     const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.9);
     const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
     const pal = grassPalettes[Math.floor(sr() * grassPalettes.length)];
-    const gp = makeGrassPatch(gx, gz, 2 + sr() * 2.5, 25 + Math.floor(sr() * 20), pal);
+    const rad = 2 + sr() * 2.5, cnt = 25 + Math.floor(sr() * 20);
+    if (inKeepOut(gx, gz)) continue;
+    const gp = makeGrassPatch(gx, gz, rad, cnt, pal);
     gp.mesh.position.y = getGroundY(gx, gz);
     grassPatches.push(gp);
+    keepOutZones.push({ x: gx, z: gz, r2: rad * rad });
   }
   // Rocks
   for (let i = 0; i < ROCK_N; i++) {
     let rx, rz, ok4 = false;
     for (let a = 0; a < 10; a++) {
       const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.85);
-      rx = Math.cos(ang) * d; rz = Math.sin(ang) * d; ok4 = true;
-      for (let j = 0; j < trees_data.length; j++) {
-        const ddx = trees_data[j].x - rx, ddz = trees_data[j].z - rz;
-        if (ddx * ddx + ddz * ddz < 4) { ok4 = false; break; }
-      }
+      rx = Math.cos(ang) * d; rz = Math.sin(ang) * d;
+      ok4 = !inKeepOut(rx, rz);
       if (ok4) break;
     }
     if (ok4) {
       const r = makeRock(rx, rz);
       r.group.position.y = getGroundY(rx, rz) - 0.08;
       rocks_data.push(r);
+      keepOutZones.push({ x: rx, z: rz, r2: 2.25 });
     }
   }
   // Ferns
@@ -273,25 +328,31 @@ function populate() {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     const ang = sr() * 6.28, d = 1 + sr() * 5;
     const fx = ref.x + Math.cos(ang) * d, fz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(fx, fz)) continue;
     const f = makeFern(fx, fz);
     f.group.position.y = getGroundY(fx, fz);
     ferns.push(f);
+    keepOutZones.push({ x: fx, z: fz, r2: 1 });
   }
   // Flowers
   for (let i = 0; i < FLOWER_N; i++) {
     const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7);
     const flx = Math.cos(ang) * d, flz = Math.sin(ang) * d;
+    if (inKeepOut(flx, flz)) continue;
     const fl = makeFlower(flx, flz);
     fl.group.position.y = getGroundY(flx, flz);
     flowers.push(fl);
+    keepOutZones.push({ x: flx, z: flz, r2: 1 });
   }
   // Reeds
   for (let i = 0; i < REED_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8);
     const rdx = Math.cos(ang) * d, rdz = Math.sin(ang) * d;
+    if (inKeepOut(rdx, rdz)) continue;
     const rd = makeReed(rdx, rdz);
     rd.group.position.y = getGroundY(rdx, rdz);
     reeds.push(rd);
+    keepOutZones.push({ x: rdx, z: rdz, r2: 1 });
   }
   // Golden orbs (float above terrain)
   for (let i = 0; i < ORB_N; i++) {
@@ -322,28 +383,11 @@ function populate() {
   for (let i = 0; i < DANDELION_N; i++) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7);
     const dnx = Math.cos(ang) * d, dnz = Math.sin(ang) * d;
+    if (inKeepOut(dnx, dnz)) continue;
     const dn = makeDandelion(dnx, dnz);
     dn.group.position.y = getGroundY(dnx, dnz);
     dandelions.push(dn);
-  }
-  // Fairy rings (register flat zones first)
-  for (let i = 0; i < FAIRY_RING_N; i++) {
-    let fx, fz, ok2 = false;
-    for (let a = 0; a < 20; a++) {
-      const ang = sr() * 6.28, d = 10 + sr() * (WORLD_R * 0.6);
-      fx = Math.cos(ang) * d; fz = Math.sin(ang) * d; ok2 = true;
-      for (let j = 0; j < trees_data.length; j++) {
-        const ddx = trees_data[j].x - fx, ddz = trees_data[j].z - fz;
-        if (ddx * ddx + ddz * ddz < 36) { ok2 = false; break; }
-      }
-      if (ok2) break;
-    }
-    if (ok2) {
-      registerFlatZone(fx, fz, 4);
-      const fr = makeFairyRing(fx, fz);
-      fr.group.position.y = getGroundY(fx, fz);
-      fairyRings.push(fr);
-    }
+    keepOutZones.push({ x: dnx, z: dnz, r2: 1 });
   }
   // Bubbles (float above terrain)
   for (let i = 0; i < BUBBLE_N; i++) {
@@ -351,49 +395,36 @@ function populate() {
     const bx = Math.cos(ang) * d, bz = Math.sin(ang) * d;
     bubbles.push(makeBubble(bx, getGroundY(bx, bz) + 0.5 + sr() * 5, bz));
   }
-  // Ponds (register flat zones, keep at terrain level)
-  for (let i = 0; i < POND_N; i++) {
-    let px, pz, ok3 = false;
-    for (let a = 0; a < 20; a++) {
-      const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.6);
-      px = Math.cos(ang) * d; pz = Math.sin(ang) * d; ok3 = true;
-      for (let j = 0; j < trees_data.length; j++) {
-        const ddx = trees_data[j].x - px, ddz = trees_data[j].z - pz;
-        if (ddx * ddx + ddz * ddz < 16) { ok3 = false; break; }
-      }
-      if (ok3) break;
-    }
-    if (ok3) {
-      registerFlatZone(px, pz, 3);
-      const po = makePond(px, pz);
-      po.group.position.y = getGroundY(px, pz);
-      ponds.push(po);
-    }
-  }
   // Thornblooms (open areas)
   for (let i = 0; i < THORNBLOOM_N; i++) {
     const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7);
     const tx = Math.cos(ang) * d, tz = Math.sin(ang) * d;
+    if (inKeepOut(tx, tz)) continue;
     const tb = makeThornbloom(tx, tz);
     tb.group.position.y = getGroundY(tx, tz);
     thornblooms.push(tb);
+    keepOutZones.push({ x: tx, z: tz, r2: 2.25 });
   }
   // Helixvines (near trees)
   for (let i = 0; i < HELIXVINE_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
     const ang = sr() * 6.28, d = 2 + sr() * 4;
     const hx = ref.x + Math.cos(ang) * d, hz = ref.z + Math.sin(ang) * d;
+    if (inKeepOut(hx, hz)) continue;
     const hv = makeHelixvine(hx, hz);
     hv.group.position.y = getGroundY(hx, hz);
     helixvines.push(hv);
+    keepOutZones.push({ x: hx, z: hz, r2: 1 });
   }
   // Snapthorns (open areas)
   for (let i = 0; i < SNAPTHORN_N; i++) {
     const ang = sr() * 6.28, d = 6 + sr() * (WORLD_R * 0.65);
     const sx = Math.cos(ang) * d, sz = Math.sin(ang) * d;
+    if (inKeepOut(sx, sz)) continue;
     const sn = makeSnapthorn(sx, sz);
     sn.group.position.y = getGroundY(sx, sz);
     snapthorns.push(sn);
+    keepOutZones.push({ x: sx, z: sz, r2: 2.25 });
   }
 }
 

@@ -133,8 +133,8 @@ export function initAudio() {
       brownBuf = createNoiseBuffer('brown', 2);
       whiteBuf = createNoiseBuffer('white', 2);
 
-      // Create shared reverb
-      createReverb();
+      // Create shared reverb — DISABLED for rumble investigation
+      // createReverb();
 
       // --- Forest hum: DISABLED ---
       // const fh = loopNoise(brownBuf, 0.08, 160);

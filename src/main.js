@@ -554,17 +554,18 @@ function populate() {
     reeds.push(rd);
     keepOutZones.push({ x: rdx, z: rdz, r2: 1 });
   }
-  // Golden orbs (float above terrain)
+  // Golden orbs — one per angular sector for even world coverage
+  // Split 360° into 5 sectors (72° each), place one orb per sector
+  const sectorSize = 6.28 / ORB_N;
   for (let i = 0; i < ORB_N; i++) {
     let ox, oz, ok = false;
+    const sectorStart = i * sectorSize;
     for (let a = 0; a < 30; a++) {
-      const ang = sr() * 6.28, d = 20 + sr() * (WORLD_R * 0.6);
+      const ang = sectorStart + sr() * sectorSize;
+      const d = 25 + sr() * (WORLD_R * 0.55);
       ox = Math.cos(ang) * d; oz = Math.sin(ang) * d; ok = true;
-      for (let j = 0; j < orbs.length; j++) {
-        const ddx = orbs[j].x - ox, ddz = orbs[j].z - oz;
-        if (ddx * ddx + ddz * ddz < 225) { ok = false; break; }
-      }
-      if (ok) break;
+      if (inKeepOut(ox, oz)) { ok = false; continue; }
+      break;
     }
     if (ok) {
       const o = makeOrb(ox, oz);
@@ -2083,9 +2084,6 @@ let dirState = 'EXPLORE';
 let ffTimer = 0, spTimer = 0;
 
 function director(dt, t) {
-  // Advance dimming restoration waves
-  updateDimming(dt);
-
   // Crystal proximity check
   let nearCrys = false;
   for (let i = 0; i < crys_data.length; i++) {
@@ -2330,6 +2328,9 @@ function animate() {
   const rainRate = updateWeather(dt, elapsed, player.pos);
   updateRain(dt, player.pos, rainRate, windX, windZ);
   updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
+
+  // Advance dimming restoration waves BEFORE querying glow values
+  updateDimming(dt);
 
   // Global dimming — post-processing saturation + exposure/fog/intensity.
   // At 0/5 orbs the forest is monochrome, dark, foggy. Collecting an orb

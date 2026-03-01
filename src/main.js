@@ -28,7 +28,7 @@ import { GEO } from './core/geometries.js';
 // Constants
 import {
   WORLD_R, EYE_H, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N,
-  GRASS_PATCHES, FERN_N, FLOWER_N, REED_N, ROCK_N, WISP_N, DANDELION_N,
+  GRASS_PATCHES, FERN_N, FLOWER_N, REED_N, ROCK_N, BOULDER_N, PEBBLE_N, WISP_N, DANDELION_N,
   FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N, STARMOTE_N,
   THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N,
   SPIRALFROND_N, CORPSEBLOOM_N, ORBBUSH_N, LANTERNPOD_N, VEILMOSS_N, GROUND_GLOW_N,
@@ -42,7 +42,7 @@ import { sr } from './utils/rng.js';
 // World
 import { createGround, updateGroundUniforms } from './world/ground.js';
 import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
-import { getGroundY, registerFlatZone } from './world/terrain.js';
+import { getGroundY, getGroundNormal, registerFlatZone } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
@@ -80,7 +80,7 @@ import { makePond } from './entities/magical/ponds.js';
 import { makeOrb } from './entities/magical/orbs.js';
 
 // Entities — World
-import { makeRock } from './entities/world/rocks.js';
+import { makeRock, makeBoulder, initPebbles, addPebble, finalizePebbles } from './entities/world/rocks.js';
 import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
 import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/world/rainbows.js';
@@ -163,6 +163,33 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
 const _dimGrey = new THREE.Color(); // reusable temp for desaturation blend
 const _playerLightBaseColor = new THREE.Color(0x668888); // matches lighting.js init
+
+// ================================================================
+// Slope tilt helpers — for aligning entities to terrain contour
+// ================================================================
+const _slopeTiltUp = new THREE.Vector3(0, 1, 0);
+const _slopeTiltNormal = new THREE.Vector3();
+const _slopeTiltQuat = new THREE.Quaternion();
+const _slopeTiltIdent = new THREE.Quaternion();
+const _slopeSwayQuat = new THREE.Quaternion();
+
+// Apply slope tilt directly to group quaternion (for entities without per-frame sway)
+function tiltToSlope(group, x, z, factor) {
+  const n = getGroundNormal(x, z);
+  _slopeTiltNormal.set(n.x, n.y, n.z);
+  _slopeTiltQuat.setFromUnitVectors(_slopeTiltUp, _slopeTiltNormal);
+  _slopeTiltQuat.slerp(_slopeTiltIdent, 1.0 - factor);
+  group.quaternion.copy(_slopeTiltQuat);
+}
+
+// Compute and return a slope quaternion to store on entity data (for entities with per-frame sway)
+function computeSlopeQuat(x, z, factor) {
+  const n = getGroundNormal(x, z);
+  _slopeTiltNormal.set(n.x, n.y, n.z);
+  _slopeTiltQuat.setFromUnitVectors(_slopeTiltUp, _slopeTiltNormal);
+  _slopeTiltQuat.slerp(_slopeTiltIdent, 1.0 - factor);
+  return _slopeTiltQuat.clone();
+}
 
 // ================================================================
 // Echo bloom state
@@ -374,6 +401,7 @@ function populate() {
     if (inKeepOut(mx, mz)) continue;
     const m = makeMush(mx, mz);
     m.group.position.y = getGroundY(mx, mz);
+    tiltToSlope(m.group, mx, mz, 0.3);
     mush_data.push(m);
     keepOutZones.push({ x: mx, z: mz, r2: 1 });
   }
@@ -384,6 +412,7 @@ function populate() {
     if (inKeepOut(cx, cz)) continue;
     const c = makeCrystal(cx, cz);
     c.group.position.y = getGroundY(cx, cz);
+    tiltToSlope(c.group, cx, cz, 0.45);
     crys_data.push(c);
     keepOutZones.push({ x: cx, z: cz, r2: 4 });
   }
@@ -445,10 +474,52 @@ function populate() {
     if (ok4) {
       const r = makeRock(rx, rz);
       r.group.position.y = getGroundY(rx, rz) - 0.08;
+      tiltToSlope(r.group, rx, rz, 0.5);
       rocks_data.push(r);
       keepOutZones.push({ x: rx, z: rz, r2: 2.25 });
     }
   }
+  // Boulders — large dramatic formations
+  for (let i = 0; i < BOULDER_N; i++) {
+    let bx, bz, ok5 = false;
+    for (let a = 0; a < 10; a++) {
+      const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.8);
+      bx = Math.cos(ang) * d; bz = Math.sin(ang) * d;
+      ok5 = !inKeepOut(bx, bz);
+      if (ok5) break;
+    }
+    if (ok5) {
+      const b = makeBoulder(bx, bz);
+      b.group.position.y = getGroundY(bx, bz) - 0.3;
+      tiltToSlope(b.group, bx, bz, 0.6);
+      rocks_data.push(b);
+      keepOutZones.push({ x: bx, z: bz, r2: 9 });
+    }
+  }
+  // Pebbles — scattered tiny stones near rocks and trees
+  initPebbles();
+  for (let i = 0; i < PEBBLE_N; i++) {
+    let px, pz;
+    if (rocks_data.length > 0 && sr() < 0.5) {
+      // Near existing rock/boulder
+      const ref = rocks_data[Math.floor(sr() * rocks_data.length)];
+      const ang = sr() * 6.28, d = 0.5 + sr() * 3;
+      px = ref.x + Math.cos(ang) * d;
+      pz = ref.z + Math.sin(ang) * d;
+    } else if (trees_data.length > 0 && sr() < 0.5) {
+      // Near trees
+      const ref = trees_data[Math.floor(sr() * trees_data.length)];
+      const ang = sr() * 6.28, d = 1 + sr() * 4;
+      px = ref.x + Math.cos(ang) * d;
+      pz = ref.z + Math.sin(ang) * d;
+    } else {
+      // Random scatter
+      const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.85);
+      px = Math.cos(ang) * d; pz = Math.sin(ang) * d;
+    }
+    addPebble(px, pz, getGroundY(px, pz));
+  }
+  finalizePebbles();
   // Ferns
   for (let i = 0; i < FERN_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
@@ -457,6 +528,7 @@ function populate() {
     if (inKeepOut(fx, fz)) continue;
     const f = makeFern(fx, fz);
     f.group.position.y = getGroundY(fx, fz);
+    f.slopeQ = computeSlopeQuat(fx, fz, 0.4);
     ferns.push(f);
     keepOutZones.push({ x: fx, z: fz, r2: 1 });
   }
@@ -468,6 +540,7 @@ function populate() {
     if (countNearTrees(flx, flz) > 1 && sr() < 0.8) continue;
     const fl = makeFlower(flx, flz);
     fl.group.position.y = getGroundY(flx, flz);
+    fl.slopeQ = computeSlopeQuat(flx, flz, 0.35);
     flowers.push(fl);
     keepOutZones.push({ x: flx, z: flz, r2: 1 });
   }
@@ -479,6 +552,7 @@ function populate() {
     if (countNearTrees(rdx, rdz) > 1 && sr() < 0.8) continue;
     const rd = makeReed(rdx, rdz);
     rd.group.position.y = getGroundY(rdx, rdz);
+    rd.slopeQ = computeSlopeQuat(rdx, rdz, 0.15);
     reeds.push(rd);
     keepOutZones.push({ x: rdx, z: rdz, r2: 1 });
   }
@@ -515,6 +589,7 @@ function populate() {
     if (countNearTrees(dnx, dnz) > 1 && sr() < 0.8) continue;
     const dn = makeDandelion(dnx, dnz);
     dn.group.position.y = getGroundY(dnx, dnz);
+    tiltToSlope(dn.group, dnx, dnz, 0.35);
     dandelions.push(dn);
     keepOutZones.push({ x: dnx, z: dnz, r2: 1 });
   }
@@ -531,6 +606,7 @@ function populate() {
     if (inKeepOut(tx, tz)) continue;
     const tb = makeThornbloom(tx, tz);
     tb.group.position.y = getGroundY(tx, tz);
+    tb.slopeQ = computeSlopeQuat(tx, tz, 0.3);
     thornblooms.push(tb);
     keepOutZones.push({ x: tx, z: tz, r2: 2.25 });
   }
@@ -542,6 +618,7 @@ function populate() {
     if (inKeepOut(hx, hz)) continue;
     const hv = makeHelixvine(hx, hz);
     hv.group.position.y = getGroundY(hx, hz);
+    hv.slopeQ = computeSlopeQuat(hx, hz, 0.25);
     helixvines.push(hv);
     keepOutZones.push({ x: hx, z: hz, r2: 1 });
   }
@@ -552,6 +629,7 @@ function populate() {
     if (inKeepOut(sx, sz)) continue;
     const sn = makeSnapthorn(sx, sz);
     sn.group.position.y = getGroundY(sx, sz);
+    tiltToSlope(sn.group, sx, sz, 0.25);
     snapthorns.push(sn);
     keepOutZones.push({ x: sx, z: sz, r2: 2.25 });
   }
@@ -563,6 +641,7 @@ function populate() {
     if (inKeepOut(sfx, sfz)) continue;
     const sf = makeSpiralFrond(sfx, sfz);
     sf.group.position.y = getGroundY(sfx, sfz);
+    sf.slopeQ = computeSlopeQuat(sfx, sfz, 0.35);
     spiralfronds.push(sf);
     keepOutZones.push({ x: sfx, z: sfz, r2: 1.5 });
   }
@@ -573,6 +652,7 @@ function populate() {
     if (inKeepOut(cbx, cbz)) continue;
     const cb = makeCorpseBloom(cbx, cbz);
     cb.group.position.y = getGroundY(cbx, cbz);
+    cb.slopeQ = computeSlopeQuat(cbx, cbz, 0.3);
     corpseblooms.push(cb);
     keepOutZones.push({ x: cbx, z: cbz, r2: 3 });
   }
@@ -583,6 +663,7 @@ function populate() {
     if (inKeepOut(obx, obz)) continue;
     const ob = makeOrbBush(obx, obz);
     ob.group.position.y = getGroundY(obx, obz);
+    ob.slopeQ = computeSlopeQuat(obx, obz, 0.35);
     orbbushes.push(ob);
     keepOutZones.push({ x: obx, z: obz, r2: 1.5 });
   }
@@ -594,6 +675,7 @@ function populate() {
     if (inKeepOut(lpx, lpz)) continue;
     const lp = makeLanternPod(lpx, lpz);
     lp.group.position.y = getGroundY(lpx, lpz);
+    lp.slopeQ = computeSlopeQuat(lpx, lpz, 0.3);
     lanternpods.push(lp);
     keepOutZones.push({ x: lpx, z: lpz, r2: 1.5 });
   }
@@ -607,6 +689,7 @@ function populate() {
     if (inKeepOut(vmx, vmz)) continue;
     const vm = makeVeilMoss(vmx, vmz);
     vm.group.position.y = getGroundY(vmx, vmz);
+    vm.slopeQ = computeSlopeQuat(vmx, vmz, 0.2);
     veilmosses.push(vm);
     keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
   }
@@ -621,9 +704,20 @@ function populate() {
       color: col, transparent: true, opacity: baseOp,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
     });
-    const mesh = new THREE.Mesh(new THREE.CircleGeometry(patchR, 10), mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(gx, getGroundY(gx, gz) + 0.02, gz);
+    // Drape geometry over terrain — rotate geometry to XZ plane, then set per-vertex Y
+    const geo = new THREE.CircleGeometry(patchR, 10);
+    geo.rotateX(-Math.PI / 2);
+    const centerY = getGroundY(gx, gz);
+    const posAttr = geo.attributes.position;
+    for (let v = 0; v < posAttr.count; v++) {
+      const wx = gx + posAttr.getX(v);
+      const wz = gz + posAttr.getZ(v);
+      posAttr.setY(v, getGroundY(wx, wz) - centerY + 0.02);
+    }
+    posAttr.needsUpdate = true;
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(gx, centerY, gz);
     scene.add(mesh);
     groundGlows.push({ mesh, mat, phase: sr() * 6.28, baseOpacity: baseOp, speed: 0.3 + sr() * 0.3, x: gx, z: gz });
   }
@@ -638,17 +732,30 @@ function populate() {
       treeImpostors[i].position.y = newY + (tr.treeH || 10) * 0.6;
     }
   }
-  // Rebuild instanced tree matrices with corrected heights
+  // Rebuild instanced tree matrices with corrected heights + slope tilt
   if (treeMeshes.length > 0) {
     const _d = new THREE.Object3D();
+    const _tUp = new THREE.Vector3(0, 1, 0);
+    const _tNorm = new THREE.Vector3();
+    const _tSQ = new THREE.Quaternion();
+    const _tIQ = new THREE.Quaternion();
+    const _tYQ = new THREE.Quaternion();
     for (let ti = 0; ti < treeMeshes.length; ti++) {
       const mesh = treeMeshes[ti];
       for (let ii = 0; ii < mesh.instances.length; ii++) {
         const inst = mesh.instances[ii];
         const td = trees_data[inst.posIdx];
         inst.y = td.y;
+        // Re-cache normal after flat zone correction
+        const n = getGroundNormal(td.x, td.z);
+        inst.nx = n.x; inst.ny = n.y; inst.nz = n.z;
         _d.position.set(td.x, td.y, td.z);
-        _d.rotation.set(0, td.yRot, 0);
+        // Slope tilt + Y rotation
+        _tNorm.set(n.x, n.y, n.z);
+        _tSQ.setFromUnitVectors(_tUp, _tNorm);
+        _tSQ.slerp(_tIQ, 0.65); // 35% tilt
+        _tYQ.setFromAxisAngle(_tUp, td.yRot);
+        _d.quaternion.copy(_tSQ).multiply(_tYQ);
         _d.scale.setScalar(td.scale);
         _d.updateMatrix();
         if (mesh.trunk) mesh.trunk.setMatrixAt(ii, _d.matrix);
@@ -691,8 +798,14 @@ function updateVegetation(dt, t) {
     if (fd2 > 1600) { if (f.group.visible) f.group.visible = false; continue; }
     if (!f.group.visible) f.group.visible = true;
     if (fd2 > 900) continue;
-    f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
-    f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
+    if (f.slopeQ) {
+      f.group.quaternion.copy(f.slopeQ);
+      _slopeSwayQuat.set(
+        (Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ) * 0.5, 0,
+        (Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX) * 0.5, 1
+      ).normalize();
+      f.group.quaternion.multiply(_slopeSwayQuat);
+    }
   }
   // Flowers — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < flowers.length; i++) {
@@ -704,7 +817,13 @@ function updateVegetation(dt, t) {
     if (fld2 > 900) continue;
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
     fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow);
-    fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
+    if (fl.slopeQ) {
+      fl.group.quaternion.copy(fl.slopeQ);
+      _slopeSwayQuat.set(0, 0,
+        (Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5) * 0.5, 1
+      ).normalize();
+      fl.group.quaternion.multiply(_slopeSwayQuat);
+    }
   }
   // Reeds — visibility cull beyond 40m, animate within 30m (3D distance)
   for (let i = 0; i < reeds.length; i++) {
@@ -714,8 +833,14 @@ function updateVegetation(dt, t) {
     if (rd2 > 1600) { if (r.group.visible) r.group.visible = false; continue; }
     if (!r.group.visible) r.group.visible = true;
     if (rd2 > 900) continue;
-    r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
-    r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
+    if (r.slopeQ) {
+      r.group.quaternion.copy(r.slopeQ);
+      _slopeSwayQuat.set(
+        (Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ) * 0.5, 0,
+        (Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX) * 0.5, 1
+      ).normalize();
+      r.group.quaternion.multiply(_slopeSwayQuat);
+    }
   }
   // Thornbloom orb glow pulse + gentle sway
   for (let i = 0; i < thornblooms.length; i++) {
@@ -724,8 +849,14 @@ function updateVegetation(dt, t) {
     const tbGlow = getLocalGlow(tb.group.position.x, tb.group.position.z, bioGlow);
     tb.orbMat.emissiveIntensity = (0.5 + p * 0.5) * tbGlow;
     tb.hazeMat.opacity = (0.04 + p * 0.04) * tbGlow;
-    tb.group.rotation.z = Math.sin(t * 0.5 + tb.phase) * 0.02 * wAmp + wLeanX * 0.3;
-    tb.group.rotation.x = Math.sin(t * 0.4 + tb.phase + 1) * 0.015 * wAmp + wLeanZ * 0.3;
+    if (tb.slopeQ) {
+      tb.group.quaternion.copy(tb.slopeQ);
+      _slopeSwayQuat.set(
+        (Math.sin(t * 0.4 + tb.phase + 1) * 0.015 * wAmp + wLeanZ * 0.3) * 0.5, 0,
+        (Math.sin(t * 0.5 + tb.phase) * 0.02 * wAmp + wLeanX * 0.3) * 0.5, 1
+      ).normalize();
+      tb.group.quaternion.multiply(_slopeSwayQuat);
+    }
   }
   // Helixvine pod glow pulse
   for (let i = 0; i < helixvines.length; i++) {
@@ -734,7 +865,13 @@ function updateVegetation(dt, t) {
       const p = Math.sin(t * 1.5 + hv.phase + j * 1.8) * 0.5 + 0.5;
       hv.podMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow);
     }
-    hv.group.rotation.z = Math.sin(t * 0.35 + hv.phase) * 0.01 * wAmp + wLeanX * 0.2;
+    if (hv.slopeQ) {
+      hv.group.quaternion.copy(hv.slopeQ);
+      _slopeSwayQuat.set(0, 0,
+        (Math.sin(t * 0.35 + hv.phase) * 0.01 * wAmp + wLeanX * 0.2) * 0.5, 1
+      ).normalize();
+      hv.group.quaternion.multiply(_slopeSwayQuat);
+    }
   }
   // Snapthorn continuous animation (tentacles + breathing)
   updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlow);
@@ -750,8 +887,14 @@ function updateVegetation(dt, t) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
         sf.tipMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(sf.x, sf.z, bioGlow);
       }
-      sf.group.rotation.z = Math.sin(t * 0.4 + sf.phase) * 0.015 * wAmp + wLeanX * 0.2;
-      sf.group.rotation.x = Math.sin(t * 0.35 + sf.phase + 1) * 0.01 * wAmp + wLeanZ * 0.2;
+      if (sf.slopeQ) {
+        sf.group.quaternion.copy(sf.slopeQ);
+        _slopeSwayQuat.set(
+          (Math.sin(t * 0.35 + sf.phase + 1) * 0.01 * wAmp + wLeanZ * 0.2) * 0.5, 0,
+          (Math.sin(t * 0.4 + sf.phase) * 0.015 * wAmp + wLeanX * 0.2) * 0.5, 1
+        ).normalize();
+        sf.group.quaternion.multiply(_slopeSwayQuat);
+      }
     }
   }
   // CorpseBloom fly orbiting + glow pulse
@@ -771,7 +914,13 @@ function updateVegetation(dt, t) {
         const flyH = 0.1 + Math.sin(t * 1.3 + fi * 1.7) * 0.15;
         cb.flies[fi].position.set(Math.cos(flyAng) * flyR, cb.spadixY + flyH, Math.sin(flyAng) * flyR);
       }
-      cb.group.rotation.z = Math.sin(t * 0.3 + cb.phase) * 0.01 * wAmp + wLeanX * 0.15;
+      if (cb.slopeQ) {
+        cb.group.quaternion.copy(cb.slopeQ);
+        _slopeSwayQuat.set(0, 0,
+          (Math.sin(t * 0.3 + cb.phase) * 0.01 * wAmp + wLeanX * 0.15) * 0.5, 1
+        ).normalize();
+        cb.group.quaternion.multiply(_slopeSwayQuat);
+      }
     }
   }
   // OrbBush orb pulse + sway
@@ -786,8 +935,14 @@ function updateVegetation(dt, t) {
         const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
         ob.orbMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(ob.x, ob.z, bioGlow);
       }
-      ob.group.rotation.z = Math.sin(t * 0.45 + ob.phase) * 0.012 * wAmp + wLeanX * 0.2;
-      ob.group.rotation.x = Math.sin(t * 0.4 + ob.phase + 1) * 0.008 * wAmp + wLeanZ * 0.2;
+      if (ob.slopeQ) {
+        ob.group.quaternion.copy(ob.slopeQ);
+        _slopeSwayQuat.set(
+          (Math.sin(t * 0.4 + ob.phase + 1) * 0.008 * wAmp + wLeanZ * 0.2) * 0.5, 0,
+          (Math.sin(t * 0.45 + ob.phase) * 0.012 * wAmp + wLeanX * 0.2) * 0.5, 1
+        ).normalize();
+        ob.group.quaternion.multiply(_slopeSwayQuat);
+      }
     }
   }
   // LanternPod pod sway + glow
@@ -802,8 +957,14 @@ function updateVegetation(dt, t) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
         lp.podMats[j].emissiveIntensity = (0.3 + p * 0.4) * getLocalGlow(lp.x, lp.z, bioGlow);
       }
-      lp.group.rotation.z = Math.sin(t * 0.6 + lp.phase) * 0.02 * wAmp + wLeanX * 0.25;
-      lp.group.rotation.x = Math.sin(t * 0.5 + lp.phase + 1) * 0.015 * wAmp + wLeanZ * 0.25;
+      if (lp.slopeQ) {
+        lp.group.quaternion.copy(lp.slopeQ);
+        _slopeSwayQuat.set(
+          (Math.sin(t * 0.5 + lp.phase + 1) * 0.015 * wAmp + wLeanZ * 0.25) * 0.5, 0,
+          (Math.sin(t * 0.6 + lp.phase) * 0.02 * wAmp + wLeanX * 0.25) * 0.5, 1
+        ).normalize();
+        lp.group.quaternion.multiply(_slopeSwayQuat);
+      }
     }
   }
   // VeilMoss curtain sway + glow
@@ -817,7 +978,13 @@ function updateVegetation(dt, t) {
       for (let j = 0; j < vm.veilMats.length; j++) {
         vm.veilMats[j].rotation.z = Math.sin(t * 0.8 + vm.phase + j * 0.7) * 0.06 * wAmp;
       }
-      vm.group.rotation.z = Math.sin(t * 0.35 + vm.phase) * 0.01 * wAmp + wLeanX * 0.15;
+      if (vm.slopeQ) {
+        vm.group.quaternion.copy(vm.slopeQ);
+        _slopeSwayQuat.set(0, 0,
+          (Math.sin(t * 0.35 + vm.phase) * 0.01 * wAmp + wLeanX * 0.15) * 0.5, 1
+        ).normalize();
+        vm.group.quaternion.multiply(_slopeSwayQuat);
+      }
     }
   }
   // Ground glow patch pulse
@@ -2166,47 +2333,48 @@ function animate() {
   updateRain(dt, player.pos, rainRate, windX, windZ);
   updateAurora(dt, elapsed, dayPhase, bioGlow, weatherState);
 
-  // Global dimming — scales renderer exposure, fog, ambient, player light, and
-  // color saturation based on the player's local glow factor. Smoothly lerped.
+  // Global dimming — dramatically scales exposure, fog, ambient, player light,
+  // and color saturation. At 0/5 orbs the forest is dark/grey/foggy. Collecting
+  // an orb blooms brightness and color within the 30m restoration radius.
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 1.5 : 0.8; // brighten faster than dim
+  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 2.0 : 0.6; // brighten fast, dim slow
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
-  const desatT = 1.0 - smoothedDimFactor; // 0 = full color, 1 = fully desaturated
+  const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.65 = deeply dimmed
 
-  // Renderer exposure: 2.8 at full glow, ~1.5 in dimmed zones
-  renderer.toneMappingExposure = 1.5 + 1.3 * smoothedDimFactor;
+  // Renderer exposure: 2.8 at full glow → 0.7 in dimmed zones (4x ratio)
+  renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
 
-  // Fog: thicker + desaturated in dimmed zones
-  scene.fog.density *= (1.0 + 0.5 * desatT);
+  // Fog: 2.5× thicker + heavily desaturated in dimmed zones
+  scene.fog.density *= (1.0 + 1.5 * desatT);
   const fogLuma = scene.fog.color.r * 0.299 + scene.fog.color.g * 0.587 + scene.fog.color.b * 0.114;
   _dimGrey.setRGB(fogLuma, fogLuma, fogLuma);
-  scene.fog.color.lerp(_dimGrey, desatT * 0.7);
+  scene.fog.color.lerp(_dimGrey, desatT * 0.92);
 
-  // Hemisphere sky color: desaturate toward grey in dimmed zones
+  // Hemisphere sky color: near-monochrome in dimmed zones
   const skyLuma = hemiLight.color.r * 0.299 + hemiLight.color.g * 0.587 + hemiLight.color.b * 0.114;
   _dimGrey.setRGB(skyLuma, skyLuma, skyLuma);
-  hemiLight.color.lerp(_dimGrey, desatT * 0.7);
+  hemiLight.color.lerp(_dimGrey, desatT * 0.92);
 
-  // Hemisphere ground color: desaturate toward grey in dimmed zones
+  // Hemisphere ground color: near-monochrome in dimmed zones
   const gndLuma = hemiLight.groundColor.r * 0.299 + hemiLight.groundColor.g * 0.587 + hemiLight.groundColor.b * 0.114;
   _dimGrey.setRGB(gndLuma, gndLuma, gndLuma);
-  hemiLight.groundColor.lerp(_dimGrey, desatT * 0.7);
+  hemiLight.groundColor.lerp(_dimGrey, desatT * 0.92);
 
-  // Scene background: desaturate
+  // Scene background: heavily desaturated
   const bgLuma = scene.background.r * 0.299 + scene.background.g * 0.587 + scene.background.b * 0.114;
   _dimGrey.setRGB(bgLuma, bgLuma, bgLuma);
-  scene.background.lerp(_dimGrey, desatT * 0.5);
+  scene.background.lerp(_dimGrey, desatT * 0.85);
 
-  // Hemisphere ambient: reduce intensity in dimmed zones
-  hemiLight.intensity *= (0.6 + 0.4 * smoothedDimFactor);
+  // Hemisphere ambient: 75% reduction at full dimming
+  hemiLight.intensity *= (0.25 + 0.75 * smoothedDimFactor);
 
-  // Player light: weaker + desaturated in dimmed zones
-  playerLight.intensity *= (0.4 + 0.6 * smoothedDimFactor);
-  playerLight.distance *= (0.6 + 0.4 * smoothedDimFactor);
-  playerLight.color.copy(_playerLightBaseColor); // reset before desaturating
+  // Player light: barely a glow in dimmed zones
+  playerLight.intensity *= (0.15 + 0.85 * smoothedDimFactor);
+  playerLight.distance *= (0.35 + 0.65 * smoothedDimFactor);
+  playerLight.color.copy(_playerLightBaseColor);
   const plLuma = _playerLightBaseColor.r * 0.299 + _playerLightBaseColor.g * 0.587 + _playerLightBaseColor.b * 0.114;
   _dimGrey.setRGB(plLuma, plLuma, plLuma);
-  playerLight.color.lerp(_dimGrey, desatT * 0.5);
+  playerLight.color.lerp(_dimGrey, desatT * 0.8);
 
   // Lightning flash (brief ambient light spike during storms)
   // Keep flash moderate to avoid blowing out with tonemapping + bloom

@@ -5,6 +5,7 @@ import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { saveSeed, restoreSeed } from '../../utils/rng.js';
 import { lerp } from '../../utils/math.js';
+import { getGroundNormal } from '../../world/terrain.js';
 
 // ================================================================
 // Procedural bark texture — generated once, shared by all trunk InstancedMeshes
@@ -514,6 +515,22 @@ function bakeTemplate(palIdx, seedOffset) {
 // Returns array of { trunk, canopy, glow, detail, instances: [] } per template
 // ================================================================
 const _dummy = new THREE.Object3D();
+const _slopeUp = new THREE.Vector3(0, 1, 0);
+const _slopeNorm = new THREE.Vector3();
+const _slopeQ = new THREE.Quaternion();
+const _identQ = new THREE.Quaternion();
+const _swayQ = new THREE.Quaternion();
+const _yRotQ = new THREE.Quaternion();
+const SLOPE_FACTOR = 0.35; // Apply 35% of slope — enough to ground roots, not drunk trees
+
+// Apply slope tilt + Y rotation to _dummy quaternion using cached normal
+function applySlopeTilt(nx, ny, nz, yRot) {
+  _slopeNorm.set(nx, ny, nz);
+  _slopeQ.setFromUnitVectors(_slopeUp, _slopeNorm);
+  _slopeQ.slerp(_identQ, 1.0 - SLOPE_FACTOR);
+  _yRotQ.setFromAxisAngle(_slopeUp, yRot);
+  _dummy.quaternion.copy(_slopeQ).multiply(_yRotQ);
+}
 
 export function createTreeTemplates(templateCount) {
   const templates = [];
@@ -616,8 +633,10 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const yRot = pos.yRot;
     const scale = pos.scale;
 
+    // Compute slope normal for root-grounding tilt
+    const n = getGroundNormal(pos.x, pos.z);
     _dummy.position.set(pos.x, pos.y, pos.z);
-    _dummy.rotation.set(0, yRot, 0);
+    applySlopeTilt(n.x, n.y, n.z, yRot);
     _dummy.scale.setScalar(scale);
     _dummy.updateMatrix();
 
@@ -630,7 +649,8 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     meshes[tIdx].instances.push({
       x: pos.x, z: pos.z, y: pos.y,
       yRot, scale, treeH: pos.treeH || meshes[tIdx].treeH,
-      posIdx: i
+      posIdx: i,
+      nx: n.x, ny: n.y, nz: n.z
     });
   }
 
@@ -698,7 +718,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
         }
         // Also render the 3D mesh during cross-fade
         _dummy.position.set(inst.x, inst.y, inst.z);
-        _dummy.rotation.set(0, inst.yRot, 0);
+        applySlopeTilt(inst.nx, inst.ny, inst.nz, inst.yRot);
         _dummy.scale.setScalar(inst.scale);
         _dummy.updateMatrix();
         if (mesh.trunk) mesh.trunk.setMatrixAt(trunkCount++, _dummy.matrix);
@@ -714,18 +734,18 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       _dummy.scale.setScalar(inst.scale);
 
       if (d2 < 400) {
-        // Tier 0 (<20m): full detail + wind sway
+        // Tier 0 (<20m): full detail + wind sway on top of slope tilt
         const tPhase = inst.x * 0.1 + inst.z * 0.13;
-        _dummy.rotation.set(
-          Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15,
-          inst.yRot,
-          Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15
-        );
+        applySlopeTilt(inst.nx, inst.ny, inst.nz, inst.yRot);
+        const swX = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
+        const swZ = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
+        _swayQ.set(swX * 0.5, 0, swZ * 0.5, 1).normalize(); // small-angle approx
+        _dummy.quaternion.multiply(_swayQ);
         _dummy.updateMatrix();
         if (mesh.detail) mesh.detail.setMatrixAt(detailCount++, _dummy.matrix);
       } else {
         // Tier 1 (20-63m): no detail, no sway
-        _dummy.rotation.set(0, inst.yRot, 0);
+        applySlopeTilt(inst.nx, inst.ny, inst.nz, inst.yRot);
         _dummy.updateMatrix();
       }
 

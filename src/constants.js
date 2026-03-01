@@ -28,6 +28,8 @@ export const FERN_N = 160;         // visibility-culled beyond 40m (3x)
 export const FLOWER_N = 140;       // visibility-culled beyond 40m (3x)
 export const REED_N = 40;          // visibility-culled beyond 40m
 export const ROCK_N = 60;          // visibility-culled beyond 50m
+export const BOULDER_N = 12;       // large dramatic rock formations
+export const PEBBLE_N = 250;       // tiny scattered stones (InstancedMesh)
 export const WISP_N = 6;
 export const DANDELION_N = 25;
 export const FAIRY_RING_N = 8;
@@ -114,8 +116,13 @@ export const C = {
   starMote: 0xffeedd, starGlow: 0xffffcc,
   pondWater: 0x2266aa, pondGlow: 0x3388cc, lilyPad: 0x228844, lilyFlower: 0xff88cc, lilyGlow: 0xffaadd,
   echoBloom: 0xaaffcc, echoWave: 0x88ffbb,
-  // Rock palette
-  rockBase: 0x2a2a32, rockMoss: 0x1a4422, rockLight: 0x3a3a45,
+  // Rock palette — varied rock types with realistic lighter greys
+  rockBase: 0x8a8a90, rockLight: 0x9a9a9e, rockMoss: 0x1a4422,
+  rockGranite:   [0x8a8a90, 0x9a9a9e, 0x6a6a72, 0xa0a0a8],
+  rockSandstone: [0x9a8a70, 0xb0a088, 0x7a6a55, 0xc0b098],
+  rockLimestone: [0xa0a098, 0xb0b0a8, 0x808078, 0xc8c8c0],
+  rockSlate:     [0x607080, 0x708090, 0x505868, 0x8898a8],
+  rockBasalt:    [0x505058, 0x606068, 0x404048, 0x707078],
   // Sky palette
   skyDeep: 0x030610, skyNeb1: 0x220833, skyNeb2: 0x081833, skyNeb3: 0x1a0828,
   skyNeb4: 0x0a1a22, skyNeb5: 0x180a28,

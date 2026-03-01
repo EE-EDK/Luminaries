@@ -197,11 +197,11 @@ function generateTemplateTree(palIdx) {
   const rootN = 4 + Math.floor(sr() * 4); // 4-7 major roots
   for (let ri = 0; ri < rootN; ri++) {
     const ra = ri / rootN * 6.28 + sr() * 0.4;
-    const rLen = 1.2 + sr() * 2.5; // long roots
+    const rLen = 0.8 + sr() * 1.8; // shorter roots stay closer to ground
     const rBaseR = baseFlare * (0.3 + sr() * 0.2); // thick at trunk junction
     const rTipR = 0.03 + sr() * 0.03;
-    // Roots angle slightly downward, mostly horizontal
-    const rootDown = -0.1 - sr() * 0.15; // slight downward angle
+    // Roots angle downward into the terrain
+    const rootDown = -0.25 - sr() * 0.25; // steeper angle hugs terrain
     const rdx = Math.cos(ra) * Math.cos(rootDown);
     const rdy = Math.sin(rootDown);
     const rdz = Math.sin(ra) * Math.cos(rootDown);
@@ -521,7 +521,7 @@ const _slopeQ = new THREE.Quaternion();
 const _identQ = new THREE.Quaternion();
 const _swayQ = new THREE.Quaternion();
 const _yRotQ = new THREE.Quaternion();
-const SLOPE_FACTOR = 0.35; // Apply 35% of slope — enough to ground roots, not drunk trees
+const SLOPE_FACTOR = 0.65; // Apply 65% of slope — aggressive tilt to ground roots on hillsides
 
 // Apply slope tilt + Y rotation to _dummy quaternion using cached normal
 function applySlopeTilt(nx, ny, nz, yRot) {

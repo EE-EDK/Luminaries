@@ -2,26 +2,61 @@
 // Rock Formations — varied rock types, angular geometry, three size classes
 // ================================================================
 // Granite, sandstone, limestone, slate, basalt — each with unique color,
-// roughness, and displacement. Boulders are dramatic large formations.
-// Pebbles scatter as cheap InstancedMesh clusters.
+// roughness, and displacement. Higher subdivision + multi-octave noise +
+// vertex colors + canvas bump maps for realistic surface detail.
+// Boulders are dramatic large formations. Pebbles scatter as InstancedMesh.
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, PEBBLE_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 
 // ================================================================
-// Rock type definitions
+// Rock type definitions — increased displacement amplitudes
 // ================================================================
 const ROCK_TYPES = [
-  { palette: 'rockGranite',   roughness: 0.82, metalness: 0.08, dispAmp: 0.14 },
-  { palette: 'rockSandstone', roughness: 0.90, metalness: 0.03, dispAmp: 0.10 },
-  { palette: 'rockLimestone', roughness: 0.78, metalness: 0.05, dispAmp: 0.08 },
-  { palette: 'rockSlate',     roughness: 0.85, metalness: 0.10, dispAmp: 0.16 },
-  { palette: 'rockBasalt',    roughness: 0.92, metalness: 0.06, dispAmp: 0.12 },
+  { palette: 'rockGranite',   roughness: 0.82, metalness: 0.08, dispAmp: 0.25, bumpIdx: 0 },
+  { palette: 'rockSandstone', roughness: 0.90, metalness: 0.03, dispAmp: 0.20, bumpIdx: 1 },
+  { palette: 'rockLimestone', roughness: 0.78, metalness: 0.05, dispAmp: 0.18, bumpIdx: 2 },
+  { palette: 'rockSlate',     roughness: 0.85, metalness: 0.10, dispAmp: 0.28, bumpIdx: 3 },
+  { palette: 'rockBasalt',    roughness: 0.92, metalness: 0.06, dispAmp: 0.22, bumpIdx: 4 },
 ];
 
 // ================================================================
-// Vertex displacement — gives geometry a rough, natural rock profile
+// Canvas-generated bump maps — one per rock type, cached
+// ================================================================
+const _bumpMaps = [];
+
+function generateRockBumpMap(seed) {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const v = Math.sin(x * 0.3 + seed) * Math.cos(y * 0.4 + seed * 0.7) * 0.5
+              + Math.sin(x * 0.7 + y * 0.5 + seed * 1.3) * 0.3
+              + Math.sin(x * 1.3 + y * 1.1 + seed * 2.1) * 0.15
+              + (Math.sin(x * seed * 0.01 + y * 0.02) * 0.5 + 0.5) * 0.15;
+      const val = Math.floor(Math.max(0, Math.min(1, v * 0.5 + 0.5)) * 255);
+      const idx = (y * size + x) * 4;
+      imgData.data[idx] = imgData.data[idx + 1] = imgData.data[idx + 2] = val;
+      imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Generate bump maps for all 5 rock types at module load
+for (let i = 0; i < 5; i++) {
+  _bumpMaps.push(generateRockBumpMap(i * 7.3 + 1.7));
+}
+
+// ================================================================
+// Multi-octave vertex displacement — rough, natural rock profile
 // ================================================================
 function displaceVertices(geo, amplitude, frequency) {
   geo.computeVertexNormals();
@@ -30,9 +65,13 @@ function displaceVertices(geo, amplitude, frequency) {
   for (let i = 0; i < pos.count; i++) {
     const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
     const nx = norm.getX(i), ny = norm.getY(i), nz = norm.getZ(i);
-    const noise = Math.sin(px * frequency + py * 3.7) *
-                  Math.cos(pz * frequency + px * 2.3) *
-                  Math.sin(py * frequency * 0.7 + pz * 1.9);
+    // Multi-octave noise for natural roughness
+    const n1 = Math.sin(px * frequency + py * 3.7) *
+               Math.cos(pz * frequency + px * 2.3);
+    const n2 = Math.sin(px * frequency * 2.1 + pz * 5.3) *
+               Math.cos(py * frequency * 1.7 + px * 4.1) * 0.5;
+    const n3 = Math.sin(pz * frequency * 3.7 + py * 8.1) * 0.25;
+    const noise = n1 + n2 + n3;
     const disp = noise * amplitude;
     pos.setX(i, px + nx * disp);
     pos.setY(i, py + ny * disp);
@@ -43,21 +82,59 @@ function displaceVertices(geo, amplitude, frequency) {
 }
 
 // ================================================================
-// Pick a random rock type and create materials
+// Per-vertex color variation — simulates grain, strata, weathering
+// ================================================================
+const _vtxColor = new THREE.Color();
+const _vtxBase = new THREE.Color();
+const _vtxHi = new THREE.Color();
+const _vtxWth = new THREE.Color();
+
+function addVertexColors(geo, baseHex, hiHex, weatherHex) {
+  const pos = geo.attributes.position;
+  const count = pos.count;
+  const colors = new Float32Array(count * 3);
+  _vtxBase.set(baseHex);
+  _vtxHi.set(hiHex);
+  _vtxWth.set(weatherHex);
+  for (let i = 0; i < count; i++) {
+    const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
+    // Height-based blend (top = highlight, bottom = weathering)
+    const heightT = Math.max(0, Math.min(1, py * 0.5 + 0.5));
+    // Position-based noise for grain
+    const noise = Math.sin(px * 7.3 + pz * 5.1) * 0.5 + 0.5;
+    _vtxColor.copy(_vtxBase);
+    _vtxColor.lerp(_vtxHi, heightT * 0.4 + noise * 0.3);
+    _vtxColor.lerp(_vtxWth, (1 - heightT) * 0.3);
+    colors[i * 3] = _vtxColor.r;
+    colors[i * 3 + 1] = _vtxColor.g;
+    colors[i * 3 + 2] = _vtxColor.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+}
+
+// ================================================================
+// Pick a random rock type and create materials with bump map + vertex colors
 // ================================================================
 function pickRockMaterials() {
   const type = ROCK_TYPES[Math.floor(sr() * ROCK_TYPES.length)];
   const pal = C[type.palette]; // [base, hi, weather, accent]
+  const bump = _bumpMaps[type.bumpIdx];
   const base = new THREE.MeshStandardMaterial({
-    color: pal[0], roughness: type.roughness, metalness: type.metalness
+    vertexColors: true,
+    roughness: type.roughness, metalness: type.metalness,
+    bumpMap: bump, bumpScale: 0.15
   });
   const hi = new THREE.MeshStandardMaterial({
-    color: pal[1], roughness: type.roughness - 0.05, metalness: type.metalness
+    vertexColors: true,
+    roughness: type.roughness - 0.05, metalness: type.metalness,
+    bumpMap: bump, bumpScale: 0.12
   });
   const weather = new THREE.MeshStandardMaterial({
-    color: pal[2], roughness: type.roughness + 0.05, metalness: 0.02
+    vertexColors: true,
+    roughness: type.roughness + 0.05, metalness: 0.02,
+    bumpMap: bump, bumpScale: 0.18
   });
-  return { base, hi, weather, type };
+  return { base, hi, weather, type, pal };
 }
 
 // ================================================================
@@ -72,31 +149,34 @@ const mossMat = new THREE.MeshStandardMaterial({
 // ================================================================
 export function makeRock(x, z) {
   const g = new THREE.Group();
-  const { base, hi, weather, type } = pickRockMaterials();
+  const { base, hi, weather, type, pal } = pickRockMaterials();
 
-  // Main stone — angular IcosahedronGeometry with displacement
+  // Main stone — subdivision 2 (80 faces) with multi-octave displacement
   const mainSz = 0.3 + sr() * 0.5;
-  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 1);
+  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 2);
   displaceVertices(mainGeo, mainSz * type.dispAmp, 5.0 + sr() * 3.0);
+  addVertexColors(mainGeo, pal[0], pal[1], pal[2]);
   const main = new THREE.Mesh(mainGeo, sr() < 0.6 ? base : hi);
   const scaleY = 0.4 + sr() * 0.4;
   main.scale.set(1 + sr() * 0.6, scaleY, 1 + sr() * 0.6);
-  main.position.y = mainSz * scaleY * 0.35;
+  // Embed deeper into terrain
+  main.position.y = mainSz * scaleY * 0.15;
   main.rotation.set(sr() * 0.5, sr() * 3, sr() * 0.3);
   main.castShadow = true; main.receiveShadow = true;
   g.add(main);
 
-  // Secondary stones (1-3 companions)
+  // Secondary stones (1-3 companions) — subdivision 1 (20 faces)
   const secN = 1 + Math.floor(sr() * 3);
   for (let si = 0; si < secN; si++) {
     const sa = sr() * 6.28, sd = mainSz * 0.6 + sr() * mainSz * 0.5;
     const sSz = mainSz * 0.3 + sr() * mainSz * 0.4;
-    const secGeo = new THREE.IcosahedronGeometry(sSz, 0);
+    const secGeo = new THREE.IcosahedronGeometry(sSz, 1);
     displaceVertices(secGeo, sSz * type.dispAmp * 0.8, 6.0);
+    addVertexColors(secGeo, pal[0], pal[1], pal[2]);
     const sec = new THREE.Mesh(secGeo, sr() < 0.5 ? base : weather);
     const secScaleY = 0.3 + sr() * 0.4;
     sec.scale.set(1 + sr() * 0.5, secScaleY, 1 + sr() * 0.5);
-    sec.position.set(Math.cos(sa) * sd, sSz * secScaleY * 0.3, Math.sin(sa) * sd);
+    sec.position.set(Math.cos(sa) * sd, sSz * secScaleY * 0.15, Math.sin(sa) * sd);
     sec.rotation.set(sr() * 0.8, sr() * 3, sr() * 0.5);
     g.add(sec);
   }
@@ -201,16 +281,18 @@ export function makeRock(x, z) {
 // ================================================================
 export function makeBoulder(x, z) {
   const g = new THREE.Group();
-  const { base, hi, weather, type } = pickRockMaterials();
+  const { base, hi, weather, type, pal } = pickRockMaterials();
 
-  // Main boulder — high-detail icosahedron with aggressive displacement
+  // Main boulder — subdivision 3 (320 faces) with aggressive displacement
   const mainSz = 1.5 + sr() * 2.0;
-  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 2);
+  const mainGeo = new THREE.IcosahedronGeometry(mainSz, 3);
   displaceVertices(mainGeo, mainSz * (type.dispAmp + 0.08), 2.5 + sr() * 2.0);
+  addVertexColors(mainGeo, pal[0], pal[1], pal[2]);
   const main = new THREE.Mesh(mainGeo, base);
   const scaleY = 0.5 + sr() * 0.3;
   main.scale.set(1 + sr() * 0.4, scaleY, 1 + sr() * 0.4);
-  main.position.y = mainSz * scaleY * 0.4;
+  // Embed 35% into terrain so it looks grounded
+  main.position.y = mainSz * scaleY * 0.15;
   main.rotation.set(sr() * 0.3, sr() * 3, sr() * 0.2);
   main.castShadow = true; main.receiveShadow = true;
   g.add(main);
@@ -218,14 +300,15 @@ export function makeBoulder(x, z) {
   // Accent slab — a wedge broken off the main mass
   if (sr() < 0.7) {
     const slabSz = mainSz * 0.3 + sr() * mainSz * 0.3;
-    const slabGeo = new THREE.IcosahedronGeometry(slabSz, 1);
+    const slabGeo = new THREE.IcosahedronGeometry(slabSz, 2);
     displaceVertices(slabGeo, slabSz * type.dispAmp, 4.0);
+    addVertexColors(slabGeo, pal[0], pal[1], pal[2]);
     const slab = new THREE.Mesh(slabGeo, sr() < 0.5 ? hi : weather);
     const slabAng = sr() * 6.28;
     slab.scale.set(1.3 + sr() * 0.4, 0.3 + sr() * 0.3, 1 + sr() * 0.5);
     slab.position.set(
       Math.cos(slabAng) * mainSz * 0.8,
-      slabSz * 0.2,
+      slabSz * 0.1,
       Math.sin(slabAng) * mainSz * 0.8
     );
     slab.rotation.set(sr() * 0.6, sr() * 3, sr() * 0.4);

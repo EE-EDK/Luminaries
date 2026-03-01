@@ -10,10 +10,11 @@ import { renderer, scene, camera } from './renderer.js';
 
 export let composer = null;
 export let bloomEnabled = true;
+export let bloomPass = null;
 
 try {
   const renderPass = new RenderPass(scene, camera);
-  const bloomPass = new UnrealBloomPass(
+  bloomPass = new UnrealBloomPass(
     new THREE.Vector2(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2)),
     0.6,   // strength — subtle dreamy glow
     0.4,   // radius — how far bloom spreads

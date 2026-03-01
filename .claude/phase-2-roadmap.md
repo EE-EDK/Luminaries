@@ -37,9 +37,11 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 
 ### Tier 3 — Narrative & Polish
 
+> **Text rendering:** Use `troika-three-text` for all in-world and UI text (discovery messages, narrative overlays, HUD elements). No HTML overlays or canvas text.
+
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
-| 15 | **Dual-Narrative Text** — Child/adult perspective toggle | `systems/discoveries.js`, `ui/hud.js` | Low | Not started |
+| 15 | **Dual-Narrative Text** — Child/adult perspective toggle (use `troika-three-text`) | `systems/discoveries.js`, `ui/hud.js` | Low | Not started |
 | 16 | **Sky Constellations** — Reveal star patterns per orb | `world/sky.js` | Low | Not started |
 | 17 | **Shooting Star Wishes** — Poetic fragments triggered by sky-watching | `world/sky.js`, `systems/discoveries.js` | Low | Not started |
 | 18 | **Ground Glyphs** — Hidden discovery markers revealed by stillness | `systems/discoveries.js`, `main.js` | Low | Not started |

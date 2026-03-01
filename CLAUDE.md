@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~13,000 lines across 64 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
+Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API / troika-three-text. ~13,000 lines across 64 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
 
 **Live:** https://ee-edk.github.io/Luminaries/
 
@@ -63,6 +63,7 @@ These are non-negotiable. Every session must follow them.
 - Colors from `C` object in `constants.js`. Never inline hex values.
 - `depthWrite: false` for all transparent/glow/haze materials.
 - Banner comments: `// ===...===` for major sections.
+- **Text rendering:** Use `troika-three-text` for all in-world and UI text. Never use HTML overlays or canvas-based text.
 
 ### Audio Rules
 - Entity files **NEVER** import audio.js. Use callback injection through main.js.

@@ -48,13 +48,13 @@ function createNoiseBuffer(type, duration) {
       const w = Math.random() * 2 - 1;
       data[i] = (last + 0.02 * w) / 1.02;
       last = data[i];
-      data[i] *= 3.5;
+      data[i] *= 1.8; // was 3.5 — reduced to tame sub-bass energy
     }
   }
   return buf;
 }
 
-function loopNoise(buffer, gainVal, filterFreq) {
+function loopNoise(buffer, gainVal, filterFreq, highpassFreq) {
   const src = ctx.createBufferSource();
   src.buffer = buffer;
   src.loop = true;
@@ -64,7 +64,12 @@ function loopNoise(buffer, gainVal, filterFreq) {
   filter.type = 'lowpass';
   filter.frequency.value = filterFreq;
   filter.Q.value = 0.5;
-  src.connect(filter).connect(gain).connect(masterGain);
+  // Highpass to cut sub-bass rumble (default 40Hz)
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = highpassFreq || 40;
+  hp.Q.value = 0.5;
+  src.connect(hp).connect(filter).connect(gain).connect(masterGain);
   src.start();
   return { node: src, gain, filter };
 }
@@ -79,21 +84,30 @@ function createReverb() {
   const delay2 = ctx.createDelay(1.0);
   delay2.delayTime.value = 0.47;
   const fb1 = ctx.createGain();
-  fb1.gain.value = 0.25;
+  fb1.gain.value = 0.20; // reduced from 0.25
   const fb2 = ctx.createGain();
-  fb2.gain.value = 0.20;
+  fb2.gain.value = 0.15; // reduced from 0.20
   const filter1 = ctx.createBiquadFilter();
   filter1.type = 'lowpass';
   filter1.frequency.value = 2500;
   const filter2 = ctx.createBiquadFilter();
   filter2.type = 'lowpass';
   filter2.frequency.value = 2000;
+  // Highpass in feedback path — prevents sub-bass accumulation / rumble
+  const hp1 = ctx.createBiquadFilter();
+  hp1.type = 'highpass';
+  hp1.frequency.value = 120;
+  hp1.Q.value = 0.5;
+  const hp2 = ctx.createBiquadFilter();
+  hp2.type = 'highpass';
+  hp2.frequency.value = 120;
+  hp2.Q.value = 0.5;
   const wet = ctx.createGain();
-  wet.gain.value = 0.35;
+  wet.gain.value = 0.30; // reduced from 0.35
 
-  // Feedback loops
-  delay1.connect(filter1).connect(fb1).connect(delay1);
-  delay2.connect(filter2).connect(fb2).connect(delay2);
+  // Feedback loops with highpass to kill rumble buildup
+  delay1.connect(filter1).connect(hp1).connect(fb1).connect(delay1);
+  delay2.connect(filter2).connect(hp2).connect(fb2).connect(delay2);
   delay1.connect(wet);
   delay2.connect(wet);
   wet.connect(masterGain);
@@ -133,12 +147,12 @@ export function initAudio() {
       brownBuf = createNoiseBuffer('brown', 2);
       whiteBuf = createNoiseBuffer('white', 2);
 
-      // Create shared reverb — DISABLED for rumble investigation
-      // createReverb();
+      // Shared reverb (feedback delays with highpass to prevent rumble)
+      createReverb();
 
-      // --- Forest hum: DISABLED ---
-      // const fh = loopNoise(brownBuf, 0.08, 160);
-      // forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
+      // Forest hum: warm brown noise band (50-200Hz), gentle volume
+      const fh = loopNoise(brownBuf, 0.06, 200, 50);
+      forestNode = fh.node; forestGain = fh.gain; forestFilter = fh.filter;
 
       // --- Wind: DISABLED ---
       // const wn = loopNoise(whiteBuf, 0, 400);
@@ -173,9 +187,9 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
 
   const now = ctx.currentTime;
 
-  // --- Forest hum: DISABLED ---
-  // const forestVol = phase === 'DEEP_NIGHT' ? 0.10 : phase === 'DAWN' ? 0.05 : 0.08;
-  // forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
+  // Forest hum — subtle volume shift by time of day
+  const forestVol = phase === 'DEEP_NIGHT' ? 0.08 : phase === 'DAWN' ? 0.04 : 0.06;
+  forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
 
   // --- Wind: DISABLED ---
   // const windVol = Math.min(windStrength * 0.15, 0.25);

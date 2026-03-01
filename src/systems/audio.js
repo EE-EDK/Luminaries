@@ -612,19 +612,19 @@ function ensureAmbient() {
 function spawnCricketPing(vol) {
   if (!ctx || vol < 0.001) return;
   const now = ctx.currentTime;
-  const freq = 3000 + Math.random() * 2000; // 3000-5000 Hz range
+  const freq = 1800 + Math.random() * 800; // 1800-2600 Hz — softer range
   const osc = ctx.createOscillator();
   osc.type = 'sine';
   osc.frequency.value = freq;
-  // Very slight pitch drop for bell character
-  osc.frequency.exponentialRampToValueAtTime(freq * 0.92, now + 0.08);
+  // Gentle pitch drop for bell character
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.88, now + 0.1);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol, now + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  gain.gain.linearRampToValueAtTime(vol * 0.5, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
   osc.connect(gain).connect(masterGain);
   osc.start(now);
-  osc.stop(now + 0.1);
+  osc.stop(now + 0.12);
 }
 
 export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase, rainRate) {
@@ -685,8 +685,8 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     cricketPingTimer -= dt;
     if (cricketPingTimer <= 0) {
       spawnCricketPing(cricketVolTarget);
-      // Random interval — faster when closer, ranging 0.1s to 0.5s
-      const rate = 0.1 + (1 - cricketProx) * 0.4;
+      // Relaxed interval — 1.5s to 4.5s between pings
+      const rate = 1.5 + (1 - cricketProx) * 1.5;
       cricketPingTimer = rate + Math.random() * rate;
     }
   } else {

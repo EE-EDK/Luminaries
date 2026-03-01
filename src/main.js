@@ -437,61 +437,74 @@ function updateVegetation(dt, t) {
   const wLeanX = windX * 0.03; // directional lean
   const wLeanZ = windZ * 0.03;
   // --- Tree visibility LOD + wind sway ---
-  // Near (<35m): full detail, wind sway animation
-  // Mid (35-55m): only underglow haze visible (cheap distant glow)
-  // Far (>55m): hidden entirely (saves all draw calls)
+  // Near (<70m): full detail, wind sway animation
+  // Mid (70-110m): only underglow haze visible (cheap distant glow)
+  // Far (>110m): hidden entirely (saves all draw calls)
   const px = player.pos.x, pz = player.pos.z;
   for (let i = 0; i < trees_data.length; i++) {
     const tr = trees_data[i];
     const tdx = tr.x - px, tdz = tr.z - pz;
     const d2 = tdx * tdx + tdz * tdz;
-    if (d2 > 3025) { // >55m — hide entirely
+    if (d2 > 12100) { // >110m — hide entirely
       if (tr.group.visible) tr.group.visible = false;
       continue;
     }
     if (!tr.group.visible) tr.group.visible = true;
-    if (d2 > 1225) { // 35-55m — show only underglow haze (last child)
+    if (d2 > 4900) { // 70-110m — show only underglow haze
       if (tr._lod !== 1) {
         const children = tr.group.children;
         for (let c = 0; c < children.length - 2; c++) children[c].visible = false;
-        // Keep underglow sphere + base mound visible
         children[children.length - 2].visible = true;
         children[children.length - 1].visible = true;
         tr._lod = 1;
       }
       continue;
     }
-    // <35m — full detail
+    // <70m — full detail
     if (tr._lod !== 0) {
       const children = tr.group.children;
       for (let c = 0; c < children.length; c++) children[c].visible = true;
       tr._lod = 0;
     }
-    const tPhase = tr.x * 0.1 + tr.z * 0.13;
-    tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
-    tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
+    if (d2 < 900) { // only animate sway within 30m
+      const tPhase = tr.x * 0.1 + tr.z * 0.13;
+      tr.group.rotation.z = Math.sin(t * 0.3 + tPhase) * 0.004 * wAmp + wLeanX * 0.15;
+      tr.group.rotation.x = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;
+    }
   }
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
+  // Ferns — visibility cull beyond 40m, animate within 30m
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
     const fdx = f.group.position.x - px, fdz = f.group.position.z - pz;
-    if (fdx * fdx + fdz * fdz > 900) continue; // skip beyond 30m
+    const fd2 = fdx * fdx + fdz * fdz;
+    if (fd2 > 1600) { if (f.group.visible) f.group.visible = false; continue; }
+    if (!f.group.visible) f.group.visible = true;
+    if (fd2 > 900) continue;
     f.group.rotation.z = Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX;
     f.group.rotation.x = Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ;
   }
+  // Flowers — visibility cull beyond 40m, animate within 30m
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const fldx = fl.group.position.x - px, fldz = fl.group.position.z - pz;
-    if (fldx * fldx + fldz * fldz > 900) continue; // skip beyond 30m
+    const fld2 = fldx * fldx + fldz * fldz;
+    if (fld2 > 1600) { if (fl.group.visible) fl.group.visible = false; continue; }
+    if (!fl.group.visible) fl.group.visible = true;
+    if (fld2 > 900) continue;
     const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
     fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * bioGlow;
     fl.group.rotation.z = Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5;
   }
+  // Reeds — visibility cull beyond 40m, animate within 30m
   for (let i = 0; i < reeds.length; i++) {
     const r = reeds[i];
     const rdx = r.group.position.x - px, rdz = r.group.position.z - pz;
-    if (rdx * rdx + rdz * rdz > 900) continue; // skip beyond 30m
+    const rd2 = rdx * rdx + rdz * rdz;
+    if (rd2 > 1600) { if (r.group.visible) r.group.visible = false; continue; }
+    if (!r.group.visible) r.group.visible = true;
+    if (rd2 > 900) continue;
     r.group.rotation.z = Math.sin(t * 1.1 + r.phase) * r.swayAmp * wAmp + wLeanX;
     r.group.rotation.x = Math.sin(t * 0.8 + r.phase + 2) * r.swayAmp * 0.5 * wAmp + wLeanZ;
   }
@@ -1581,9 +1594,13 @@ function director(dt, t) {
     }
   }
 
-  // Mushroom glow pulse
+  // Mushroom glow pulse + visibility cull
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
+    const mdx = m.x - player.pos.x, mdz = m.z - player.pos.z;
+    const md2 = mdx * mdx + mdz * mdz;
+    if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
+    if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
     m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
   }
@@ -1665,11 +1682,14 @@ function director(dt, t) {
   // Batch 2 Item 3: Rock sparkles reactive to crystals, player, and chain resonance
   for (let i = 0; i < rocks_data.length; i++) {
     const rk = rocks_data[i];
-    if (!rk.sparkles) continue;
     const rx = rk.x || rk.group.position.x, rz = rk.z || rk.group.position.z;
-    // Distance-cull: skip rocks far from player
     const rrx = rx - player.pos.x, rrz = rz - player.pos.z;
-    if (rrx * rrx + rrz * rrz > 400) continue; // skip beyond 20m
+    const rd2 = rrx * rrx + rrz * rrz;
+    // Visibility cull beyond 50m
+    if (rd2 > 2500) { if (rk.group.visible) rk.group.visible = false; continue; }
+    if (!rk.group.visible) rk.group.visible = true;
+    if (!rk.sparkles) continue;
+    if (rd2 > 400) continue; // skip sparkle updates beyond 20m
     // Crystal proximity boost: rocks near active crystals glow brighter
     let crystalBoost = 0;
     for (let ci = 0; ci < crys_data.length; ci++) {

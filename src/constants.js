@@ -15,28 +15,28 @@ export const MOUSE_SENS = 0.003;
 export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
-// Entity counts — grass is GPU-driven, others use distance-culled CPU animation
-export const TREE_N = 75;          // visibility-culled beyond 55m
-export const MUSH_N = 40;          // was 25
-export const CRYSTAL_N = 14;       // was 10
-export const JELLY_N = 8;          // was 6
-export const PUFF_N = 12;          // was 8
-export const DEER_N = 5;           // was 4
-export const MOTH_N = 7;           // was 5
-export const GRASS_PATCHES = 350;  // GPU sway, zero CPU cost
-export const FERN_N = 30;          // was 18
-export const FLOWER_N = 25;        // was 15
-export const REED_N = 25;          // was 15
-export const ROCK_N = 45;          // was 30
-export const WISP_N = 5;           // was 3
-export const DANDELION_N = 18;     // was 12
-export const FAIRY_RING_N = 7;     // was 5
-export const BUBBLE_N = 20;        // was 15
-export const STARMOTE_N = 40;
-export const POND_N = 8;           // was 6
-export const THORNBLOOM_N = 8;     // was 6
-export const HELIXVINE_N = 8;      // was 6
-export const SNAPTHORN_N = 7;      // was 5
+// Entity counts — all entities use visibility culling + distance-based LOD
+export const TREE_N = 75;          // 3-tier LOD: full/haze/hidden
+export const MUSH_N = 60;          // visibility-culled beyond 50m
+export const CRYSTAL_N = 18;
+export const JELLY_N = 10;
+export const PUFF_N = 14;
+export const DEER_N = 6;
+export const MOTH_N = 10;
+export const GRASS_PATCHES = 350;  // GPU vertex shader, zero CPU cost
+export const FERN_N = 50;          // visibility-culled beyond 40m
+export const FLOWER_N = 45;        // visibility-culled beyond 40m
+export const REED_N = 40;          // visibility-culled beyond 40m
+export const ROCK_N = 60;          // visibility-culled beyond 50m
+export const WISP_N = 6;
+export const DANDELION_N = 25;
+export const FAIRY_RING_N = 8;
+export const BUBBLE_N = 25;
+export const STARMOTE_N = 50;
+export const POND_N = 10;
+export const THORNBLOOM_N = 10;
+export const HELIXVINE_N = 10;
+export const SNAPTHORN_N = 8;
 
 // Sky
 export const SKY_STARS = 600;

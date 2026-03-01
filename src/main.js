@@ -650,6 +650,10 @@ function updateJellies(dt, t) {
       }
     }
 
+    // Terrain floor — prevent jellies going underground on hills
+    const jellyGroundY = getGroundY(g.position.x, g.position.z);
+    if (g.position.y < jellyGroundY + 3) g.position.y = jellyGroundY + 3;
+
     // Periodic hum sound
     if (j._state === 'pulse' && Math.random() < 0.003) {
       playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
@@ -1212,6 +1216,10 @@ function updateMoths(dt, t) {
         break;
       }
     }
+
+    // Terrain floor — prevent moths going underground on hills
+    const mothGroundY = getGroundY(g.position.x, g.position.z);
+    if (g.position.y < mothGroundY + 1.5) g.position.y = mothGroundY + 1.5;
 
     // Wing flap (barely flutter when resting)
     const flapIntensity = m._state === 'rest' ? 0.05 : 0.4;

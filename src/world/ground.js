@@ -8,17 +8,23 @@ import { getGroundY } from './terrain.js';
 // Rich variety: mossy patches, glowing mycelium, leaf litter, ring patterns
 // ================================================================
 
-// Shared uniforms for player proximity glow (updated once per frame)
+// Shared uniforms for player proximity glow + transform palette (updated per frame)
 const groundUniforms = {
   uTime: { value: 0 },
   uPlayerX: { value: 0 },
-  uPlayerZ: { value: 0 }
+  uPlayerZ: { value: 0 },
+  uTransform: { value: 0 }  // 0 = normal forest, 1 = pink/purple finale
 };
 
 export function updateGroundUniforms(t, playerX, playerZ) {
   groundUniforms.uTime.value = t;
   groundUniforms.uPlayerX.value = playerX;
   groundUniforms.uPlayerZ.value = playerZ;
+}
+
+// Called by quest manager during TRANSFORM phase
+export function setGroundTransform(val) {
+  groundUniforms.uTransform.value = val;
 }
 
 function makeGroundTexture() {
@@ -347,6 +353,7 @@ export function createGround() {
     shader.uniforms.uTime = groundUniforms.uTime;
     shader.uniforms.uPlayerX = groundUniforms.uPlayerX;
     shader.uniforms.uPlayerZ = groundUniforms.uPlayerZ;
+    shader.uniforms.uTransform = groundUniforms.uTransform;
 
     // Vertex shader: compute world position + player distance, pass to fragment
     shader.vertexShader = shader.vertexShader.replace(
@@ -374,6 +381,7 @@ export function createGround() {
       '#include <common>',
       `#include <common>
       uniform float uTime;
+      uniform float uTransform;
       varying vec3 vWorldPos;
       varying float vPlayerDist2;
 
@@ -402,6 +410,7 @@ export function createGround() {
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
 
+      float tF = uTransform; // 0 = forest, 1 = purple finale
       vec2 wp = vWorldPos.xz;
 
       // --- Mycelium vein glow (noise contour lines) ---
@@ -410,15 +419,20 @@ export function createGround() {
       float vein1 = smoothstep(0.47, 0.50, vn1) * smoothstep(0.53, 0.50, vn1);
       float vein2 = smoothstep(0.45, 0.49, vn2) * smoothstep(0.55, 0.49, vn2);
       float veins = max(vein1, vein2 * 0.7);
-      // Subtle pulse on mycelium
       float veinPulse = 0.7 + 0.3 * sin(uTime * 0.4 + vn1 * 8.0);
-      totalEmissiveRadiance += veins * vec3(0.08, 0.30, 0.16) * veinPulse * 0.4;
+      // Forest: muted green veins | Finale: bright white-cyan veins
+      vec3 veinColForest = vec3(0.08, 0.30, 0.16) * 0.4;
+      vec3 veinColFinale = vec3(0.70, 0.85, 0.95) * 0.8;
+      totalEmissiveRadiance += veins * mix(veinColForest, veinColFinale, tF) * veinPulse;
 
       // --- Organic ring patterns (growth rings from noise) ---
       float ringN = gNoise(wp * 0.06 + 10.0);
       float ring = sin(ringN * 25.0) * 0.5 + 0.5;
-      ring = smoothstep(0.88, 1.0, ring) * 0.25;
-      totalEmissiveRadiance += ring * vec3(0.06, 0.20, 0.10);
+      ring = smoothstep(0.88, 1.0, ring) * mix(0.25, 0.45, tF);
+      // Forest: muted green | Finale: pink-magenta
+      vec3 ringColForest = vec3(0.06, 0.20, 0.10);
+      vec3 ringColFinale = vec3(0.50, 0.15, 0.40);
+      totalEmissiveRadiance += ring * mix(ringColForest, ringColFinale, tF);
 
       // --- Scattered fairy ring glows ---
       vec2 cell = floor(wp * 0.07);
@@ -426,18 +440,42 @@ export function createGround() {
       float rd = length(wp - cellCenter);
       float ringR = 3.0 + gHash(cell + 200.0) * 4.0;
       float fRing = smoothstep(0.4, 0.0, abs(rd - ringR)) * step(0.75, gHash(cell + 300.0));
-      totalEmissiveRadiance += fRing * vec3(0.07, 0.22, 0.12) * 0.5;
+      // Forest: soft green | Finale: bright purple
+      vec3 fRingColForest = vec3(0.07, 0.22, 0.12) * 0.5;
+      vec3 fRingColFinale = vec3(0.40, 0.12, 0.55) * 0.8;
+      totalEmissiveRadiance += fRing * mix(fRingColForest, fRingColFinale, tF);
 
       // --- Fine noise for per-pixel detail ---
       float fineN = gNoise(wp * 1.5) * 0.05;
-      totalEmissiveRadiance += fineN * vec3(0.04, 0.10, 0.05);
+      vec3 fineForest = vec3(0.04, 0.10, 0.05);
+      vec3 fineFinale = vec3(0.12, 0.04, 0.15);
+      totalEmissiveRadiance += fineN * mix(fineForest, fineFinale, tF);
 
       // --- Player proximity ground glow (8m radius) ---
       if (vPlayerDist2 < 64.0) {
         float pDist = sqrt(vPlayerDist2);
         float pGlow = (1.0 - pDist / 8.0);
         pGlow = pGlow * pGlow * pGlow;
-        totalEmissiveRadiance += pGlow * vec3(0.10, 0.32, 0.18) * 0.5;
+        // Forest: green glow | Finale: pink-white glow
+        vec3 pGlowForest = vec3(0.10, 0.32, 0.18) * 0.5;
+        vec3 pGlowFinale = vec3(0.50, 0.25, 0.55) * 0.7;
+        totalEmissiveRadiance += pGlow * mix(pGlowForest, pGlowFinale, tF);
+      }
+
+      // --- Finale: additional bright cyan/white veins ---
+      if (tF > 0.01) {
+        float fv1 = gFbm(wp * 0.35 + 55.0);
+        float fv2 = gFbm(wp * 0.20 + 120.0);
+        float fVein1 = smoothstep(0.46, 0.50, fv1) * smoothstep(0.54, 0.50, fv1);
+        float fVein2 = smoothstep(0.44, 0.48, fv2) * smoothstep(0.56, 0.48, fv2);
+        float fVeins = max(fVein1, fVein2 * 0.6);
+        float fvPulse = 0.6 + 0.4 * sin(uTime * 0.6 + fv1 * 10.0);
+        // White-cyan veins, only visible when transformed
+        totalEmissiveRadiance += fVeins * vec3(0.80, 0.90, 1.00) * fvPulse * tF * 0.6;
+        // Additional pink shimmer spots
+        float shimmer = gNoise(wp * 0.8 + uTime * 0.05) * gNoise(wp * 0.4 + 20.0);
+        shimmer = smoothstep(0.15, 0.25, shimmer) * 0.3;
+        totalEmissiveRadiance += shimmer * vec3(0.45, 0.10, 0.50) * tF;
       }
       `
     );

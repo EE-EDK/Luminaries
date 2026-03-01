@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { scene } from '../../core/renderer.js';
 import { sr } from '../../utils/rng.js';
+import { getGroundY } from '../../world/terrain.js';
 
 // ================================================================
 // Grass Patch — GPU vertex shader sway (zero CPU per-frame cost)
@@ -42,9 +43,13 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   const colTip2 = new THREE.Color(palette ? palette[4] : 0x77ffcc);
   const colTip3 = new THREE.Color(palette ? palette[5] : 0xddff66);
   const tmpC = new THREE.Color();
+  // Ground height at patch center — blade offsets are relative to this
+  const centerY = getGroundY(cx, cz);
   for (let i = 0; i < count; i++) {
     const ang = sr() * 6.28, dist = sr() * radius;
     const lx = Math.cos(ang) * dist, lz = Math.sin(ang) * dist;
+    // Height offset so each blade follows terrain contour
+    const dy = getGroundY(cx + lx, cz + lz) - centerY;
     const h = 0.25 + sr() * 0.65;
     const w = 0.03 + sr() * 0.05;
     const lean = (sr() - 0.5) * 0.2;
@@ -58,42 +63,42 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     const lean1 = lean * 0.3, lean2 = lean * 0.7;
     const leanZ1 = leanZ * 0.3, leanZ2 = leanZ * 0.7;
     // Segment 1: base quad (2 tris)
-    verts.push(lx - w, 0.01, lz);
-    verts.push(lx + w, 0.01, lz);
-    verts.push(lx + lean1 - w * 0.9, h1, lz + leanZ1);
+    verts.push(lx - w, dy + 0.01, lz);
+    verts.push(lx + w, dy + 0.01, lz);
+    verts.push(lx + lean1 - w * 0.9, dy + h1, lz + leanZ1);
     heights.push(0, 0, 0.35);
     colors.push(bc.r, bc.g, bc.b, bc.r, bc.g, bc.b);
     tmpC.copy(bc).lerp(colMid, 0.4);
     colors.push(tmpC.r, tmpC.g, tmpC.b);
-    verts.push(lx + w, 0.01, lz);
-    verts.push(lx + lean1 + w * 0.9, h1, lz + leanZ1);
-    verts.push(lx + lean1 - w * 0.9, h1, lz + leanZ1);
+    verts.push(lx + w, dy + 0.01, lz);
+    verts.push(lx + lean1 + w * 0.9, dy + h1, lz + leanZ1);
+    verts.push(lx + lean1 - w * 0.9, dy + h1, lz + leanZ1);
     heights.push(0, 0.35, 0.35);
     colors.push(bc.r, bc.g, bc.b);
     tmpC.copy(bc).lerp(colMid, 0.4);
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
     // Segment 2: mid quad (2 tris)
     const w2 = w * 0.65;
-    verts.push(lx + lean1 - w * 0.9, h1, lz + leanZ1);
-    verts.push(lx + lean1 + w * 0.9, h1, lz + leanZ1);
-    verts.push(lx + lean2 - w2, h2, lz + leanZ2 + curveMag);
+    verts.push(lx + lean1 - w * 0.9, dy + h1, lz + leanZ1);
+    verts.push(lx + lean1 + w * 0.9, dy + h1, lz + leanZ1);
+    verts.push(lx + lean2 - w2, dy + h2, lz + leanZ2 + curveMag);
     heights.push(0.35, 0.35, 0.7);
     tmpC.copy(bc).lerp(colMid, 0.4);
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
     tmpC.copy(colMid).lerp(tc, 0.3);
     colors.push(tmpC.r, tmpC.g, tmpC.b);
-    verts.push(lx + lean1 + w * 0.9, h1, lz + leanZ1);
-    verts.push(lx + lean2 + w2, h2, lz + leanZ2 + curveMag);
-    verts.push(lx + lean2 - w2, h2, lz + leanZ2 + curveMag);
+    verts.push(lx + lean1 + w * 0.9, dy + h1, lz + leanZ1);
+    verts.push(lx + lean2 + w2, dy + h2, lz + leanZ2 + curveMag);
+    verts.push(lx + lean2 - w2, dy + h2, lz + leanZ2 + curveMag);
     heights.push(0.35, 0.7, 0.7);
     tmpC.copy(bc).lerp(colMid, 0.4);
     colors.push(tmpC.r, tmpC.g, tmpC.b);
     tmpC.copy(colMid).lerp(tc, 0.3);
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
     // Segment 3: tip triangle
-    verts.push(lx + lean2 - w2, h2, lz + leanZ2 + curveMag);
-    verts.push(lx + lean2 + w2, h2, lz + leanZ2 + curveMag);
-    verts.push(lx + lean + curveMag * 2, h, lz + leanZ + curveMag * 1.5);
+    verts.push(lx + lean2 - w2, dy + h2, lz + leanZ2 + curveMag);
+    verts.push(lx + lean2 + w2, dy + h2, lz + leanZ2 + curveMag);
+    verts.push(lx + lean + curveMag * 2, dy + h, lz + leanZ + curveMag * 1.5);
     heights.push(0.7, 0.7, 1.0);
     tmpC.copy(colMid).lerp(tc, 0.3);
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
@@ -106,10 +111,11 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   for (let ci = 0; ci < cloverN; ci++) {
     const ca = sr() * 6.28, cd = sr() * radius * 0.9;
     const clx = Math.cos(ca) * cd, clz = Math.sin(ca) * cd;
+    const cdy = getGroundY(cx + clx, cz + clz) - centerY;
     const csz = 0.02 + sr() * 0.03;
-    verts.push(clx - csz, 0.01, clz);
-    verts.push(clx + csz, 0.01, clz);
-    verts.push(clx, 0.03 + sr() * 0.02, clz + csz);
+    verts.push(clx - csz, cdy + 0.01, clz);
+    verts.push(clx + csz, cdy + 0.01, clz);
+    verts.push(clx, cdy + 0.03 + sr() * 0.02, clz + csz);
     heights.push(0, 0, 0.05);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);

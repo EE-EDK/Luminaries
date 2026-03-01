@@ -35,6 +35,99 @@ function fbm(x, y, octaves) {
   return val;
 }
 
+// ================================================================
+// Landform features — ridges, knolls, mounds, terraces, gullies
+// Adds sharper, more dramatic terrain on top of the base noise
+// ================================================================
+
+// Ridge noise — abs(noise - 0.5) creates sharp V-shaped creases
+function ridgeNoise(x, y, octaves) {
+  let val = 0, amp = 1.0, freq = 1, weight = 1.0;
+  for (let i = 0; i < octaves; i++) {
+    let n = Math.abs(valueNoise(x * freq, y * freq) - 0.5) * 2; // 0..1 with sharp crease at 0
+    n = 1.0 - n; // invert so ridges peak upward
+    n = n * n;    // sharpen the peaks
+    n *= weight;
+    weight = Math.min(1.0, n * 1.5); // detail follows the ridge spine
+    val += n * amp;
+    amp *= 0.45;
+    freq *= 2.1;
+  }
+  return val;
+}
+
+// Cell noise — returns distance to nearest cell center for isolated dome features
+function cellDist(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  let minD = 999;
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const cx = ix + dx + hash(ix + dx, iy + dy) * 0.8 + 0.1;
+      const cy = iy + dy + hash(iy + dy + 7, ix + dx + 3) * 0.8 + 0.1;
+      const d = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+      if (d < minD) minD = d;
+    }
+  }
+  return minD;
+}
+
+function landformHeight(x, z) {
+  let lf = 0;
+
+  // ---- 1. Ridge lines — sharp crests running across the terrain ----
+  // Two ridge layers at different scales and orientations for variety
+  const ridgeScale1 = 0.028;
+  // Rotate coordinates ~35° for first ridge set
+  const rx1 = x * 0.82 + z * 0.57;
+  const rz1 = -x * 0.57 + z * 0.82;
+  const ridge1 = ridgeNoise(rx1 * ridgeScale1 + 400, rz1 * ridgeScale1 + 500, 4);
+  lf += ridge1 * 3.5; // up to ~3.5m tall ridges
+
+  // Second ridge set at different angle (~70°) and coarser scale
+  const ridgeScale2 = 0.018;
+  const rx2 = x * 0.34 + z * 0.94;
+  const rz2 = -x * 0.94 + z * 0.34;
+  const ridge2 = ridgeNoise(rx2 * ridgeScale2 - 200, rz2 * ridgeScale2 + 150, 3);
+  lf += ridge2 * 2.0; // broader, gentler ridges
+
+  // ---- 2. Knolls — isolated rounded hills via cell noise ----
+  // Sparse dome-shaped hills scattered across the world
+  const knollScale = 0.045;
+  const kd = cellDist(x * knollScale + 70, z * knollScale + 90);
+  // Smooth dome falloff: 1 at center → 0 at edge of cell
+  const knollDome = Math.max(0, 1.0 - kd * 1.6);
+  const knollH = knollDome * knollDome * (3 - 2 * knollDome); // smoothstep shape
+  // Vary height per cell using noise
+  const knollAmp = 2.0 + fbm(x * 0.01 + 600, z * 0.01 + 700, 2) * 4.0; // 2-6m tall
+  lf += knollH * knollAmp;
+
+  // ---- 3. Mounds / hummocks — medium-frequency rounded bumps ----
+  const moundN = fbm(x * 0.08 + 800, z * 0.08 + 900, 3);
+  // Square to make them punchier — peaks sharper, flats flatter
+  const moundH = moundN * moundN * 4.0; // up to ~1m
+  lf += moundH;
+
+  // ---- 4. Terraced shelves — subtle stepped ledges ----
+  // Quantize a broad noise field into steps
+  const terraceN = fbm(x * 0.025 - 300, z * 0.025 - 400, 3);
+  const steps = 5; // number of terrace levels
+  const terraced = Math.floor(terraceN * steps) / steps;
+  // Blend between smooth and stepped (70% stepped for visible ledges)
+  const terraceH = (terraceN * 0.3 + terraced * 0.7) * 3.0; // up to ~3m
+  lf += terraceH;
+
+  // ---- 5. Gullies — inverted ridges creating low channels ----
+  const gullyScale = 0.04;
+  const gx = x * 0.5 + z * 0.87;
+  const gz = -x * 0.87 + z * 0.5;
+  const gullyN = Math.abs(valueNoise(gx * gullyScale + 150, gz * gullyScale + 250) - 0.5) * 2;
+  // Only carve where gully is narrow (sharp channel)
+  const gully = gullyN * gullyN; // squared = sharper channel walls
+  lf -= (1.0 - gully) * 1.5; // carve down up to 1.5m
+
+  return lf;
+}
+
 // Flat zone positions — ponds and obelisk get flat ground
 // Populated during init
 const flatZones = [];
@@ -82,6 +175,14 @@ export function getGroundY(x, z) {
   const microHeight = n3 * 0.2;                          // always present
 
   let height = baseHeight + hillHeight + bumpHeight + microHeight;
+
+  // ---- Landform features — ridges, knolls, mounds, terraces, gullies ----
+  // Additional layer with sharper, more dramatic terrain features
+  // Scaled by hilliness so meadows stay relatively flat
+  const lfRaw = landformHeight(x, z);
+  // Full landforms in hilly areas, 30% in flat meadows for some baseline texture
+  const lfScale = 0.3 + hilliness * 0.7;
+  height += lfRaw * lfScale;
 
   // Apply edge and center falloff
   height *= edgeFade * centerFade;

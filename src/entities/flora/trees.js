@@ -231,17 +231,17 @@ function generateTemplateTree(palIdx) {
     core.userData._cat = 'canopy';
     g.add(core);
 
-    // Mid canopy
+    // Mid canopy — smaller to avoid solid-looking blobs
     sr(); // emissiveIntensity
-    const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.75, 1));
+    const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.5, 1));
     mid.material = new THREE.MeshStandardMaterial({ color: pal.leaf });
     mid.position.set(cx + (sr() - 0.5) * 0.4, cy + (sr() - 0.5) * 0.4, cz + (sr() - 0.5) * 0.4);
     mid.scale.set(1 + sr() * 0.4, 0.65 + sr() * 0.5, 1 + sr() * 0.4);
     mid.userData._cat = 'canopy';
     g.add(mid);
 
-    // Haze
-    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 1.2, 1));
+    // Haze — softer, smaller glow halo
+    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(leafSize * 0.85, 1));
     haze.material = new THREE.MeshStandardMaterial({ color: pal.glow });
     haze.position.set(cx, cy, cz);
     haze.userData._cat = 'glow';
@@ -409,15 +409,15 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const tmpl = templates[t];
     const palData = GLOW_PALETTES[tmpl.palIdx];
 
-    // Trunk InstancedMesh (bark, branches, mound) — bark texture, no emissive
-    // (green emissive was tinting trunks blue/green, hiding bark detail)
+    // Trunk InstancedMesh (bark, branches, mound) — bark texture, warm self-illumination
+    // Warm brown emissive so bark texture shows even under green scene lighting
     const barkTex = getBarkTexture();
     const trunkMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       map: barkTex,
       roughness: 0.85,
-      emissive: 0x000000,
-      emissiveIntensity: 0
+      emissive: 0x1a1008,
+      emissiveIntensity: 0.3
     });
     const trunkMesh = tmpl.trunkGeo ? new THREE.InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;
     if (trunkMesh) {
@@ -426,12 +426,15 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       scene.add(trunkMesh);
     }
 
-    // Canopy InstancedMesh (cores, mid-canopy leaves) — emissive glow source
+    // Canopy InstancedMesh (cores, mid-canopy leaves) — semi-transparent glowing volumes
     const canopyMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
-      emissiveIntensity: 0.22
+      emissiveIntensity: 0.45,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false
     });
     const canopyMesh = tmpl.canopyGeo ? new THREE.InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
     if (canopyMesh) {

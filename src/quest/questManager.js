@@ -4,6 +4,7 @@ import { orbLight } from '../core/lighting.js';
 import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade } from './lasers.js';
+import { setGroundTransform } from '../world/ground.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
@@ -615,19 +616,20 @@ function transformTreesAndGround() {
     }
   }
 
-  // Transform ground
+  // Transform ground — shader patterns + vertex colors + emissive
+  setGroundTransform(1.0);
   if (groundMesh && groundMesh.material) {
-    groundMesh.material.emissive.set(0x200840);
-    groundMesh.material.emissiveIntensity = 0.3;
+    groundMesh.material.emissive.set(0x2a0845);
+    groundMesh.material.emissiveIntensity = 0.40;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;
       for (let i = 0; i < arr.length; i += 3) {
         const r = arr[i], g = arr[i + 1], b = arr[i + 2];
-        // Shift greens → purples
-        arr[i] = r * 0.5 + b * 0.3;
-        arr[i + 1] = g * 0.15;
-        arr[i + 2] = b * 0.7 + g * 0.4;
+        // Rich purple/pink shift: greens become deep purple, earth becomes warm pink
+        arr[i]     = r * 0.45 + b * 0.25 + g * 0.10; // Red: warm pink undertone
+        arr[i + 1] = g * 0.10;                         // Green: nearly gone
+        arr[i + 2] = b * 0.6 + g * 0.45 + r * 0.10;  // Blue: deep purple from green
       }
       colorAttr.needsUpdate = true;
     }

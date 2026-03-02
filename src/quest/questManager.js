@@ -638,25 +638,25 @@ function transformTreesAndGround() {
     if (mesh.trunkMat) {
       mesh.trunkMat.color.set(0x1a4060);
       mesh.trunkMat.emissive.set(0x224488);
-      mesh.trunkMat.emissiveIntensity = 0.35;
+      mesh.trunkMat.emissiveIntensity = 0.45;
     }
     // Canopy material (cores, mid-canopy) — bright pink/purple glow
     if (mesh.canopyMat) {
       mesh.canopyMat.color.set(shade.core);
       mesh.canopyMat.emissive.set(shade.glow);
-      mesh.canopyMat.emissiveIntensity = 1.5;
+      mesh.canopyMat.emissiveIntensity = 1.95;
     }
     // Glow material (haze, underglow) — bright pink haze
     if (mesh.glowMat) {
       mesh.glowMat.color.set(shade.glow);
       mesh.glowMat.emissive.set(shade.glow);
-      mesh.glowMat.emissiveIntensity = 0.5;
+      mesh.glowMat.emissiveIntensity = 0.65;
     }
     // Detail material (veins, roots, moss, fungi) — vivid glow
     if (mesh.detailMat) {
       mesh.detailMat.color.set(shade.color);
       mesh.detailMat.emissive.set(shade.glow);
-      mesh.detailMat.emissiveIntensity = 0.6;
+      mesh.detailMat.emissiveIntensity = 0.78;
     }
   }
 
@@ -664,7 +664,7 @@ function transformTreesAndGround() {
   setGroundTransform(1.0);
   if (groundMesh && groundMesh.material) {
     groundMesh.material.emissive.set(0x3a0a5a);
-    groundMesh.material.emissiveIntensity = 0.65;
+    groundMesh.material.emissiveIntensity = 0.85;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;

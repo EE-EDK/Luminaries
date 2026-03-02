@@ -805,7 +805,7 @@ function updateVegetation(dt, t) {
     if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 1.2 * treeDim;
     if (tm.glowMat) tm.glowMat.emissiveIntensity = 0.4 * treeDim;
     if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * treeDim;
-    if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.4 * treeDim;
+    if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.6 * treeDim;
   }
   // Grass sway — single call updates shared GPU uniforms for all patches
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor * _orbBoost);

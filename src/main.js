@@ -33,7 +33,8 @@ import {
   THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N,
   SPIRALFROND_N, CORPSEBLOOM_N, ORBBUSH_N, LANTERNPOD_N, VEILMOSS_N, GROUND_GLOW_N,
   C,
-  FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, DEER_FLEE_R, DEER_FLEE_SPEED_MULT
+  FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, DEER_FLEE_R, DEER_FLEE_SPEED_MULT,
+  DIMMING_FACTOR
 } from './constants.js';
 
 // Utils
@@ -556,18 +557,29 @@ function populate() {
   }
   // Golden orbs — one per angular sector for even world coverage
   // Split 360° into 5 sectors (72° each), place one orb per sector
+  // Minimum 30m between any two orbs
   const sectorSize = 6.28 / ORB_N;
+  const orbPositions = []; // track placed positions for distance check
   for (let i = 0; i < ORB_N; i++) {
     let ox, oz, ok = false;
     const sectorStart = i * sectorSize;
-    for (let a = 0; a < 30; a++) {
+    for (let a = 0; a < 50; a++) {
       const ang = sectorStart + sr() * sectorSize;
-      const d = 25 + sr() * (WORLD_R * 0.55);
-      ox = Math.cos(ang) * d; oz = Math.sin(ang) * d; ok = true;
-      if (inKeepOut(ox, oz)) { ok = false; continue; }
+      const d = 30 + sr() * (WORLD_R * 0.5);
+      ox = Math.cos(ang) * d; oz = Math.sin(ang) * d;
+      if (inKeepOut(ox, oz)) continue;
+      // Enforce 30m minimum distance from all previously placed orbs
+      let tooClose = false;
+      for (let j = 0; j < orbPositions.length; j++) {
+        const ddx = ox - orbPositions[j].x, ddz = oz - orbPositions[j].z;
+        if (ddx * ddx + ddz * ddz < 900) { tooClose = true; break; }
+      }
+      if (tooClose) continue;
+      ok = true;
       break;
     }
     if (ok) {
+      orbPositions.push({ x: ox, z: oz });
       const o = makeOrb(ox, oz);
       o.group.position.y = getGroundY(ox, oz) + 1.0;
       o.flyY = getGroundY(ox, oz) + 1.0;
@@ -788,9 +800,9 @@ function updateVegetation(dt, t) {
   // Modulate tree canopy/glow/trunk emissive based on dimming state
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const tm = treeMeshes[ti];
-    if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 0.8 * smoothedDimFactor;
-    if (tm.glowMat) tm.glowMat.emissiveIntensity = 0.25 * smoothedDimFactor;
-    if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.4 * smoothedDimFactor;
+    if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 1.2 * smoothedDimFactor;
+    if (tm.glowMat) tm.glowMat.emissiveIntensity = 0.4 * smoothedDimFactor;
+    if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * smoothedDimFactor;
     if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.4 * smoothedDimFactor;
   }
   // Grass sway — single call updates shared GPU uniforms for all patches
@@ -2345,15 +2357,16 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
 
-  // Global dimming — dramatic darkness in unrestored zones, bright + colorful
-  // in restored zones. Uses smoothed lerp for natural transitions.
-  const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 6.0 : 0.6;
-  smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
-  // Snap to 1.0 when very close to avoid lingering sub-full brightness
-  if (smoothedDimFactor > 0.97) smoothedDimFactor = 1.0;
+  // Global dimming — scales with number of restored sectors (not player position).
+  // Per-entity dimming is handled by getLocalGlow() which IS sector-specific.
+  // Global effects (exposure, fog, lights) affect the ENTIRE screen, so they must
+  // scale with overall world restoration progress, not player's current sector.
+  const globalRestore = orbsFound / ORB_N; // 0.0 (no orbs) → 1.0 (all found)
+  const targetDimF = DIMMING_FACTOR + (1.0 - DIMMING_FACTOR) * globalRestore;
+  const lerpSpeed = targetDimF > smoothedDimFactor ? 3.0 : 0.6;
+  smoothedDimFactor += (targetDimF - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
 
-  // Scale global rendering based on dimming
+  // Scale global rendering based on overall restoration
   const dimF = smoothedDimFactor;
   setSaturation(dimF);
   renderer.toneMappingExposure = 0.7 + 2.1 * dimF;

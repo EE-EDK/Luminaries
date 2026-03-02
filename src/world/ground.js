@@ -420,18 +420,18 @@ export function createGround() {
       float vein2 = smoothstep(0.45, 0.49, vn2) * smoothstep(0.55, 0.49, vn2);
       float veins = max(vein1, vein2 * 0.7);
       float veinPulse = 0.7 + 0.3 * sin(uTime * 0.4 + vn1 * 8.0);
-      // Forest: muted green veins | Finale: bright white-cyan veins
-      vec3 veinColForest = vec3(0.08, 0.30, 0.16) * 0.4;
-      vec3 veinColFinale = vec3(0.70, 0.85, 0.95) * 0.8;
+      // Forest: bright green veins | Finale: bright white-cyan veins
+      vec3 veinColForest = vec3(0.10, 0.40, 0.20) * 0.8;
+      vec3 veinColFinale = vec3(0.80, 0.95, 1.00) * 1.2;
       totalEmissiveRadiance += veins * mix(veinColForest, veinColFinale, tF) * veinPulse;
 
       // --- Organic ring patterns (growth rings from noise) ---
       float ringN = gNoise(wp * 0.06 + 10.0);
       float ring = sin(ringN * 25.0) * 0.5 + 0.5;
-      ring = smoothstep(0.88, 1.0, ring) * mix(0.25, 0.45, tF);
-      // Forest: muted green | Finale: pink-magenta
-      vec3 ringColForest = vec3(0.06, 0.20, 0.10);
-      vec3 ringColFinale = vec3(0.50, 0.15, 0.40);
+      ring = smoothstep(0.88, 1.0, ring) * mix(0.4, 0.6, tF);
+      // Forest: brighter green | Finale: pink-magenta
+      vec3 ringColForest = vec3(0.08, 0.28, 0.14);
+      vec3 ringColFinale = vec3(0.60, 0.20, 0.50);
       totalEmissiveRadiance += ring * mix(ringColForest, ringColFinale, tF);
 
       // --- Scattered fairy ring glows ---
@@ -440,15 +440,15 @@ export function createGround() {
       float rd = length(wp - cellCenter);
       float ringR = 3.0 + gHash(cell + 200.0) * 4.0;
       float fRing = smoothstep(0.4, 0.0, abs(rd - ringR)) * step(0.75, gHash(cell + 300.0));
-      // Forest: soft green | Finale: bright purple
-      vec3 fRingColForest = vec3(0.07, 0.22, 0.12) * 0.5;
-      vec3 fRingColFinale = vec3(0.40, 0.12, 0.55) * 0.8;
+      // Forest: brighter green | Finale: bright purple
+      vec3 fRingColForest = vec3(0.10, 0.30, 0.16) * 0.8;
+      vec3 fRingColFinale = vec3(0.50, 0.16, 0.65) * 1.2;
       totalEmissiveRadiance += fRing * mix(fRingColForest, fRingColFinale, tF);
 
       // --- Fine noise for per-pixel detail ---
-      float fineN = gNoise(wp * 1.5) * 0.05;
-      vec3 fineForest = vec3(0.04, 0.10, 0.05);
-      vec3 fineFinale = vec3(0.12, 0.04, 0.15);
+      float fineN = gNoise(wp * 1.5) * 0.08;
+      vec3 fineForest = vec3(0.06, 0.15, 0.08);
+      vec3 fineFinale = vec3(0.18, 0.06, 0.22);
       totalEmissiveRadiance += fineN * mix(fineForest, fineFinale, tF);
 
       // --- Player proximity ground glow (8m radius) ---
@@ -456,9 +456,9 @@ export function createGround() {
         float pDist = sqrt(vPlayerDist2);
         float pGlow = (1.0 - pDist / 8.0);
         pGlow = pGlow * pGlow * pGlow;
-        // Forest: green glow | Finale: pink-white glow
-        vec3 pGlowForest = vec3(0.10, 0.32, 0.18) * 0.5;
-        vec3 pGlowFinale = vec3(0.50, 0.25, 0.55) * 0.7;
+        // Forest: brighter green glow | Finale: bright pink-white glow
+        vec3 pGlowForest = vec3(0.14, 0.40, 0.22) * 0.7;
+        vec3 pGlowFinale = vec3(0.60, 0.30, 0.65) * 1.0;
         totalEmissiveRadiance += pGlow * mix(pGlowForest, pGlowFinale, tF);
       }
 
@@ -471,11 +471,11 @@ export function createGround() {
         float fVeins = max(fVein1, fVein2 * 0.6);
         float fvPulse = 0.6 + 0.4 * sin(uTime * 0.6 + fv1 * 10.0);
         // White-cyan veins, only visible when transformed
-        totalEmissiveRadiance += fVeins * vec3(0.80, 0.90, 1.00) * fvPulse * tF * 0.6;
+        totalEmissiveRadiance += fVeins * vec3(0.90, 1.00, 1.10) * fvPulse * tF * 1.0;
         // Additional pink shimmer spots
         float shimmer = gNoise(wp * 0.8 + uTime * 0.05) * gNoise(wp * 0.4 + 20.0);
-        shimmer = smoothstep(0.15, 0.25, shimmer) * 0.3;
-        totalEmissiveRadiance += shimmer * vec3(0.45, 0.10, 0.50) * tF;
+        shimmer = smoothstep(0.15, 0.25, shimmer) * 0.5;
+        totalEmissiveRadiance += shimmer * vec3(0.55, 0.15, 0.60) * tF;
       }
       `
     );

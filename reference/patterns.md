@@ -277,7 +277,7 @@ if (entity.stateTimer <= 0) {
 
 ## Source Code Lore (4th Wall Layer)
 
-The source code contains an embedded narrative layer for F12 inspectors. This is a deliberate design choice that fits the adult "Chronobiological Archive" narrative from `docs/MANIFESTO.md`.
+The source code contains an embedded narrative layer for F12 inspectors. This is a deliberate design choice that fits the adult "Chronobiological Archive" narrative from `reference/MANIFESTO.md`.
 
 **Guidelines for adding lore comments:**
 

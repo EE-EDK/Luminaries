@@ -1,6 +1,6 @@
 # Narrative & Lore Quick Reference
 
-> Distilled from `docs/MANIFESTO.md`. Reference this for tone, terminology, and story context.
+> Distilled from `reference/MANIFESTO.md`. Reference this for tone, terminology, and story context.
 
 ## The Story (Two Layers)
 

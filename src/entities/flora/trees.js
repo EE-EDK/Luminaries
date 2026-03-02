@@ -557,7 +557,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       map: barkTex,
       roughness: 0.85,
       emissive: 0x1a1008,
-      emissiveIntensity: 0.3
+      emissiveIntensity: 0.4
     });
     const trunkMesh = tmpl.trunkGeo ? new THREE.InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;
     if (trunkMesh) {
@@ -571,9 +571,9 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
-      emissiveIntensity: 0.45,
+      emissiveIntensity: 0.8,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.45,
       depthWrite: false
     });
     const canopyMesh = tmpl.canopyGeo ? new THREE.InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
@@ -587,9 +587,9 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const glowMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       emissive: palData.glow,
-      emissiveIntensity: 0.08,
+      emissiveIntensity: 0.25,
       transparent: true,
-      opacity: 0.07,
+      opacity: 0.12,
       depthWrite: false
     });
     const glowMesh = tmpl.glowGeo ? new THREE.InstancedMesh(tmpl.glowGeo, glowMat, maxPerTemplate) : null;
@@ -603,7 +603,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const detailMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       emissive: palData.glow,
-      emissiveIntensity: 0.2
+      emissiveIntensity: 0.4
     });
     const detailMesh = tmpl.detailGeo ? new THREE.InstancedMesh(tmpl.detailGeo, detailMat, maxPerTemplate) : null;
     if (detailMesh) {

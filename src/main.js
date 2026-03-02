@@ -453,7 +453,7 @@ function populate() {
     const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.9);
     const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
     const pal = grassPalettes[Math.floor(sr() * grassPalettes.length)];
-    const rad = 2 + sr() * 2.5, cnt = 25 + Math.floor(sr() * 20);
+    const rad = 2 + sr() * 2.5, cnt = 38 + Math.floor(sr() * 30);
     if (inKeepOut(gx, gz)) continue;
     const gp = makeGrassPatch(gx, gz, rad, cnt, pal);
     gp.mesh.position.y = getGroundY(gx, gz);
@@ -698,7 +698,7 @@ function populate() {
     const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
     const patchR = 1.5 + sr() * 3.5;
     const col = C.groundGlowColors[Math.floor(sr() * C.groundGlowColors.length)];
-    const baseOp = 0.03 + sr() * 0.05;
+    const baseOp = 0.08 + sr() * 0.12;
     const mat = new THREE.MeshBasicMaterial({
       color: col, transparent: true, opacity: baseOp,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
@@ -785,8 +785,16 @@ function updateVegetation(dt, t) {
   // Tier 3 (>110m): hidden entirely
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
   updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ);
+  // Modulate tree canopy/glow/trunk emissive based on dimming state
+  for (let ti = 0; ti < treeMeshes.length; ti++) {
+    const tm = treeMeshes[ti];
+    if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 0.8 * smoothedDimFactor;
+    if (tm.glowMat) tm.glowMat.emissiveIntensity = 0.25 * smoothedDimFactor;
+    if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.4 * smoothedDimFactor;
+    if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.4 * smoothedDimFactor;
+  }
   // Grass sway — single call updates shared GPU uniforms for all patches
-  updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz);
+  updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor);
   // Ground shader uniforms (procedural patterns + player proximity glow)
   updateGroundUniforms(t, px, pz);
   // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
@@ -814,8 +822,8 @@ function updateVegetation(dt, t) {
     if (fld2 > 1600) { if (fl.group.visible) fl.group.visible = false; continue; }
     if (!fl.group.visible) fl.group.visible = true;
     if (fld2 > 900) continue;
-    const p = Math.sin(t * 1.0 + fl.phase) * 0.5 + 0.5;
-    fl.petalMat.emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow);
+    const p = Math.sin(t * 0.8 + fl.phase) * 0.5 + 0.5;
+    fl.petalMat.emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow);
     if (fl.slopeQ) {
       fl.group.quaternion.copy(fl.slopeQ);
       _slopeSwayQuat.set(0, 0,
@@ -846,8 +854,8 @@ function updateVegetation(dt, t) {
     const tb = thornblooms[i];
     const p = Math.sin(t * 1.2 + tb.phase) * 0.5 + 0.5;
     const tbGlow = getLocalGlow(tb.group.position.x, tb.group.position.z, bioGlow);
-    tb.orbMat.emissiveIntensity = (0.5 + p * 0.5) * tbGlow;
-    tb.hazeMat.opacity = (0.04 + p * 0.04) * tbGlow;
+    tb.orbMat.emissiveIntensity = (0.6 + p * 0.6) * tbGlow;
+    tb.hazeMat.opacity = (0.06 + p * 0.06) * tbGlow;
     if (tb.slopeQ) {
       tb.group.quaternion.copy(tb.slopeQ);
       _slopeSwayQuat.set(
@@ -862,7 +870,7 @@ function updateVegetation(dt, t) {
     const hv = helixvines[i];
     for (let j = 0; j < hv.podMats.length; j++) {
       const p = Math.sin(t * 1.5 + hv.phase + j * 1.8) * 0.5 + 0.5;
-      hv.podMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow);
+      hv.podMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow);
     }
     if (hv.slopeQ) {
       hv.group.quaternion.copy(hv.slopeQ);
@@ -884,7 +892,7 @@ function updateVegetation(dt, t) {
     if (sd2 < 900) {
       for (let j = 0; j < sf.tipMats.length; j++) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
-        sf.tipMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(sf.x, sf.z, bioGlow);
+        sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(sf.x, sf.z, bioGlow);
       }
       if (sf.slopeQ) {
         sf.group.quaternion.copy(sf.slopeQ);
@@ -905,8 +913,8 @@ function updateVegetation(dt, t) {
     if (!cb.group.visible) cb.group.visible = true;
     if (cd2 < 900) {
       const cbGlow = getLocalGlow(cb.x, cb.z, bioGlow);
-      cb.columnMat.emissiveIntensity = (0.3 + Math.sin(t * 1.0 + cb.phase) * 0.25) * cbGlow;
-      cb.hazeMat.opacity = (0.03 + Math.sin(t * 0.8 + cb.phase) * 0.02) * cbGlow;
+      cb.columnMat.emissiveIntensity = (0.5 + Math.sin(t * 0.8 + cb.phase) * 0.35) * cbGlow;
+      cb.hazeMat.opacity = (0.05 + Math.sin(t * 0.8 + cb.phase) * 0.04) * cbGlow;
       for (let fi = 0; fi < cb.flies.length; fi++) {
         const flyAng = t * (2 + fi * 0.5) + fi * 2.1;
         const flyR = 0.2 + Math.sin(t * 0.7 + fi) * 0.08;
@@ -932,7 +940,7 @@ function updateVegetation(dt, t) {
     if (od2 < 900) {
       for (let j = 0; j < ob.orbMats.length; j++) {
         const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
-        ob.orbMats[j].emissiveIntensity = (0.3 + p * 0.5) * getLocalGlow(ob.x, ob.z, bioGlow);
+        ob.orbMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(ob.x, ob.z, bioGlow);
       }
       if (ob.slopeQ) {
         ob.group.quaternion.copy(ob.slopeQ);
@@ -954,7 +962,7 @@ function updateVegetation(dt, t) {
     if (ld2 < 900) {
       for (let j = 0; j < lp.podMats.length; j++) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
-        lp.podMats[j].emissiveIntensity = (0.3 + p * 0.4) * getLocalGlow(lp.x, lp.z, bioGlow);
+        lp.podMats[j].emissiveIntensity = (0.5 + p * 0.6) * getLocalGlow(lp.x, lp.z, bioGlow);
       }
       if (lp.slopeQ) {
         lp.group.quaternion.copy(lp.slopeQ);
@@ -1123,6 +1131,11 @@ function updateJellies(dt, t) {
     }
     j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow) * emissiveMult;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
+    // Tip bulb twinkling — random sparkle effect on tentacle tips
+    if (j.tipMat) {
+      const twinkle = Math.sin(t * 5.3 + j.phase * 7.1) * Math.sin(t * 3.7 + j.phase * 4.3);
+      j.tipMat.opacity = 0.3 + 0.7 * (twinkle * 0.5 + 0.5);
+    }
     g.rotation.y += dt * 0.2;
     for (let ti = 2; ti < g.children.length; ti++) {
       g.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
@@ -1325,7 +1338,7 @@ function updatePuffs(dt, t) {
     }
     // Crown glow
     if (p.crownMat) {
-      p.crownMat.emissiveIntensity = (0.2 + Math.sin(t * 2 + p.phase) * 0.15) * getLocalGlow(g.position.x, g.position.z, bioGlow);
+      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow);
     }
 
     // World bounds
@@ -1578,7 +1591,7 @@ function updateDeers(dt, t) {
 
     // Emissive
     const deerGlow = getLocalGlow(gx, gz, bioGlow);
-    d.mat.emissiveIntensity = (0.3 + Math.sin(t * 0.8 + d.phase) * 0.2) * deerGlow;
+    d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -2143,7 +2156,7 @@ function director(dt, t) {
     if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
-    m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * getLocalGlow(m.x, m.z, bioGlow);
+    m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, bioGlow);
   }
 
   // Crystal glow + rotation
@@ -2332,26 +2345,26 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
 
-  // Global dimming — dramatic darkness in unrestored zones, full Phase 1
-  // brightness in restored zones. Uses smoothed lerp for natural transitions.
+  // Global dimming — dramatic darkness in unrestored zones, bright + colorful
+  // in restored zones. Uses smoothed lerp for natural transitions.
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 5.0 : 0.6;
+  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 6.0 : 0.6;
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
+  // Snap to 1.0 when very close to avoid lingering sub-full brightness
+  if (smoothedDimFactor > 0.97) smoothedDimFactor = 1.0;
 
-  if (smoothedDimFactor < 0.99) {
-    // Unrestored zone — apply full dimming for dramatic effect
-    const desatT = 1.0 - smoothedDimFactor;
-    setSaturation(smoothedDimFactor);
-    renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
-    scene.fog.density *= (1.0 + 1.2 * desatT);
-    hemiLight.intensity *= (0.2 + 0.8 * smoothedDimFactor);
-    playerLight.intensity *= (0.15 + 0.85 * smoothedDimFactor);
-    playerLight.distance *= (0.3 + 0.7 * smoothedDimFactor);
-    if (bloomPass) bloomPass.threshold = 0.85 + desatT * 0.3;
+  // Scale global rendering based on dimming
+  const dimF = smoothedDimFactor;
+  setSaturation(dimF);
+  renderer.toneMappingExposure = 0.7 + 2.1 * dimF;
+  if (dimF < 1.0) {
+    const desatT = 1.0 - dimF;
+    scene.fog.density *= (1.0 + 1.5 * desatT);
+    hemiLight.intensity *= (0.15 + 0.85 * dimF);
+    playerLight.intensity *= (0.1 + 0.9 * dimF);
+    playerLight.distance *= (0.25 + 0.75 * dimF);
+    if (bloomPass) bloomPass.threshold = 0.85 + desatT * 0.35;
   } else {
-    // Restored zone — exact Phase 1 rendering, no dimming applied
-    setSaturation(1.0);
-    renderer.toneMappingExposure = 2.8;
     if (bloomPass) bloomPass.threshold = 0.85;
   }
 

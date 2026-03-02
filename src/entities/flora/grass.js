@@ -18,17 +18,19 @@ const sharedUniforms = {
   uWindLeanX: { value: 0 },
   uWindLeanZ: { value: 0 },
   uPlayerX: { value: 0 },
-  uPlayerZ: { value: 0 }
+  uPlayerZ: { value: 0 },
+  uGlowMult: { value: 1.0 }
 };
 
 // Call once per frame to update wind/player uniforms for all patches
-export function updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, playerX, playerZ) {
+export function updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, playerX, playerZ, glowMult) {
   sharedUniforms.uTime.value = t;
   sharedUniforms.uWindAmp.value = wAmp;
   sharedUniforms.uWindLeanX.value = wLeanX;
   sharedUniforms.uWindLeanZ.value = wLeanZ;
   sharedUniforms.uPlayerX.value = playerX;
   sharedUniforms.uPlayerZ.value = playerZ;
+  if (glowMult !== undefined) sharedUniforms.uGlowMult.value = glowMult;
 }
 
 // palette: [base1, base2, mid, tip1, tip2, tip3, clover, cloverBr, emissive] hex array (optional)
@@ -129,7 +131,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
 
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.7, side: THREE.DoubleSide,
-    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.15
+    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.35
   });
 
   // Inject GPU sway into the vertex shader — same math as the old CPU path
@@ -143,6 +145,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     shader.uniforms.uWindLeanZ = sharedUniforms.uWindLeanZ;
     shader.uniforms.uPlayerX = sharedUniforms.uPlayerX;
     shader.uniforms.uPlayerZ = sharedUniforms.uPlayerZ;
+    shader.uniforms.uGlowMult = sharedUniforms.uGlowMult;
     // Per-patch constants (set once at compile time)
     shader.uniforms.uPatchX = { value: patchX };
     shader.uniforms.uPatchZ = { value: patchZ };
@@ -209,12 +212,13 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
       '#include <common>',
       `#include <common>
       varying float vGlow;
+      uniform float uGlowMult;
       `
     );
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
-      totalEmissiveRadiance *= (1.0 + vGlow * 10.0);
+      totalEmissiveRadiance *= (1.0 + vGlow * 10.0) * uGlowMult;
       `
     );
   };

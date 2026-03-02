@@ -7,7 +7,7 @@ import { sr } from '../../utils/rng.js';
 export function makeFern(x, z) {
   const g = new THREE.Group();
   const fMat = new THREE.MeshStandardMaterial({
-    color: C.fern, emissive: C.fernGlow, emissiveIntensity: 0.08,
+    color: C.fern, emissive: C.fernGlow, emissiveIntensity: 0.2,
     roughness: 0.7, side: THREE.DoubleSide
   });
   const frondCount = 3 + Math.floor(sr() * 2);

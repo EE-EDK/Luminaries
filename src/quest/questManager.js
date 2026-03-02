@@ -634,29 +634,29 @@ function transformTreesAndGround() {
   for (let i = 0; i < treeMeshesRef.length; i++) {
     const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    // Trunk material (bark, branches, mound) — glowing cyan-purple tint
+    // Trunk material (bark, branches, mound) — warm glowing magenta-amber
     if (mesh.trunkMat) {
-      mesh.trunkMat.color.set(0x1a4060);
-      mesh.trunkMat.emissive.set(0x224488);
-      mesh.trunkMat.emissiveIntensity = 0.45;
+      mesh.trunkMat.color.set(0x4a2040);
+      mesh.trunkMat.emissive.set(0x884466);
+      mesh.trunkMat.emissiveIntensity = 0.7;
     }
     // Canopy material (cores, mid-canopy) — bright pink/purple glow
     if (mesh.canopyMat) {
       mesh.canopyMat.color.set(shade.core);
       mesh.canopyMat.emissive.set(shade.glow);
-      mesh.canopyMat.emissiveIntensity = 1.95;
+      mesh.canopyMat.emissiveIntensity = 2.5;
     }
     // Glow material (haze, underglow) — bright pink haze
     if (mesh.glowMat) {
       mesh.glowMat.color.set(shade.glow);
       mesh.glowMat.emissive.set(shade.glow);
-      mesh.glowMat.emissiveIntensity = 0.65;
+      mesh.glowMat.emissiveIntensity = 0.85;
     }
     // Detail material (veins, roots, moss, fungi) — vivid glow
     if (mesh.detailMat) {
       mesh.detailMat.color.set(shade.color);
       mesh.detailMat.emissive.set(shade.glow);
-      mesh.detailMat.emissiveIntensity = 0.78;
+      mesh.detailMat.emissiveIntensity = 1.0;
     }
   }
 

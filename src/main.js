@@ -2357,14 +2357,15 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
 
-  // Global dimming — scales with number of restored sectors (not player position).
-  // Per-entity dimming is handled by getLocalGlow() which IS sector-specific.
-  // Global effects (exposure, fog, lights) affect the ENTIRE screen, so they must
-  // scale with overall world restoration progress, not player's current sector.
-  const globalRestore = orbsFound / ORB_N; // 0.0 (no orbs) → 1.0 (all found)
-  const targetDimF = DIMMING_FACTOR + (1.0 - DIMMING_FACTOR) * globalRestore;
-  const lerpSpeed = targetDimF > smoothedDimFactor ? 3.0 : 0.6;
-  smoothedDimFactor += (targetDimF - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
+  // Global dimming — blends player's current sector with overall restoration.
+  // Fast lerp gives immediate feedback when crossing sector boundaries.
+  // Per-entity dimming via getLocalGlow() handles individual entity glow.
+  const localDim = getLocalGlow(player.pos.x, player.pos.z, 1.0);
+  const globalRestore = DIMMING_FACTOR + (1.0 - DIMMING_FACTOR) * (orbsFound / ORB_N);
+  // Blend: 70% local sector, 30% global progress — dimming feels immediate
+  // but doesn't blast everything bright from a single sector
+  const targetDimF = localDim * 0.7 + globalRestore * 0.3;
+  smoothedDimFactor += (targetDimF - smoothedDimFactor) * Math.min(8.0 * dt, 1.0);
 
   // Scale global rendering based on overall restoration
   const dimF = smoothedDimFactor;

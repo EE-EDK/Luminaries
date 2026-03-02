@@ -2338,26 +2338,24 @@ function animate() {
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
   const lerpSpeed = rawDimFactor > smoothedDimFactor ? 5.0 : 0.6;
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
-  const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.82 = deeply dimmed
-  // Post-processing saturation: full greyscale in dimmed zones, full color near orbs
-  setSaturation(smoothedDimFactor);
 
-  // Renderer exposure: 2.8 at full glow → 0.7 in dimmed zones
-  renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
-
-  // Fog: thicker in dimmed zones
-  scene.fog.density *= (1.0 + 1.2 * desatT);
-
-  // Hemisphere ambient: dimmed in unrestored zones
-  hemiLight.intensity *= (0.2 + 0.8 * smoothedDimFactor);
-
-  // Player light: dim and short-range in dimmed zones
-  playerLight.intensity *= (0.15 + 0.85 * smoothedDimFactor);
-  playerLight.distance *= (0.3 + 0.7 * smoothedDimFactor);
-
-  // Bloom threshold: higher in dimmed zones → suppresses glow
-  if (bloomPass) {
-    bloomPass.threshold = 0.85 + desatT * 0.3;
+  // Only apply dimming effects when actually dimmed — skip entirely in fully
+  // restored zones so rendering matches Phase 1 exactly (no extra multiplies,
+  // no saturation pass adjustment, no bloom/exposure/fog shifts).
+  if (smoothedDimFactor < 0.99) {
+    const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.82 = deeply dimmed
+    setSaturation(smoothedDimFactor);
+    renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
+    scene.fog.density *= (1.0 + 1.2 * desatT);
+    hemiLight.intensity *= (0.2 + 0.8 * smoothedDimFactor);
+    playerLight.intensity *= (0.15 + 0.85 * smoothedDimFactor);
+    playerLight.distance *= (0.3 + 0.7 * smoothedDimFactor);
+    if (bloomPass) bloomPass.threshold = 0.85 + desatT * 0.3;
+  } else {
+    // Fully restored — Phase 1 defaults
+    setSaturation(1.0);
+    renderer.toneMappingExposure = 2.8;
+    if (bloomPass) bloomPass.threshold = 0.85;
   }
 
   // Lightning flash (brief ambient light spike during storms)

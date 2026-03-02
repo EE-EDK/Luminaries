@@ -18,12 +18,12 @@ function getBarkTexture() {
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // Base: warm dark brown gradient (darker at base, lighter at top)
+  // Base: warm amber-brown gradient (darker at base, lighter at top)
   const baseGrad = ctx.createLinearGradient(0, 0, 0, H);
-  baseGrad.addColorStop(0, '#5a4030');
-  baseGrad.addColorStop(0.3, '#4d3528');
-  baseGrad.addColorStop(0.7, '#3a2a1e');
-  baseGrad.addColorStop(1, '#2e2015');
+  baseGrad.addColorStop(0, '#7a5840');
+  baseGrad.addColorStop(0.3, '#6d4d38');
+  baseGrad.addColorStop(0.7, '#5a3f2e');
+  baseGrad.addColorStop(1, '#4e3525');
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -32,10 +32,10 @@ function getBarkTexture() {
     const rx = (ridge / 28) * W + (Math.sin(ridge * 3.7) * 6);
     const rw = 2 + Math.sin(ridge * 2.1) * 1.5;
     const bright = Math.sin(ridge * 1.3 + 0.5) * 0.5 + 0.5;
-    const r = Math.floor(50 + bright * 30);
-    const g = Math.floor(30 + bright * 20);
-    const b = Math.floor(15 + bright * 12);
-    ctx.strokeStyle = `rgba(${r},${g},${b},0.4)`;
+    const r = Math.floor(75 + bright * 45);
+    const g = Math.floor(50 + bright * 30);
+    const b = Math.floor(25 + bright * 18);
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
     ctx.lineWidth = rw;
     ctx.beginPath();
     let y = 0;
@@ -66,7 +66,7 @@ function getBarkTexture() {
   // Horizontal bark bands — subtle cross-grain texture
   for (let band = 0; band < 30; band++) {
     const by = (band / 30) * H + Math.random() * 10;
-    ctx.strokeStyle = `rgba(${30 + Math.random() * 20},${18 + Math.random() * 12},${8 + Math.random() * 8},0.15)`;
+    ctx.strokeStyle = `rgba(${55 + Math.random() * 30},${38 + Math.random() * 20},${18 + Math.random() * 12},0.2)`;
     ctx.lineWidth = 0.5 + Math.random() * 1.5;
     ctx.beginPath();
     ctx.moveTo(0, by);
@@ -93,7 +93,7 @@ function getBarkTexture() {
   // Bioluminescent vein hints — faint green streaks in some cracks
   for (let v = 0; v < 8; v++) {
     const vx = Math.random() * W;
-    ctx.strokeStyle = 'rgba(34,136,85,0.08)';
+    ctx.strokeStyle = 'rgba(34,136,85,0.15)';
     ctx.lineWidth = 0.5 + Math.random() * 0.8;
     ctx.beginPath();
     let vy = Math.random() * H * 0.3;
@@ -174,7 +174,7 @@ function generateTemplateTree(palIdx) {
   // Trunk — wider flared base tapering upward (like the reference image)
   const baseFlare = r * 1.8; // wide buttress base
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.4, baseFlare, h, 8));
-  trunk.material = new THREE.MeshStandardMaterial({ color: 0x5a4030 });
+  trunk.material = new THREE.MeshStandardMaterial({ color: 0x7a5840 });
   trunk.position.y = h / 2;
   trunk.userData._cat = 'trunk';
   g.add(trunk);
@@ -209,7 +209,7 @@ function generateTemplateTree(palIdx) {
 
     const rootGeo = new THREE.CylinderGeometry(rTipR, rBaseR, rLen, 5);
     rootGeo.translate(0, rLen / 2, 0); // base at origin
-    const rootMesh = new THREE.Mesh(rootGeo, new THREE.MeshStandardMaterial({ color: 0x4a3828 }));
+    const rootMesh = new THREE.Mesh(rootGeo, new THREE.MeshStandardMaterial({ color: 0x6a5038 }));
     rootMesh.position.set(Math.cos(ra) * baseFlare * 0.6, 0.05, Math.sin(ra) * baseFlare * 0.6);
     const rq = new THREE.Quaternion().setFromUnitVectors(_rootUp, rootDir);
     rootMesh.quaternion.copy(rq);
@@ -228,7 +228,7 @@ function generateTemplateTree(palIdx) {
       ).normalize();
       const subGeo = new THREE.CylinderGeometry(0.02, rBaseR * 0.3, subLen, 4);
       subGeo.translate(0, subLen / 2, 0);
-      const subMesh = new THREE.Mesh(subGeo, new THREE.MeshStandardMaterial({ color: 0x4a3828 }));
+      const subMesh = new THREE.Mesh(subGeo, new THREE.MeshStandardMaterial({ color: 0x6a5038 }));
       const sBase = new THREE.Vector3(
         Math.cos(ra) * baseFlare * 0.6 + rdx * rLen * subT,
         0.05 + rdy * rLen * subT,
@@ -245,8 +245,8 @@ function generateTemplateTree(palIdx) {
   // ---- Realistic branching system ----
   // Lower scaffold branches + crown branches with sub-branching + canopy at tips
   const pal = GLOW_PALETTES[palIdx % GLOW_PALETTES.length];
-  const _branchMat = new THREE.MeshStandardMaterial({ color: 0x5a4030 });
-  const _branchMatDark = new THREE.MeshStandardMaterial({ color: 0x4a3525 });
+  const _branchMat = new THREE.MeshStandardMaterial({ color: 0x7a5840 });
+  const _branchMatDark = new THREE.MeshStandardMaterial({ color: 0x6a4835 });
   const _up = new THREE.Vector3(0, 1, 0);
 
   // Helper: create a tapered branch cylinder oriented from base toward direction
@@ -555,9 +555,9 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const trunkMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       map: barkTex,
-      roughness: 0.85,
-      emissive: 0x1a1008,
-      emissiveIntensity: 0.4
+      roughness: 0.75,
+      emissive: 0x553318,
+      emissiveIntensity: 0.6
     });
     const trunkMesh = tmpl.trunkGeo ? new THREE.InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;
     if (trunkMesh) {

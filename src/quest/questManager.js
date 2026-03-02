@@ -634,37 +634,37 @@ function transformTreesAndGround() {
   for (let i = 0; i < treeMeshesRef.length; i++) {
     const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    // Trunk material (bark, branches, mound) — warm glowing magenta-amber
+    // Trunk material — warm golden-amber glow, clearly visible bark
     if (mesh.trunkMat) {
-      mesh.trunkMat.color.set(0x4a2040);
-      mesh.trunkMat.emissive.set(0x884466);
-      mesh.trunkMat.emissiveIntensity = 0.7;
+      mesh.trunkMat.color.set(0x6a4530);
+      mesh.trunkMat.emissive.set(0xcc8844);
+      mesh.trunkMat.emissiveIntensity = 1.2;
     }
-    // Canopy material (cores, mid-canopy) — bright pink/purple glow
+    // Canopy material — blazing bright pink/purple glow
     if (mesh.canopyMat) {
       mesh.canopyMat.color.set(shade.core);
       mesh.canopyMat.emissive.set(shade.glow);
-      mesh.canopyMat.emissiveIntensity = 2.5;
+      mesh.canopyMat.emissiveIntensity = 3.5;
     }
-    // Glow material (haze, underglow) — bright pink haze
+    // Glow material (haze, underglow) — intense pink haze
     if (mesh.glowMat) {
       mesh.glowMat.color.set(shade.glow);
       mesh.glowMat.emissive.set(shade.glow);
-      mesh.glowMat.emissiveIntensity = 0.85;
+      mesh.glowMat.emissiveIntensity = 1.2;
     }
     // Detail material (veins, roots, moss, fungi) — vivid glow
     if (mesh.detailMat) {
       mesh.detailMat.color.set(shade.color);
       mesh.detailMat.emissive.set(shade.glow);
-      mesh.detailMat.emissiveIntensity = 1.0;
+      mesh.detailMat.emissiveIntensity = 1.5;
     }
   }
 
   // Transform ground — shader patterns + vertex colors + emissive
   setGroundTransform(1.0);
   if (groundMesh && groundMesh.material) {
-    groundMesh.material.emissive.set(0x3a0a5a);
-    groundMesh.material.emissiveIntensity = 0.85;
+    groundMesh.material.emissive.set(0x5a1a7a);
+    groundMesh.material.emissiveIntensity = 1.0;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;

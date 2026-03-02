@@ -2332,18 +2332,15 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
 
-  // Global dimming — post-processing saturation + exposure/fog/intensity.
-  // At 0/5 orbs the forest is monochrome, dark, foggy. Collecting an orb
-  // blooms brightness and color within the 60m restoration radius.
+  // Global dimming — dramatic darkness in unrestored zones, full Phase 1
+  // brightness in restored zones. Uses smoothed lerp for natural transitions.
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
   const lerpSpeed = rawDimFactor > smoothedDimFactor ? 5.0 : 0.6;
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
 
-  // Only apply dimming effects when actually dimmed — skip entirely in fully
-  // restored zones so rendering matches Phase 1 exactly (no extra multiplies,
-  // no saturation pass adjustment, no bloom/exposure/fog shifts).
   if (smoothedDimFactor < 0.99) {
-    const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.82 = deeply dimmed
+    // Unrestored zone — apply full dimming for dramatic effect
+    const desatT = 1.0 - smoothedDimFactor;
     setSaturation(smoothedDimFactor);
     renderer.toneMappingExposure = 0.7 + 2.1 * smoothedDimFactor;
     scene.fog.density *= (1.0 + 1.2 * desatT);
@@ -2352,7 +2349,7 @@ function animate() {
     playerLight.distance *= (0.3 + 0.7 * smoothedDimFactor);
     if (bloomPass) bloomPass.threshold = 0.85 + desatT * 0.3;
   } else {
-    // Fully restored — Phase 1 defaults
+    // Restored zone — exact Phase 1 rendering, no dimming applied
     setSaturation(1.0);
     renderer.toneMappingExposure = 2.8;
     if (bloomPass) bloomPass.threshold = 0.85;

@@ -138,9 +138,7 @@ The `director()` function in `main.js` is the central update hub — every entit
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | Development instructions for AI-assisted coding |
-| `MANIFESTO.md` | Phase 2 narrative and mechanical design |
-| `.claude/` | Context reference files for fast-tracking development sessions |
-| `docs/generative-webgl-protocol-v2.md` | Evolved protocol for LLM-assisted Three.js world-building |
+| `docs/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
 
 ---
 

@@ -20,21 +20,21 @@ npm run build        # Production build to dist/
 
 | File | What It Covers | Read When |
 |------|---------------|-----------|
-| `.claude/architecture.md` | System dependency graph, data flow, spawn order, director pattern, module interfaces | **Always read first** |
-| `.claude/entities.md` | Complete registry: all 29 entity types, 9 particle systems, counts, cull distances, builders | Adding/modifying entities |
-| `.claude/patterns.md` | 10 canonical code patterns with full examples (entity builder, particle pool, culling, state machine, etc.) | Writing any new code |
-| `.claude/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |
-| `.claude/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection | Audio work |
-| `.claude/phase-1-summary.md` | Everything built in Phase 1, completion checklist, known debt | Understanding current state |
-| `.claude/phase-2-roadmap.md` | 21 prioritized implementation items for Phase 2 (from MANIFESTO.md) | Planning Phase 2 work |
-| `MANIFESTO.md` | Full Phase 2 design: Symbiotic Attunement, The Dimming, dual-narrative, all mechanics | Understanding the vision |
-| `docs/generative-webgl-protocol-v2.md` | Production protocol for LLM-assisted Three.js world-building | Architecture decisions |
+| `docs/architecture.md` | System dependency graph, data flow, spawn order, director pattern, module interfaces | **Always read first** |
+| `docs/entities.md` | Complete registry: all 29 entity types, 9 particle systems, counts, cull distances, builders | Adding/modifying entities |
+| `docs/patterns.md` | 10 canonical code patterns with full examples (entity builder, particle pool, culling, state machine, etc.) | Writing any new code |
+| `docs/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |
+| `docs/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection | Audio work |
+| `docs/procedural-audio-engine-protocol.md` | Production methodology for zero-asset Web Audio API synthesis (voice pools, scheduling, anti-clicking, spatial audio) | Audio architecture |
+| `docs/phase-1-summary.md` | Everything built in Phase 1, completion checklist, known debt | Understanding current state |
+| `docs/phase-2-roadmap.md` | 21 prioritized implementation items for Phase 2 (from MANIFESTO.md) | Planning Phase 2 work |
+| `docs/MANIFESTO.md` | Full Phase 2 design: Symbiotic Attunement, The Dimming, dual-narrative, all mechanics | Understanding the vision |
 
 ## Current Phase
 
 **Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 9 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
-**Phase 2 (Symbiotic Attunement): IN PROGRESS.** See `MANIFESTO.md` for full design. Key additions:
+**Phase 2 (Symbiotic Attunement): IN PROGRESS.** See `docs/MANIFESTO.md` for full design. Key additions:
 
 1. **The Dimming** — Local bioGlow suppression in unrestored zones
 2. **Creature Attunement** — Match creature rhythms to carry their frequency
@@ -42,7 +42,7 @@ npm run build        # Production build to dist/
 4. **Dual Narrative** — Child ("Magic Garden") / Adult ("Chronobiological Archive") text layers
 5. **Player Light Evolution** — Color/intensity/range scales with sync level (0/5 → 5/5)
 6. **Audio Sync Progression** — New layers unlock as orbs are found
-7. **21 total features** — Prioritized in `.claude/phase-2-roadmap.md`
+7. **21 total features** — Prioritized in `docs/phase-2-roadmap.md`
 
 ## Critical Rules
 
@@ -82,13 +82,13 @@ These are non-negotiable. Every session must follow them.
 ### Adding a New Entity
 1. Add count constant to `constants.js` (e.g., `export const NEWENT_N = 10;`)
 2. Add colors to `C` object in `constants.js`
-3. Create `src/entities/<category>/newEntity.js` — export `makeNewEntity()` following the builder pattern in `.claude/patterns.md`
+3. Create `src/entities/<category>/newEntity.js` — export `makeNewEntity()` following the builder pattern in `docs/patterns.md`
 4. Import and call in `main.js` `populate()`
 5. Add update logic in `director()` with visibility culling
 6. Check light budget if entity emits light
 
 ### Adding a New Particle System
-1. Create `src/particles/newParticle.js` with `init*()`, `spawn*()`, `update*()` — pattern in `.claude/patterns.md`
+1. Create `src/particles/newParticle.js` with `init*()`, `spawn*()`, `update*()` — pattern in `docs/patterns.md`
 2. Import in `main.js`, call `init*()` in init block
 3. Call `update*()` in director, `spawn*()` on trigger conditions
 
@@ -99,8 +99,8 @@ These are non-negotiable. Every session must follow them.
 4. Export from audio.js, import in main.js, pass as callback to consuming system
 
 ### Implementing Phase 2 Features
-1. Read `.claude/phase-2-roadmap.md` for priority order and file lists
-2. Read `MANIFESTO.md` for detailed design per feature
+1. Read `docs/phase-2-roadmap.md` for priority order and file lists
+2. Read `docs/MANIFESTO.md` for detailed design per feature
 3. Start with Tier 1 (Dimming → Attunement → Orb Gate → Curiosity)
 4. Tier 2 items are independent of each other
 5. Tier 3 (narrative) needs stable gameplay loop first

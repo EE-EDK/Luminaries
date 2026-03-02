@@ -46,9 +46,8 @@ export function initDimming(orbsArray) {
 // ================================================================
 export function notifyOrbCollected(orbIndex) {
   if (orbIndex >= 0 && orbIndex < waves.length) {
-    waves[orbIndex].active = true;
-    waves[orbIndex].elapsed = 0;
-    waves[orbIndex].radius = 0;
+    waves[orbIndex].active = false;
+    waves[orbIndex].radius = ORB_RESTORE_R;
   }
 }
 

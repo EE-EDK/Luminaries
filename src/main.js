@@ -162,7 +162,7 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 // Global dimming state (smoothed for natural transitions)
 // ================================================================
 let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
-let _orbBoost = 1.0; // +5% glow per orb found (1.0 → 1.25 at 5/5)
+let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -2359,7 +2359,7 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
   // Progressive glow boost: +5% per orb found
-  _orbBoost = 1.0 + orbsFound * 0.05;
+  _orbBoost = 1.15 + orbsFound * 0.05;
 
   // Global dimming — blends player's current sector with overall restoration.
   // Fast lerp gives immediate feedback when crossing sector boundaries.

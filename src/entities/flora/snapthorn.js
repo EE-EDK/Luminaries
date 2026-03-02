@@ -161,7 +161,7 @@ export function updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlowFn) {
     s.body.scale.set(1 + breathe, 0.85 + breathe * 0.5, 1 + breathe);
 
     // Body glow pulse
-    s.bodyMat.emissiveIntensity = (0.3 + Math.sin(t * 2 + s.phase) * 0.15) * localGlow;
+    s.bodyMat.emissiveIntensity = (0.5 + Math.sin(t * 1.5 + s.phase) * 0.3) * localGlow;
 
     // Frond waving — cascading sine waves through segments
     for (let fi = 0; fi < s.fronds.length; fi++) {
@@ -182,7 +182,7 @@ export function updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlowFn) {
     // Tip glow pulse
     for (let ti = 0; ti < s.tipMats.length; ti++) {
       const p = Math.sin(t * 2.5 + s.phase + ti * 1.2) * 0.5 + 0.5;
-      s.tipMats[ti].emissiveIntensity = (0.4 + p * 0.4) * localGlow;
+      s.tipMats[ti].emissiveIntensity = (0.5 + p * 0.6) * localGlow;
     }
   }
 }

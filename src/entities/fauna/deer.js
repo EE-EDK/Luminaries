@@ -13,7 +13,7 @@ import { sr } from '../../utils/rng.js';
 export function makeDeer(x, z) {
   const g = new THREE.Group();
   const bMat = new THREE.MeshStandardMaterial({
-    color: C.deerBody, emissive: C.deerGlow, emissiveIntensity: 0.5,
+    color: C.deerBody, emissive: C.deerGlow, emissiveIntensity: 0.7,
     transparent: true, opacity: 0.7, roughness: 0.3
   });
   // Body (elongated sphere) — faces +Z locally

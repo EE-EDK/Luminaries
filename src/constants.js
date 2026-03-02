@@ -66,13 +66,13 @@ export const ORB_SENSE_R = 12;
 export const OBELISK_H = 30;
 export const OBELISK_RISE_SPEED = 4;
 
-// Dimming (Phase 2) — zone-based bioGlow suppression
+// Dimming (Phase 2) — sector-based bioGlow suppression
+// The world splits into 5 angular sectors (pizza slices) from the obelisk.
+// Each sector has one orb. Collecting it restores the entire sector.
 // "The 35% baseline was measured on night 47. Before that, it was lower."
 //    — Unsigned note found taped to monitoring station B
-export const ORB_RESTORE_R = 60;        // Restoration radius per collected orb (meters)
-export const DIMMING_FACTOR = 0.18;     // bioGlow multiplier in unrestored zones (near-greyscale)
-export const DIMMING_TRANSITION = 5;    // Smooth falloff band at zone edge (meters)
-export const DIMMING_WAVE_SPEED = 10;   // Restoration wave expansion speed (m/s)
+export const DIMMING_FACTOR = 0.18;     // bioGlow multiplier in unrestored sectors (near-greyscale)
+export const DIMMING_WAVE_SPEED = 30;   // Restoration wave expansion speed (m/s) — fast radial bloom
 
 // Light budget: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
 export const MAX_CRYSTAL_LIGHTS = 5;

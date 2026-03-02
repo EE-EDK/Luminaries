@@ -7,10 +7,10 @@ import { sr } from '../../utils/rng.js';
 export function makeReed(x, z) {
   const g = new THREE.Group();
   const reedMat = new THREE.MeshStandardMaterial({
-    color: C.reed, emissive: C.reedTip, emissiveIntensity: 0.05, roughness: 0.7
+    color: C.reed, emissive: C.reedTip, emissiveIntensity: 0.15, roughness: 0.7
   });
   const tipMat = new THREE.MeshStandardMaterial({
-    color: C.reedTip, emissive: C.reedTip, emissiveIntensity: 0.15
+    color: C.reedTip, emissive: C.reedTip, emissiveIntensity: 0.35
   });
   // Base mud clump
   const mudMat = new THREE.MeshStandardMaterial({ color: 0x1a1510, roughness: 0.95 });

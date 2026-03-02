@@ -38,6 +38,7 @@ index.html
         │   ├── systems/music.js      → setupMusic() → generative ambient music
         │   ├── systems/weather.js    → initWeather() → 6-state machine
         │   ├── systems/dayNightCycle.js → initDayNight() → 4-phase cycle
+        │   ├── systems/dimming.js    → initDimming() → sector-based bioGlow suppression (Phase 2)
         │   ├── systems/discoveries.js → initDiscoveries() → first-encounter tracker
         │   └── systems/ai/           → senses.js + steering.js (used by fauna)
         │
@@ -49,8 +50,10 @@ index.html
             loop(t):
               dt = clock.getDelta()
               updatePlayer(dt)           → physics, collision, camera bob
+              updateDimming(dt)          → advance sector restoration waves
               director(dt, t)            → ALL per-frame entity/system updates
               updateQuest(dt, t, player) → quest state progression
+              global dimming effects     → exposure, fog, saturation, lights
               postRender()               → bloom compose + render
 ```
 

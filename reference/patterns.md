@@ -138,19 +138,23 @@ for (let i = 0; i < entities.length; i++) {
 
 **Rule:** Always use squared distances. Never call `Math.sqrt()` in the hot path.
 
-## 4. Emissive Glow Pulse Pattern
+## 4. Emissive Glow Pulse Pattern (Breathing Glow)
 
-Standard pulsing glow for bioluminescent entities:
+Standard pulsing glow for bioluminescent entities. Use `getLocalGlow()` for
+sector-based dimming integration:
 
 ```js
 // In director update loop:
-const pulse = Math.sin(t * entity.speed + entity.phase) * 0.5 + 0.5;  // 0..1
-entity.mat.emissiveIntensity = entity.baseIntensity * (0.5 + pulse * 0.8) * bioGlow;
+const pulse = Math.sin(t * 0.8 + entity.phase) * 0.5 + 0.5;  // 0..1
+entity.mat.emissiveIntensity = (0.5 + pulse * 0.7) * getLocalGlow(x, z, bioGlow);
 ```
 
-- `entity.speed` — oscillation frequency (0.5-2.0 typical)
+- Slower speed (0.8-1.5) gives a gentle "breathing" feel
+- Base intensity 0.5+ ensures always visible, pulse adds 0.7 amplitude
 - `entity.phase` — offset from `sr()` so entities don't pulse in sync
 - `bioGlow` — global multiplier from day/night cycle (0.65-1.5)
+- `getLocalGlow(x, z, bioGlow)` — returns `bioGlow * DIMMING_FACTOR` in
+  unrestored sectors, full `bioGlow` in restored sectors
 
 ## 5. Weather-Responsive Pattern
 

@@ -36,7 +36,7 @@ npm run build        # Production build to dist/
 
 **Phase 2 (Symbiotic Attunement): IN PROGRESS.** See `reference/MANIFESTO.md` for full design. Key additions:
 
-1. **The Dimming** — Local bioGlow suppression in unrestored zones
+1. **The Dimming** — Sector-based bioGlow suppression (DONE: 5 angular sectors, restoration waves, edge blending)
 2. **Creature Attunement** — Match creature rhythms to carry their frequency
 3. **Orb Activation Gate** — Frequency required to activate orbs
 4. **Dual Narrative** — Child ("Magic Garden") / Adult ("Chronobiological Archive") text layers
@@ -117,6 +117,7 @@ These are non-negotiable. Every session must follow them.
 | Quest state machine | `src/quest/questManager.js` |
 | Weather states | `src/systems/weather.js` |
 | Day/night + bioGlow | `src/systems/dayNightCycle.js` |
+| Sector dimming | `src/systems/dimming.js` → `getLocalGlow()`, `initDimming()` |
 | Discovery text | `src/systems/discoveries.js` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
 

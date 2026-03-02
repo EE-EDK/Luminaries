@@ -9,7 +9,7 @@
 | Trees | 500 | 4-tier LOD | `entities/flora/trees.js` | `createTreeTemplates()` + `createTreeInstances()` | 10 templates, 4 InstancedMesh/template (trunk, canopy, glow, detail), wind sway |
 | Mushrooms | 250 | 50m | `entities/flora/mushrooms.js` | `makeMush()` | Glow pulse (sin-based), emissive cap, spore emission |
 | Crystals | 18 | — | `entities/flora/crystals.js` | `makeCrystal()` | Rotation, proximity lights (5 max), glow pulse |
-| Grass | 1,200 | GPU shader | `entities/flora/grass.js` | `makeGrassPatch()` | Vertex shader animation, zero CPU cost, 3 palette variants (purple/blue/teal) |
+| Grass | 1,200 | GPU shader | `entities/flora/grass.js` | `makeGrassPatch()` | Vertex shader animation, zero CPU cost, 3 palette variants (purple/blue/teal), 38-67 blades/patch, GPU dimming via uGlowMult |
 | Ferns | 160 | 40m | `entities/flora/ferns.js` | `makeFern()` | Gentle sway |
 | Flowers | 140 | 40m | `entities/flora/flowers.js` | `makeFlower()` | Bloom reactivity (`_react`), firefly attraction |
 | Reeds | 40 | 40m | `entities/flora/reeds.js` | `makeReed()` | Wind sway |

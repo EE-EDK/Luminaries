@@ -623,48 +623,48 @@ function initFlashOverlay() {
 // Transform all tree materials and ground to pink/purple theme
 function transformTreesAndGround() {
   const pinkShades = [
-    { color: 0x551430, glow: 0xcc2277, core: 0xff44aa },
-    { color: 0x3a1040, glow: 0xaa33bb, core: 0xdd55ff },
-    { color: 0x441428, glow: 0xdd3388, core: 0xff66bb },
-    { color: 0x2a1050, glow: 0x8833cc, core: 0xbb55ff },
-    { color: 0x401830, glow: 0xcc4499, core: 0xff77cc },
+    { color: 0x662040, glow: 0xff3399, core: 0xff66cc },
+    { color: 0x4a1850, glow: 0xcc44dd, core: 0xee77ff },
+    { color: 0x551a30, glow: 0xff4499, core: 0xff88cc },
+    { color: 0x3a1860, glow: 0xaa44ee, core: 0xcc77ff },
+    { color: 0x502040, glow: 0xee55bb, core: 0xff99dd },
   ];
 
   // With instanced trees, modify shared materials per template
   for (let i = 0; i < treeMeshesRef.length; i++) {
     const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    // Trunk material (bark, branches, mound) — dark cyan tint
+    // Trunk material (bark, branches, mound) — glowing cyan-purple tint
     if (mesh.trunkMat) {
-      mesh.trunkMat.color.set(0x0a3040);
-      mesh.trunkMat.emissive.set(0x082838);
-      mesh.trunkMat.emissiveIntensity = 0.1;
+      mesh.trunkMat.color.set(0x1a4060);
+      mesh.trunkMat.emissive.set(0x224488);
+      mesh.trunkMat.emissiveIntensity = 0.35;
     }
-    // Canopy material (cores, mid-canopy) — pink/purple glow
+    // Canopy material (cores, mid-canopy) — bright pink/purple glow
     if (mesh.canopyMat) {
       mesh.canopyMat.color.set(shade.core);
       mesh.canopyMat.emissive.set(shade.glow);
-      mesh.canopyMat.emissiveIntensity = 0.9;
+      mesh.canopyMat.emissiveIntensity = 1.5;
     }
-    // Glow material (haze, underglow) — shift emissive to pink
+    // Glow material (haze, underglow) — bright pink haze
     if (mesh.glowMat) {
       mesh.glowMat.color.set(shade.glow);
       mesh.glowMat.emissive.set(shade.glow);
-      mesh.glowMat.emissiveIntensity = 0.15;
+      mesh.glowMat.emissiveIntensity = 0.5;
     }
-    // Detail material (veins, roots, moss, fungi)
+    // Detail material (veins, roots, moss, fungi) — vivid glow
     if (mesh.detailMat) {
       mesh.detailMat.color.set(shade.color);
       mesh.detailMat.emissive.set(shade.glow);
-      mesh.detailMat.emissiveIntensity = 0.3;
+      mesh.detailMat.emissiveIntensity = 0.6;
     }
   }
 
   // Transform ground — shader patterns + vertex colors + emissive
   setGroundTransform(1.0);
   if (groundMesh && groundMesh.material) {
-    groundMesh.material.emissive.set(0x2a0845);
-    groundMesh.material.emissiveIntensity = 0.40;
+    groundMesh.material.emissive.set(0x3a0a5a);
+    groundMesh.material.emissiveIntensity = 0.65;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;

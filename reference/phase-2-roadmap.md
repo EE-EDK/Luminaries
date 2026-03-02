@@ -13,7 +13,7 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
-| 1 | **The Dimming** — Local bioGlow suppression per zone | `main.js`, `constants.js` | Low | Not started |
+| 1 | **The Dimming** — Sector-based bioGlow suppression | `systems/dimming.js`, `main.js`, `constants.js` | Low | **DONE** |
 | 2 | **Creature Attunement** — Behavior matching + frequency carry | `entities/fauna/*.js`, `main.js`, `core/player.js` | Medium | Not started |
 | 3 | **Orb Activation Gate** — Require carried frequency | `quest/questManager.js` | Low | Not started |
 | 4 | **Stillness/Curiosity** — Creatures approach stationary player | `entities/fauna/*.js` | Low | Not started |
@@ -64,10 +64,12 @@ Each orb sits within a natural zone. No hard biome boundaries — zones are soft
 ## New Constants Needed (for constants.js)
 
 ```js
-export const ORB_RESTORE_R = 30;           // Restoration radius per orb
+// Already implemented:
+export const DIMMING_FACTOR = 0.18;        // bioGlow multiplier in unrestored sectors (near-greyscale)
+export const DIMMING_WAVE_SPEED = 30;      // Restoration wave expansion speed (m/s)
+// Planned:
 export const ATTUNE_RATE = 0.15;           // Attunement gain per second when matching
 export const ATTUNE_DECAY = 0.05;          // Attunement loss per second when not matching
-export const DIMMING_FACTOR = 0.35;        // bioGlow multiplier in unrestored zones
 export const CURIOSITY_IDLE_TIME = 5;      // Seconds of stillness before curiosity triggers
 export const FAIRY_BOOST_MULT = 3.5;       // Fairy ring jump multiplier
 export const FEATHER_FALL_DURATION = 4;    // Seconds of slow fall

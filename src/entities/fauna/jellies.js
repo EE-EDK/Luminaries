@@ -55,7 +55,7 @@ export function makeJelly(x, y, z) {
     transparent: true, opacity: 0.4
   });
   const tipMat = new THREE.MeshBasicMaterial({
-    color: C.jellyGlow, transparent: true, opacity: 0.6
+    color: 0xddeeff, transparent: true, opacity: 0.9
   });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * 6.28;
@@ -63,8 +63,8 @@ export function makeJelly(x, y, z) {
     const tent = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.008, len, 3), tentMat);
     tent.position.set(Math.cos(a) * 0.25, -len / 2 - 0.05, Math.sin(a) * 0.25);
     g.add(tent);
-    // Tip bulb
-    const tipB = new THREE.Mesh(new THREE.SphereGeometry(0.012, 3, 3), tipMat);
+    // Tip bulb — bright twinkling orb
+    const tipB = new THREE.Mesh(new THREE.SphereGeometry(0.018, 4, 4), tipMat);
     tipB.position.set(Math.cos(a) * 0.25, -len - 0.06, Math.sin(a) * 0.25);
     g.add(tipB);
   }

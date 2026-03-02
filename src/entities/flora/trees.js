@@ -571,9 +571,9 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
-      emissiveIntensity: 0.8,
+      emissiveIntensity: 1.2,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.5,
       depthWrite: false
     });
     const canopyMesh = tmpl.canopyGeo ? new THREE.InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
@@ -587,9 +587,9 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     const glowMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       emissive: palData.glow,
-      emissiveIntensity: 0.25,
+      emissiveIntensity: 0.4,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.15,
       depthWrite: false
     });
     const glowMesh = tmpl.glowGeo ? new THREE.InstancedMesh(tmpl.glowGeo, glowMat, maxPerTemplate) : null;

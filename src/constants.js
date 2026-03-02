@@ -69,7 +69,7 @@ export const OBELISK_RISE_SPEED = 4;
 // Dimming (Phase 2) — zone-based bioGlow suppression
 // "The 35% baseline was measured on night 47. Before that, it was lower."
 //    — Unsigned note found taped to monitoring station B
-export const ORB_RESTORE_R = 40;        // Restoration radius per collected orb (meters)
+export const ORB_RESTORE_R = 60;        // Restoration radius per collected orb (meters)
 export const DIMMING_FACTOR = 0.18;     // bioGlow multiplier in unrestored zones (near-greyscale)
 export const DIMMING_TRANSITION = 5;    // Smooth falloff band at zone edge (meters)
 export const DIMMING_WAVE_SPEED = 10;   // Restoration wave expansion speed (m/s)

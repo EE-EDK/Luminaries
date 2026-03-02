@@ -2334,12 +2334,11 @@ function animate() {
 
   // Global dimming — post-processing saturation + exposure/fog/intensity.
   // At 0/5 orbs the forest is monochrome, dark, foggy. Collecting an orb
-  // blooms brightness and color within the 30m restoration radius.
+  // blooms brightness and color within the 60m restoration radius.
   const rawDimFactor = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 2.0 : 0.6;
+  const lerpSpeed = rawDimFactor > smoothedDimFactor ? 5.0 : 0.6;
   smoothedDimFactor += (rawDimFactor - smoothedDimFactor) * Math.min(lerpSpeed * dt, 1.0);
   const desatT = 1.0 - smoothedDimFactor; // 0 = full color, ~0.82 = deeply dimmed
-
   // Post-processing saturation: full greyscale in dimmed zones, full color near orbs
   setSaturation(smoothedDimFactor);
 

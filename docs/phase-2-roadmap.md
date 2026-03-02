@@ -1,7 +1,7 @@
 # Phase 2 Roadmap — Symbiotic Attunement
 
 > Phase 2 transforms the forest from a passive exploration space into a narrative experience
-> with meaningful gameplay mechanics. Reference: `MANIFESTO.md` for full design.
+> with meaningful gameplay mechanics. Reference: `docs/MANIFESTO.md` for full design.
 
 ## Core Concept
 
@@ -83,7 +83,7 @@ export const FEATHER_FALL_GRAVITY = 0.3;   // Gravity multiplier during feather 
 | Deer | 8-12m | Walk (WASD, no SHIFT) same direction (±45°) | 0.15/s | Horn tone rises |
 | Moth | < 8m | Move laterally + look toward moth | 0.15/s | Flutter intensifies |
 
-Weather modifiers multiply the base rate. bioGlow multiplies the rate. See MANIFESTO.md Section V for full tables.
+Weather modifiers multiply the base rate. bioGlow multiplies the rate. See `docs/MANIFESTO.md` Section V for full tables.
 
 ## Player Light Evolution
 
@@ -108,7 +108,7 @@ Weather modifiers multiply the base rate. bioGlow multiplies the rate. See MANIF
 
 ## Explicitly Descoped
 
-These are NOT planned for Phase 2 (see MANIFESTO.md Section XIV):
+These are NOT planned for Phase 2 (see `docs/MANIFESTO.md` Section XIV):
 - Hard biome boundaries
 - Full flight system (fairy ring boost replaces this)
 - Custom shader pipeline / chromatic aberration

@@ -138,7 +138,7 @@ The `director()` function in `main.js` is the central update hub — every entit
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | Development instructions for AI-assisted coding |
-| `docs/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
+| `reference/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
 
 ---
 

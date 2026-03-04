@@ -5,6 +5,7 @@ import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
+import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
@@ -43,6 +44,11 @@ let stopLaserHumsFn = null;
 
 // Dimming callback (Phase 2)
 let notifyOrbCollectedFn = null;
+
+// Orb rejection callbacks + state (Phase 2: Activation Gate)
+let playOrbRejectFn = null;
+let showOrbRejectHintFn = null;
+let orbRejectCooldown = 0; // prevent spam
 
 // Phase 2 enhancement callbacks
 let showOrbDiscoveryFn = null;
@@ -194,6 +200,8 @@ export function initQuest(config) {
   playLaserHumFn = config.playLaserHum || null;
   stopLaserHumsFn = config.stopLaserHums || null;
   notifyOrbCollectedFn = config.notifyOrbCollected || null;
+  playOrbRejectFn = config.playOrbReject || null;
+  showOrbRejectHintFn = config.showOrbRejectHint || null;
   showOrbDiscoveryFn = config.showOrbDiscovery || null;
   spawnOrbBurstFn = config.spawnOrbBurst || null;
   startResonanceDroneFn = config.startResonanceDrone || null;
@@ -202,6 +210,8 @@ export function initQuest(config) {
 }
 
 export function updateQuest(dt, t) {
+  if (orbRejectCooldown > 0) orbRejectCooldown -= dt;
+
   // Orb proximity light — find nearest unfound orb
   let nearestOrb = null, nearestD = Infinity;
   for (let i = 0; i < orbs.length; i++) {
@@ -258,41 +268,52 @@ export function updateQuest(dt, t) {
         ch.position.y = Math.sin(sa * 2 + t) * 0.1;
       }
 
-      // Touch detection
+      // Touch detection — requires creature frequency (Phase 2: Activation Gate)
       if (dist2 < ORB_TOUCH_R * ORB_TOUCH_R) {
-        o.found = true;
-        o._flashing = true;
-        o._flashTimer = 0;
-        o.flyY = o.group.position.y;
-        orbsFound++;
-        // Update HUD
-        const hud = orbHudEl || document.getElementById('orb-hud');
-        if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
-        // Start rising on first orb
-        if (questPhase === 'SEEK') questPhase = 'RISING';
-        // Play collection sound
-        if (playOrbCollectFn) playOrbCollectFn();
-        // Notify dimming system — start restoration wave
-        if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
-        // Discovery narrative text
-        if (showOrbDiscoveryFn) showOrbDiscoveryFn(orbsFound - 1);
-        // Golden particle burst at orb position
-        if (spawnOrbBurstFn) spawnOrbBurstFn(o.x, o.group.position.y, o.z);
-        // Resonance drone audio layer
-        if (startResonanceDroneFn) startResonanceDroneFn(orbsFound);
-        // Progressive rune reveal — one face per orb (up to 4 faces)
-        const faceIdx = orbsFound - 1;
-        if (faceIdx < runeFaces.length) {
-          const face = runeFaces[faceIdx];
-          face.revealed = true;
-          face.revealTimer = 0;
-          for (let m = 0; m < face.meshes.length; m++) {
-            face.meshes[m].visible = true;
+        const freq = getPlayerFrequency();
+        if (freq) {
+          // Player carries a creature frequency — orb activates
+          o.found = true;
+          o._flashing = true;
+          o._flashTimer = 0;
+          o.flyY = o.group.position.y;
+          orbsFound++;
+          // Consume the frequency — must re-attune for next orb
+          consumeFrequency();
+          // Update HUD
+          const hud = orbHudEl || document.getElementById('orb-hud');
+          if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
+          // Start rising on first orb
+          if (questPhase === 'SEEK') questPhase = 'RISING';
+          // Play collection sound
+          if (playOrbCollectFn) playOrbCollectFn();
+          // Notify dimming system — start restoration wave
+          if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
+          // Discovery narrative text
+          if (showOrbDiscoveryFn) showOrbDiscoveryFn(orbsFound - 1);
+          // Golden particle burst at orb position
+          if (spawnOrbBurstFn) spawnOrbBurstFn(o.x, o.group.position.y, o.z);
+          // Resonance drone audio layer
+          if (startResonanceDroneFn) startResonanceDroneFn(orbsFound);
+          // Progressive rune reveal — one face per orb (up to 4 faces)
+          const faceIdx = orbsFound - 1;
+          if (faceIdx < runeFaces.length) {
+            const face = runeFaces[faceIdx];
+            face.revealed = true;
+            face.revealTimer = 0;
+            for (let m = 0; m < face.meshes.length; m++) {
+              face.meshes[m].visible = true;
+            }
           }
-        }
-        // 5th orb: reveal all remaining elements (glyphs, dots, cap edges)
-        if (orbsFound >= ORB_N) {
-          revealAllObeliskDetails();
+          // 5th orb: reveal all remaining elements (glyphs, dots, cap edges)
+          if (orbsFound >= ORB_N) {
+            revealAllObeliskDetails();
+          }
+        } else if (orbRejectCooldown <= 0) {
+          // No frequency — orb rejects with dim pulse + hint
+          if (playOrbRejectFn) playOrbRejectFn();
+          if (showOrbRejectHintFn) showOrbRejectHintFn();
+          orbRejectCooldown = 3; // 3s between rejection hints
         }
       }
     }

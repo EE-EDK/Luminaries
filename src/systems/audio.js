@@ -40,7 +40,7 @@ let thunderTimer = 0;
 let waterNode = null, waterGain = null, waterFilter = null;
 
 // Creature sound cooldowns
-const creatureCooldowns = { jelly: 0, puff: 0, deer: 0, moth: 0 };
+const creatureCooldowns = { jelly: 0, puff: 0, deer: 0, moth: 0, puffSing: 0 };
 
 // Footstep state
 let lastStepPhase = 0;
@@ -255,6 +255,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
   creatureCooldowns.puff -= dt;
   creatureCooldowns.deer -= dt;
   creatureCooldowns.moth -= dt;
+  creatureCooldowns.puffSing -= dt;
 }
 
 // ================================================================
@@ -708,6 +709,300 @@ export function stopLaserHums() {
     h.mod.stop(now + 0.6);
   }
   laserHums.length = 0;
+}
+
+// ================================================================
+// Puffling Singing — Extended warbling melody that responds to forest state
+// ================================================================
+// Major Pentatonic scale matched to music.js: C D E G A
+const SING_SCALE = [0, 2, 4, 7, 9];
+const SING_BASE = 261.63; // C4
+
+function singNoteFreq(degree, octShift) {
+  const len = SING_SCALE.length;
+  const oct = Math.floor(degree / len) + (octShift || 0);
+  const idx = ((degree % len) + len) % len;
+  return SING_BASE * Math.pow(2, oct + SING_SCALE[idx] / 12);
+}
+
+export function playPufflingSinging(position, playerPos, sectorRestored, attunement) {
+  if (!initialized || muted) return;
+  if (creatureCooldowns.puffSing > 0) return;
+
+  const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 > 900) return; // 30m max
+
+  const dist = Math.sqrt(d2);
+  const vol = Math.max(0, 1 - dist / 30) * 0.06;
+  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
+
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  const now = ctx.currentTime;
+
+  // Context-sensitive phrase construction
+  let noteCount, noteDur, octave, degrees;
+  if (sectorRestored) {
+    // Bright ascending phrase — joyful warbling
+    noteCount = 6 + Math.floor(Math.random() * 3); // 6-8 notes
+    noteDur = 0.15;
+    octave = 2; // higher register
+    // Ascending with gentle turns: 0,1,2,3,4,3,4,4
+    degrees = [];
+    for (let i = 0; i < noteCount; i++) {
+      if (i < 5) degrees.push(i);
+      else degrees.push(3 + Math.floor(Math.random() * 2)); // gentle variation at top
+    }
+  } else {
+    // Melancholic descending phrase — sadder, slower
+    noteCount = 3 + Math.floor(Math.random() * 2); // 3-4 notes
+    noteDur = 0.20;
+    octave = 1; // lower register
+    // Descending: 4,2,1,0
+    degrees = [];
+    for (let i = 0; i < noteCount; i++) {
+      degrees.push(Math.max(0, 4 - i * Math.floor(5 / noteCount)));
+    }
+  }
+
+  // Vibrato LFO — shared across all notes
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.type = 'sine';
+  lfo.frequency.value = 6 + Math.random() * 4; // 6-10Hz warble
+  lfoGain.gain.value = 25 + Math.random() * 10; // ±25-35Hz deviation
+  lfo.connect(lfoGain);
+
+  const totalDur = noteCount * noteDur + 0.15; // phrase + final release
+
+  for (let i = 0; i < noteCount; i++) {
+    const freq = singNoteFreq(degrees[i], octave);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    // Connect vibrato to this oscillator's frequency
+    lfoGain.connect(osc.frequency);
+
+    const g = ctx.createGain();
+    const noteStart = now + i * noteDur;
+    // Soft attack → sustain → release
+    g.gain.setValueAtTime(0, noteStart);
+    g.gain.linearRampToValueAtTime(vol, noteStart + 0.03); // 30ms attack
+    g.gain.setValueAtTime(vol, noteStart + noteDur - 0.06);
+    g.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDur + 0.06); // 60ms release overlap
+
+    osc.connect(g).connect(panner);
+    osc.start(noteStart);
+    osc.stop(noteStart + noteDur + 0.08);
+  }
+
+  // Harmonic layer — fades in with attunement (perfect 5th above)
+  if (attunement > 0.1) {
+    const harmVol = vol * attunement * 0.4; // quiet, grows with attunement
+    for (let i = 0; i < Math.min(noteCount, 5); i++) {
+      const freq = singNoteFreq(degrees[i], octave) * 1.5; // perfect 5th
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      lfoGain.connect(osc.frequency);
+
+      const g = ctx.createGain();
+      const noteStart = now + i * noteDur;
+      g.gain.setValueAtTime(0, noteStart);
+      g.gain.linearRampToValueAtTime(harmVol, noteStart + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDur + 0.04);
+
+      osc.connect(g).connect(panner);
+      osc.start(noteStart);
+      osc.stop(noteStart + noteDur + 0.06);
+    }
+  }
+
+  connectWithReverb(panner, masterGain, 0.4);
+  lfo.start(now);
+  lfo.stop(now + totalDur + 0.2);
+
+  // Cooldown shortens with attunement
+  creatureCooldowns.puffSing = attunement > 0.3
+    ? 2 + Math.random() * 2   // 2-4s when attuning
+    : 4 + Math.random() * 4;  // 4-8s normally
+}
+
+// ================================================================
+// Attunement Flash — Triumphant ascending arpeggio at full sync
+// ================================================================
+export function playAttunementFlash(position, playerPos) {
+  if (!initialized || muted) return;
+
+  const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 > 900) return;
+
+  const dist = Math.sqrt(d2);
+  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
+
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  const now = ctx.currentTime;
+
+  // Full ascending pentatonic scale — triumphant
+  const degrees = [0, 1, 2, 3, 4];
+  const noteDur = 0.18;
+
+  // Vibrato that blooms on the final note
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.type = 'sine';
+  lfo.frequency.value = 8;
+  lfoGain.gain.setValueAtTime(20, now);
+  lfoGain.gain.linearRampToValueAtTime(50, now + degrees.length * noteDur); // bloom
+  lfo.connect(lfoGain);
+
+  for (let i = 0; i < degrees.length; i++) {
+    const freq = singNoteFreq(degrees[i], 2); // high register
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    lfoGain.connect(osc.frequency);
+
+    const g = ctx.createGain();
+    const noteStart = now + i * noteDur;
+    const isLast = i === degrees.length - 1;
+    const noteVol = 0.07;
+
+    g.gain.setValueAtTime(0, noteStart);
+    g.gain.linearRampToValueAtTime(noteVol, noteStart + 0.02);
+    if (isLast) {
+      // Sustained final note
+      g.gain.setValueAtTime(noteVol, noteStart + 0.5);
+      g.gain.exponentialRampToValueAtTime(0.001, noteStart + 1.2);
+      osc.stop(noteStart + 1.3);
+    } else {
+      g.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDur + 0.04);
+      osc.stop(noteStart + noteDur + 0.06);
+    }
+    osc.connect(g).connect(panner);
+    osc.start(noteStart);
+
+    // Octave harmonic for shimmer
+    const harm = ctx.createOscillator();
+    harm.type = 'sine';
+    harm.frequency.value = freq * 2;
+    lfoGain.connect(harm.frequency);
+    const hg = ctx.createGain();
+    hg.gain.setValueAtTime(0, noteStart);
+    hg.gain.linearRampToValueAtTime(noteVol * 0.3, noteStart + 0.03);
+    hg.gain.exponentialRampToValueAtTime(0.001, noteStart + (isLast ? 1.0 : noteDur) + 0.04);
+    harm.connect(hg).connect(panner);
+    harm.start(noteStart);
+    harm.stop(noteStart + (isLast ? 1.1 : noteDur + 0.06));
+  }
+
+  connectWithReverb(panner, masterGain, 0.6);
+  lfo.start(now);
+  lfo.stop(now + degrees.length * noteDur + 1.5);
+}
+
+// ================================================================
+// Orb Rejection — Muted warble when approaching orb without frequency
+// ================================================================
+export function playOrbReject() {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // Muted descending tone — lower pitch, shorter, quieter than orb collect
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(330, now);
+  osc.frequency.exponentialRampToValueAtTime(180, now + 0.4);
+
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.frequency.value = 6;
+  lfoGain.gain.value = 10;
+  lfo.connect(lfoGain).connect(osc.frequency);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.03, now + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+  osc.connect(gain);
+  connectWithReverb(gain, masterGain, 0.3);
+
+  lfo.start(now); osc.start(now);
+  lfo.stop(now + 0.6); osc.stop(now + 0.6);
+}
+
+// ================================================================
+// Puffling Vocal Babble — Animal Crossing-style speaking sounds
+// ================================================================
+// Rapid cycling through vowel formants creates a "speaking" cadence.
+// Each syllable is a brief formant-shaped sine burst.
+const VOWEL_FORMANTS = [
+  { f1: 730, f2: 1090 },  // a
+  { f1: 400, f2: 2300 },  // e
+  { f1: 300, f2: 2700 },  // i
+  { f1: 570, f2: 850 },   // o
+  { f1: 440, f2: 1020 },  // u
+];
+
+export function playPufflingVocal(text, position, playerPos) {
+  if (!initialized || muted) return;
+
+  const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 > 400) return; // 20m max
+
+  const dist = Math.sqrt(d2);
+  const vol = Math.max(0, 1 - dist / 20) * 0.05;
+  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
+
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  const now = ctx.currentTime;
+
+  // One syllable per ~2 characters, with pitch variation for intonation
+  const syllables = Math.min(Math.ceil(text.length / 2), 16);
+  const syllDur = 0.07; // 70ms per syllable
+  const basePitch = 700 + Math.random() * 200; // 700-900Hz — cute high register
+
+  for (let i = 0; i < syllables; i++) {
+    const vowel = VOWEL_FORMANTS[i % VOWEL_FORMANTS.length];
+    // Pitch contour: rises in middle, falls at end (question-like)
+    const intonation = Math.sin((i / syllables) * Math.PI) * 0.3;
+    const pitch = basePitch * (1 + intonation) * (0.9 + Math.random() * 0.2);
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = pitch;
+
+    // Second formant oscillator for vowel color
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = vowel.f2 * (0.9 + Math.random() * 0.2);
+
+    const g = ctx.createGain();
+    const syllStart = now + i * syllDur;
+    // Quick attack + release per syllable
+    g.gain.setValueAtTime(0, syllStart);
+    g.gain.linearRampToValueAtTime(vol, syllStart + 0.01);
+    g.gain.linearRampToValueAtTime(vol * 0.7, syllStart + syllDur * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.001, syllStart + syllDur);
+
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0, syllStart);
+    g2.gain.linearRampToValueAtTime(vol * 0.15, syllStart + 0.01);
+    g2.gain.exponentialRampToValueAtTime(0.001, syllStart + syllDur);
+
+    osc.connect(g).connect(panner);
+    osc2.connect(g2).connect(panner);
+    osc.start(syllStart); osc.stop(syllStart + syllDur + 0.02);
+    osc2.start(syllStart); osc2.stop(syllStart + syllDur + 0.02);
+  }
+
+  connectWithReverb(panner, masterGain, 0.35);
 }
 
 // ================================================================

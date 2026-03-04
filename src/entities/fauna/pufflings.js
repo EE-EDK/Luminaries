@@ -155,9 +155,18 @@ export function makePuff(x, z) {
     bud.position.set(0, 0.89, 0); g.add(bud);
   }
 
+  // Ground glow disc — subtle attunement importance hint
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: C.puffGlow, transparent: true, opacity: 0.0, depthWrite: false, side: THREE.DoubleSide
+  });
+  const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(0.5, 8), glowMat);
+  glowDisc.rotation.x = -Math.PI / 2;
+  glowDisc.position.y = 0.02;
+  g.add(glowDisc);
+
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, ears, eyes, tail, sparkles, crownMat,
+    group: g, body, head, ears, eyes, tail, sparkles, crownMat, bodyMat, glowMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _followT: 0, _scaredT: 0, _huddleTarget: -1,

@@ -69,7 +69,7 @@ let attuneEl = null;
 let pixieEl = null;
 let pixieTrailEl = null;
 let mushDecor = []; // decorative mushroom elements
-let pufflingEl = null; // puffling that hops as the 'i'
+let pufflingEls = []; // two pufflings — dots of both I's in LUMINARIES
 
 // Pixie dust particle pool
 const DUST_MAX = 24;
@@ -106,105 +106,176 @@ export function initIntro(completeFn) {
   // Decorative glowing mushrooms around the title
   // ================================================================
   const mushPositions = [
-    { x: '12%', y: '52%', scale: 0.7, delay: 0 },
-    { x: '18%', y: '58%', scale: 0.5, delay: 0.3 },
-    { x: '82%', y: '54%', scale: 0.65, delay: 0.15 },
-    { x: '88%', y: '60%', scale: 0.45, delay: 0.5 },
-    { x: '25%', y: '62%', scale: 0.4, delay: 0.7 },
-    { x: '75%', y: '63%', scale: 0.35, delay: 0.6 },
-    { x: '35%', y: '58%', scale: 0.55, delay: 0.4 },
-    { x: '65%', y: '57%', scale: 0.5, delay: 0.25 },
+    { x: '8%',  y: '60%', scale: 1.0,  delay: 0,    hue: 270 },
+    { x: '14%', y: '66%', scale: 0.6,  delay: 0.4,  hue: 280 },
+    { x: '20%', y: '62%', scale: 0.75, delay: 0.2,  hue: 260 },
+    { x: '80%', y: '61%', scale: 0.85, delay: 0.15, hue: 275 },
+    { x: '86%', y: '67%', scale: 0.55, delay: 0.55, hue: 290 },
+    { x: '92%', y: '63%', scale: 0.7,  delay: 0.3,  hue: 265 },
   ];
   for (let i = 0; i < mushPositions.length; i++) {
     const mp = mushPositions[i];
     const mush = document.createElement('div');
+    const sz = Math.round(36 * mp.scale);
+    const capH = Math.round(sz * 0.55);
+    const stemW = Math.round(sz * 0.22);
+    const stemH = Math.round(sz * 0.55);
     mush.style.cssText =
       'position:absolute;pointer-events:none;' +
       'left:' + mp.x + ';top:' + mp.y + ';transform:translate(-50%,-100%);' +
-      'opacity:0;transition:opacity 2s ease;';
+      'opacity:0;';
 
-    // Mushroom cap (rounded top)
+    // Mushroom cap — layered gradients for depth
     const cap = document.createElement('div');
-    const sz = Math.round(28 * mp.scale);
     cap.style.cssText =
-      'width:' + sz + 'px;height:' + Math.round(sz * 0.6) + 'px;' +
-      'background:radial-gradient(ellipse at 50% 80%,#7744cc 0%,#5522aa 40%,#331177 80%,transparent 100%);' +
-      'border-radius:50% 50% 20% 20%;margin:0 auto;' +
-      'box-shadow:0 0 ' + Math.round(sz * 0.4) + 'px #8855ee,0 0 ' + Math.round(sz * 0.8) + 'px rgba(100,50,200,.3);' +
-      'filter:brightness(1.2);';
+      'position:relative;width:' + sz + 'px;height:' + capH + 'px;' +
+      'background:radial-gradient(ellipse at 50% 90%,' +
+        'hsl(' + mp.hue + ',60%,55%) 0%,' +
+        'hsl(' + mp.hue + ',55%,40%) 35%,' +
+        'hsl(' + mp.hue + ',50%,25%) 70%,' +
+        'transparent 100%);' +
+      'border-radius:50% 50% 15% 15%;margin:0 auto;';
     mush.appendChild(cap);
 
-    // Mushroom stem
-    const stem = document.createElement('div');
-    const stemW = Math.round(sz * 0.25);
-    const stemH = Math.round(sz * 0.5);
-    stem.style.cssText =
-      'width:' + stemW + 'px;height:' + stemH + 'px;' +
-      'background:linear-gradient(to bottom,#6633aa,#442288);' +
-      'margin:0 auto;border-radius:0 0 2px 2px;';
-    mush.appendChild(stem);
+    // Inner highlight on cap
+    const highlight = document.createElement('div');
+    highlight.style.cssText =
+      'position:absolute;top:15%;left:25%;width:50%;height:40%;' +
+      'background:radial-gradient(ellipse,' +
+        'hsla(' + mp.hue + ',70%,75%,.4) 0%,transparent 70%);' +
+      'border-radius:50%;';
+    cap.appendChild(highlight);
 
-    // Glowing dots on cap
-    for (let d = 0; d < 3; d++) {
-      const dot = document.createElement('div');
-      const dotSz = Math.round(3 * mp.scale + 1);
-      dot.style.cssText =
-        'position:absolute;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:50%;' +
-        'background:#ccaaff;box-shadow:0 0 4px #aa88ee;' +
-        'top:' + Math.round(sz * 0.15 + d * 4) + 'px;' +
-        'left:' + Math.round(sz * 0.3 + (d % 2 ? sz * 0.3 : 0)) + 'px;';
-      mush.appendChild(dot);
+    // Gill lines under cap
+    const gills = document.createElement('div');
+    gills.style.cssText =
+      'position:absolute;bottom:0;left:15%;width:70%;height:25%;' +
+      'background:repeating-linear-gradient(90deg,' +
+        'hsla(' + mp.hue + ',40%,30%,.6) 0px,' +
+        'hsla(' + mp.hue + ',40%,30%,.6) 1px,' +
+        'transparent 1px,transparent 3px);' +
+      'border-radius:0 0 40% 40%;opacity:0.5;';
+    cap.appendChild(gills);
+
+    // Bioluminescent spots on cap
+    const spotCount = 2 + Math.floor(mp.scale * 3);
+    for (let d = 0; d < spotCount; d++) {
+      const spot = document.createElement('div');
+      const spotSz = Math.round(2 + mp.scale * 2.5);
+      const spotX = 20 + (d * 60 / spotCount) + Math.sin(d * 2.7) * 10;
+      const spotY = 15 + Math.cos(d * 3.1) * 20;
+      spot.className = 'mush-spot';
+      spot.style.cssText =
+        'position:absolute;width:' + spotSz + 'px;height:' + spotSz + 'px;border-radius:50%;' +
+        'background:hsla(' + (mp.hue - 20) + ',80%,80%,.9);' +
+        'box-shadow:0 0 ' + (spotSz * 2) + 'px hsla(' + (mp.hue - 20) + ',80%,70%,.6),' +
+          '0 0 ' + (spotSz * 4) + 'px hsla(' + (mp.hue - 20) + ',60%,60%,.25);' +
+        'top:' + spotY + '%;left:' + spotX + '%;';
+      cap.appendChild(spot);
     }
 
+    // Stem — gradient with subtle texture
+    const stem = document.createElement('div');
+    stem.style.cssText =
+      'width:' + stemW + 'px;height:' + stemH + 'px;' +
+      'background:linear-gradient(to right,' +
+        'hsl(' + mp.hue + ',30%,25%) 0%,' +
+        'hsl(' + mp.hue + ',25%,38%) 40%,' +
+        'hsl(' + mp.hue + ',30%,28%) 100%);' +
+      'margin:-1px auto 0;border-radius:2px 2px 3px 3px;' +
+      'box-shadow:inset -1px 0 2px rgba(0,0,0,.2);';
+    mush.appendChild(stem);
+
+    // Ground glow beneath mushroom
+    const groundGlow = document.createElement('div');
+    const glowW = Math.round(sz * 1.4);
+    groundGlow.style.cssText =
+      'width:' + glowW + 'px;height:' + Math.round(sz * 0.25) + 'px;' +
+      'background:radial-gradient(ellipse,' +
+        'hsla(' + mp.hue + ',60%,50%,.25) 0%,transparent 70%);' +
+      'margin:-2px auto 0;';
+    mush.appendChild(groundGlow);
+
     container.appendChild(mush);
-    mushDecor.push({ el: mush, delay: mp.delay, phase: Math.random() * 6.28 });
+    mushDecor.push({ el: mush, cap: cap, delay: mp.delay, phase: Math.random() * 6.28, hue: mp.hue, sz: sz });
   }
 
   // ================================================================
-  // Title — with dramatic styling
+  // Title — clean serif with subtle glow
   // ================================================================
   titleEl = document.createElement('div');
   titleEl.style.cssText =
     'position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:Georgia,\"Times New Roman\",serif;font-size:clamp(32px,5.5vw,56px);' +
-    'color:#aaffdd;letter-spacing:10px;font-weight:bold;' +
-    'text-shadow:0 0 20px rgba(100,255,200,.6),0 0 40px rgba(50,200,150,.35),' +
-    '0 0 80px rgba(50,200,150,.2),0 2px 4px rgba(0,0,0,.5);' +
+    'font-family:Georgia,\"Times New Roman\",serif;font-size:clamp(28px,4.8vw,52px);' +
+    'color:#aaffdd;letter-spacing:0.35em;font-weight:bold;' +
+    'text-shadow:0 0 15px rgba(100,255,200,.5),0 0 35px rgba(50,200,150,.25),' +
+    '0 2px 4px rgba(0,0,0,.6);' +
     'text-align:center;opacity:0;white-space:nowrap;' +
-    'background:linear-gradient(180deg,#ccffee 0%,#88ddbb 40%,#55aa88 100%);' +
+    'background:linear-gradient(180deg,#ddfff0 0%,#99eebb 35%,#66bb99 100%);' +
     '-webkit-background-clip:text;-webkit-text-fill-color:transparent;' +
     'background-clip:text;' +
-    'filter:drop-shadow(0 0 20px rgba(100,255,200,.5)) drop-shadow(0 0 40px rgba(50,200,150,.25));';
-  // Build title with puffling replacing the 'I'
-  titleEl.innerHTML = 'L U M <span style="display:inline-block;width:0.6em;"></span> N A R <span style="display:inline-block;width:0.6em;"></span> E S';
+    'filter:drop-shadow(0 0 12px rgba(100,255,200,.4)) drop-shadow(0 0 30px rgba(50,200,150,.15));';
+
+  // Build title — each letter is a span, I letters get a special structure
+  // L-U-M-I-N-A-R-I-E-S
+  const letters = ['L','U','M','I','N','A','R','I','E','S'];
+  let titleHTML = '';
+  for (let i = 0; i < letters.length; i++) {
+    if (letters[i] === 'I') {
+      // The I is built from a visible stem (the vertical bar) + invisible dot
+      // The puffling element will be absolutely positioned as the dot
+      titleHTML += '<span data-i-col="' + i + '" style="display:inline-block;position:relative;' +
+        'width:0.45em;text-align:center;vertical-align:baseline;">' +
+        // Invisible I to hold spacing — we draw the stem via border
+        '<span style="display:inline-block;width:0.14em;height:0.68em;' +
+        'background:linear-gradient(180deg,#ddfff0 0%,#99eebb 35%,#66bb99 100%);' +
+        'border-radius:1px;vertical-align:baseline;margin-bottom:-0.05em;"></span>' +
+        '</span>';
+    } else {
+      titleHTML += letters[i];
+    }
+  }
+  titleEl.innerHTML = titleHTML;
   container.appendChild(titleEl);
 
-  // Puffling element — hops in place of the 'I' characters
-  pufflingEl = document.createElement('div');
-  pufflingEl.style.cssText =
-    'position:absolute;pointer-events:none;opacity:0;transition:opacity 1.5s ease;';
-  // Build a simple CSS puffling (round body with tiny legs and eyes)
-  pufflingEl.innerHTML =
-    '<div style="position:relative;width:22px;height:22px;">' +
-      // Body
-      '<div style="position:absolute;width:22px;height:20px;border-radius:50%;' +
-        'background:radial-gradient(circle at 40% 35%,#ffeecc,#eebb77,#cc8844);' +
-        'box-shadow:0 0 10px rgba(255,200,100,.5),0 0 20px rgba(200,150,50,.3);"></div>' +
-      // Eyes
-      '<div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#221100;' +
-        'top:6px;left:6px;"></div>' +
-      '<div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#221100;' +
-        'top:6px;left:13px;"></div>' +
-      // Beak
-      '<div style="position:absolute;width:5px;height:3px;background:#ff8844;border-radius:50%;' +
-        'top:11px;left:9px;"></div>' +
-      // Tiny feet
-      '<div style="position:absolute;width:5px;height:3px;background:#cc7733;border-radius:0 0 2px 2px;' +
-        'top:19px;left:5px;"></div>' +
-      '<div style="position:absolute;width:5px;height:3px;background:#cc7733;border-radius:0 0 2px 2px;' +
-        'top:19px;left:13px;"></div>' +
-    '</div>';
-  container.appendChild(pufflingEl);
+  // ================================================================
+  // Two puffling elements — the dots of each I in LUMINARIES
+  // ================================================================
+  pufflingEls = [];
+  for (let pi = 0; pi < 2; pi++) {
+    const puff = document.createElement('div');
+    const pSz = 16; // puffling body size in pixels
+    puff.style.cssText =
+      'position:absolute;pointer-events:none;opacity:0;transition:opacity 1.5s ease;';
+    puff.innerHTML =
+      '<div style="position:relative;width:' + pSz + 'px;height:' + pSz + 'px;">' +
+        // Body — warm round shape with depth
+        '<div style="position:absolute;width:' + pSz + 'px;height:' + Math.round(pSz * 0.9) + 'px;border-radius:50%;' +
+          'background:radial-gradient(ellipse at 38% 32%,#fff5e0 0%,#f0cc80 25%,#d4a050 55%,#b07830 100%);' +
+          'box-shadow:0 0 8px rgba(240,200,120,.6),0 0 16px rgba(200,160,60,.3),' +
+          '0 1px 2px rgba(0,0,0,.3);"></div>' +
+        // Eyes — small, expressive
+        '<div style="position:absolute;width:3px;height:3.5px;border-radius:50%;background:#1a0800;' +
+          'top:' + Math.round(pSz * 0.28) + 'px;left:' + Math.round(pSz * 0.26) + 'px;"></div>' +
+        '<div style="position:absolute;width:3px;height:3.5px;border-radius:50%;background:#1a0800;' +
+          'top:' + Math.round(pSz * 0.28) + 'px;left:' + Math.round(pSz * 0.56) + 'px;"></div>' +
+        // Eye highlights
+        '<div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:rgba(255,255,255,.7);' +
+          'top:' + Math.round(pSz * 0.26) + 'px;left:' + Math.round(pSz * 0.30) + 'px;"></div>' +
+        '<div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:rgba(255,255,255,.7);' +
+          'top:' + Math.round(pSz * 0.26) + 'px;left:' + Math.round(pSz * 0.60) + 'px;"></div>' +
+        // Beak
+        '<div style="position:absolute;width:4px;height:2.5px;background:#e08030;border-radius:50%;' +
+          'top:' + Math.round(pSz * 0.48) + 'px;left:' + Math.round(pSz * 0.38) + 'px;"></div>' +
+        // Tiny feet
+        '<div style="position:absolute;width:3.5px;height:2px;background:#c07030;border-radius:0 0 1.5px 1.5px;' +
+          'top:' + Math.round(pSz * 0.88) + 'px;left:' + Math.round(pSz * 0.22) + 'px;"></div>' +
+        '<div style="position:absolute;width:3.5px;height:2px;background:#c07030;border-radius:0 0 1.5px 1.5px;' +
+          'top:' + Math.round(pSz * 0.88) + 'px;left:' + Math.round(pSz * 0.58) + 'px;"></div>' +
+      '</div>';
+    container.appendChild(puff);
+    pufflingEls.push({ el: puff, hopOffset: pi * 0.45 }); // stagger hops
+  }
 
   titleSubEl = document.createElement('div');
   titleSubEl.style.cssText =
@@ -293,12 +364,12 @@ export function initIntro(completeFn) {
       titleEl.style.opacity = '1';
       titleSubEl.style.transition = 'opacity 2s ease 1s';
       titleSubEl.style.opacity = '0.6';
-      pufflingEl.style.opacity = '1';
+      for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '1';
       // Stagger mushroom fade-ins
       for (let i = 0; i < mushDecor.length; i++) {
         const m = mushDecor[i];
         m.el.style.transition = 'opacity ' + (1.5 + m.delay) + 's ease ' + m.delay + 's';
-        m.el.style.opacity = '0.8';
+        m.el.style.opacity = '0.85';
       }
     });
   });
@@ -320,7 +391,7 @@ export function startIntro() {
   titleSubEl.style.opacity = '0';
   pixieEl.style.opacity = '0';
   pixieTrailEl.style.opacity = '0';
-  if (pufflingEl) pufflingEl.style.opacity = '0';
+  for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '0';
   for (let i = 0; i < mushDecor.length; i++) mushDecor[i].el.style.opacity = '0';
   // Hide dust particles
   for (let i = 0; i < dustEls.length; i++) dustEls[i].style.opacity = '0';
@@ -371,7 +442,7 @@ export function updateIntro(dt, camera) {
   if (phase === 'TITLE') {
     titleTime += dt;
     animatePixie(titleTime);
-    animatePuffling(titleTime);
+    animatePufflings(titleTime);
     animateMushrooms(titleTime);
     updateDust(dt);
     return;
@@ -511,54 +582,79 @@ export function updateIntro(dt, camera) {
 }
 
 // ================================================================
-// Puffling animation — hops in place of the 'I' in title
+// Puffling animation — two pufflings as the dots of both I's
 // ================================================================
-function animatePuffling(t) {
-  if (!pufflingEl || !titleEl) return;
+function animatePufflings(t) {
+  if (!pufflingEls.length || !titleEl) return;
 
-  const titleRect = titleEl.getBoundingClientRect();
-  if (!titleRect.width) return;
+  // Find the I-column spans via data attribute
+  const iCols = titleEl.querySelectorAll('[data-i-col]');
+  if (iCols.length < 2) return;
 
-  // Position at the first 'I' in LUMINARIES (4th letter)
-  // Title is "L U M _ N A R _ E S" where _ = spacer for I
-  // The spacer is at roughly 18.5% of the title width (3.5 chars out of ~19 visual chars)
-  const iOffset = titleRect.width * 0.195;
-  const baseX = titleRect.left + iOffset;
-  const baseY = titleRect.top + titleRect.height * 0.5;
+  for (let pi = 0; pi < 2; pi++) {
+    const pData = pufflingEls[pi];
+    const col = iCols[pi];
+    if (!col) continue;
 
-  // Hop animation: quick up, slow down, pause at bottom
-  const hopCycle = t * 1.8; // hop frequency
-  const hopPhase = hopCycle % 1.0;
-  let hopY = 0;
-  if (hopPhase < 0.3) {
-    // Rising: fast ease-out
-    const p = hopPhase / 0.3;
-    hopY = -Math.sin(p * Math.PI * 0.5) * 12;
-  } else if (hopPhase < 0.5) {
-    // Falling: ease-in
-    const p = (hopPhase - 0.3) / 0.2;
-    hopY = -Math.cos(p * Math.PI * 0.5) * 12;
+    const colRect = col.getBoundingClientRect();
+    if (!colRect.width) continue;
+
+    // Puffling sits centered above the stem, as the dot of the I
+    const pSz = 16;
+    const centerX = colRect.left + colRect.width * 0.5;
+    // Position above the stem — gap between dot and stem
+    const stemTop = colRect.top;
+    const baseY = stemTop - pSz * 0.5 - 3; // small gap above stem
+
+    // Gentle hop animation — subtle bounce in place
+    const hopT = t * 1.4 + pData.hopOffset * Math.PI * 2;
+    const hopCycle = hopT % 1.0;
+    let hopY = 0;
+    if (hopCycle < 0.2) {
+      // Rise
+      const p = hopCycle / 0.2;
+      hopY = -Math.sin(p * Math.PI * 0.5) * 6;
+    } else if (hopCycle < 0.35) {
+      // Fall
+      const p = (hopCycle - 0.2) / 0.15;
+      hopY = -Math.cos(p * Math.PI * 0.5) * 6;
+    }
+    // 0.35-1.0: resting
+
+    // Tiny squash/stretch on landing
+    let scaleX = 1, scaleY = 1;
+    if (hopCycle >= 0.33 && hopCycle < 0.42) {
+      const sq = (hopCycle - 0.33) / 0.09;
+      scaleX = 1 + Math.sin(sq * Math.PI) * 0.12;
+      scaleY = 1 - Math.sin(sq * Math.PI) * 0.08;
+    }
+
+    // Slight tilt during hop
+    const tilt = hopCycle < 0.35 ? Math.sin(hopCycle * Math.PI * 3) * 4 : 0;
+
+    pData.el.style.left = (centerX - pSz * 0.5) + 'px';
+    pData.el.style.top = (baseY + hopY) + 'px';
+    pData.el.style.transform = 'rotate(' + tilt + 'deg) scale(' + scaleX + ',' + scaleY + ')';
   }
-  // 0.5-1.0: resting on ground (hopY = 0)
-
-  // Slight tilt during hop
-  const tilt = hopPhase < 0.5 ? Math.sin(hopPhase * Math.PI * 2) * 5 : 0;
-
-  pufflingEl.style.left = (baseX - 11) + 'px';
-  pufflingEl.style.top = (baseY - 11 + hopY) + 'px';
-  pufflingEl.style.transform = 'rotate(' + tilt + 'deg)';
 }
 
 // ================================================================
-// Mushroom glow animation — pulsing emissive
+// Mushroom glow animation — pulsing bioluminescence
 // ================================================================
 function animateMushrooms(t) {
   for (let i = 0; i < mushDecor.length; i++) {
     const m = mushDecor[i];
-    const pulse = 0.6 + Math.sin(t * 1.5 + m.phase) * 0.3;
-    const cap = m.el.firstChild;
-    if (cap) {
-      cap.style.filter = 'brightness(' + (0.9 + pulse * 0.4) + ')';
+    // Slow organic pulse — each mushroom slightly different
+    const pulse = Math.sin(t * 1.2 + m.phase) * 0.5 + 0.5; // 0 to 1
+    const brightness = 0.85 + pulse * 0.35;
+    const glowIntensity = 0.15 + pulse * 0.2;
+    const glowSpread = Math.round(m.sz * 0.5 + pulse * m.sz * 0.3);
+
+    if (m.cap) {
+      m.cap.style.filter = 'brightness(' + brightness + ')';
+      m.cap.style.boxShadow =
+        '0 0 ' + glowSpread + 'px hsla(' + m.hue + ',60%,55%,' + glowIntensity + '),' +
+        '0 0 ' + (glowSpread * 2) + 'px hsla(' + m.hue + ',50%,45%,' + (glowIntensity * 0.4) + ')';
     }
   }
 }
@@ -574,25 +670,23 @@ function animatePixie(t) {
   const cx = cw * 0.5;
   const cy = ch * 0.42;
 
-  // Base elliptical orbit (slower)
-  const angle = t * 0.6;
-  const radiusX = Math.min(cw * 0.3, 300);
-  const radiusY = 40;
+  // Gentle figure-8 orbit
+  const angle = t * 0.4;
+  const radiusX = Math.min(cw * 0.25, 250);
+  const radiusY = 35;
 
-  // Multi-layer noise for chaotic, unpredictable movement
-  const n1x = (smoothNoise(t, 0.7) - 0.5) * 80;   // slow wide wander
-  const n1y = (smoothNoise(t + 50, 0.7) - 0.5) * 60;
-  const n2x = (smoothNoise(t, 2.1) - 0.5) * 40;   // medium jitter
-  const n2y = (smoothNoise(t + 100, 2.3) - 0.5) * 30;
-  const n3x = (smoothNoise(t, 5.3) - 0.5) * 15;   // fast twitch
-  const n3y = (smoothNoise(t + 200, 4.7) - 0.5) * 12;
+  // Smooth noise layers — gentle, organic drift (no fast twitching)
+  const n1x = (smoothNoise(t, 0.35) - 0.5) * 70;   // slow wide wander
+  const n1y = (smoothNoise(t + 50, 0.4) - 0.5) * 50;
+  const n2x = (smoothNoise(t, 1.1) - 0.5) * 25;    // medium drift
+  const n2y = (smoothNoise(t + 100, 1.0) - 0.5) * 20;
 
-  // Random direction changes — occasional sharp darts
-  const dart = Math.sin(t * 7.1) > 0.92 ? Math.sin(t * 13.3) * 50 : 0;
-  const dartY = Math.cos(t * 6.3) > 0.93 ? Math.cos(t * 11.7) * 30 : 0;
+  // Rare, gentle direction shifts (not sharp darts)
+  const drift = Math.sin(t * 2.3) > 0.85 ? Math.sin(t * 4.1) * 20 : 0;
+  const driftY = Math.cos(t * 1.9) > 0.88 ? Math.cos(t * 3.7) * 15 : 0;
 
-  const px = cx + Math.cos(angle) * radiusX + n1x + n2x + n3x + dart;
-  const py = cy + Math.sin(angle * 1.1) * radiusY + n1y + n2y + n3y + dartY;
+  const px = cx + Math.cos(angle) * radiusX + Math.sin(angle * 0.5) * radiusX * 0.2 + n1x + n2x + drift;
+  const py = cy + Math.sin(angle * 1.3) * radiusY + n1y + n2y + driftY;
 
   // Clamp to container bounds
   const clampedX = Math.max(10, Math.min(cw - 20, px));
@@ -601,31 +695,31 @@ function animatePixie(t) {
   pixieEl.style.left = (clampedX - 6) + 'px';
   pixieEl.style.top = (clampedY - 6) + 'px';
 
-  // Flickering opacity with more variation
-  const flicker = 0.65 + Math.sin(t * 3.7) * 0.15 + Math.sin(t * 7.3) * 0.1 + Math.sin(t * 13) * 0.08;
-  pixieEl.style.opacity = String(Math.max(0.3, Math.min(1, flicker)));
+  // Gentle breathing glow — no harsh flickering
+  const breath = 0.7 + Math.sin(t * 1.8) * 0.15 + Math.sin(t * 3.1) * 0.08;
+  pixieEl.style.opacity = String(Math.max(0.5, Math.min(0.95, breath)));
 
-  // Glow size varies
-  const glowSize = 10 + Math.sin(t * 2.5) * 4;
+  // Smooth glow size variation
+  const glowSize = 10 + Math.sin(t * 1.5) * 3;
   pixieEl.style.boxShadow =
     '0 0 ' + glowSize + 'px #88ffcc,' +
     '0 0 ' + (glowSize * 2) + 'px #44dd99,' +
-    '0 0 ' + (glowSize * 3.5) + 'px rgba(50,220,150,.35)';
+    '0 0 ' + (glowSize * 3.5) + 'px rgba(50,220,150,.3)';
 
-  // Trail — follows with more time offset for random path
-  const trailT = t - 0.4;
-  const trailAngle = trailT * 0.6;
-  const tn1x = (smoothNoise(trailT, 0.7) - 0.5) * 80;
-  const tn1y = (smoothNoise(trailT + 50, 0.7) - 0.5) * 60;
-  const tn2x = (smoothNoise(trailT, 2.1) - 0.5) * 40;
-  const tn2y = (smoothNoise(trailT + 100, 2.3) - 0.5) * 30;
-  const tx = cx + Math.cos(trailAngle) * radiusX + tn1x + tn2x;
-  const ty = cy + Math.sin(trailAngle * 1.1) * radiusY + tn1y + tn2y;
+  // Trail — follows smoothly with time offset
+  const trailT = t - 0.5;
+  const trailAngle = trailT * 0.4;
+  const tn1x = (smoothNoise(trailT, 0.35) - 0.5) * 70;
+  const tn1y = (smoothNoise(trailT + 50, 0.4) - 0.5) * 50;
+  const tn2x = (smoothNoise(trailT, 1.1) - 0.5) * 25;
+  const tn2y = (smoothNoise(trailT + 100, 1.0) - 0.5) * 20;
+  const tx = cx + Math.cos(trailAngle) * radiusX + Math.sin(trailAngle * 0.5) * radiusX * 0.2 + tn1x + tn2x;
+  const ty = cy + Math.sin(trailAngle * 1.3) * radiusY + tn1y + tn2y;
   const ctX = Math.max(10, Math.min(cw - 15, tx));
   const ctY = Math.max(10, Math.min(ch - 15, ty));
   pixieTrailEl.style.left = (ctX - 3) + 'px';
   pixieTrailEl.style.top = (ctY - 3) + 'px';
-  pixieTrailEl.style.opacity = String(0.2 + Math.sin(t * 3 - 0.5) * 0.15);
+  pixieTrailEl.style.opacity = String(0.25 + Math.sin(t * 1.5 - 0.5) * 0.1);
 
   // Spawn pixie dust from current position
   spawnDust(clampedX, clampedY);

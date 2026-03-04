@@ -99,10 +99,16 @@ The `director()` function in `main.js` is the central update hub — every entit
 ### Performance Engineering
 - **Template instancing:** 500 trees rendered in ~40 draw calls (10 templates x 4 InstancedMesh each)
 - **4-tier LOD:** Full detail < 20m, reduced 20-70m, impostor sprite 70-110m, hidden > 110m
+- **Camera frustum culling:** Per-instance tree culling against camera frustum planes with sphere-radius tolerance
 - **GPU grass:** 1,200 patches animated entirely in vertex shader — zero CPU cost
 - **Light budget:** Hard cap of 8 simultaneous lights with proximity-sorted crystal pool
+- **Shadow throttling:** Moon shadow map updates at ~1Hz instead of every frame
 - **Visibility culling:** Every entity type culled by squared-distance check (no sqrt in hot path)
-- **Bloom:** UnrealBloomPass with emissive material pipeline (fallback flag for low-end devices)
+- **Bloom:** UnrealBloomPass capped at 512x512 internal resolution with emissive pipeline
+- **Shared materials:** Non-modulated materials lifted to module scope (300+ fewer instances)
+- **Named imports:** Tree-shaking-friendly named imports from Three.js across all 54 source files
+- **Terser build:** 2-pass compression with console stripping and toplevel mangling
+- **Dev instrumentation:** Per-subsystem EMA timing + renderer.info monitoring (tree-shaken in production)
 
 ### AI & Behavior
 - **Senses:** `canSee()`, `canHear()`, `isNear()` — per-creature perception
@@ -117,7 +123,7 @@ The `director()` function in `main.js` is the central update hub — every entit
 | Technology | Role |
 |-----------|------|
 | [Three.js](https://threejs.org/) r172+ | 3D rendering (ES module) |
-| [Vite](https://vitejs.dev/) | Build system, dev server, hot reload |
+| [Vite](https://vitejs.dev/) + Terser | Build system, dev server, 2-pass minification |
 | Web Audio API | Procedural audio synthesis |
 | WebGL | Hardware-accelerated 3D graphics |
 | ES Modules | Modern JavaScript module system |
@@ -129,6 +135,8 @@ The `director()` function in `main.js` is the central update hub — every entit
 
 **Phase 1: Foundation** — Complete. The core forest experience is fully built: terrain, sky, 29 entity types, 9 particle systems, procedural audio + music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
+**Performance Pass** — Complete. Bloom resolution cap, shadow throttling, tree frustum culling, shared materials, named imports, terser build pipeline, dev-only performance monitoring. Dramatic intro overhaul with animated title, CSS mushrooms, puffling character, and pixie dust particles. Gameplay fixes for puffling movement, rock collision, and terrain tracking.
+
 **Phase 2: Symbiotic Attunement** — In progress. Adding narrative depth: creature attunement mechanics, zone-based restoration (The Dimming), dual-narrative text (child/adult perspectives), player light evolution, audio sync progression. See `MANIFESTO.md` for the full design.
 
 ---
@@ -137,6 +145,7 @@ The `director()` function in `main.js` is the central update hub — every entit
 
 | Document | Purpose |
 |----------|---------|
+| `GAME_GUIDE.md` | Player-facing guide: themes, gameplay, story, controls |
 | `CLAUDE.md` | Development instructions for AI-assisted coding |
 | `reference/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
 

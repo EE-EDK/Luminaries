@@ -47,7 +47,9 @@ export function initOrbBurst() {
 }
 
 export function spawnOrbBurst(cx, cy, cz) {
+  if (!mesh) return;
   mesh.visible = true;
+  const colorArr = mesh.instanceColor.array;
   for (let i = 0; i < ORB_BURST_COUNT; i++) {
     const p = particles[i];
     p.x = cx; p.y = cy; p.z = cz;
@@ -63,7 +65,6 @@ export function spawnOrbBurst(cx, cy, cz) {
     p.active = true;
     // Color: 70% gold, 30% warm white
     const c = Math.random() < 0.7 ? goldColor : glowColor;
-    const colorArr = mesh.instanceColor.array;
     colorArr[i * 3] = c.r * (0.8 + Math.random() * 0.4);
     colorArr[i * 3 + 1] = c.g * (0.8 + Math.random() * 0.4);
     colorArr[i * 3 + 2] = c.b * (0.6 + Math.random() * 0.4);

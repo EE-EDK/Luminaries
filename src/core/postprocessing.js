@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Vector2 } from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -45,7 +45,7 @@ let saturationPass = null;
 try {
   const renderPass = new RenderPass(scene, camera);
   bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2)),
+    new Vector2(Math.min(512, Math.floor(window.innerWidth / 2)), Math.min(512, Math.floor(window.innerHeight / 2))),
     0.6,   // strength — subtle dreamy glow
     0.4,   // radius — how far bloom spreads
     0.85   // threshold — only bright emissives bloom

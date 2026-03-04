@@ -1,5 +1,5 @@
 // --- Laser beam system (orb → sky → obelisk tip, with inter-laser connections) ---
-import * as THREE from 'three';
+import { AdditiveBlending, CatmullRomCurve3, LineCurve3, Mesh, MeshBasicMaterial, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../core/renderer.js';
 import { C, OBELISK_H } from '../constants.js';
 
@@ -35,9 +35,9 @@ function buildBendGeo(fromX, fromZ, skyY, tipY) {
     const px = fromX * (1 - frac * frac);
     const pz = fromZ * (1 - frac * frac);
     const py = skyY + (tipY - skyY) * frac;
-    pts.push(new THREE.Vector3(px, py, pz));
+    pts.push(new Vector3(px, py, pz));
   }
-  const curve = new THREE.CatmullRomCurve3(pts);
+  const curve = new CatmullRomCurve3(pts);
   return { curve, pts };
 }
 
@@ -47,39 +47,39 @@ export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
   const skyY = floatY + 15;
 
   // Upward column (orb position straight up)
-  const upPath = new THREE.LineCurve3(
-    new THREE.Vector3(fromX, floatY, fromZ),
-    new THREE.Vector3(fromX, skyY, fromZ)
+  const upPath = new LineCurve3(
+    new Vector3(fromX, floatY, fromZ),
+    new Vector3(fromX, skyY, fromZ)
   );
-  const upMat = new THREE.MeshBasicMaterial({
+  const upMat = new MeshBasicMaterial({
     color: C.laserPink, transparent: true, opacity: 0.0,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
-  const upTube = new THREE.Mesh(new THREE.TubeGeometry(upPath, 1, 0.06, 6, false), upMat);
+  const upTube = new Mesh(new TubeGeometry(upPath, 1, 0.06, 6, false), upMat);
   scene.add(upTube);
 
   // Outer glow for upward column
-  const upGlowMat = new THREE.MeshBasicMaterial({
+  const upGlowMat = new MeshBasicMaterial({
     color: C.laserGlow, transparent: true, opacity: 0.0,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
-  const upGlow = new THREE.Mesh(new THREE.TubeGeometry(upPath, 1, 0.2, 6, false), upGlowMat);
+  const upGlow = new Mesh(new TubeGeometry(upPath, 1, 0.2, 6, false), upGlowMat);
   scene.add(upGlow);
 
   // Curved beam from sky point down to obelisk tip
   const { curve: bendCurve } = buildBendGeo(fromX, fromZ, skyY, tipY);
-  const bendMat = new THREE.MeshBasicMaterial({
+  const bendMat = new MeshBasicMaterial({
     color: C.laserPink, transparent: true, opacity: 0.0,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
-  const bendTube = new THREE.Mesh(new THREE.TubeGeometry(bendCurve, 16, 0.05, 6, false), bendMat);
+  const bendTube = new Mesh(new TubeGeometry(bendCurve, 16, 0.05, 6, false), bendMat);
   scene.add(bendTube);
 
-  const bendGlowMat = new THREE.MeshBasicMaterial({
+  const bendGlowMat = new MeshBasicMaterial({
     color: C.laserGlow, transparent: true, opacity: 0.0,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
-  const bendGlow = new THREE.Mesh(new THREE.TubeGeometry(bendCurve, 16, 0.18, 6, false), bendGlowMat);
+  const bendGlow = new Mesh(new TubeGeometry(bendCurve, 16, 0.18, 6, false), bendGlowMat);
   scene.add(bendGlow);
 
   const beam = {
@@ -100,20 +100,20 @@ export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
       const px = beam.fromX * (1 - frac) + other.fromX * frac;
       const pz = beam.fromZ * (1 - frac) + other.fromZ * frac;
       const py = midY + Math.sin(frac * Math.PI) * 3;
-      connPts.push(new THREE.Vector3(px, py, pz));
+      connPts.push(new Vector3(px, py, pz));
     }
-    const connCurve = new THREE.CatmullRomCurve3(connPts);
-    const connMat = new THREE.MeshBasicMaterial({
+    const connCurve = new CatmullRomCurve3(connPts);
+    const connMat = new MeshBasicMaterial({
       color: C.laserGlow, transparent: true, opacity: 0.0,
-      blending: THREE.AdditiveBlending, depthWrite: false
+      blending: AdditiveBlending, depthWrite: false
     });
-    const connTube = new THREE.Mesh(new THREE.TubeGeometry(connCurve, 10, 0.03, 4, false), connMat);
+    const connTube = new Mesh(new TubeGeometry(connCurve, 10, 0.03, 4, false), connMat);
     scene.add(connTube);
-    const connGlowMat = new THREE.MeshBasicMaterial({
+    const connGlowMat = new MeshBasicMaterial({
       color: C.laserPink, transparent: true, opacity: 0.0,
-      blending: THREE.AdditiveBlending, depthWrite: false
+      blending: AdditiveBlending, depthWrite: false
     });
-    const connGlow = new THREE.Mesh(new THREE.TubeGeometry(connCurve, 10, 0.1, 4, false), connGlowMat);
+    const connGlow = new Mesh(new TubeGeometry(connCurve, 10, 0.1, 4, false), connGlowMat);
     scene.add(connGlow);
     interLines.push({ tube: connTube, glow: connGlow, mat: connMat, glowMat: connGlowMat, opacity: 0 });
   }
@@ -131,12 +131,12 @@ function rebuildBends(tipY) {
     // Replace bend tube geometry
     scene.remove(b.bendTube);
     b.bendTube.geometry.dispose();
-    b.bendTube.geometry = new THREE.TubeGeometry(curve, 16, 0.05, 6, false);
+    b.bendTube.geometry = new TubeGeometry(curve, 16, 0.05, 6, false);
     scene.add(b.bendTube);
 
     scene.remove(b.bendGlow);
     b.bendGlow.geometry.dispose();
-    b.bendGlow.geometry = new THREE.TubeGeometry(curve, 16, 0.18, 6, false);
+    b.bendGlow.geometry = new TubeGeometry(curve, 16, 0.18, 6, false);
     scene.add(b.bendGlow);
   }
 }

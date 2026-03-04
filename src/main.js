@@ -16,7 +16,7 @@
 //
 // — L
 // ================================================================
-import * as THREE from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, Object3D, Quaternion, RingGeometry, Vector3 } from 'three';
 
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
@@ -124,6 +124,9 @@ import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestore
 // Attunement (Phase 2)
 import { updateAttunement, getAttunement, getPlayerFrequency, consumeFrequency, checkFlash } from './systems/attunement.js';
 
+// Performance monitoring (dev-only, tree-shaken in production)
+import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
+
 // Discoveries
 import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery } from './systems/discoveries.js';
 
@@ -174,8 +177,8 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 // ================================================================
 let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
 let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
-const _playerLightColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
-const _playerLightTargetColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
+const _playerLightColor = new Color(PLAYER_LIGHT_COLORS[0]);
+const _playerLightTargetColor = new Color(PLAYER_LIGHT_COLORS[0]);
 let _prevOrbsFound = 0; // track orb count changes for player light transitions
 
 // ================================================================
@@ -189,11 +192,11 @@ let _puffSingTimer = 0; // per-puffling singing timer for following state
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
 // ================================================================
-const _slopeTiltUp = new THREE.Vector3(0, 1, 0);
-const _slopeTiltNormal = new THREE.Vector3();
-const _slopeTiltQuat = new THREE.Quaternion();
-const _slopeTiltIdent = new THREE.Quaternion();
-const _slopeSwayQuat = new THREE.Quaternion();
+const _slopeTiltUp = new Vector3(0, 1, 0);
+const _slopeTiltNormal = new Vector3();
+const _slopeTiltQuat = new Quaternion();
+const _slopeTiltIdent = new Quaternion();
+const _slopeSwayQuat = new Quaternion();
 
 // Apply slope tilt directly to group quaternion (for entities without per-frame sway)
 function tiltToSlope(group, x, z, factor) {
@@ -227,16 +230,16 @@ let energyLinesInited = false;
 function initEnergyLines() {
   if (energyLinesInited) return;
   energyLinesInited = true;
-  const lineMat = new THREE.LineBasicMaterial({
+  const lineMat = new LineBasicMaterial({
     color: C.crystal, transparent: true, opacity: 0,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
   for (let i = 0; i < MAX_ENERGY_LINES; i++) {
-    const geo = new THREE.BufferGeometry();
+    const geo = new BufferGeometry();
     const positions = new Float32Array(6); // 2 points x 3 coords
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
-    const line = new THREE.Line(geo, lineMat.clone());
+    geo.setAttribute('position', new BufferAttribute(positions, 3));
+    geo.attributes.position.setUsage(DynamicDrawUsage);
+    const line = new Line(geo, lineMat.clone());
     line.visible = false;
     scene.add(line);
     energyLines.push({ line, geo, opacity: 0, active: false });
@@ -247,12 +250,12 @@ function initEnergyLines() {
 let echoBloomRing = null;
 function getEchoBloomRing() {
   if (echoBloomRing) return echoBloomRing;
-  const ringGeo = new THREE.RingGeometry(0.9, 1.0, 48);
-  const ringMat = new THREE.MeshBasicMaterial({
+  const ringGeo = new RingGeometry(0.9, 1.0, 48);
+  const ringMat = new MeshBasicMaterial({
     color: C.echoBloom, transparent: true, opacity: 0.5,
-    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+    side: DoubleSide, depthWrite: false, blending: AdditiveBlending
   });
-  echoBloomRing = new THREE.Mesh(ringGeo, ringMat);
+  echoBloomRing = new Mesh(ringGeo, ringMat);
   echoBloomRing.rotation.x = -Math.PI / 2;
   echoBloomRing.visible = false;
   scene.add(echoBloomRing);
@@ -734,12 +737,12 @@ function populate() {
     const patchR = 1.5 + sr() * 3.5;
     const col = C.groundGlowColors[Math.floor(sr() * C.groundGlowColors.length)];
     const baseOp = 0.08 + sr() * 0.12;
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = new MeshBasicMaterial({
       color: col, transparent: true, opacity: baseOp,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      blending: AdditiveBlending, depthWrite: false, side: DoubleSide
     });
     // Drape geometry over terrain — rotate geometry to XZ plane, then set per-vertex Y
-    const geo = new THREE.CircleGeometry(patchR, 10);
+    const geo = new CircleGeometry(patchR, 10);
     geo.rotateX(-Math.PI / 2);
     const centerY = getGroundY(gx, gz);
     const posAttr = geo.attributes.position;
@@ -750,7 +753,7 @@ function populate() {
     }
     posAttr.needsUpdate = true;
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new Mesh(geo, mat);
     mesh.position.set(gx, centerY, gz);
     scene.add(mesh);
     groundGlows.push({ mesh, mat, phase: sr() * 6.28, baseOpacity: baseOp, speed: 0.3 + sr() * 0.3, x: gx, z: gz });
@@ -768,12 +771,12 @@ function populate() {
   }
   // Rebuild instanced tree matrices with corrected heights + slope tilt
   if (treeMeshes.length > 0) {
-    const _d = new THREE.Object3D();
-    const _tUp = new THREE.Vector3(0, 1, 0);
-    const _tNorm = new THREE.Vector3();
-    const _tSQ = new THREE.Quaternion();
-    const _tIQ = new THREE.Quaternion();
-    const _tYQ = new THREE.Quaternion();
+    const _d = new Object3D();
+    const _tUp = new Vector3(0, 1, 0);
+    const _tNorm = new Vector3();
+    const _tSQ = new Quaternion();
+    const _tIQ = new Quaternion();
+    const _tYQ = new Quaternion();
     for (let ti = 0; ti < treeMeshes.length; ti++) {
       const mesh = treeMeshes[ti];
       for (let ii = 0; ii < mesh.instances.length; ii++) {
@@ -819,7 +822,7 @@ function updateVegetation(dt, t) {
   // Tier 2 (70-110m): impostor — billboard sprite only
   // Tier 3 (>110m): hidden entirely
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
-  updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ);
+  updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, camera);
   // Modulate tree canopy/glow/trunk emissive based on dimming + orb boost
   const treeDim = smoothedDimFactor * _orbBoost;
   for (let ti = 0; ti < treeMeshes.length; ti++) {
@@ -2200,6 +2203,7 @@ let dirState = 'EXPLORE';
 let ffTimer = 0, spTimer = 0;
 
 function director(dt, t) {
+  timeStart('crystalProximity');
   // Crystal proximity check
   let nearCrys = false;
   for (let i = 0; i < crys_data.length; i++) {
@@ -2207,8 +2211,10 @@ function director(dt, t) {
     if (dx * dx + dz * dz < 64) { nearCrys = true; break; }
   }
   dirState = nearCrys ? 'NEAR_CRYSTAL' : 'EXPLORE';
+  timeEnd('crystalProximity');
 
   // Firefly spawning — reduced during rain (Item 9), biased toward blooming flowers (Item 6)
+  timeStart('fireflySpawn');
   ffTimer += dt;
   const curRain = getRainRate();
   const rainDamper = Math.max(0.2, 1.0 - curRain * 0.8); // reduce spawn in rain
@@ -2238,8 +2244,10 @@ function director(dt, t) {
       }
     }
   }
+  timeEnd('fireflySpawn');
 
   // Spore emission
+  timeStart('spores');
   spTimer += dt;
   if (spTimer > 0.2) {
     spTimer = 0;
@@ -2250,8 +2258,10 @@ function director(dt, t) {
         spawnSpore(m.x, 0.6 * m.group.scale.x, m.z);
     }
   }
+  timeEnd('spores');
 
   // Mushroom glow pulse + visibility cull (3D distance)
+  timeStart('mushrooms');
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
     const mdx = m.x - player.pos.x, mdy = (m.group.position.y || 0) - player.pos.y, mdz = m.z - player.pos.z;
@@ -2261,8 +2271,10 @@ function director(dt, t) {
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
     m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, bioGlow * _orbBoost);
   }
+  timeEnd('mushrooms');
 
   // Crystal glow + rotation
+  timeStart('crystals');
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
@@ -2299,8 +2311,10 @@ function director(dt, t) {
       crystalLights[i].intensity = 0;
     }
   }
+  timeEnd('crystals');
 
   // Dandelion wind dispersal — auto-scatter seeds in strong wind (Item 7)
+  timeStart('vegetation');
   if (windStrength > 0.8 && Math.random() < 0.005) {
     for (let i = 0; i < dandelions.length; i++) {
       const dn = dandelions[i];
@@ -2330,14 +2344,20 @@ function director(dt, t) {
     }
   }
 
+  timeEnd('vegetation');
+
   // Update all subsystems
+  timeStart('fauna');
   updateJellies(dt, t);
   updatePuffs(dt, t);
   updateDeers(dt, t);
   updateMoths(dt, t);
   updateSky(dt, t);
   updateVegetation(dt, t);
+  timeEnd('fauna');
+
   // Batch 2 Item 3: Rock sparkles reactive to crystals, player, and chain resonance
+  timeStart('rocks');
   const rpx = player.pos.x, rpy = player.pos.y, rpz = player.pos.z;
   for (let i = 0; i < rocks_data.length; i++) {
     const rk = rocks_data[i];
@@ -2380,6 +2400,9 @@ function director(dt, t) {
       rk.mossMat.emissiveIntensity = 0.05 + playerGlow * 0.4 * Math.sin(t * 2 + i) * 0.5 + 0.5;
     }
   }
+  timeEnd('rocks');
+
+  timeStart('particles');
   updateWisps(dt, t);
   updateDandelions(dandelions, dt, t, player.pos);
   updateFairyRings(dt, t);
@@ -2392,11 +2415,16 @@ function director(dt, t) {
   updateBubblePops(dt);
   updateOrbBurst(dt, t);
   updateEchoBloom(dt, t);
+  timeEnd('particles');
+
+  timeStart('quest');
   const chainCount = updateFloraReactions(dt, t);
   updateQuest(dt, t);
   updateRainbowSparkles(t);
+  timeEnd('quest');
 
   // Footprint trails — spawn from player movement
+  timeStart('footprints');
   if (player.onGround) {
     const speed2 = player.vel.x * player.vel.x + player.vel.z * player.vel.z;
     if (speed2 > 0.5) {
@@ -2406,17 +2434,25 @@ function director(dt, t) {
     }
   }
   updateFootprints(dt, getRainRate());
+  timeEnd('footprints');
 
   // Ambient creature sounds (frogs + crickets)
+  timeStart('audio');
   updateAmbientSounds(dt, player.pos, ponds, grassPatches, dayPhase, getRainRate());
 
   // Audio + step cooldown
   updateStepCooldown(dt);
 
+  timeEnd('audio');
+
   // Discoveries (Item 10)
+  timeStart('discoveries');
   checkDiscoveries(player.pos, deers, puffs, jellies, moths, fairyRings, ponds, chainCount);
   updateDiscoveryUI(dt);
   updatePufflingChat(dt, renderer.domElement);
+  timeEnd('discoveries');
+
+  reportTimings(renderer);
 }
 
 // ================================================================
@@ -2614,6 +2650,9 @@ try {
   });
 
   populate();
+
+  // Force one shadow map render now that all geometry is placed
+  moon.shadow.needsUpdate = true;
 
   // Create ground AFTER populate so pond/fairy ring flat zones are registered
   const groundMesh = createGround();

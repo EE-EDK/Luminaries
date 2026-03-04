@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -15,18 +15,18 @@ import { sr } from '../../utils/rng.js';
 //   We've stopped sending anyone to the eastern cluster alone.
 
 export function makeSnapthorn(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const bodyR = 0.25 + sr() * 0.1;
 
   // --- Base roots (3 short cylinders splaying outward) ---
-  const rootMat = new THREE.MeshStandardMaterial({
+  const rootMat = new MeshStandardMaterial({
     color: 0x1a3825, roughness: 0.85,
     emissive: 0x0a1a10, emissiveIntensity: 0.06
   });
   for (let i = 0; i < 3; i++) {
     const ra = (i / 3) * 6.28 + sr() * 0.5;
-    const root = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.01, 0.035, 0.25 + sr() * 0.15, 4), rootMat
+    const root = new Mesh(
+      new CylinderGeometry(0.01, 0.035, 0.25 + sr() * 0.15, 4), rootMat
     );
     root.position.set(
       Math.cos(ra) * bodyR * 0.6, 0.06,
@@ -38,27 +38,27 @@ export function makeSnapthorn(x, z) {
   }
 
   // --- Central body (bioluminescent bulb) ---
-  const bodyMat = new THREE.MeshStandardMaterial({
+  const bodyMat = new MeshStandardMaterial({
     color: C.snapBody, emissive: C.snapBodyGlow,
     emissiveIntensity: 0.4,
     transparent: true, opacity: 0.7,
     roughness: 0.4, metalness: 0.1
   });
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(bodyR, 10, 8), bodyMat
+  const body = new Mesh(
+    new SphereGeometry(bodyR, 10, 8), bodyMat
   );
   body.position.y = bodyR + 0.05;
   body.scale.set(1, 0.85, 1); // slightly flattened
   g.add(body);
 
   // --- Mouth/Opening (torus ring on top) ---
-  const mouthMat = new THREE.MeshStandardMaterial({
+  const mouthMat = new MeshStandardMaterial({
     color: 0x1a6644, emissive: C.snapBodyGlow,
     emissiveIntensity: 0.25,
     transparent: true, opacity: 0.6
   });
-  const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(bodyR * 0.45, 0.02, 6, 12), mouthMat
+  const mouth = new Mesh(
+    new TorusGeometry(bodyR * 0.45, 0.02, 6, 12), mouthMat
   );
   mouth.position.y = bodyR * 1.7;
   mouth.rotation.x = Math.PI / 2;
@@ -78,7 +78,7 @@ export function makeSnapthorn(x, z) {
     const segments = [];
 
     // Create a pivot point at the body surface
-    const pivot = new THREE.Object3D();
+    const pivot = new Object3D();
     pivot.position.set(
       Math.cos(baseAngle) * bodyR * 0.6,
       bodyR * 1.4,
@@ -92,15 +92,15 @@ export function makeSnapthorn(x, z) {
       const frac = si / segCount;
       const segR = 0.02 * (1 - frac * 0.6); // taper toward tip
 
-      const frondMat = new THREE.MeshStandardMaterial({
+      const frondMat = new MeshStandardMaterial({
         color: C.snapFrond, emissive: C.snapBodyGlow,
         emissiveIntensity: 0.08 + frac * 0.15,
         roughness: 0.6
       });
 
       // Each segment is a cylinder, nested inside the previous
-      const seg = new THREE.Mesh(
-        new THREE.CylinderGeometry(segR * 0.7, segR, segLen, 4), frondMat
+      const seg = new Mesh(
+        new CylinderGeometry(segR * 0.7, segR, segLen, 4), frondMat
       );
       seg.position.y = si === 0 ? 0 : segLen; // first at pivot, rest stacked
       seg.geometry.translate(0, segLen / 2, 0); // pivot at bottom
@@ -110,25 +110,25 @@ export function makeSnapthorn(x, z) {
     }
 
     // Glowing tip sphere at the end of the last segment
-    const tipMat = new THREE.MeshStandardMaterial({
+    const tipMat = new MeshStandardMaterial({
       color: C.snapTip, emissive: C.snapTipGlow,
       emissiveIntensity: 0.6,
       transparent: true, opacity: 0.7,
       roughness: 0.2
     });
-    const tip = new THREE.Mesh(
-      new THREE.SphereGeometry(0.025 + sr() * 0.015, 5, 4), tipMat
+    const tip = new Mesh(
+      new SphereGeometry(0.025 + sr() * 0.015, 5, 4), tipMat
     );
     tip.position.y = segLen;
     parent.add(tip);
     tipMats.push(tipMat);
 
     // Tip haze
-    const tipHaze = new THREE.Mesh(
-      new THREE.SphereGeometry(0.06, 4, 3),
-      new THREE.MeshBasicMaterial({
+    const tipHaze = new Mesh(
+      new SphereGeometry(0.06, 4, 3),
+      new MeshBasicMaterial({
         color: C.snapTipGlow, transparent: true, opacity: 0.04,
-        blending: THREE.AdditiveBlending, depthWrite: false
+        blending: AdditiveBlending, depthWrite: false
       })
     );
     tip.add(tipHaze);

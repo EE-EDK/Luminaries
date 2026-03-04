@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, BackSide, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry } from 'three';
 import { SKY_R } from '../constants.js';
 import { saveSeed, restoreSeed } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
@@ -8,7 +8,7 @@ import { scene } from '../core/renderer.js';
 // Single textured sphere instead of hundreds of mesh objects
 // ================================================================
 
-export const skyGroup = new THREE.Group();
+export const skyGroup = new Group();
 let skyDomeMat = null;
 
 // Twinkling star layer data
@@ -252,8 +252,8 @@ function paintSkyCanvas() {
     ctx.fill();
   }
 
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  const tex = new CanvasTexture(cv);
+  tex.colorSpace = SRGBColorSpace;
   return tex;
 }
 
@@ -268,21 +268,21 @@ export function createSkyDome() {
   // Start slightly below the pole (thetaStart=0.03) to avoid the north pole
   // UV pinch, then cover the gap with a flat zenith cap.
   const thetaStart = 0.03;
-  const geo = new THREE.SphereGeometry(SKY_R, 64, 32, 0, Math.PI * 2, thetaStart, Math.PI * 0.55);
-  skyDomeMat = new THREE.MeshBasicMaterial({
-    map: tex, side: THREE.BackSide, fog: false,
+  const geo = new SphereGeometry(SKY_R, 64, 32, 0, Math.PI * 2, thetaStart, Math.PI * 0.55);
+  skyDomeMat = new MeshBasicMaterial({
+    map: tex, side: BackSide, fog: false,
     transparent: false
   });
-  const dome = new THREE.Mesh(geo, skyDomeMat);
+  const dome = new Mesh(geo, skyDomeMat);
   skyGroup.add(dome);
 
   // Zenith cap — covers the pole convergence hole with a flat disc
   const capRadius = SKY_R * Math.sin(thetaStart) * 1.05; // slightly oversized to ensure overlap
-  const capGeo = new THREE.CircleGeometry(capRadius, 32);
-  const capMat = new THREE.MeshBasicMaterial({
-    color: 0x030610, side: THREE.BackSide, fog: false
+  const capGeo = new CircleGeometry(capRadius, 32);
+  const capMat = new MeshBasicMaterial({
+    color: 0x030610, side: BackSide, fog: false
   });
-  const cap = new THREE.Mesh(capGeo, capMat);
+  const cap = new Mesh(capGeo, capMat);
   cap.position.y = SKY_R * Math.cos(thetaStart);
   cap.rotation.x = Math.PI / 2; // face downward (seen from inside as BackSide)
   skyGroup.add(cap);
@@ -333,35 +333,35 @@ function createTwinkleStars() {
     twinkleSpeeds[i] = 0.5 + R() * 2.5; // varied twinkle rates
   }
 
-  const ptGeo = new THREE.BufferGeometry();
-  ptGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  ptGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  twinkleSizeAttr = new THREE.Float32BufferAttribute(twinkleSizes.slice(), 1);
-  twinkleSizeAttr.setUsage(THREE.DynamicDrawUsage);
+  const ptGeo = new BufferGeometry();
+  ptGeo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  ptGeo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  twinkleSizeAttr = new Float32BufferAttribute(twinkleSizes.slice(), 1);
+  twinkleSizeAttr.setUsage(DynamicDrawUsage);
   ptGeo.setAttribute('size', twinkleSizeAttr);
 
-  const ptMat = new THREE.PointsMaterial({
+  const ptMat = new PointsMaterial({
     vertexColors: true,
     transparent: true,
     opacity: 0.9,
     sizeAttenuation: true,
     fog: false,
-    blending: THREE.AdditiveBlending,
+    blending: AdditiveBlending,
     depthWrite: false
   });
 
-  twinklePoints = new THREE.Points(ptGeo, ptMat);
+  twinklePoints = new Points(ptGeo, ptMat);
   skyGroup.add(twinklePoints);
 }
 
 function createShootingStars() {
-  const trailMat = new THREE.MeshBasicMaterial({
+  const trailMat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 0, fog: false,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
   for (let i = 0; i < SHOOTING_STAR_MAX; i++) {
-    const trail = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0, 12, 4),
+    const trail = new Mesh(
+      new CylinderGeometry(0.15, 0, 12, 4),
       trailMat.clone()
     );
     trail.visible = false;

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { ACESFilmicToneMapping, Clock, Color, FogExp2, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
 import { C } from '../constants.js';
 
 // ================================================================
@@ -8,22 +8,22 @@ import { C } from '../constants.js';
 // Not everyone looks behind the curtain. The forest rewards curiosity.
 // Keep looking. There are notes in here — left by people who studied
 // this place before you. Some of them are... still here.
-export const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'default' });
+export const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'default' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.toneMapping = ACESFilmicToneMapping;
 renderer.toneMappingExposure = 2.8;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.outputColorSpace = SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-export const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 300);
-export const clock = new THREE.Clock();
-export const scene = new THREE.Scene();
+export const camera = new PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 300);
+export const clock = new Clock();
+export const scene = new Scene();
 
-scene.background = new THREE.Color(C.skyDeep);
-scene.fog = new THREE.FogExp2(C.fog, 0.010);
+scene.background = new Color(C.skyDeep);
+scene.fog = new FogExp2(C.fog, 0.010);
 
 // Resize handler
 window.addEventListener('resize', () => {

@@ -1,7 +1,7 @@
 // ================================================================
 // Rain Particle System (LineSegments-based streaks)
 // ================================================================
-import * as THREE from 'three';
+import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments } from 'three';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from '../world/terrain.js';
 
@@ -23,12 +23,12 @@ let rainLines = null;
 let rainMat = null;
 
 export function initRain() {
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
-  rainMat = new THREE.LineBasicMaterial({
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new BufferAttribute(linePos, 3));
+  rainMat = new LineBasicMaterial({
     color: 0x8899bb, transparent: true, opacity: 0.3, depthWrite: false
   });
-  rainLines = new THREE.LineSegments(geo, rainMat);
+  rainLines = new LineSegments(geo, rainMat);
   rainLines.frustumCulled = false;
   rainLines.visible = false;
   scene.add(rainLines);

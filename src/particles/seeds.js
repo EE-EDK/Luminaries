@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { GEO } from '../core/geometries.js';
@@ -6,18 +6,18 @@ import { GEO } from '../core/geometries.js';
 // InstancedMesh for dandelion seeds — single draw call
 let iMesh = null;
 const dandSeeds = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
-const baseColor = new THREE.Color(C.dandSeed);
+const dummy = new Object3D();
+const tmpColor = new Color();
+const baseColor = new Color(C.dandSeed);
 
 export function initDandSeeds(n) {
-  const mat = new THREE.MeshBasicMaterial({
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1
   });
-  iMesh = new THREE.InstancedMesh(GEO.dandSeed, mat, n);
-  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  iMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
-  iMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  iMesh = new InstancedMesh(GEO.dandSeed, mat, n);
+  iMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  iMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  iMesh.instanceColor.setUsage(DynamicDrawUsage);
 
   dummy.scale.setScalar(0);
   dummy.updateMatrix();

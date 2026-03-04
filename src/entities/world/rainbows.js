@@ -1,5 +1,5 @@
 // --- Rainbow ribbons (wide translucent glowing bands with shimmer texture) ---
-import * as THREE from 'three';
+import { AdditiveBlending, BufferGeometry, CatmullRomCurve3, CircleGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, MeshBasicMaterial, SphereGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, OBELISK_H } from '../../constants.js';
 export const rainbowArcs = [];
@@ -48,11 +48,11 @@ function buildRibbonGeo(arcPts, ribbonWidth, segments, addVertexColors, baseColo
     }
   }
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(verts, 3));
+  geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
   if (colors) {
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
   }
   geo.computeVertexNormals();
   return geo;
@@ -74,55 +74,55 @@ export function makeRainbows() {
       const px = Math.cos(a) * r;
       const pz = Math.sin(a) * r;
       const py = Math.sin(frac * Math.PI) * h;
-      arcPts.push(new THREE.Vector3(px, py, pz));
+      arcPts.push(new Vector3(px, py, pz));
     }
 
-    const baseColor = new THREE.Color(col);
+    const baseColor = new Color(col);
     const ribbonGeo = buildRibbonGeo(arcPts, ribbonWidth, segments, true, baseColor);
 
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = new MeshBasicMaterial({
       vertexColors: true, transparent: true, opacity: 0,
-      side: THREE.DoubleSide, depthWrite: false,
-      blending: THREE.AdditiveBlending
+      side: DoubleSide, depthWrite: false,
+      blending: AdditiveBlending
     });
-    const mesh = new THREE.Mesh(ribbonGeo, mat);
+    const mesh = new Mesh(ribbonGeo, mat);
     mesh.visible = false;
     scene.add(mesh);
 
     // Inner bright core line along ribbon center
-    const curve = new THREE.CatmullRomCurve3(arcPts);
-    const coreMat = new THREE.MeshBasicMaterial({
+    const curve = new CatmullRomCurve3(arcPts);
+    const coreMat = new MeshBasicMaterial({
       color: 0xffffff, transparent: true, opacity: 0,
-      blending: THREE.AdditiveBlending, depthWrite: false
+      blending: AdditiveBlending, depthWrite: false
     });
-    const coreGeo = new THREE.TubeGeometry(curve, segments, 0.03, 4, false);
-    const coreLine = new THREE.Mesh(coreGeo, coreMat);
+    const coreGeo = new TubeGeometry(curve, segments, 0.03, 4, false);
+    const coreLine = new Mesh(coreGeo, coreMat);
     coreLine.visible = false;
     scene.add(coreLine);
 
     // Shimmer sparkles along arc (8 per band — small bright dots that travel)
     const sparkles = [];
-    const sparkMat = new THREE.MeshBasicMaterial({
+    const sparkMat = new MeshBasicMaterial({
       color: 0xffffff, transparent: true, opacity: 0,
-      blending: THREE.AdditiveBlending, depthWrite: false
+      blending: AdditiveBlending, depthWrite: false
     });
     for (let si = 0; si < 8; si++) {
-      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 3), sparkMat.clone());
+      const spark = new Mesh(new SphereGeometry(0.06, 4, 3), sparkMat.clone());
       spark.visible = false;
       scene.add(spark);
       sparkles.push({ mesh: spark, mat: spark.material, phase: si / 8, speed: 0.15 + Math.random() * 0.1 });
     }
 
     // Ground glow pools at endpoints (wider)
-    const poolMat = new THREE.MeshBasicMaterial({
-      color: col, transparent: true, opacity: 0, side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending
+    const poolMat = new MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0, side: DoubleSide,
+      blending: AdditiveBlending
     });
     const p0 = arcPts[0], pEnd = arcPts[arcPts.length - 1];
-    const pool0 = new THREE.Mesh(new THREE.CircleGeometry(1.2, 8), poolMat);
+    const pool0 = new Mesh(new CircleGeometry(1.2, 8), poolMat);
     pool0.rotation.x = -Math.PI / 2; pool0.position.set(p0.x, 0.03, p0.z);
     pool0.visible = false; scene.add(pool0);
-    const pool1 = new THREE.Mesh(new THREE.CircleGeometry(1.2, 8), poolMat.clone());
+    const pool1 = new Mesh(new CircleGeometry(1.2, 8), poolMat.clone());
     pool1.rotation.x = -Math.PI / 2; pool1.position.set(pEnd.x, 0.03, pEnd.z);
     pool1.visible = false; scene.add(pool1);
 
@@ -140,16 +140,16 @@ export function makeRainbows() {
   for (let j = 0; j <= secSegments; j++) {
     const frac = j / secSegments;
     const a = frac * Math.PI;
-    secPts.push(new THREE.Vector3(Math.cos(a) * secR, Math.sin(frac * Math.PI) * secH, Math.sin(a) * secR));
+    secPts.push(new Vector3(Math.cos(a) * secR, Math.sin(frac * Math.PI) * secH, Math.sin(a) * secR));
   }
-  const secColor = new THREE.Color(0xeeddff);
+  const secColor = new Color(0xeeddff);
   const secGeo = buildRibbonGeo(secPts, 1.5, secSegments, true, secColor);
-  const secMat = new THREE.MeshBasicMaterial({
+  const secMat = new MeshBasicMaterial({
     vertexColors: true, transparent: true, opacity: 0,
-    side: THREE.DoubleSide, depthWrite: false,
-    blending: THREE.AdditiveBlending
+    side: DoubleSide, depthWrite: false,
+    blending: AdditiveBlending
   });
-  const secMesh = new THREE.Mesh(secGeo, secMat);
+  const secMesh = new Mesh(secGeo, secMat);
   secMesh.visible = false;
   scene.add(secMesh);
   rainbowArcs.push({ mesh: secMesh, mat: secMat, targetOpacity: 0 });

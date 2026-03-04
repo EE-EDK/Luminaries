@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Vector3 } from 'three';
 import { EYE_H } from './constants.js';
 
 // ================================================================
@@ -35,8 +35,8 @@ export const bubblePops = [];
 
 // Player
 export const player = {
-  pos: new THREE.Vector3(0, EYE_H, 0),
-  vel: new THREE.Vector3(),
+  pos: new Vector3(0, EYE_H, 0),
+  vel: new Vector3(),
   onGround: true
 };
 

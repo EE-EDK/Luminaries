@@ -1,23 +1,23 @@
-import * as THREE from 'three';
+import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, SphereGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 
 // InstancedMesh for bubble pop fragments — single draw call
 let iMesh = null;
 const bubblePops = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
-const baseColor = new THREE.Color(C.bubblePop);
-const popGeo = new THREE.SphereGeometry(0.02, 3, 3);
+const dummy = new Object3D();
+const tmpColor = new Color();
+const baseColor = new Color(C.bubblePop);
+const popGeo = new SphereGeometry(0.02, 3, 3);
 
 export function initBubblePops(n) {
-  const mat = new THREE.MeshBasicMaterial({
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1
   });
-  iMesh = new THREE.InstancedMesh(popGeo, mat, n);
-  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  iMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
-  iMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  iMesh = new InstancedMesh(popGeo, mat, n);
+  iMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  iMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  iMesh.instanceColor.setUsage(DynamicDrawUsage);
 
   dummy.scale.setScalar(0);
   dummy.updateMatrix();

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { GEO } from '../core/geometries.js';
@@ -7,17 +7,17 @@ import { getGroundY } from '../world/terrain.js';
 // InstancedMesh for all fireflies — single draw call
 let iMesh = null;
 const flies = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
+const dummy = new Object3D();
+const tmpColor = new Color();
 
 export function initFlies(n) {
-  const mat = new THREE.MeshBasicMaterial({
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1
   });
-  iMesh = new THREE.InstancedMesh(GEO.fly, mat, n);
-  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  iMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
-  iMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  iMesh = new InstancedMesh(GEO.fly, mat, n);
+  iMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  iMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  iMesh.instanceColor.setUsage(DynamicDrawUsage);
 
   // Initialize all instances as invisible (scale 0)
   dummy.scale.setScalar(0);

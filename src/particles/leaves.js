@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, PlaneGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 
@@ -7,14 +7,14 @@ import { scene } from '../core/renderer.js';
 
 let iMesh = null;
 const leaves = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
+const dummy = new Object3D();
+const tmpColor = new Color();
 const leafColors = [
-  new THREE.Color(C.leafGlow),
-  new THREE.Color(0x33cc66),
-  new THREE.Color(0x22aa88),
-  new THREE.Color(0x55ffcc),
-  new THREE.Color(0x44ddee)
+  new Color(C.leafGlow),
+  new Color(0x33cc66),
+  new Color(0x22aa88),
+  new Color(0x55ffcc),
+  new Color(0x44ddee)
 ];
 
 // Wind state (set from main.js)
@@ -22,16 +22,16 @@ let _windX = 0, _windZ = 0, _windStr = 0;
 export function setLeafWind(wx, wz, ws) { _windX = wx; _windZ = wz; _windStr = ws; }
 
 export function initLeaves(n) {
-  const leafGeo = new THREE.PlaneGeometry(0.12, 0.08);
-  const mat = new THREE.MeshBasicMaterial({
+  const leafGeo = new PlaneGeometry(0.12, 0.08);
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1,
-    side: THREE.DoubleSide, depthWrite: false,
-    blending: THREE.AdditiveBlending
+    side: DoubleSide, depthWrite: false,
+    blending: AdditiveBlending
   });
-  iMesh = new THREE.InstancedMesh(leafGeo, mat, n);
-  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  iMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
-  iMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  iMesh = new InstancedMesh(leafGeo, mat, n);
+  iMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  iMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  iMesh.instanceColor.setUsage(DynamicDrawUsage);
 
   dummy.scale.setScalar(0);
   dummy.updateMatrix();

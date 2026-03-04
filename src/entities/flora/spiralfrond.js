@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, CatmullRomCurve3, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -9,29 +9,29 @@ import { sr } from '../../utils/rng.js';
 // ================================================================
 
 export function makeSpiralFrond(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const h = 1.2 + sr() * 0.8; // 1.2-2.0m
   const frondN = 3 + Math.floor(sr() * 3); // 3-5 fronds
 
   // --- Central stem ---
-  const stemMat = new THREE.MeshStandardMaterial({
+  const stemMat = new MeshStandardMaterial({
     color: C.spiralStem, roughness: 0.7,
     emissive: C.spiralFrond, emissiveIntensity: 0.06
   });
-  const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.05, h, 5), stemMat
+  const stem = new Mesh(
+    new CylinderGeometry(0.02, 0.05, h, 5), stemMat
   );
   stem.position.y = h / 2;
   g.add(stem);
 
   // --- Base rosette leaves ---
-  const leafMat = new THREE.MeshStandardMaterial({
+  const leafMat = new MeshStandardMaterial({
     color: 0x1a4430, emissive: 0x0a1a10, emissiveIntensity: 0.05,
-    side: THREE.DoubleSide
+    side: DoubleSide
   });
   for (let i = 0; i < 3; i++) {
     const la = sr() * 6.28;
-    const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.2), leafMat);
+    const leaf = new Mesh(new PlaneGeometry(0.12, 0.2), leafMat);
     leaf.position.set(Math.cos(la) * 0.1, h * 0.12, Math.sin(la) * 0.1);
     leaf.rotation.y = -la;
     leaf.rotation.x = -0.7;
@@ -54,21 +54,21 @@ export function makeSpiralFrond(x, z) {
       const t = i / segs;
       const angle = baseAngle + t * turns * 6.28;
       const r = spiralR * (0.2 + t * 0.8);
-      points.push(new THREE.Vector3(
+      points.push(new Vector3(
         Math.cos(angle) * r,
         h * 0.25 + t * spiralH,
         Math.sin(angle) * r
       ));
     }
-    const curve = new THREE.CatmullRomCurve3(points);
+    const curve = new CatmullRomCurve3(points);
 
     // Frond tube
-    const frondMat = new THREE.MeshStandardMaterial({
+    const frondMat = new MeshStandardMaterial({
       color: C.spiralFrond, emissive: C.spiralGlow,
       emissiveIntensity: 0.12, roughness: 0.5
     });
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), frondMat
+    const tube = new Mesh(
+      new TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), frondMat
     );
     g.add(tube);
 
@@ -77,11 +77,11 @@ export function makeSpiralFrond(x, z) {
     for (let li = 0; li < leafletN; li++) {
       const lt = 0.2 + (li / leafletN) * 0.6;
       const lPt = curve.getPoint(lt);
-      const leaflet = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.04, 0.06),
-        new THREE.MeshStandardMaterial({
+      const leaflet = new Mesh(
+        new PlaneGeometry(0.04, 0.06),
+        new MeshStandardMaterial({
           color: C.spiralFrond, emissive: C.spiralGlow,
-          emissiveIntensity: 0.08, side: THREE.DoubleSide
+          emissiveIntensity: 0.08, side: DoubleSide
         })
       );
       leaflet.position.copy(lPt);
@@ -91,22 +91,22 @@ export function makeSpiralFrond(x, z) {
 
     // Glowing tip sphere
     const tipPt = curve.getPoint(1);
-    const tipMat = new THREE.MeshStandardMaterial({
+    const tipMat = new MeshStandardMaterial({
       color: C.spiralTip, emissive: C.spiralGlow,
       emissiveIntensity: 0.6,
       transparent: true, opacity: 0.7
     });
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.025 + sr() * 0.015, 5, 4), tipMat);
+    const tip = new Mesh(new SphereGeometry(0.025 + sr() * 0.015, 5, 4), tipMat);
     tip.position.copy(tipPt);
     g.add(tip);
     tipMats.push(tipMat);
 
     // Tip haze
-    const haze = new THREE.Mesh(
-      new THREE.SphereGeometry(0.07, 4, 3),
-      new THREE.MeshBasicMaterial({
+    const haze = new Mesh(
+      new SphereGeometry(0.07, 4, 3),
+      new MeshBasicMaterial({
         color: C.spiralGlow, transparent: true, opacity: 0.04,
-        blending: THREE.AdditiveBlending, depthWrite: false
+        blending: AdditiveBlending, depthWrite: false
       })
     );
     haze.position.copy(tipPt);
@@ -114,14 +114,14 @@ export function makeSpiralFrond(x, z) {
   }
 
   // --- Root tendrils at base ---
-  const rootMat = new THREE.MeshStandardMaterial({
+  const rootMat = new MeshStandardMaterial({
     color: 0x1a2830, roughness: 0.85,
     emissive: 0x0a1510, emissiveIntensity: 0.04
   });
   for (let i = 0; i < 3; i++) {
     const ra = (i / 3) * 6.28 + sr() * 0.5;
-    const root = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.006, 0.018, 0.15 + sr() * 0.1, 3), rootMat
+    const root = new Mesh(
+      new CylinderGeometry(0.006, 0.018, 0.15 + sr() * 0.1, 3), rootMat
     );
     root.position.set(Math.cos(ra) * 0.06, 0.04, Math.sin(ra) * 0.06);
     root.rotation.z = (ra < 3.14 ? 0.8 : -0.8);

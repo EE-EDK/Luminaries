@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Vector3 } from 'three';
 import { GRAVITY, MOVE_SPEED, SPRINT_MULT, JUMP_IMPULSE, GROUND_DRAG, AIR_DRAG, EYE_H, WORLD_R } from '../constants.js';
 import { camera } from './renderer.js';
 import { playerLight } from './lighting.js';
@@ -10,7 +10,7 @@ import { getGroundY } from '../world/terrain.js';
 // The forest built itself around this exact vantage point. 1.7 meters.
 // Every canopy gap, every mushroom cluster, every distant shimmer —
 // framed for eyes at this height. Yours.
-export const player = { pos: new THREE.Vector3(0, EYE_H, 0), vel: new THREE.Vector3(), onGround: true };
+export const player = { pos: new Vector3(0, EYE_H, 0), vel: new Vector3(), onGround: true };
 
 // Head bob / Sprint FOV / Landing Cushion state
 let headBobPhase = 0, headBobAmp = 0;

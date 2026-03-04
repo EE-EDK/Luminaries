@@ -1077,7 +1077,7 @@ function stopResonanceDrone() {
   if (!ctx) return;
   const now = ctx.currentTime;
   for (let i = 0; i < droneOscs.length; i++) {
-    droneOscs[i].osc.stop(now + 0.5);
+    try { droneOscs[i].osc.stop(now + 0.5); } catch (_) { /* already stopped */ }
   }
   droneOscs = [];
   if (droneGain) {
@@ -1092,6 +1092,7 @@ function stopResonanceDrone() {
 export function toggleMute() {
   muted = !muted;
   if (masterGain) masterGain.gain.value = muted ? 0 : 0.42;
+  if (muted) stopResonanceDrone();
   return muted;
 }
 

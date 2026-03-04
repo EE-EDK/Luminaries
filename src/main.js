@@ -109,17 +109,23 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, startResonanceDrone } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone } from './systems/audio.js';
+
+// Puffling Chat (Phase 2)
+import { initPufflingChat, triggerPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
 
 // AI
 import { canSee, canHear, isNear } from './systems/ai/senses.js';
 import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBounds, avoidObstacles } from './systems/ai/steering.js';
 
 // Dimming (Phase 2)
-import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected } from './systems/dimming.js';
+import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestored } from './systems/dimming.js';
+
+// Attunement (Phase 2)
+import { updateAttunement, getAttunement, getPlayerFrequency, consumeFrequency, checkFlash } from './systems/attunement.js';
 
 // Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbDiscovery } from './systems/discoveries.js';
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery } from './systems/discoveries.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -168,6 +174,14 @@ let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
 const _playerLightColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
 const _playerLightTargetColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
 let _prevOrbsFound = 0; // track orb count changes for player light transitions
+
+// ================================================================
+// Attunement visual state
+// ================================================================
+let _attuneFlashTimer = 0; // decays after full-attunement flash
+let _nearestPuffDist2 = Infinity; // updated per frame during puffling loop
+let _nearestPuffPos = { x: 0, z: 0 }; // position of nearest puffling
+let _puffSingTimer = 0; // per-puffling singing timer for following state
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -1168,6 +1182,8 @@ function updatePuffs(dt, t) {
   // Batch 2 Item 4: Puffling day/night — sleepy at DAWN, playful at NIGHT
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
+  _nearestPuffDist2 = Infinity;
+  const curAttune = getAttunement();
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
     const px = g.position.x, pz = g.position.z;
@@ -1177,6 +1193,13 @@ function updatePuffs(dt, t) {
     // Visibility culling — skip rendering/update for distant pufflings
     if (pDist2 > 1600) { g.visible = false; continue; }
     g.visible = true;
+
+    // Track nearest puffling for attunement
+    if (pDist2 < _nearestPuffDist2) {
+      _nearestPuffDist2 = pDist2;
+      _nearestPuffPos.x = px;
+      _nearestPuffPos.z = pz;
+    }
 
     // Startle check (also startled by nearby fleeing deer — Item 6: cross-species)
     if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
@@ -1210,8 +1233,8 @@ function updatePuffs(dt, t) {
       }
     }
 
-    // Following: cautiously approach idle player
-    if (playerIdleTime > 8 && pDist2 < 144 && p.state === 'idle' && Math.random() < 0.001) {
+    // Following: cautiously approach idle player (lowered from 8s to 5s for Phase 2 curiosity)
+    if (playerIdleTime > 5 && pDist2 < 144 && p.state === 'idle' && Math.random() < 0.002) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
@@ -1245,8 +1268,11 @@ function updatePuffs(dt, t) {
           g.position.x += coh.x * 0.05 * dt;
           g.position.z += coh.z * 0.05 * dt;
         }
-        // Random idle chirp (rare)
-        if (Math.random() < 0.0002) playCreatureSound('puff', { x: px, z: pz }, player.pos);
+        // Puffling singing — context-sensitive warbling melody
+        if (Math.random() < 0.0004) {
+          const restored = isRestored(px, pz);
+          playPufflingSinging({ x: px, z: pz }, player.pos, restored, curAttune);
+        }
         if (p.idleTimer <= 0) {
           // Bias hop direction toward flock center
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
@@ -1301,6 +1327,33 @@ function updatePuffs(dt, t) {
         } else {
           g.position.y = p._baseY + Math.sin(t * 3 + p.phase) * 0.03;
         }
+        // Following pufflings sing openly — bright phrases (always "restored" = true)
+        if (Math.random() < 0.001) {
+          playPufflingSinging({ x: px, z: pz }, player.pos, true, curAttune);
+        }
+        // Puffling chat — cryptic speech when close and following
+        if (pDist2 < 25 && Math.random() < 0.0003) {
+          const restored = isRestored(px, pz);
+          // Check if near an unfound orb
+          let nearOrb = false;
+          for (let oi = 0; oi < orbs.length; oi++) {
+            if (orbs[oi].found) continue;
+            const odx = px - orbs[oi].x, odz = pz - orbs[oi].z;
+            if (odx * odx + odz * odz < 400) { nearOrb = true; break; } // 20m
+          }
+          const hasFreq = getPlayerFrequency() !== null;
+          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
+          if (msg) playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+        }
+        // Curious ears face player direction
+        if (p.ears) {
+          const toPlayerAng = Math.atan2(player.pos.x - px, player.pos.z - pz);
+          const relAng = toPlayerAng - g.rotation.y;
+          for (let ei = 0; ei < p.ears.length; ei++) {
+            const ear = p.ears[ei];
+            ear.mesh.rotation.z = ear.baseRotZ + relAng * 0.15 * ear.side;
+          }
+        }
         g.rotation.y = p.wanderAng;
         break;
       }
@@ -1342,28 +1395,46 @@ function updatePuffs(dt, t) {
     // Tail pom bounce
     p.tail.position.y = 0.38 + Math.sin(t * 4 + p.phase) * 0.015;
 
-    // Sparkle mote orbiting
+    // Sparkle mote orbiting — speed and opacity scale with attunement
+    const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0; // within 8m
+    const attuneSpeedMult = pDist2 < 64 ? (1.0 + curAttune * 2.0) : 1.0;
     if (p.sparkles) {
       for (let si = 0; si < p.sparkles.length; si++) {
         const sp = p.sparkles[si];
-        const sa = t * (2 + si * 0.7) + sp.phase;
+        const sa = t * (2 + si * 0.7) * attuneSpeedMult + sp.phase;
         sp.mesh.position.set(
           Math.cos(sa) * sp.orbitR,
           0.5 + Math.sin(sa * 1.3) * 0.1,
           Math.sin(sa) * sp.orbitR
         );
-        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost);
+        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult;
       }
     }
-    // Crown glow
+    // Crown glow — intensifies with attunement
     if (p.crownMat) {
-      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost);
+      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult;
+    }
+    // Body emissive — brightens with attunement when nearby
+    if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
+      p.bodyMat.emissiveIntensity = 0.3 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
+    } else if (p.bodyMat) {
+      p.bodyMat.emissiveIntensity = 0.3;
     }
 
     // World bounds
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
   }
+
+  // --- Post-loop: update attunement system ---
+  updateAttunement(dt, sprinting, _nearestPuffDist2);
+
+  // Handle attunement flash (one-time trigger when reaching 1.0)
+  if (checkFlash()) {
+    _attuneFlashTimer = 0.5; // 0.5s flash decay
+    playAttunementFlash(_nearestPuffPos, player.pos);
+  }
+  if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
 }
 
 function updateDeers(dt, t) {
@@ -2332,6 +2403,7 @@ function director(dt, t) {
   // Discoveries (Item 10)
   checkDiscoveries(player.pos, deers, puffs, jellies, moths, fairyRings, ponds, chainCount);
   updateDiscoveryUI(dt);
+  updatePufflingChat(dt, renderer.domElement);
 }
 
 // ================================================================
@@ -2409,6 +2481,20 @@ function animate() {
     scene.background.r = Math.min(scene.background.r + lightningFlash * 0.08, 0.25);
     scene.background.g = Math.min(scene.background.g + lightningFlash * 0.08, 0.25);
     scene.background.b = Math.min(scene.background.b + lightningFlash * 0.12, 0.35);
+  }
+
+  // Player light color shift — warm pink when carrying puffling frequency
+  const pFreq = getPlayerFrequency();
+  if (pFreq === 'puff') {
+    // Lerp toward puffling warm glow (0xffaa88 = r:1.0, g:0.667, b:0.533)
+    playerLight.color.r += (1.0 - playerLight.color.r) * 2.0 * dt;
+    playerLight.color.g += (0.667 - playerLight.color.g) * 2.0 * dt;
+    playerLight.color.b += (0.533 - playerLight.color.b) * 2.0 * dt;
+  } else if (!pFreq) {
+    // Lerp back to default (0x668888 = r:0.4, g:0.533, b:0.533)
+    playerLight.color.r += (0.4 - playerLight.color.r) * 2.0 * dt;
+    playerLight.color.g += (0.533 - playerLight.color.g) * 2.0 * dt;
+    playerLight.color.b += (0.533 - playerLight.color.b) * 2.0 * dt;
   }
 
   // Update audio system (Items 1-3)
@@ -2567,6 +2653,7 @@ try {
 
   // Init discoveries (Item 10)
   initDiscoveries();
+  initPufflingChat();
 
   // Init UI (must be before quest so orb HUD element is available)
   initHUD();
@@ -2602,6 +2689,8 @@ try {
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
     notifyOrbCollected: notifyOrbCollected,
+    playOrbReject: playOrbReject,
+    showOrbRejectHint: () => showOrbRejectHint(),
     showOrbDiscovery: showOrbDiscovery,
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,

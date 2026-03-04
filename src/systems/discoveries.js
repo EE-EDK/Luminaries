@@ -116,11 +116,40 @@ export function checkDiscoveries(playerPos, deers, puffs, jellies, moths, fairyR
   }
 }
 
+// ================================================================
+// Orb Rejection Hint — shown when approaching orb without frequency
+// ================================================================
+let hintEl = null;
+let hintTimer = 0;
+
+export function showOrbRejectHint() {
+  if (!hintEl) {
+    hintEl = document.createElement('div');
+    hintEl.id = 'orb-hint-text';
+    hintEl.style.cssText =
+      'position:fixed;top:60%;left:50%;transform:translateX(-50%);' +
+      'font-family:Georgia,serif;font-size:16px;color:#ffddaa;font-style:italic;' +
+      'text-shadow:0 0 10px #cc8844,0 0 25px #885522;' +
+      'pointer-events:none;opacity:0;transition:opacity 0.8s;z-index:100;' +
+      'letter-spacing:2px;text-align:center;max-width:400px;';
+    document.body.appendChild(hintEl);
+  }
+  hintEl.textContent = "The forest's voice is missing\u2026 listen to those who still sing.";
+  hintEl.style.opacity = '1';
+  hintTimer = 4.0;
+}
+
 export function updateDiscoveryUI(dt) {
   if (fadeTimer > 0) {
     fadeTimer -= dt;
     if (fadeTimer <= 0.6 && discoveryEl) {
       discoveryEl.style.opacity = '0';
+    }
+  }
+  if (hintTimer > 0) {
+    hintTimer -= dt;
+    if (hintTimer <= 1.0 && hintEl) {
+      hintEl.style.opacity = '0';
     }
   }
 }

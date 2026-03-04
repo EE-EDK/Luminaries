@@ -66,6 +66,8 @@ let blackScreen = null;
 let matrixCanvas = null; // canvas for matrix/digital background effect
 let matrixCtx = null;
 let ambientGlowEl = null; // screen-wide glow that follows pixie
+let titleGlowEl = null;  // breathing glow halo behind the title
+let treeEl = null;       // glowing tree behind title
 let fantasyEl = null;
 let terminalEl = null;
 let attuneEl = null;
@@ -106,8 +108,7 @@ export function initIntro(completeFn) {
   container.appendChild(blackScreen);
 
   // ================================================================
-  // Matrix / digital background — barely perceptible, cold, unsettling
-  // Represents the adult "Chronobiological Archive" layer
+  // Digital tunnel — perspective corridor into the Archive
   // ================================================================
   matrixCanvas = document.createElement('canvas');
   matrixCanvas.style.cssText =
@@ -123,6 +124,240 @@ export function initIntro(completeFn) {
     'background:radial-gradient(circle,rgba(80,255,180,.06) 0%,rgba(50,220,150,.03) 30%,transparent 65%);' +
     'opacity:0;transition:opacity 2s ease;';
   container.appendChild(ambientGlowEl);
+
+  // ================================================================
+  // Glowing tree — realistic trunk with roots below and canopy above
+  // Sits behind the title as a silhouette with bioluminescent glow
+  // ================================================================
+  treeEl = document.createElement('div');
+  treeEl.style.cssText =
+    'position:absolute;top:15%;left:50%;transform:translateX(-50%);pointer-events:none;' +
+    'width:clamp(200px,30vw,360px);height:70%;opacity:0;';
+
+  // Helper: build an SVG tree for realistic organic shapes
+  const treeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  treeSvg.setAttribute('viewBox', '0 0 360 600');
+  treeSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  treeSvg.style.cssText = 'width:100%;height:100%;overflow:visible;';
+
+  // SVG defs — glow filter and gradients
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+
+  // Trunk bark gradient
+  const trunkGrad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  trunkGrad.setAttribute('id', 'trunkGrad');
+  trunkGrad.setAttribute('x1', '0'); trunkGrad.setAttribute('y1', '0');
+  trunkGrad.setAttribute('x2', '1'); trunkGrad.setAttribute('y2', '0');
+  trunkGrad.innerHTML =
+    '<stop offset="0%" stop-color="#1a0e08"/>' +
+    '<stop offset="20%" stop-color="#2d1a10"/>' +
+    '<stop offset="40%" stop-color="#3a2218"/>' +
+    '<stop offset="55%" stop-color="#2d1a10"/>' +
+    '<stop offset="70%" stop-color="#3a2218"/>' +
+    '<stop offset="85%" stop-color="#2d1a10"/>' +
+    '<stop offset="100%" stop-color="#1a0e08"/>';
+  defs.appendChild(trunkGrad);
+
+  // Canopy glow gradient
+  const canopyGrad = document.createElementNS('http://www.w3.org/2000/svg', 'radialGradient');
+  canopyGrad.setAttribute('id', 'canopyGrad');
+  canopyGrad.innerHTML =
+    '<stop offset="0%" stop-color="rgba(80,255,180,.15)"/>' +
+    '<stop offset="40%" stop-color="rgba(50,200,130,.08)"/>' +
+    '<stop offset="70%" stop-color="rgba(30,150,100,.04)"/>' +
+    '<stop offset="100%" stop-color="transparent"/>';
+  defs.appendChild(canopyGrad);
+
+  // Glow filter for bioluminescence
+  const glowFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+  glowFilter.setAttribute('id', 'treeGlow');
+  glowFilter.setAttribute('x', '-50%'); glowFilter.setAttribute('y', '-50%');
+  glowFilter.setAttribute('width', '200%'); glowFilter.setAttribute('height', '200%');
+  glowFilter.innerHTML =
+    '<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>' +
+    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>';
+  defs.appendChild(glowFilter);
+
+  treeSvg.appendChild(defs);
+
+  // Canopy glow — large soft ellipse behind branches
+  const canopyBg = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  canopyBg.setAttribute('cx', '180'); canopyBg.setAttribute('cy', '120');
+  canopyBg.setAttribute('rx', '160'); canopyBg.setAttribute('ry', '110');
+  canopyBg.setAttribute('fill', 'url(#canopyGrad)');
+  canopyBg.setAttribute('class', 'canopy-glow');
+  treeSvg.appendChild(canopyBg);
+
+  // Canopy branches — organic curves spreading from trunk top
+  const branchPaths = [
+    // Major branches — thick, sweeping arcs
+    'M180,240 C170,200 120,170 80,130 Q60,110 50,80',
+    'M180,240 C190,200 240,170 280,130 Q300,110 310,80',
+    'M180,240 C175,210 140,190 110,160 Q85,140 70,110',
+    'M180,240 C185,210 220,190 250,160 Q275,140 290,110',
+    // Mid branches
+    'M180,250 C168,225 130,210 100,190 Q80,175 65,150',
+    'M180,250 C192,225 230,210 260,190 Q280,175 295,150',
+    // Upper reaching branches
+    'M180,235 C178,205 160,180 140,140 Q125,110 115,70',
+    'M180,235 C182,205 200,180 220,140 Q235,110 245,70',
+    // Central crown
+    'M180,230 C177,195 165,160 155,110 Q148,80 150,50',
+    'M180,230 C183,195 195,160 205,110 Q212,80 210,50',
+  ];
+  for (let b = 0; b < branchPaths.length; b++) {
+    const branch = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    branch.setAttribute('d', branchPaths[b]);
+    branch.setAttribute('stroke', '#2d1a10');
+    branch.setAttribute('stroke-width', b < 4 ? '4' : b < 6 ? '3' : '2');
+    branch.setAttribute('fill', 'none');
+    branch.setAttribute('stroke-linecap', 'round');
+    branch.setAttribute('opacity', '0.7');
+    treeSvg.appendChild(branch);
+  }
+
+  // Canopy leaf clusters — glowing ellipses at branch tips
+  const leafClusters = [
+    { cx: 50, cy: 75, rx: 35, ry: 25 },
+    { cx: 310, cy: 75, rx: 35, ry: 25 },
+    { cx: 70, cy: 105, rx: 30, ry: 22 },
+    { cx: 290, cy: 105, rx: 30, ry: 22 },
+    { cx: 65, cy: 145, rx: 28, ry: 20 },
+    { cx: 295, cy: 145, rx: 28, ry: 20 },
+    { cx: 115, cy: 65, rx: 32, ry: 24 },
+    { cx: 245, cy: 65, rx: 32, ry: 24 },
+    { cx: 150, cy: 45, rx: 28, ry: 22 },
+    { cx: 210, cy: 45, rx: 28, ry: 22 },
+    { cx: 180, cy: 35, rx: 25, ry: 20 },
+    // Fill gaps in canopy
+    { cx: 100, cy: 85, rx: 25, ry: 18 },
+    { cx: 260, cy: 85, rx: 25, ry: 18 },
+    { cx: 140, cy: 90, rx: 22, ry: 18 },
+    { cx: 220, cy: 90, rx: 22, ry: 18 },
+    { cx: 180, cy: 70, rx: 30, ry: 22 },
+  ];
+  for (let l = 0; l < leafClusters.length; l++) {
+    const lc = leafClusters[l];
+    const leaf = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    leaf.setAttribute('cx', String(lc.cx));
+    leaf.setAttribute('cy', String(lc.cy));
+    leaf.setAttribute('rx', String(lc.rx));
+    leaf.setAttribute('ry', String(lc.ry));
+    leaf.setAttribute('fill', 'rgba(20,60,35,.6)');
+    leaf.setAttribute('filter', 'url(#treeGlow)');
+    leaf.setAttribute('class', 'leaf-cluster');
+    treeSvg.appendChild(leaf);
+    // Inner glow center for each cluster
+    const glowDot = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    glowDot.setAttribute('cx', String(lc.cx));
+    glowDot.setAttribute('cy', String(lc.cy));
+    glowDot.setAttribute('rx', String(Math.round(lc.rx * 0.5)));
+    glowDot.setAttribute('ry', String(Math.round(lc.ry * 0.5)));
+    glowDot.setAttribute('fill', 'rgba(60,220,130,.12)');
+    glowDot.setAttribute('class', 'leaf-inner');
+    treeSvg.appendChild(glowDot);
+  }
+
+  // Main trunk — thick tapered path
+  const trunk = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  trunk.setAttribute('d',
+    'M165,240 L160,320 C158,360 154,400 150,440 ' +
+    'C148,460 146,480 144,500 L148,500 ' +
+    'C152,480 155,460 157,440 C160,400 163,360 164,320 L168,260 ' +
+    'L192,260 L196,320 C197,360 200,400 203,440 ' +
+    'C205,460 208,480 212,500 L216,500 ' +
+    'C212,480 208,460 206,440 C202,400 198,360 196,320 L195,240 Z'
+  );
+  trunk.setAttribute('fill', 'url(#trunkGrad)');
+  trunk.setAttribute('opacity', '0.85');
+  treeSvg.appendChild(trunk);
+
+  // Bark texture lines on trunk
+  const barkLines = [
+    'M170,260 C169,300 167,350 166,400',
+    'M175,250 C174,290 172,340 170,420',
+    'M185,250 C186,290 188,340 190,420',
+    'M190,260 C191,300 193,350 194,400',
+  ];
+  for (let bl = 0; bl < barkLines.length; bl++) {
+    const bark = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    bark.setAttribute('d', barkLines[bl]);
+    bark.setAttribute('stroke', '#1a0e06');
+    bark.setAttribute('stroke-width', '0.8');
+    bark.setAttribute('fill', 'none');
+    bark.setAttribute('opacity', '0.4');
+    treeSvg.appendChild(bark);
+  }
+
+  // Root system — spreading from trunk base
+  const rootPaths = [
+    // Major roots — thick, curving outward
+    'M150,500 C140,510 110,520 70,530 Q40,535 20,540',
+    'M216,500 C226,510 250,520 290,530 Q320,535 340,540',
+    // Medium roots
+    'M148,498 C138,512 115,525 85,535 Q60,542 40,548',
+    'M214,498 C224,512 245,525 275,535 Q300,542 320,548',
+    // Smaller roots
+    'M152,502 C145,515 128,530 105,540 Q90,546 75,550',
+    'M208,502 C215,515 232,530 255,540 Q270,546 285,550',
+    // Thin tendrils
+    'M155,504 C150,518 140,535 125,545 Q115,550 105,555',
+    'M205,504 C210,518 220,535 235,545 Q245,550 255,555',
+    // Central downward root
+    'M170,500 C172,520 175,540 178,560',
+    'M190,500 C188,520 185,540 182,560',
+  ];
+  for (let r = 0; r < rootPaths.length; r++) {
+    const root = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    root.setAttribute('d', rootPaths[r]);
+    root.setAttribute('stroke', r < 2 ? '#2d1a10' : r < 4 ? '#261510' : '#1f100c');
+    root.setAttribute('stroke-width', r < 2 ? '5' : r < 4 ? '3.5' : r < 6 ? '2.5' : r < 8 ? '1.5' : '2');
+    root.setAttribute('fill', 'none');
+    root.setAttribute('stroke-linecap', 'round');
+    root.setAttribute('opacity', r < 4 ? '0.7' : '0.5');
+    treeSvg.appendChild(root);
+  }
+
+  // Bioluminescent veins on roots — faint glowing lines
+  const glowVeins = [
+    'M150,500 C138,512 112,524 78,532',
+    'M216,500 C228,512 248,524 282,532',
+    'M170,500 C172,518 174,536 177,555',
+    'M190,500 C188,518 186,536 183,555',
+  ];
+  for (let v = 0; v < glowVeins.length; v++) {
+    const vein = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    vein.setAttribute('d', glowVeins[v]);
+    vein.setAttribute('stroke', 'rgba(80,220,140,.25)');
+    vein.setAttribute('stroke-width', '1.5');
+    vein.setAttribute('fill', 'none');
+    vein.setAttribute('filter', 'url(#treeGlow)');
+    vein.setAttribute('class', 'root-vein');
+    treeSvg.appendChild(vein);
+  }
+
+  // Trunk bioluminescent patches — faint glowing areas on bark
+  const trunkGlows = [
+    { cx: 178, cy: 300, rx: 6, ry: 12 },
+    { cx: 182, cy: 360, rx: 5, ry: 10 },
+    { cx: 176, cy: 420, rx: 4, ry: 8 },
+    { cx: 184, cy: 460, rx: 5, ry: 9 },
+  ];
+  for (let tg = 0; tg < trunkGlows.length; tg++) {
+    const g = trunkGlows[tg];
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    glow.setAttribute('cx', String(g.cx));
+    glow.setAttribute('cy', String(g.cy));
+    glow.setAttribute('rx', String(g.rx));
+    glow.setAttribute('ry', String(g.ry));
+    glow.setAttribute('fill', 'rgba(60,200,120,.1)');
+    glow.setAttribute('filter', 'url(#treeGlow)');
+    glow.setAttribute('class', 'trunk-glow');
+    treeSvg.appendChild(glow);
+  }
+
+  treeEl.appendChild(treeSvg);
+  container.appendChild(treeEl);
 
   // ================================================================
   // Decorative glowing mushrooms — 3D miniatures of in-game mushrooms
@@ -256,6 +491,21 @@ export function initIntro(completeFn) {
     container.appendChild(mush);
     mushDecor.push({ el: mush, cap: cap, delay: mp.delay, phase: Math.random() * 6.28, s: s, capW: capW });
   }
+
+  // ================================================================
+  // Title glow halo — multi-layer breathing glow behind the title
+  // ================================================================
+  titleGlowEl = document.createElement('div');
+  titleGlowEl.style.cssText =
+    'position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);' +
+    'width:clamp(400px,70vw,800px);height:clamp(80px,12vh,160px);border-radius:50%;' +
+    'pointer-events:none;opacity:0;' +
+    'background:radial-gradient(ellipse,' +
+      'rgba(100,255,200,.12) 0%,' +
+      'rgba(60,220,160,.06) 30%,' +
+      'rgba(40,180,130,.03) 55%,' +
+      'transparent 80%);';
+  container.appendChild(titleGlowEl);
 
   // ================================================================
   // Title — clean serif with subtle glow
@@ -475,10 +725,12 @@ export function initIntro(completeFn) {
     requestAnimationFrame(() => {
       titleEl.style.transition = 'opacity 2.5s ease';
       titleEl.style.opacity = '1';
+      if (titleGlowEl) { titleGlowEl.style.transition = 'opacity 3s ease'; titleGlowEl.style.opacity = '1'; }
       titleSubEl.style.transition = 'opacity 2s ease 1s';
       titleSubEl.style.opacity = '0.6';
       for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '1';
       if (ambientGlowEl) ambientGlowEl.style.opacity = '1';
+      if (treeEl) { treeEl.style.transition = 'opacity 3.5s ease 0.3s'; treeEl.style.opacity = '0.8'; }
       // Stagger mushroom fade-ins
       for (let i = 0; i < mushDecor.length; i++) {
         const m = mushDecor[i];
@@ -502,11 +754,13 @@ export function startIntro() {
 
   // Fade title + pixie + decorations out, black screen goes fully black
   titleEl.style.opacity = '0';
+  if (titleGlowEl) titleGlowEl.style.opacity = '0';
   titleSubEl.style.opacity = '0';
   pixieEl.style.opacity = '0';
   pixieTrailEl.style.opacity = '0';
   for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '0';
   for (let i = 0; i < mushDecor.length; i++) mushDecor[i].el.style.opacity = '0';
+  if (treeEl) treeEl.style.opacity = '0';
   if (ambientGlowEl) ambientGlowEl.style.opacity = '0';
   if (matrixCanvas) matrixCanvas.style.opacity = '0';
   // Hide dust particles
@@ -560,6 +814,8 @@ export function updateIntro(dt, camera) {
     animatePixie(titleTime);
     animatePufflings(titleTime);
     animateMushrooms(titleTime);
+    animateTitleGlow(titleTime);
+    animateTree(titleTime);
     renderMatrix(titleTime, dt);
     updateDust(dt);
     return;
@@ -763,6 +1019,70 @@ function animatePufflings(t) {
 }
 
 // ================================================================
+// Tree animation — pulsing bioluminescence on canopy and roots
+// ================================================================
+function animateTree(t) {
+  if (!treeEl) return;
+  const svg = treeEl.querySelector('svg');
+  if (!svg) return;
+
+  // Pulse canopy glow
+  const canopyGlow = svg.querySelector('.canopy-glow');
+  if (canopyGlow) {
+    const cPulse = Math.sin(t * 0.6) * 0.5 + 0.5;
+    canopyGlow.setAttribute('opacity', String(0.6 + cPulse * 0.4));
+    canopyGlow.setAttribute('ry', String(110 + cPulse * 8));
+  }
+
+  // Pulse leaf cluster inner glows
+  const leafInners = svg.querySelectorAll('.leaf-inner');
+  for (let i = 0; i < leafInners.length; i++) {
+    const phase = i * 0.7;
+    const pulse = Math.sin(t * 0.9 + phase) * 0.5 + 0.5;
+    leafInners[i].setAttribute('fill', 'rgba(60,220,130,' + (0.08 + pulse * 0.12) + ')');
+  }
+
+  // Pulse root veins
+  const veins = svg.querySelectorAll('.root-vein');
+  for (let i = 0; i < veins.length; i++) {
+    const phase = i * 1.2;
+    const pulse = Math.sin(t * 0.7 + phase) * 0.5 + 0.5;
+    veins[i].setAttribute('stroke', 'rgba(80,220,140,' + (0.15 + pulse * 0.2) + ')');
+  }
+
+  // Pulse trunk bioluminescent patches
+  const trunkGlows = svg.querySelectorAll('.trunk-glow');
+  for (let i = 0; i < trunkGlows.length; i++) {
+    const phase = i * 1.5 + 2.0;
+    const pulse = Math.sin(t * 0.8 + phase) * 0.5 + 0.5;
+    trunkGlows[i].setAttribute('fill', 'rgba(60,200,120,' + (0.06 + pulse * 0.1) + ')');
+  }
+}
+
+// ================================================================
+// Title glow — multi-layer breathing halo behind the title text
+// ================================================================
+function animateTitleGlow(t) {
+  if (!titleGlowEl) return;
+  // Slow breathing cycle — 4-second inhale/exhale
+  const breath = Math.sin(t * 0.8) * 0.5 + 0.5; // 0→1
+  const scale = 1.0 + breath * 0.3;  // 1.0→1.3 size pulse
+  const opacity = 0.5 + breath * 0.5; // 0.5→1.0 brightness
+
+  titleGlowEl.style.transform = 'translate(-50%,-50%) scale(' + scale + ')';
+  titleGlowEl.style.opacity = String(opacity);
+
+  // Also pulse the title's own drop-shadow filter for inner glow
+  if (titleEl) {
+    const innerGlow = 12 + breath * 12;
+    const outerGlow = 30 + breath * 25;
+    titleEl.style.filter =
+      'drop-shadow(0 0 ' + innerGlow + 'px rgba(100,255,200,' + (0.35 + breath * 0.25) + '))' +
+      ' drop-shadow(0 0 ' + outerGlow + 'px rgba(50,200,150,' + (0.1 + breath * 0.15) + '))';
+  }
+}
+
+// ================================================================
 // Mushroom glow animation — emissive cap pulse like in-game
 // ================================================================
 function animateMushrooms(t) {
@@ -923,12 +1243,14 @@ function updateDust(dt) {
 }
 
 // ================================================================
-// Matrix / digital background — cold, broken archive effect
-// Fades in every few seconds, barely perceptible
+// Digital tunnel — perspective corridor we're traveling through
+// Wireframe grid receding to vanishing point with data pulses
+// Represents navigating the interior of the Archive
 // ================================================================
-const _matrixChars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ{}[]<>/:;!?$%&#@|\\'.split('');
-let _matrixColumns = [];
-let _matrixPhase = 0; // cycles 0→1 for fade in/out
+const TUNNEL_RINGS = 18;    // number of depth rings
+const TUNNEL_SIDES = 8;     // octagonal cross-section
+const TUNNEL_PULSES_MAX = 6;
+let _tunnelPulses = [];     // data pulses traveling down the tunnel
 
 function renderMatrix(t, dt) {
   if (!matrixCanvas || !matrixCtx) return;
@@ -937,83 +1259,155 @@ function renderMatrix(t, dt) {
   const ch = matrixCanvas.clientHeight;
   if (cw === 0 || ch === 0) return;
 
-  // Resize canvas to match container
   if (matrixCanvas.width !== cw || matrixCanvas.height !== ch) {
     matrixCanvas.width = cw;
     matrixCanvas.height = ch;
-    // Reinitialize columns
-    const colW = 14;
-    const cols = Math.ceil(cw / colW);
-    _matrixColumns = [];
-    for (let c = 0; c < cols; c++) {
-      _matrixColumns.push({
-        x: c * colW,
-        y: Math.random() * ch,
-        speed: 30 + Math.random() * 80,
-        chars: []
-      });
-    }
   }
 
-  // Cycle: 6s period — fade in over 1.5s, hold 1s, fade out over 1.5s, dark 2s
-  const cycle = t % 6.0;
+  // Cycle: 8s period — fade in 2s, hold 3s, fade out 2s, dark 1s
+  const cycle = t % 8.0;
   let alpha = 0;
-  if (cycle < 1.5) {
-    alpha = (cycle / 1.5) * 0.12; // fade in to max 0.12
-  } else if (cycle < 2.5) {
-    alpha = 0.12; // hold
-  } else if (cycle < 4.0) {
-    alpha = ((4.0 - cycle) / 1.5) * 0.12; // fade out
+  if (cycle < 2.0) {
+    alpha = (cycle / 2.0) * 0.18;
+  } else if (cycle < 5.0) {
+    alpha = 0.18;
+  } else if (cycle < 7.0) {
+    alpha = ((7.0 - cycle) / 2.0) * 0.18;
   }
-  // 4.0-6.0: darkness (alpha stays 0)
 
   matrixCanvas.style.opacity = String(alpha);
   if (alpha < 0.001) return;
 
   const ctx = matrixCtx;
-  // Dim previous frame — creates trail effect
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  // Clear with very slight trail for ghosting effect
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.fillRect(0, 0, cw, ch);
 
-  ctx.font = '12px monospace';
+  const cx = cw * 0.5;
+  const cy = ch * 0.5;
 
-  for (let c = 0; c < _matrixColumns.length; c++) {
-    const col = _matrixColumns[c];
-    col.y += col.speed * dt;
-    if (col.y > ch + 40) {
-      col.y = -20 - Math.random() * 100;
-      col.speed = 30 + Math.random() * 80;
+  // Vanishing point drifts slowly
+  const vpx = cx + Math.sin(t * 0.15) * cw * 0.05;
+  const vpy = cy + Math.cos(t * 0.11) * ch * 0.04;
+
+  // Camera moves forward through tunnel — rings approach
+  const zOffset = (t * 0.4) % 1.0; // 0→1 repeating forward motion
+
+  // Draw tunnel rings from far to near
+  for (let r = TUNNEL_RINGS - 1; r >= 0; r--) {
+    // Depth parameter: 0 = closest, 1 = farthest
+    const rawDepth = (r + zOffset) / TUNNEL_RINGS;
+    const depth = rawDepth * rawDepth; // quadratic for perspective compression
+
+    // Ring size: large when close, tiny at vanishing point
+    const ringScale = 0.08 + (1.0 - depth) * 1.5;
+    const ringW = cw * ringScale * 0.5;
+    const ringH = ch * ringScale * 0.45;
+
+    // Position: interpolate from vanishing point to screen edges
+    const ringCx = vpx + (cx - vpx) * (1.0 - depth);
+    const ringCy = vpy + (cy - vpy) * (1.0 - depth);
+
+    // Ring opacity: fades at distance and up close
+    const fadeNear = Math.min(1, rawDepth * 4);     // fade when very close
+    const fadeFar = Math.min(1, (1 - rawDepth) * 3); // fade at distance
+    const ringAlpha = fadeNear * fadeFar * 0.6;
+    if (ringAlpha < 0.01) continue;
+
+    // Draw octagonal ring
+    ctx.strokeStyle = 'rgba(0,' + Math.floor(140 + (1 - depth) * 80) + ',60,' + ringAlpha + ')';
+    ctx.lineWidth = 0.5 + (1 - depth) * 1.0;
+    ctx.beginPath();
+    for (let s = 0; s <= TUNNEL_SIDES; s++) {
+      const angle = (s / TUNNEL_SIDES) * Math.PI * 2 + t * 0.05; // slow rotation
+      const px = ringCx + Math.cos(angle) * ringW;
+      const py = ringCy + Math.sin(angle) * ringH;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Longitudinal lines connecting this ring to the next (every other ring)
+    if (r < TUNNEL_RINGS - 1 && r % 2 === 0) {
+      const nextRawDepth = (r + 1 + zOffset) / TUNNEL_RINGS;
+      const nextDepth = nextRawDepth * nextRawDepth;
+      const nextScale = 0.08 + (1.0 - nextDepth) * 1.5;
+      const nextW = cw * nextScale * 0.5;
+      const nextH = ch * nextScale * 0.45;
+      const nextCx = vpx + (cx - vpx) * (1.0 - nextDepth);
+      const nextCy = vpy + (cy - vpy) * (1.0 - nextDepth);
+
+      ctx.strokeStyle = 'rgba(0,' + Math.floor(100 + (1 - depth) * 60) + ',50,' + (ringAlpha * 0.4) + ')';
+      ctx.lineWidth = 0.4;
+      for (let s = 0; s < TUNNEL_SIDES; s += 2) {
+        const angle = (s / TUNNEL_SIDES) * Math.PI * 2 + t * 0.05;
+        const px1 = ringCx + Math.cos(angle) * ringW;
+        const py1 = ringCy + Math.sin(angle) * ringH;
+        const px2 = nextCx + Math.cos(angle) * nextW;
+        const py2 = nextCy + Math.sin(angle) * nextH;
+        ctx.beginPath();
+        ctx.moveTo(px1, py1);
+        ctx.lineTo(px2, py2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Data pulses — bright rings that rush toward us along the tunnel
+  // Spawn new pulses
+  if (_tunnelPulses.length < TUNNEL_PULSES_MAX && Math.random() < 0.02) {
+    _tunnelPulses.push({
+      z: 1.0,        // starts at far end
+      speed: 0.15 + Math.random() * 0.2,
+      hue: Math.random() < 0.5 ? 140 : 180, // green or cyan
+      width: 1.5 + Math.random() * 1.5
+    });
+  }
+
+  // Update and draw pulses
+  for (let i = _tunnelPulses.length - 1; i >= 0; i--) {
+    const pulse = _tunnelPulses[i];
+    pulse.z -= pulse.speed * dt;
+    if (pulse.z < -0.1) {
+      _tunnelPulses.splice(i, 1);
+      continue;
     }
 
-    // Draw a few chars in this column trailing down
-    const trailLen = 4 + Math.floor(Math.random() * 6);
-    for (let r = 0; r < trailLen; r++) {
-      const ry = col.y - r * 14;
-      if (ry < -14 || ry > ch + 14) continue;
-      const brightness = 1 - r / trailLen;
-      const g = Math.floor(120 + brightness * 135);
-      ctx.fillStyle = 'rgba(0,' + g + ',40,' + (brightness * 0.7) + ')';
-      const ch2 = _matrixChars[Math.floor(Math.random() * _matrixChars.length)];
-      ctx.fillText(ch2, col.x, ry);
+    const depth = pulse.z * pulse.z;
+    const ringScale = 0.08 + (1.0 - depth) * 1.5;
+    const ringW = cw * ringScale * 0.5;
+    const ringH = ch * ringScale * 0.45;
+    const ringCx = vpx + (cx - vpx) * (1.0 - depth);
+    const ringCy = vpy + (cy - vpy) * (1.0 - depth);
+
+    const fadeNear = Math.min(1, pulse.z * 3);
+    const fadeFar = Math.min(1, (1 - pulse.z) * 3);
+    const pulseAlpha = fadeNear * fadeFar * 0.8;
+
+    ctx.strokeStyle = 'hsla(' + pulse.hue + ',80%,60%,' + pulseAlpha + ')';
+    ctx.lineWidth = pulse.width + (1 - depth) * 2;
+    ctx.shadowColor = 'hsla(' + pulse.hue + ',80%,50%,' + (pulseAlpha * 0.5) + ')';
+    ctx.shadowBlur = 8 + (1 - depth) * 12;
+    ctx.beginPath();
+    for (let s = 0; s <= TUNNEL_SIDES; s++) {
+      const angle = (s / TUNNEL_SIDES) * Math.PI * 2 + t * 0.05;
+      const px = ringCx + Math.cos(angle) * ringW;
+      const py = ringCy + Math.sin(angle) * ringH;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
     }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
-  // Occasional horizontal scan line
-  if (Math.random() < 0.03) {
-    const sy = Math.random() * ch;
-    ctx.fillStyle = 'rgba(0,180,60,0.08)';
-    ctx.fillRect(0, sy, cw, 1);
-  }
-
-  // Rare glitch block
-  if (Math.random() < 0.01) {
-    const gx = Math.random() * cw;
-    const gy = Math.random() * ch;
-    const gw = 20 + Math.random() * 60;
-    const gh = 5 + Math.random() * 15;
-    ctx.fillStyle = 'rgba(0,150,50,0.06)';
-    ctx.fillRect(gx, gy, gw, gh);
-  }
+  // Vanishing point glow — distant light at end of tunnel
+  const vpGlow = 0.04 + Math.sin(t * 0.7) * 0.02;
+  const grad = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, 60);
+  grad.addColorStop(0, 'rgba(0,200,80,' + vpGlow + ')');
+  grad.addColorStop(0.5, 'rgba(0,150,60,' + (vpGlow * 0.3) + ')');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(vpx - 60, vpy - 60, 120, 120);
 }
 
 // ================================================================

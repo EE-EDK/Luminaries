@@ -157,7 +157,7 @@ export function makePuff(x, z) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, ears, eyes, tail, sparkles, crownMat,
+    group: g, ears, eyes, tail, sparkles, crownMat, bodyMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _followT: 0, _scaredT: 0, _huddleTarget: -1,

@@ -77,6 +77,11 @@ export const DIMMING_WAVE_SPEED = 30;   // Restoration wave expansion speed (m/s
 // Light budget: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
 export const MAX_CRYSTAL_LIGHTS = 5;
 
+// Creature Attunement (Phase 2)
+export const ATTUNE_RATE = 0.15;       // attunement gain per second while matching
+export const ATTUNE_DECAY = 0.05;      // attunement loss per second when not matching
+export const ATTUNE_SPRINT_R2 = 64;    // squared distance: must sprint within 8m
+
 // Deer AI
 export const DEER_FLEE_R = 8;
 export const DEER_FLEE_SPEED_MULT = 2.2;

@@ -5,6 +5,7 @@ import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
+import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 
 const _orbGoldColor = new THREE.Color(C.orbGold);
 const _whiteColor = new THREE.Color(0xffffff);
@@ -43,6 +44,11 @@ let stopLaserHumsFn = null;
 
 // Dimming callback (Phase 2)
 let notifyOrbCollectedFn = null;
+
+// Orb rejection callbacks + state (Phase 2: Activation Gate)
+let playOrbRejectFn = null;
+let showOrbRejectHintFn = null;
+let orbRejectCooldown = 0; // prevent spam
 
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
@@ -186,10 +192,14 @@ export function initQuest(config) {
   playLaserHumFn = config.playLaserHum || null;
   stopLaserHumsFn = config.stopLaserHums || null;
   notifyOrbCollectedFn = config.notifyOrbCollected || null;
+  playOrbRejectFn = config.playOrbReject || null;
+  showOrbRejectHintFn = config.showOrbRejectHint || null;
   initGlitter();
 }
 
 export function updateQuest(dt, t) {
+  if (orbRejectCooldown > 0) orbRejectCooldown -= dt;
+
   // Orb proximity light — find nearest unfound orb
   let nearestOrb = null, nearestD = Infinity;
   for (let i = 0; i < orbs.length; i++) {
@@ -246,22 +256,33 @@ export function updateQuest(dt, t) {
         ch.position.y = Math.sin(sa * 2 + t) * 0.1;
       }
 
-      // Touch detection
+      // Touch detection — requires creature frequency (Phase 2: Activation Gate)
       if (dist2 < ORB_TOUCH_R * ORB_TOUCH_R) {
-        o.found = true;
-        o._flashing = true;
-        o._flashTimer = 0;
-        o.flyY = o.group.position.y;
-        orbsFound++;
-        // Update HUD
-        const hud = orbHudEl || document.getElementById('orb-hud');
-        if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
-        // Start rising on first orb
-        if (questPhase === 'SEEK') questPhase = 'RISING';
-        // Play collection sound
-        if (playOrbCollectFn) playOrbCollectFn();
-        // Notify dimming system — start restoration wave
-        if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
+        const freq = getPlayerFrequency();
+        if (freq) {
+          // Player carries a creature frequency — orb activates
+          o.found = true;
+          o._flashing = true;
+          o._flashTimer = 0;
+          o.flyY = o.group.position.y;
+          orbsFound++;
+          // Consume the frequency — must re-attune for next orb
+          consumeFrequency();
+          // Update HUD
+          const hud = orbHudEl || document.getElementById('orb-hud');
+          if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
+          // Start rising on first orb
+          if (questPhase === 'SEEK') questPhase = 'RISING';
+          // Play collection sound
+          if (playOrbCollectFn) playOrbCollectFn();
+          // Notify dimming system — start restoration wave
+          if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
+        } else if (orbRejectCooldown <= 0) {
+          // No frequency — orb rejects with dim pulse + hint
+          if (playOrbRejectFn) playOrbRejectFn();
+          if (showOrbRejectHintFn) showOrbRejectHintFn();
+          orbRejectCooldown = 3; // 3s between rejection hints
+        }
       }
     }
 

@@ -63,6 +63,9 @@ let container = null;
 let titleEl = null;
 let titleSubEl = null;
 let blackScreen = null;
+let matrixCanvas = null; // canvas for matrix/digital background effect
+let matrixCtx = null;
+let ambientGlowEl = null; // screen-wide glow that follows pixie
 let fantasyEl = null;
 let terminalEl = null;
 let attuneEl = null;
@@ -103,101 +106,155 @@ export function initIntro(completeFn) {
   container.appendChild(blackScreen);
 
   // ================================================================
-  // Decorative glowing mushrooms around the title
+  // Matrix / digital background — barely perceptible, cold, unsettling
+  // Represents the adult "Chronobiological Archive" layer
+  // ================================================================
+  matrixCanvas = document.createElement('canvas');
+  matrixCanvas.style.cssText =
+    'position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;' +
+    'mix-blend-mode:screen;';
+  container.appendChild(matrixCanvas);
+  matrixCtx = matrixCanvas.getContext('2d');
+
+  // Ambient glow — large soft radial that follows pixie position
+  ambientGlowEl = document.createElement('div');
+  ambientGlowEl.style.cssText =
+    'position:absolute;width:400px;height:400px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,rgba(80,255,180,.06) 0%,rgba(50,220,150,.03) 30%,transparent 65%);' +
+    'opacity:0;transition:opacity 2s ease;';
+  container.appendChild(ambientGlowEl);
+
+  // ================================================================
+  // Decorative glowing mushrooms — 3D miniatures of in-game mushrooms
+  // Colors: cap #8833ee, glow #cc77ff, stem #2a1140
+  // Structure: hemispherical cap, collar ring, gills, stem, volva bulb,
+  //            white dots, dew drops, mycelium threads, ground glow
   // ================================================================
   const mushPositions = [
-    { x: '8%',  y: '60%', scale: 1.0,  delay: 0,    hue: 270 },
-    { x: '14%', y: '66%', scale: 0.6,  delay: 0.4,  hue: 280 },
-    { x: '20%', y: '62%', scale: 0.75, delay: 0.2,  hue: 260 },
-    { x: '80%', y: '61%', scale: 0.85, delay: 0.15, hue: 275 },
-    { x: '86%', y: '67%', scale: 0.55, delay: 0.55, hue: 290 },
-    { x: '92%', y: '63%', scale: 0.7,  delay: 0.3,  hue: 265 },
+    { x: '7%',  y: '62%', scale: 1.1,  delay: 0,    lean: -4 },
+    { x: '15%', y: '70%', scale: 0.55, delay: 0.5,  lean: 6 },
+    { x: '22%', y: '64%', scale: 0.8,  delay: 0.2,  lean: -2 },
+    { x: '78%', y: '63%', scale: 0.9,  delay: 0.15, lean: 3 },
+    { x: '85%', y: '71%', scale: 0.5,  delay: 0.6,  lean: -5 },
+    { x: '93%', y: '65%', scale: 0.75, delay: 0.3,  lean: 2 },
   ];
   for (let i = 0; i < mushPositions.length; i++) {
     const mp = mushPositions[i];
+    const s = mp.scale;
     const mush = document.createElement('div');
-    const sz = Math.round(36 * mp.scale);
-    const capH = Math.round(sz * 0.55);
-    const stemW = Math.round(sz * 0.22);
-    const stemH = Math.round(sz * 0.55);
     mush.style.cssText =
       'position:absolute;pointer-events:none;' +
-      'left:' + mp.x + ';top:' + mp.y + ';transform:translate(-50%,-100%);' +
-      'opacity:0;';
+      'left:' + mp.x + ';top:' + mp.y + ';' +
+      'transform:translate(-50%,-100%) rotate(' + mp.lean + 'deg);' +
+      'opacity:0;filter:drop-shadow(0 0 ' + Math.round(12 * s) + 'px rgba(136,51,238,.5))' +
+      ' drop-shadow(0 0 ' + Math.round(25 * s) + 'px rgba(204,119,255,.25));';
 
-    // Mushroom cap — layered gradients for depth
+    // Mushroom cap — hemispherical dome shape
+    const capW = Math.round(48 * s);
+    const capH = Math.round(28 * s);
     const cap = document.createElement('div');
     cap.style.cssText =
-      'position:relative;width:' + sz + 'px;height:' + capH + 'px;' +
-      'background:radial-gradient(ellipse at 50% 90%,' +
-        'hsl(' + mp.hue + ',60%,55%) 0%,' +
-        'hsl(' + mp.hue + ',55%,40%) 35%,' +
-        'hsl(' + mp.hue + ',50%,25%) 70%,' +
-        'transparent 100%);' +
-      'border-radius:50% 50% 15% 15%;margin:0 auto;';
+      'position:relative;width:' + capW + 'px;height:' + capH + 'px;' +
+      'background:radial-gradient(ellipse at 45% 85%,' +
+        '#aa55ff 0%,#8833ee 25%,#6622bb 50%,#441188 75%,#220055 100%);' +
+      'border-radius:50% 50% 12% 12%;margin:0 auto;overflow:hidden;';
     mush.appendChild(cap);
 
-    // Inner highlight on cap
-    const highlight = document.createElement('div');
-    highlight.style.cssText =
-      'position:absolute;top:15%;left:25%;width:50%;height:40%;' +
-      'background:radial-gradient(ellipse,' +
-        'hsla(' + mp.hue + ',70%,75%,.4) 0%,transparent 70%);' +
+    // Specular highlight on cap top
+    const spec = document.createElement('div');
+    spec.style.cssText =
+      'position:absolute;top:8%;left:28%;width:44%;height:50%;' +
+      'background:radial-gradient(ellipse at 50% 30%,' +
+        'rgba(220,180,255,.45) 0%,rgba(170,100,255,.15) 40%,transparent 70%);' +
       'border-radius:50%;';
-    cap.appendChild(highlight);
+    cap.appendChild(spec);
 
-    // Gill lines under cap
+    // Gill structure under cap — radial lines fanning from center
+    const gillW = Math.round(capW * 0.8);
+    const gillH = Math.round(capH * 0.3);
     const gills = document.createElement('div');
     gills.style.cssText =
-      'position:absolute;bottom:0;left:15%;width:70%;height:25%;' +
-      'background:repeating-linear-gradient(90deg,' +
-        'hsla(' + mp.hue + ',40%,30%,.6) 0px,' +
-        'hsla(' + mp.hue + ',40%,30%,.6) 1px,' +
-        'transparent 1px,transparent 3px);' +
-      'border-radius:0 0 40% 40%;opacity:0.5;';
+      'position:absolute;bottom:0;left:50%;transform:translateX(-50%);' +
+      'width:' + gillW + 'px;height:' + gillH + 'px;' +
+      'background:repeating-conic-gradient(from 0deg at 50% 0%,' +
+        'rgba(102,34,170,.5) 0deg,transparent 4deg,transparent 8deg);' +
+      'border-radius:0 0 50% 50%;opacity:0.6;' +
+      'mask-image:radial-gradient(ellipse at 50% 0%,black 40%,transparent 100%);' +
+      '-webkit-mask-image:radial-gradient(ellipse at 50% 0%,black 40%,transparent 100%);';
     cap.appendChild(gills);
 
-    // Bioluminescent spots on cap
-    const spotCount = 2 + Math.floor(mp.scale * 3);
-    for (let d = 0; d < spotCount; d++) {
-      const spot = document.createElement('div');
-      const spotSz = Math.round(2 + mp.scale * 2.5);
-      const spotX = 20 + (d * 60 / spotCount) + Math.sin(d * 2.7) * 10;
-      const spotY = 15 + Math.cos(d * 3.1) * 20;
-      spot.className = 'mush-spot';
-      spot.style.cssText =
-        'position:absolute;width:' + spotSz + 'px;height:' + spotSz + 'px;border-radius:50%;' +
-        'background:hsla(' + (mp.hue - 20) + ',80%,80%,.9);' +
-        'box-shadow:0 0 ' + (spotSz * 2) + 'px hsla(' + (mp.hue - 20) + ',80%,70%,.6),' +
-          '0 0 ' + (spotSz * 4) + 'px hsla(' + (mp.hue - 20) + ',60%,60%,.25);' +
-        'top:' + spotY + '%;left:' + spotX + '%;';
-      cap.appendChild(spot);
+    // White dots on cap (like amanita spots)
+    const dotCount = 2 + Math.round(s * 3);
+    for (let d = 0; d < dotCount; d++) {
+      const dot = document.createElement('div');
+      const dotSz = Math.round(2.5 * s + 1.5);
+      const dx = 18 + (d * 55 / dotCount) + Math.sin(d * 3.7 + i) * 12;
+      const dy = 10 + Math.cos(d * 2.3 + i) * 22;
+      dot.style.cssText =
+        'position:absolute;width:' + dotSz + 'px;height:' + Math.round(dotSz * 0.7) + 'px;' +
+        'border-radius:50%;background:rgba(255,255,255,.85);' +
+        'box-shadow:0 0 ' + Math.round(dotSz) + 'px rgba(255,255,255,.4);' +
+        'top:' + dy + '%;left:' + dx + '%;';
+      cap.appendChild(dot);
     }
 
-    // Stem — gradient with subtle texture
+    // Collar ring where cap meets stem
+    const collarW = Math.round(16 * s);
+    const collar = document.createElement('div');
+    collar.style.cssText =
+      'width:' + collarW + 'px;height:' + Math.round(3 * s + 1) + 'px;margin:-1px auto 0;' +
+      'background:linear-gradient(to bottom,#7744cc,#5522aa);' +
+      'border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.3);';
+    mush.appendChild(collar);
+
+    // Stem — tapered cylinder with dimension
+    const stemW = Math.round(10 * s);
+    const stemH = Math.round(22 * s);
     const stem = document.createElement('div');
     stem.style.cssText =
-      'width:' + stemW + 'px;height:' + stemH + 'px;' +
+      'position:relative;width:' + stemW + 'px;height:' + stemH + 'px;margin:0 auto;' +
       'background:linear-gradient(to right,' +
-        'hsl(' + mp.hue + ',30%,25%) 0%,' +
-        'hsl(' + mp.hue + ',25%,38%) 40%,' +
-        'hsl(' + mp.hue + ',30%,28%) 100%);' +
-      'margin:-1px auto 0;border-radius:2px 2px 3px 3px;' +
-      'box-shadow:inset -1px 0 2px rgba(0,0,0,.2);';
+        '#1a0a30 0%,#2a1140 25%,#3a1855 50%,#2a1140 75%,#1a0a30 100%);' +
+      'border-radius:2px 2px 4px 4px;' +
+      'box-shadow:inset -2px 0 3px rgba(0,0,0,.3),inset 1px 0 2px rgba(100,50,180,.2);';
     mush.appendChild(stem);
 
-    // Ground glow beneath mushroom
-    const groundGlow = document.createElement('div');
-    const glowW = Math.round(sz * 1.4);
-    groundGlow.style.cssText =
-      'width:' + glowW + 'px;height:' + Math.round(sz * 0.25) + 'px;' +
+    // Volva bulb at stem base
+    const volvaW = Math.round(14 * s);
+    const volvaH = Math.round(8 * s);
+    const volva = document.createElement('div');
+    volva.style.cssText =
+      'width:' + volvaW + 'px;height:' + volvaH + 'px;margin:-2px auto 0;' +
+      'background:radial-gradient(ellipse at 50% 30%,#3a1855,#2a1140,#1a0a30);' +
+      'border-radius:50%;';
+    mush.appendChild(volva);
+
+    // Mycelium threads radiating from base
+    for (let m = 0; m < 3; m++) {
+      const thread = document.createElement('div');
+      const tw = Math.round(18 * s + m * 6 * s);
+      const angle = -30 + m * 30;
+      thread.style.cssText =
+        'position:absolute;bottom:' + Math.round(-2 * s) + 'px;' +
+        'left:50%;transform:translateX(-50%) rotate(' + angle + 'deg);' +
+        'width:' + tw + 'px;height:1px;' +
+        'background:linear-gradient(to right,transparent,' +
+          'rgba(68,34,170,.35) 30%,rgba(68,34,170,.35) 70%,transparent);';
+      mush.appendChild(thread);
+    }
+
+    // Ground glow pool
+    const glowPool = document.createElement('div');
+    const poolW = Math.round(capW * 1.6);
+    glowPool.style.cssText =
+      'width:' + poolW + 'px;height:' + Math.round(poolW * 0.3) + 'px;' +
       'background:radial-gradient(ellipse,' +
-        'hsla(' + mp.hue + ',60%,50%,.25) 0%,transparent 70%);' +
-      'margin:-2px auto 0;';
-    mush.appendChild(groundGlow);
+        'rgba(136,51,238,.2) 0%,rgba(204,119,255,.08) 40%,transparent 70%);' +
+      'margin:' + Math.round(-4 * s) + 'px auto 0;';
+    mush.appendChild(glowPool);
 
     container.appendChild(mush);
-    mushDecor.push({ el: mush, cap: cap, delay: mp.delay, phase: Math.random() * 6.28, hue: mp.hue, sz: sz });
+    mushDecor.push({ el: mush, cap: cap, delay: mp.delay, phase: Math.random() * 6.28, s: s, capW: capW });
   }
 
   // ================================================================
@@ -239,42 +296,98 @@ export function initIntro(completeFn) {
   container.appendChild(titleEl);
 
   // ================================================================
-  // Two puffling elements — the dots of each I in LUMINARIES
+  // Two puffling elements — 3D miniatures as dots of each I
+  // Colors: body #ffddcc, glow #ffaa88, eyes #222, cheeks #ff8899,
+  //         belly #fff0e0, tail white, ears pink inside
+  // Structure: round body, head, belly patch, ears, eyes w/ highlights,
+  //            nose, cheeks, tiny feet w/ toe beans, fluffy tail, sparkles
   // ================================================================
   pufflingEls = [];
   for (let pi = 0; pi < 2; pi++) {
     const puff = document.createElement('div');
-    const pSz = 16; // puffling body size in pixels
+    // Total puffling height ~28px, width ~22px
+    const w = 22, h = 28;
     puff.style.cssText =
-      'position:absolute;pointer-events:none;opacity:0;transition:opacity 1.5s ease;';
-    puff.innerHTML =
-      '<div style="position:relative;width:' + pSz + 'px;height:' + pSz + 'px;">' +
-        // Body — warm round shape with depth
-        '<div style="position:absolute;width:' + pSz + 'px;height:' + Math.round(pSz * 0.9) + 'px;border-radius:50%;' +
-          'background:radial-gradient(ellipse at 38% 32%,#fff5e0 0%,#f0cc80 25%,#d4a050 55%,#b07830 100%);' +
-          'box-shadow:0 0 8px rgba(240,200,120,.6),0 0 16px rgba(200,160,60,.3),' +
-          '0 1px 2px rgba(0,0,0,.3);"></div>' +
-        // Eyes — small, expressive
-        '<div style="position:absolute;width:3px;height:3.5px;border-radius:50%;background:#1a0800;' +
-          'top:' + Math.round(pSz * 0.28) + 'px;left:' + Math.round(pSz * 0.26) + 'px;"></div>' +
-        '<div style="position:absolute;width:3px;height:3.5px;border-radius:50%;background:#1a0800;' +
-          'top:' + Math.round(pSz * 0.28) + 'px;left:' + Math.round(pSz * 0.56) + 'px;"></div>' +
-        // Eye highlights
-        '<div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:rgba(255,255,255,.7);' +
-          'top:' + Math.round(pSz * 0.26) + 'px;left:' + Math.round(pSz * 0.30) + 'px;"></div>' +
-        '<div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:rgba(255,255,255,.7);' +
-          'top:' + Math.round(pSz * 0.26) + 'px;left:' + Math.round(pSz * 0.60) + 'px;"></div>' +
-        // Beak
-        '<div style="position:absolute;width:4px;height:2.5px;background:#e08030;border-radius:50%;' +
-          'top:' + Math.round(pSz * 0.48) + 'px;left:' + Math.round(pSz * 0.38) + 'px;"></div>' +
-        // Tiny feet
-        '<div style="position:absolute;width:3.5px;height:2px;background:#c07030;border-radius:0 0 1.5px 1.5px;' +
-          'top:' + Math.round(pSz * 0.88) + 'px;left:' + Math.round(pSz * 0.22) + 'px;"></div>' +
-        '<div style="position:absolute;width:3.5px;height:2px;background:#c07030;border-radius:0 0 1.5px 1.5px;' +
-          'top:' + Math.round(pSz * 0.88) + 'px;left:' + Math.round(pSz * 0.58) + 'px;"></div>' +
-      '</div>';
+      'position:absolute;pointer-events:none;opacity:0;transition:opacity 1.5s ease;' +
+      'filter:drop-shadow(0 0 6px rgba(255,170,136,.6)) drop-shadow(0 0 14px rgba(255,170,136,.3));';
+
+    let html = '<div style="position:relative;width:' + w + 'px;height:' + h + 'px;">';
+
+    // Body — large round shape (lower portion)
+    html += '<div style="position:absolute;left:1px;top:10px;width:20px;height:18px;border-radius:50%;' +
+      'background:radial-gradient(ellipse at 40% 35%,#fff5e8 0%,#ffddcc 30%,#eebb99 65%,#cc9966 100%);' +
+      'box-shadow:0 0 8px rgba(255,170,136,.4);"></div>';
+
+    // Belly patch — lighter cream oval on front
+    html += '<div style="position:absolute;left:5px;top:13px;width:12px;height:12px;border-radius:50%;' +
+      'background:radial-gradient(ellipse,#fff5e8 0%,rgba(255,240,224,.5) 60%,transparent 100%);"></div>';
+
+    // Head — slightly smaller sphere overlapping body top
+    html += '<div style="position:absolute;left:3px;top:2px;width:16px;height:14px;border-radius:50%;' +
+      'background:radial-gradient(ellipse at 42% 38%,#fff8f0 0%,#ffddcc 35%,#eebb99 70%,#cc9966 100%);' +
+      'box-shadow:0 0 6px rgba(255,170,136,.3);"></div>';
+
+    // Ears — two pointed ovals with pink insides
+    html += '<div style="position:absolute;left:2px;top:-1px;width:5px;height:8px;' +
+      'background:linear-gradient(to bottom,#eebb99,#ddaa88);' +
+      'border-radius:50% 50% 30% 30%;transform:rotate(-12deg);"></div>';
+    html += '<div style="position:absolute;left:3px;top:0px;width:3px;height:5px;' +
+      'background:linear-gradient(to bottom,#ff8899,#ee7788);' +
+      'border-radius:50% 50% 30% 30%;transform:rotate(-12deg);"></div>';
+    html += '<div style="position:absolute;left:15px;top:-1px;width:5px;height:8px;' +
+      'background:linear-gradient(to bottom,#eebb99,#ddaa88);' +
+      'border-radius:50% 50% 30% 30%;transform:rotate(12deg);"></div>';
+    html += '<div style="position:absolute;left:16px;top:0px;width:3px;height:5px;' +
+      'background:linear-gradient(to bottom,#ff8899,#ee7788);' +
+      'border-radius:50% 50% 30% 30%;transform:rotate(12deg);"></div>';
+
+    // Eyes — dark with white catch-lights
+    html += '<div style="position:absolute;left:6px;top:6px;width:3.5px;height:4px;border-radius:50%;' +
+      'background:radial-gradient(circle at 40% 35%,#444,#222,#111);"></div>';
+    html += '<div style="position:absolute;left:12px;top:6px;width:3.5px;height:4px;border-radius:50%;' +
+      'background:radial-gradient(circle at 40% 35%,#444,#222,#111);"></div>';
+    // Eye highlights
+    html += '<div style="position:absolute;left:6.5px;top:6px;width:1.5px;height:1.5px;border-radius:50%;' +
+      'background:white;"></div>';
+    html += '<div style="position:absolute;left:12.5px;top:6px;width:1.5px;height:1.5px;border-radius:50%;' +
+      'background:white;"></div>';
+
+    // Cheeks — pink blush circles
+    html += '<div style="position:absolute;left:3px;top:9px;width:4px;height:3px;border-radius:50%;' +
+      'background:radial-gradient(ellipse,rgba(255,136,153,.6),transparent);"></div>';
+    html += '<div style="position:absolute;left:15px;top:9px;width:4px;height:3px;border-radius:50%;' +
+      'background:radial-gradient(ellipse,rgba(255,136,153,.6),transparent);"></div>';
+
+    // Nose
+    html += '<div style="position:absolute;left:10px;top:9.5px;width:2px;height:1.5px;border-radius:50%;' +
+      'background:#553333;"></div>';
+
+    // Feet — rounded with toe bean suggestion
+    html += '<div style="position:absolute;left:4px;top:25px;width:5px;height:3px;' +
+      'background:radial-gradient(ellipse at 50% 30%,#eebb99,#cc9966);' +
+      'border-radius:50% 50% 40% 40%;"></div>';
+    html += '<div style="position:absolute;left:13px;top:25px;width:5px;height:3px;' +
+      'background:radial-gradient(ellipse at 50% 30%,#eebb99,#cc9966);' +
+      'border-radius:50% 50% 40% 40%;"></div>';
+    // Toe beans
+    html += '<div style="position:absolute;left:5px;top:26px;width:1.5px;height:1px;border-radius:50%;' +
+      'background:rgba(255,170,170,.6);"></div>';
+    html += '<div style="position:absolute;left:7px;top:26px;width:1.5px;height:1px;border-radius:50%;' +
+      'background:rgba(255,170,170,.6);"></div>';
+    html += '<div style="position:absolute;left:14px;top:26px;width:1.5px;height:1px;border-radius:50%;' +
+      'background:rgba(255,170,170,.6);"></div>';
+    html += '<div style="position:absolute;left:16px;top:26px;width:1.5px;height:1px;border-radius:50%;' +
+      'background:rgba(255,170,170,.6);"></div>';
+
+    // Tail pom — bright white fluffy ball at back
+    html += '<div style="position:absolute;left:0px;top:16px;width:5px;height:5px;border-radius:50%;' +
+      'background:radial-gradient(circle at 45% 40%,white,#eeddcc);' +
+      'box-shadow:0 0 4px rgba(255,170,136,.5);"></div>';
+
+    html += '</div>';
+    puff.innerHTML = html;
     container.appendChild(puff);
-    pufflingEls.push({ el: puff, hopOffset: pi * 0.45 }); // stagger hops
+    pufflingEls.push({ el: puff, hopOffset: pi * 0.45, w: w, h: h });
   }
 
   titleSubEl = document.createElement('div');
@@ -286,24 +399,24 @@ export function initIntro(completeFn) {
   container.appendChild(titleSubEl);
 
   // ================================================================
-  // Pixie sprite — larger glowing orb with richer glow
+  // Pixie sprite — big luminous orb with screen-wide glow wash
   // ================================================================
   pixieEl = document.createElement('div');
   pixieEl.style.cssText =
-    'position:absolute;width:12px;height:12px;border-radius:50%;pointer-events:none;' +
-    'background:radial-gradient(circle,#ccffee 0%,#66ddaa 30%,#33aa77 60%,transparent 80%);' +
-    'box-shadow:0 0 10px #88ffcc,0 0 20px #44dd99,0 0 35px rgba(50,220,150,.35),' +
-    '0 0 50px rgba(50,200,130,.15);' +
+    'position:absolute;width:18px;height:18px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,#eeffff 0%,#ccffee 15%,#66ddaa 35%,#33aa77 55%,transparent 75%);' +
+    'box-shadow:0 0 15px #aaffdd,0 0 30px #66eebb,0 0 60px rgba(80,240,170,.4),' +
+    '0 0 120px rgba(50,220,150,.2),0 0 200px rgba(50,200,130,.08);' +
     'opacity:0.9;transition:opacity 1s ease;';
   container.appendChild(pixieEl);
 
-  // Pixie trail — smaller, fainter, follows with delay
+  // Pixie trail — medium glow that follows
   pixieTrailEl = document.createElement('div');
   pixieTrailEl.style.cssText =
-    'position:absolute;width:7px;height:7px;border-radius:50%;pointer-events:none;' +
-    'background:radial-gradient(circle,#88eebb 0%,#33aa77 50%,transparent 70%);' +
-    'box-shadow:0 0 6px #44cc88,0 0 14px rgba(50,200,130,.25);' +
-    'opacity:0.45;transition:opacity 1s ease;';
+    'position:absolute;width:10px;height:10px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,#aaeedd 0%,#44bb88 40%,transparent 70%);' +
+    'box-shadow:0 0 10px #55cc99,0 0 25px rgba(60,210,140,.3),0 0 50px rgba(50,200,130,.12);' +
+    'opacity:0.5;transition:opacity 1s ease;';
   container.appendChild(pixieTrailEl);
 
   // ================================================================
@@ -365,6 +478,7 @@ export function initIntro(completeFn) {
       titleSubEl.style.transition = 'opacity 2s ease 1s';
       titleSubEl.style.opacity = '0.6';
       for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '1';
+      if (ambientGlowEl) ambientGlowEl.style.opacity = '1';
       // Stagger mushroom fade-ins
       for (let i = 0; i < mushDecor.length; i++) {
         const m = mushDecor[i];
@@ -393,6 +507,8 @@ export function startIntro() {
   pixieTrailEl.style.opacity = '0';
   for (let i = 0; i < pufflingEls.length; i++) pufflingEls[i].el.style.opacity = '0';
   for (let i = 0; i < mushDecor.length; i++) mushDecor[i].el.style.opacity = '0';
+  if (ambientGlowEl) ambientGlowEl.style.opacity = '0';
+  if (matrixCanvas) matrixCanvas.style.opacity = '0';
   // Hide dust particles
   for (let i = 0; i < dustEls.length; i++) dustEls[i].style.opacity = '0';
   blackScreen.style.background = '#000';
@@ -444,6 +560,7 @@ export function updateIntro(dt, camera) {
     animatePixie(titleTime);
     animatePufflings(titleTime);
     animateMushrooms(titleTime);
+    renderMatrix(titleTime, dt);
     updateDust(dt);
     return;
   }
@@ -463,11 +580,13 @@ export function updateIntro(dt, camera) {
     }
 
     case 'NARRATION': {
+      // Each card: [dark gap 0.8s] [fade in 1.2s] [hold] [fade out 1.2s]
+      // Total card time = NARRATION_PER_CARD (7s)
+      const DARK_GAP = 0.8; // darkness between cards
       const cardTime = phaseTimer % NARRATION_PER_CARD;
       const cardIndex = Math.floor(phaseTimer / NARRATION_PER_CARD);
 
       if (cardIndex >= NARRATION.length) {
-        // Narration complete — start camera sweep
         phase = 'SWEEP';
         phaseTimer = 0;
         sweepProgress = 0;
@@ -484,38 +603,45 @@ export function updateIntro(dt, camera) {
 
       const card = NARRATION[narrationIndex];
 
-      // Fantasy text — slow dramatic fade in, hold, then fade out
-      if (cardTime < NARRATION_FADE) {
-        // Fade in over 1.2s
-        fantasyEl.style.opacity = String(cardTime / NARRATION_FADE);
-      } else if (cardTime > NARRATION_PER_CARD - NARRATION_FADE) {
-        // Fade out over last 1.2s
-        fantasyEl.style.opacity = String((NARRATION_PER_CARD - cardTime) / NARRATION_FADE);
-      } else {
-        // Hold at full opacity in the middle
-        fantasyEl.style.opacity = '1';
-      }
-      fantasyEl.textContent = card.fantasy;
+      // Effective time within the visible portion (after dark gap)
+      const visTime = cardTime - DARK_GAP;
+      const visDuration = NARRATION_PER_CARD - DARK_GAP;
 
-      // Terminal typing effect — slower for dramatic effect
-      const typingDelay = 0.5; // start typing after fantasy fades in
-      const charsPerSec = 25;  // slower typing (was 40)
-      if (cardTime > typingDelay) {
-        const elapsed = cardTime - typingDelay;
-        narrationCharIndex = Math.min(
-          Math.floor(elapsed * charsPerSec),
-          card.terminal.length
-        );
-      }
-      terminalEl.textContent = card.terminal.substring(0, narrationCharIndex);
-
-      // Terminal fade matches fantasy with slight delay
-      if (cardTime < NARRATION_FADE + typingDelay) {
-        terminalEl.style.opacity = String(Math.min(1, (cardTime - typingDelay * 0.5) / NARRATION_FADE));
-      } else if (cardTime > NARRATION_PER_CARD - NARRATION_FADE) {
-        terminalEl.style.opacity = String((NARRATION_PER_CARD - cardTime) / NARRATION_FADE);
+      if (visTime < 0) {
+        // In the dark gap — both texts invisible
+        fantasyEl.style.opacity = '0';
+        terminalEl.style.opacity = '0';
       } else {
-        terminalEl.style.opacity = '0.8';
+        // Fantasy text — fade in, hold, fade out
+        if (visTime < NARRATION_FADE) {
+          fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
+        } else if (visTime > visDuration - NARRATION_FADE) {
+          fantasyEl.style.opacity = String((visDuration - visTime) / NARRATION_FADE);
+        } else {
+          fantasyEl.style.opacity = '1';
+        }
+        fantasyEl.textContent = card.fantasy;
+
+        // Terminal typing effect
+        const typingDelay = 0.5;
+        const charsPerSec = 25;
+        if (visTime > typingDelay) {
+          const elapsed = visTime - typingDelay;
+          narrationCharIndex = Math.min(
+            Math.floor(elapsed * charsPerSec),
+            card.terminal.length
+          );
+        }
+        terminalEl.textContent = card.terminal.substring(0, narrationCharIndex);
+
+        // Terminal fade matches fantasy with slight delay
+        if (visTime < NARRATION_FADE + typingDelay) {
+          terminalEl.style.opacity = String(Math.min(1, (visTime - typingDelay * 0.5) / NARRATION_FADE));
+        } else if (visTime > visDuration - NARRATION_FADE) {
+          terminalEl.style.opacity = String((visDuration - visTime) / NARRATION_FADE);
+        } else {
+          terminalEl.style.opacity = '0.8';
+        }
       }
 
       break;
@@ -582,12 +708,11 @@ export function updateIntro(dt, camera) {
 }
 
 // ================================================================
-// Puffling animation — two pufflings as the dots of both I's
+// Puffling animation — two 3D pufflings as the dots of both I's
 // ================================================================
 function animatePufflings(t) {
   if (!pufflingEls.length || !titleEl) return;
 
-  // Find the I-column spans via data attribute
   const iCols = titleEl.querySelectorAll('[data-i-col]');
   if (iCols.length < 2) return;
 
@@ -599,127 +724,135 @@ function animatePufflings(t) {
     const colRect = col.getBoundingClientRect();
     if (!colRect.width) continue;
 
-    // Puffling sits centered above the stem, as the dot of the I
-    const pSz = 16;
     const centerX = colRect.left + colRect.width * 0.5;
-    // Position above the stem — gap between dot and stem
+    // Position above the stem bar — the puffling IS the dot
     const stemTop = colRect.top;
-    const baseY = stemTop - pSz * 0.5 - 3; // small gap above stem
+    const baseY = stemTop - pData.h * 0.5 - 4;
 
-    // Gentle hop animation — subtle bounce in place
-    const hopT = t * 1.4 + pData.hopOffset * Math.PI * 2;
+    // Gentle hop cycle — staggered between the two pufflings
+    const hopT = t * 1.3 + pData.hopOffset * Math.PI * 2;
     const hopCycle = hopT % 1.0;
     let hopY = 0;
-    if (hopCycle < 0.2) {
-      // Rise
-      const p = hopCycle / 0.2;
-      hopY = -Math.sin(p * Math.PI * 0.5) * 6;
-    } else if (hopCycle < 0.35) {
-      // Fall
-      const p = (hopCycle - 0.2) / 0.15;
-      hopY = -Math.cos(p * Math.PI * 0.5) * 6;
+    if (hopCycle < 0.18) {
+      const p = hopCycle / 0.18;
+      hopY = -Math.sin(p * Math.PI * 0.5) * 7;
+    } else if (hopCycle < 0.32) {
+      const p = (hopCycle - 0.18) / 0.14;
+      hopY = -Math.cos(p * Math.PI * 0.5) * 7;
     }
-    // 0.35-1.0: resting
 
-    // Tiny squash/stretch on landing
+    // Squash on landing, stretch on rise
     let scaleX = 1, scaleY = 1;
-    if (hopCycle >= 0.33 && hopCycle < 0.42) {
-      const sq = (hopCycle - 0.33) / 0.09;
-      scaleX = 1 + Math.sin(sq * Math.PI) * 0.12;
-      scaleY = 1 - Math.sin(sq * Math.PI) * 0.08;
+    if (hopCycle < 0.05) {
+      // Pre-jump crouch
+      scaleX = 1 + hopCycle / 0.05 * 0.08;
+      scaleY = 1 - hopCycle / 0.05 * 0.06;
+    } else if (hopCycle >= 0.30 && hopCycle < 0.40) {
+      // Landing squash
+      const sq = (hopCycle - 0.30) / 0.10;
+      scaleX = 1 + Math.sin(sq * Math.PI) * 0.1;
+      scaleY = 1 - Math.sin(sq * Math.PI) * 0.07;
     }
 
-    // Slight tilt during hop
-    const tilt = hopCycle < 0.35 ? Math.sin(hopCycle * Math.PI * 3) * 4 : 0;
+    const tilt = hopCycle < 0.32 ? Math.sin(hopCycle * Math.PI * 3) * 3.5 : 0;
 
-    pData.el.style.left = (centerX - pSz * 0.5) + 'px';
+    pData.el.style.left = (centerX - pData.w * 0.5) + 'px';
     pData.el.style.top = (baseY + hopY) + 'px';
     pData.el.style.transform = 'rotate(' + tilt + 'deg) scale(' + scaleX + ',' + scaleY + ')';
   }
 }
 
 // ================================================================
-// Mushroom glow animation — pulsing bioluminescence
+// Mushroom glow animation — emissive cap pulse like in-game
 // ================================================================
 function animateMushrooms(t) {
   for (let i = 0; i < mushDecor.length; i++) {
     const m = mushDecor[i];
-    // Slow organic pulse — each mushroom slightly different
-    const pulse = Math.sin(t * 1.2 + m.phase) * 0.5 + 0.5; // 0 to 1
-    const brightness = 0.85 + pulse * 0.35;
-    const glowIntensity = 0.15 + pulse * 0.2;
-    const glowSpread = Math.round(m.sz * 0.5 + pulse * m.sz * 0.3);
+    // Slow organic pulse — emissive intensity breathing
+    const pulse = Math.sin(t * 1.0 + m.phase) * 0.5 + 0.5; // 0 to 1
+    const brightness = 0.9 + pulse * 0.3;
+    const glowSpread = Math.round(m.capW * 0.4 + pulse * m.capW * 0.4);
+    const glowAlpha = 0.3 + pulse * 0.25;
 
     if (m.cap) {
       m.cap.style.filter = 'brightness(' + brightness + ')';
       m.cap.style.boxShadow =
-        '0 0 ' + glowSpread + 'px hsla(' + m.hue + ',60%,55%,' + glowIntensity + '),' +
-        '0 0 ' + (glowSpread * 2) + 'px hsla(' + m.hue + ',50%,45%,' + (glowIntensity * 0.4) + ')';
+        '0 0 ' + glowSpread + 'px rgba(136,51,238,' + glowAlpha + '),' +
+        '0 0 ' + (glowSpread * 2) + 'px rgba(204,119,255,' + (glowAlpha * 0.35) + ')';
     }
+    // Whole mushroom drop-shadow pulses too
+    const dropGlow = Math.round(12 * m.s + pulse * 10 * m.s);
+    m.el.style.filter =
+      'drop-shadow(0 0 ' + dropGlow + 'px rgba(136,51,238,' + (0.4 + pulse * 0.2) + '))' +
+      ' drop-shadow(0 0 ' + (dropGlow * 2) + 'px rgba(204,119,255,' + (0.15 + pulse * 0.1) + '))';
   }
 }
 
 // ================================================================
-// Pixie animation — chaotic random movement with dust trail
+// Pixie animation — smooth sweeping arcs across entire screen
+// Uses Lissajous curves for graceful looping trajectories
 // ================================================================
+function pixiePos(t) {
+  // Lissajous with irrational frequency ratios = never-repeating smooth arcs
+  // Wide coverage of the full screen area
+  const a = 0.55; // x frequency
+  const b = 0.71; // y frequency (irrational ratio to a)
+  const d = Math.PI * 0.37; // phase offset
+  const x = Math.sin(a * t + d);
+  const y = Math.sin(b * t);
+  // Add a slow secondary wobble for variety
+  const wx = Math.sin(t * 0.17) * 0.15;
+  const wy = Math.cos(t * 0.13) * 0.12;
+  return { nx: x * 0.42 + wx, ny: y * 0.38 + wy };
+}
+
 function animatePixie(t) {
   if (!pixieEl || !container) return;
 
   const cw = container.clientWidth;
   const ch = container.clientHeight;
   const cx = cw * 0.5;
-  const cy = ch * 0.42;
+  const cy = ch * 0.48;
 
-  // Gentle figure-8 orbit
-  const angle = t * 0.4;
-  const radiusX = Math.min(cw * 0.25, 250);
-  const radiusY = 35;
+  // Smooth Lissajous arc position
+  const pos = pixiePos(t);
+  const px = cx + pos.nx * cw;
+  const py = cy + pos.ny * ch;
 
-  // Smooth noise layers — gentle, organic drift (no fast twitching)
-  const n1x = (smoothNoise(t, 0.35) - 0.5) * 70;   // slow wide wander
-  const n1y = (smoothNoise(t + 50, 0.4) - 0.5) * 50;
-  const n2x = (smoothNoise(t, 1.1) - 0.5) * 25;    // medium drift
-  const n2y = (smoothNoise(t + 100, 1.0) - 0.5) * 20;
+  // Clamp to container with padding
+  const clampedX = Math.max(20, Math.min(cw - 30, px));
+  const clampedY = Math.max(20, Math.min(ch - 30, py));
 
-  // Rare, gentle direction shifts (not sharp darts)
-  const drift = Math.sin(t * 2.3) > 0.85 ? Math.sin(t * 4.1) * 20 : 0;
-  const driftY = Math.cos(t * 1.9) > 0.88 ? Math.cos(t * 3.7) * 15 : 0;
+  pixieEl.style.left = (clampedX - 9) + 'px';
+  pixieEl.style.top = (clampedY - 9) + 'px';
 
-  const px = cx + Math.cos(angle) * radiusX + Math.sin(angle * 0.5) * radiusX * 0.2 + n1x + n2x + drift;
-  const py = cy + Math.sin(angle * 1.3) * radiusY + n1y + n2y + driftY;
+  // Breathing glow — smooth intensity cycles
+  const breath = 0.75 + Math.sin(t * 1.3) * 0.15 + Math.sin(t * 2.7) * 0.06;
+  pixieEl.style.opacity = String(Math.max(0.6, Math.min(1, breath)));
 
-  // Clamp to container bounds
-  const clampedX = Math.max(10, Math.min(cw - 20, px));
-  const clampedY = Math.max(10, Math.min(ch - 20, py));
-
-  pixieEl.style.left = (clampedX - 6) + 'px';
-  pixieEl.style.top = (clampedY - 6) + 'px';
-
-  // Gentle breathing glow — no harsh flickering
-  const breath = 0.7 + Math.sin(t * 1.8) * 0.15 + Math.sin(t * 3.1) * 0.08;
-  pixieEl.style.opacity = String(Math.max(0.5, Math.min(0.95, breath)));
-
-  // Smooth glow size variation
-  const glowSize = 10 + Math.sin(t * 1.5) * 3;
+  // Dynamic glow size — pulses gently
+  const glowBase = 15 + Math.sin(t * 1.1) * 4;
   pixieEl.style.boxShadow =
-    '0 0 ' + glowSize + 'px #88ffcc,' +
-    '0 0 ' + (glowSize * 2) + 'px #44dd99,' +
-    '0 0 ' + (glowSize * 3.5) + 'px rgba(50,220,150,.3)';
+    '0 0 ' + glowBase + 'px #aaffdd,' +
+    '0 0 ' + (glowBase * 2) + 'px #66eebb,' +
+    '0 0 ' + (glowBase * 4) + 'px rgba(80,240,170,.35),' +
+    '0 0 ' + (glowBase * 8) + 'px rgba(50,220,150,.15),' +
+    '0 0 ' + (glowBase * 14) + 'px rgba(50,200,130,.06)';
 
-  // Trail — follows smoothly with time offset
-  const trailT = t - 0.5;
-  const trailAngle = trailT * 0.4;
-  const tn1x = (smoothNoise(trailT, 0.35) - 0.5) * 70;
-  const tn1y = (smoothNoise(trailT + 50, 0.4) - 0.5) * 50;
-  const tn2x = (smoothNoise(trailT, 1.1) - 0.5) * 25;
-  const tn2y = (smoothNoise(trailT + 100, 1.0) - 0.5) * 20;
-  const tx = cx + Math.cos(trailAngle) * radiusX + Math.sin(trailAngle * 0.5) * radiusX * 0.2 + tn1x + tn2x;
-  const ty = cy + Math.sin(trailAngle * 1.3) * radiusY + tn1y + tn2y;
-  const ctX = Math.max(10, Math.min(cw - 15, tx));
-  const ctY = Math.max(10, Math.min(ch - 15, ty));
-  pixieTrailEl.style.left = (ctX - 3) + 'px';
-  pixieTrailEl.style.top = (ctY - 3) + 'px';
-  pixieTrailEl.style.opacity = String(0.25 + Math.sin(t * 1.5 - 0.5) * 0.1);
+  // Trail — follows on the same arc with time offset
+  const trailPos = pixiePos(t - 0.6);
+  const trailX = Math.max(20, Math.min(cw - 25, cx + trailPos.nx * cw));
+  const trailY = Math.max(20, Math.min(ch - 25, cy + trailPos.ny * ch));
+  pixieTrailEl.style.left = (trailX - 5) + 'px';
+  pixieTrailEl.style.top = (trailY - 5) + 'px';
+  pixieTrailEl.style.opacity = String(0.3 + Math.sin(t * 1.3 - 0.5) * 0.1);
+
+  // Ambient glow follows pixie — huge soft radial wash
+  if (ambientGlowEl) {
+    ambientGlowEl.style.left = (clampedX - 200) + 'px';
+    ambientGlowEl.style.top = (clampedY - 200) + 'px';
+    ambientGlowEl.style.opacity = String(0.5 + Math.sin(t * 0.9) * 0.3);
+  }
 
   // Spawn pixie dust from current position
   spawnDust(clampedX, clampedY);
@@ -786,6 +919,100 @@ function updateDust(dt) {
     el.style.height = (p.size * lifeRatio) + 'px';
     el.style.opacity = String(opacity);
     el.style.boxShadow = '0 0 ' + Math.round(p.size * lifeRatio * 2) + 'px rgba(100,255,200,' + (opacity * 0.5) + ')';
+  }
+}
+
+// ================================================================
+// Matrix / digital background — cold, broken archive effect
+// Fades in every few seconds, barely perceptible
+// ================================================================
+const _matrixChars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ{}[]<>/:;!?$%&#@|\\'.split('');
+let _matrixColumns = [];
+let _matrixPhase = 0; // cycles 0→1 for fade in/out
+
+function renderMatrix(t, dt) {
+  if (!matrixCanvas || !matrixCtx) return;
+
+  const cw = matrixCanvas.clientWidth;
+  const ch = matrixCanvas.clientHeight;
+  if (cw === 0 || ch === 0) return;
+
+  // Resize canvas to match container
+  if (matrixCanvas.width !== cw || matrixCanvas.height !== ch) {
+    matrixCanvas.width = cw;
+    matrixCanvas.height = ch;
+    // Reinitialize columns
+    const colW = 14;
+    const cols = Math.ceil(cw / colW);
+    _matrixColumns = [];
+    for (let c = 0; c < cols; c++) {
+      _matrixColumns.push({
+        x: c * colW,
+        y: Math.random() * ch,
+        speed: 30 + Math.random() * 80,
+        chars: []
+      });
+    }
+  }
+
+  // Cycle: 6s period — fade in over 1.5s, hold 1s, fade out over 1.5s, dark 2s
+  const cycle = t % 6.0;
+  let alpha = 0;
+  if (cycle < 1.5) {
+    alpha = (cycle / 1.5) * 0.12; // fade in to max 0.12
+  } else if (cycle < 2.5) {
+    alpha = 0.12; // hold
+  } else if (cycle < 4.0) {
+    alpha = ((4.0 - cycle) / 1.5) * 0.12; // fade out
+  }
+  // 4.0-6.0: darkness (alpha stays 0)
+
+  matrixCanvas.style.opacity = String(alpha);
+  if (alpha < 0.001) return;
+
+  const ctx = matrixCtx;
+  // Dim previous frame — creates trail effect
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(0, 0, cw, ch);
+
+  ctx.font = '12px monospace';
+
+  for (let c = 0; c < _matrixColumns.length; c++) {
+    const col = _matrixColumns[c];
+    col.y += col.speed * dt;
+    if (col.y > ch + 40) {
+      col.y = -20 - Math.random() * 100;
+      col.speed = 30 + Math.random() * 80;
+    }
+
+    // Draw a few chars in this column trailing down
+    const trailLen = 4 + Math.floor(Math.random() * 6);
+    for (let r = 0; r < trailLen; r++) {
+      const ry = col.y - r * 14;
+      if (ry < -14 || ry > ch + 14) continue;
+      const brightness = 1 - r / trailLen;
+      const g = Math.floor(120 + brightness * 135);
+      ctx.fillStyle = 'rgba(0,' + g + ',40,' + (brightness * 0.7) + ')';
+      const ch2 = _matrixChars[Math.floor(Math.random() * _matrixChars.length)];
+      ctx.fillText(ch2, col.x, ry);
+    }
+  }
+
+  // Occasional horizontal scan line
+  if (Math.random() < 0.03) {
+    const sy = Math.random() * ch;
+    ctx.fillStyle = 'rgba(0,180,60,0.08)';
+    ctx.fillRect(0, sy, cw, 1);
+  }
+
+  // Rare glitch block
+  if (Math.random() < 0.01) {
+    const gx = Math.random() * cw;
+    const gy = Math.random() * ch;
+    const gw = 20 + Math.random() * 60;
+    const gh = 5 + Math.random() * 15;
+    ctx.fillStyle = 'rgba(0,150,50,0.06)';
+    ctx.fillRect(gx, gy, gw, gh);
   }
 }
 

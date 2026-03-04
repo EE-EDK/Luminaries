@@ -1246,7 +1246,7 @@ function updatePuffs(dt, t) {
 
     // Update terrain-relative base Y only when moved enough (avoid per-frame noise calc)
     const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
-    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.25) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
+    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
 
     // Batch 2 Item 7: Puffling flocking — gather neighbors for boid forces
     const puffPos = { x: px, z: pz };
@@ -1296,7 +1296,7 @@ function updatePuffs(dt, t) {
         } else {
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
           g.position.x += Math.sin(p.wanderAng) * p.speed * puffSpeedMult * dt;
-          g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
+          g.position.z += Math.cos(p.wanderAng) * p.speed * puffSpeedMult * dt;
           // Squash/stretch on body + head only — face meshes stay undistorted
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
           const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;

@@ -151,7 +151,7 @@ export function makeRock(x, z) {
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, x, z, colR: mainR * 0.8 };
+  return { group: g, x, z, colR: mainR * 0.55 };
 }
 
 // ================================================================
@@ -215,7 +215,7 @@ export function makeBoulder(x, z) {
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, x, z, colR: mainR * 0.9 };
+  return { group: g, x, z, colR: mainR * 0.65 };
 }
 
 // ================================================================

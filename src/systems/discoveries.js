@@ -53,7 +53,7 @@ function showDiscovery(key) {
   if (discovered[key]) return;
   discovered[key] = true;
   fadeText = labels[key];
-  fadeTimer = 3.0;
+  fadeTimer = 5.0;
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
@@ -64,7 +64,7 @@ export function showOrbDiscovery(orbIndex) {
   const text = orbLabels[orbIndex];
   if (!text) return;
   fadeText = text;
-  fadeTimer = 4.0; // slightly longer than creature discoveries
+  fadeTimer = 6.0; // orb discoveries hold even longer
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
@@ -142,7 +142,7 @@ export function showOrbRejectHint() {
 export function updateDiscoveryUI(dt) {
   if (fadeTimer > 0) {
     fadeTimer -= dt;
-    if (fadeTimer <= 0.6 && discoveryEl) {
+    if (fadeTimer <= 1.0 && discoveryEl) {
       discoveryEl.style.opacity = '0';
     }
   }

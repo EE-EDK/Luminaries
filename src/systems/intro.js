@@ -68,12 +68,20 @@ let terminalEl = null;
 let attuneEl = null;
 let pixieEl = null;
 let pixieTrailEl = null;
+let mushDecor = []; // decorative mushroom elements
+let pufflingEl = null; // puffling that hops as the 'i'
+
+// Pixie dust particle pool
+const DUST_MAX = 24;
+let dustEls = [];
+let dustParticles = [];
 
 // Camera sweep parameters
 const SWEEP_START_Y = 120;
 const SWEEP_DURATION = 8.0;
-const NARRATION_PER_CARD = 3.5; // seconds per text pair
-const NARRATION_FADE = 0.6;     // fade in/out duration
+const NARRATION_PER_CARD = 7.0; // seconds per text pair — slow and dramatic
+const NARRATION_FADE = 1.2;     // fade in/out duration
+const NARRATION_HOLD = 5.0;     // hold at full opacity when complete
 
 // ================================================================
 // Init — create DOM structure (called at startup)
@@ -85,60 +93,171 @@ export function initIntro(completeFn) {
   container = document.createElement('div');
   container.id = 'intro-cinematic';
   container.style.cssText =
-    'position:fixed;top:0;left:0;width:100%;height:100%;z-index:300;pointer-events:auto;';
+    'position:fixed;top:0;left:0;width:100%;height:100%;z-index:300;pointer-events:auto;overflow:hidden;';
 
   // Dark grey backdrop — visible immediately, covers the 3D scene
   blackScreen = document.createElement('div');
   blackScreen.style.cssText =
-    'position:absolute;top:0;left:0;width:100%;height:100%;background:#222;opacity:1;' +
+    'position:absolute;top:0;left:0;width:100%;height:100%;background:#111;opacity:1;' +
     'transition:opacity 1.2s ease;';
   container.appendChild(blackScreen);
 
-  // Title — single line, responsive size
+  // ================================================================
+  // Decorative glowing mushrooms around the title
+  // ================================================================
+  const mushPositions = [
+    { x: '12%', y: '52%', scale: 0.7, delay: 0 },
+    { x: '18%', y: '58%', scale: 0.5, delay: 0.3 },
+    { x: '82%', y: '54%', scale: 0.65, delay: 0.15 },
+    { x: '88%', y: '60%', scale: 0.45, delay: 0.5 },
+    { x: '25%', y: '62%', scale: 0.4, delay: 0.7 },
+    { x: '75%', y: '63%', scale: 0.35, delay: 0.6 },
+    { x: '35%', y: '58%', scale: 0.55, delay: 0.4 },
+    { x: '65%', y: '57%', scale: 0.5, delay: 0.25 },
+  ];
+  for (let i = 0; i < mushPositions.length; i++) {
+    const mp = mushPositions[i];
+    const mush = document.createElement('div');
+    mush.style.cssText =
+      'position:absolute;pointer-events:none;' +
+      'left:' + mp.x + ';top:' + mp.y + ';transform:translate(-50%,-100%);' +
+      'opacity:0;transition:opacity 2s ease;';
+
+    // Mushroom cap (rounded top)
+    const cap = document.createElement('div');
+    const sz = Math.round(28 * mp.scale);
+    cap.style.cssText =
+      'width:' + sz + 'px;height:' + Math.round(sz * 0.6) + 'px;' +
+      'background:radial-gradient(ellipse at 50% 80%,#7744cc 0%,#5522aa 40%,#331177 80%,transparent 100%);' +
+      'border-radius:50% 50% 20% 20%;margin:0 auto;' +
+      'box-shadow:0 0 ' + Math.round(sz * 0.4) + 'px #8855ee,0 0 ' + Math.round(sz * 0.8) + 'px rgba(100,50,200,.3);' +
+      'filter:brightness(1.2);';
+    mush.appendChild(cap);
+
+    // Mushroom stem
+    const stem = document.createElement('div');
+    const stemW = Math.round(sz * 0.25);
+    const stemH = Math.round(sz * 0.5);
+    stem.style.cssText =
+      'width:' + stemW + 'px;height:' + stemH + 'px;' +
+      'background:linear-gradient(to bottom,#6633aa,#442288);' +
+      'margin:0 auto;border-radius:0 0 2px 2px;';
+    mush.appendChild(stem);
+
+    // Glowing dots on cap
+    for (let d = 0; d < 3; d++) {
+      const dot = document.createElement('div');
+      const dotSz = Math.round(3 * mp.scale + 1);
+      dot.style.cssText =
+        'position:absolute;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:50%;' +
+        'background:#ccaaff;box-shadow:0 0 4px #aa88ee;' +
+        'top:' + Math.round(sz * 0.15 + d * 4) + 'px;' +
+        'left:' + Math.round(sz * 0.3 + (d % 2 ? sz * 0.3 : 0)) + 'px;';
+      mush.appendChild(dot);
+    }
+
+    container.appendChild(mush);
+    mushDecor.push({ el: mush, delay: mp.delay, phase: Math.random() * 6.28 });
+  }
+
+  // ================================================================
+  // Title — with dramatic styling
+  // ================================================================
   titleEl = document.createElement('div');
   titleEl.style.cssText =
     'position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:Georgia,serif;font-size:clamp(28px,5vw,48px);color:#aaffdd;letter-spacing:8px;' +
-    'text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25),' +
-    '0 0 60px rgba(50,200,150,.15);' +
-    'text-align:center;opacity:1;transition:opacity 1s ease;white-space:nowrap;';
-  titleEl.textContent = 'L U M I N A R I E S';
+    'font-family:Georgia,\"Times New Roman\",serif;font-size:clamp(32px,5.5vw,56px);' +
+    'color:#aaffdd;letter-spacing:10px;font-weight:bold;' +
+    'text-shadow:0 0 20px rgba(100,255,200,.6),0 0 40px rgba(50,200,150,.35),' +
+    '0 0 80px rgba(50,200,150,.2),0 2px 4px rgba(0,0,0,.5);' +
+    'text-align:center;opacity:0;white-space:nowrap;' +
+    'background:linear-gradient(180deg,#ccffee 0%,#88ddbb 40%,#55aa88 100%);' +
+    '-webkit-background-clip:text;-webkit-text-fill-color:transparent;' +
+    'background-clip:text;' +
+    'filter:drop-shadow(0 0 20px rgba(100,255,200,.5)) drop-shadow(0 0 40px rgba(50,200,150,.25));';
+  // Build title with puffling replacing the 'I'
+  titleEl.innerHTML = 'L U M <span style="display:inline-block;width:0.6em;"></span> N A R <span style="display:inline-block;width:0.6em;"></span> E S';
   container.appendChild(titleEl);
+
+  // Puffling element — hops in place of the 'I' characters
+  pufflingEl = document.createElement('div');
+  pufflingEl.style.cssText =
+    'position:absolute;pointer-events:none;opacity:0;transition:opacity 1.5s ease;';
+  // Build a simple CSS puffling (round body with tiny legs and eyes)
+  pufflingEl.innerHTML =
+    '<div style="position:relative;width:22px;height:22px;">' +
+      // Body
+      '<div style="position:absolute;width:22px;height:20px;border-radius:50%;' +
+        'background:radial-gradient(circle at 40% 35%,#ffeecc,#eebb77,#cc8844);' +
+        'box-shadow:0 0 10px rgba(255,200,100,.5),0 0 20px rgba(200,150,50,.3);"></div>' +
+      // Eyes
+      '<div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#221100;' +
+        'top:6px;left:6px;"></div>' +
+      '<div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#221100;' +
+        'top:6px;left:13px;"></div>' +
+      // Beak
+      '<div style="position:absolute;width:5px;height:3px;background:#ff8844;border-radius:50%;' +
+        'top:11px;left:9px;"></div>' +
+      // Tiny feet
+      '<div style="position:absolute;width:5px;height:3px;background:#cc7733;border-radius:0 0 2px 2px;' +
+        'top:19px;left:5px;"></div>' +
+      '<div style="position:absolute;width:5px;height:3px;background:#cc7733;border-radius:0 0 2px 2px;' +
+        'top:19px;left:13px;"></div>' +
+    '</div>';
+  container.appendChild(pufflingEl);
 
   titleSubEl = document.createElement('div');
   titleSubEl.style.cssText =
-    'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:51%;left:50%;transform:translate(-50%,-50%);' +
     'font-family:\'Courier New\',monospace;font-size:12px;color:#66ccaa;letter-spacing:2px;' +
-    'text-align:center;opacity:0.6;transition:opacity 1s ease;';
+    'text-align:center;opacity:0;transition:opacity 1s ease;';
   titleSubEl.textContent = 'click to begin';
   container.appendChild(titleSubEl);
 
-  // Pixie sprite — small green glowing orb
+  // ================================================================
+  // Pixie sprite — larger glowing orb with richer glow
+  // ================================================================
   pixieEl = document.createElement('div');
   pixieEl.style.cssText =
-    'position:absolute;width:10px;height:10px;border-radius:50%;pointer-events:none;' +
-    'background:radial-gradient(circle,#aaffdd 0%,#44cc88 40%,transparent 70%);' +
-    'box-shadow:0 0 8px #66ffaa,0 0 16px #33cc88,0 0 24px rgba(50,200,130,.3);' +
-    'opacity:0.8;transition:opacity 1s ease;';
+    'position:absolute;width:12px;height:12px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,#ccffee 0%,#66ddaa 30%,#33aa77 60%,transparent 80%);' +
+    'box-shadow:0 0 10px #88ffcc,0 0 20px #44dd99,0 0 35px rgba(50,220,150,.35),' +
+    '0 0 50px rgba(50,200,130,.15);' +
+    'opacity:0.9;transition:opacity 1s ease;';
   container.appendChild(pixieEl);
 
   // Pixie trail — smaller, fainter, follows with delay
   pixieTrailEl = document.createElement('div');
   pixieTrailEl.style.cssText =
-    'position:absolute;width:6px;height:6px;border-radius:50%;pointer-events:none;' +
+    'position:absolute;width:7px;height:7px;border-radius:50%;pointer-events:none;' +
     'background:radial-gradient(circle,#88eebb 0%,#33aa77 50%,transparent 70%);' +
-    'box-shadow:0 0 6px #44cc88,0 0 12px rgba(50,200,130,.2);' +
-    'opacity:0.4;transition:opacity 1s ease;';
+    'box-shadow:0 0 6px #44cc88,0 0 14px rgba(50,200,130,.25);' +
+    'opacity:0.45;transition:opacity 1s ease;';
   container.appendChild(pixieTrailEl);
 
+  // ================================================================
+  // Pixie dust particle pool — pre-create DOM elements
+  // ================================================================
+  for (let i = 0; i < DUST_MAX; i++) {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:absolute;border-radius:50%;pointer-events:none;opacity:0;' +
+      'background:radial-gradient(circle,#aaffdd 0%,#55cc88 60%,transparent 100%);';
+    container.appendChild(el);
+    dustEls.push(el);
+    dustParticles.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, size: 0 });
+  }
+
+  // ================================================================
   // Fantasy text layer (upper center, serif, luminous)
+  // ================================================================
   fantasyEl = document.createElement('div');
   fantasyEl.style.cssText =
     'position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:Georgia,serif;font-size:24px;color:#ccffee;letter-spacing:3px;' +
+    'font-family:Georgia,serif;font-size:clamp(20px,3vw,28px);color:#ccffee;letter-spacing:3px;' +
     'text-shadow:0 0 14px rgba(100,255,200,.6),0 0 30px rgba(50,200,150,.3);' +
-    'text-align:center;max-width:600px;line-height:1.6;opacity:0;' +
-    'transition:opacity 0.6s ease;pointer-events:none;';
+    'text-align:center;max-width:650px;line-height:1.6;opacity:0;' +
+    'transition:opacity 1.2s ease;pointer-events:none;';
   container.appendChild(fantasyEl);
 
   // Terminal text layer (lower center, monospace, green)
@@ -148,7 +267,7 @@ export function initIntro(completeFn) {
     'font-family:\'Courier New\',monospace;font-size:13px;color:#88aa66;letter-spacing:1px;' +
     'text-shadow:0 0 6px rgba(100,180,60,.4),0 0 15px rgba(60,120,30,.2);' +
     'text-align:center;max-width:650px;line-height:1.4;opacity:0;' +
-    'transition:opacity 0.6s ease;pointer-events:none;';
+    'transition:opacity 1.2s ease;pointer-events:none;';
   container.appendChild(terminalEl);
 
   // Final "Attune..." text
@@ -166,6 +285,23 @@ export function initIntro(completeFn) {
   // Hide the old #overlay since we're replacing it
   const oldOverlay = document.getElementById('overlay');
   if (oldOverlay) oldOverlay.style.display = 'none';
+
+  // Fade in title + decorations after a short delay
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      titleEl.style.transition = 'opacity 2.5s ease';
+      titleEl.style.opacity = '1';
+      titleSubEl.style.transition = 'opacity 2s ease 1s';
+      titleSubEl.style.opacity = '0.6';
+      pufflingEl.style.opacity = '1';
+      // Stagger mushroom fade-ins
+      for (let i = 0; i < mushDecor.length; i++) {
+        const m = mushDecor[i];
+        m.el.style.transition = 'opacity ' + (1.5 + m.delay) + 's ease ' + m.delay + 's';
+        m.el.style.opacity = '0.8';
+      }
+    });
+  });
 }
 
 // ================================================================
@@ -179,17 +315,20 @@ export function startIntro() {
   phase = 'FADE_OUT';
   phaseTimer = 0;
 
-  // Fade title + pixie out, black screen goes fully black for narration
+  // Fade title + pixie + decorations out, black screen goes fully black
   titleEl.style.opacity = '0';
   titleSubEl.style.opacity = '0';
   pixieEl.style.opacity = '0';
   pixieTrailEl.style.opacity = '0';
+  if (pufflingEl) pufflingEl.style.opacity = '0';
+  for (let i = 0; i < mushDecor.length; i++) mushDecor[i].el.style.opacity = '0';
+  // Hide dust particles
+  for (let i = 0; i < dustEls.length; i++) dustEls[i].style.opacity = '0';
   blackScreen.style.background = '#000';
 
   // Allow input system through during cinematic
   container.style.pointerEvents = 'none';
 
-  // Also register the click handler removal
   container.removeEventListener('click', onTitleClick);
   container.removeEventListener('touchstart', onTitleClick);
 }
@@ -209,6 +348,20 @@ export function enableTitleClick() {
 }
 
 // ================================================================
+// Pseudo-noise for pixie randomness (deterministic, no imports)
+// ================================================================
+function noise1d(x) {
+  const s = Math.sin(x * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function smoothNoise(t, freq) {
+  const i = Math.floor(t * freq);
+  const f = (t * freq) - i;
+  const smooth = f * f * (3 - 2 * f); // smoothstep
+  return noise1d(i) * (1 - smooth) + noise1d(i + 1) * smooth;
+}
+
+// ================================================================
 // Update — called each frame from animate loop
 // ================================================================
 export function updateIntro(dt, camera) {
@@ -218,6 +371,9 @@ export function updateIntro(dt, camera) {
   if (phase === 'TITLE') {
     titleTime += dt;
     animatePixie(titleTime);
+    animatePuffling(titleTime);
+    animateMushrooms(titleTime);
+    updateDust(dt);
     return;
   }
 
@@ -225,8 +381,8 @@ export function updateIntro(dt, camera) {
 
   switch (phase) {
     case 'FADE_OUT': {
-      // Wait for fade to complete (1.2s transition + 0.3s buffer)
-      if (phaseTimer > 1.5) {
+      // Wait for fade to complete (1.5s transition + 0.3s buffer)
+      if (phaseTimer > 1.8) {
         phase = 'NARRATION';
         phaseTimer = 0;
         narrationIndex = 0;
@@ -257,19 +413,22 @@ export function updateIntro(dt, camera) {
 
       const card = NARRATION[narrationIndex];
 
-      // Fade logic for fantasy text
+      // Fantasy text — slow dramatic fade in, hold, then fade out
       if (cardTime < NARRATION_FADE) {
+        // Fade in over 1.2s
         fantasyEl.style.opacity = String(cardTime / NARRATION_FADE);
       } else if (cardTime > NARRATION_PER_CARD - NARRATION_FADE) {
+        // Fade out over last 1.2s
         fantasyEl.style.opacity = String((NARRATION_PER_CARD - cardTime) / NARRATION_FADE);
       } else {
+        // Hold at full opacity in the middle
         fantasyEl.style.opacity = '1';
       }
       fantasyEl.textContent = card.fantasy;
 
-      // Terminal typing effect
-      const typingDelay = 0.3; // start typing after fantasy fades in
-      const charsPerSec = 40;
+      // Terminal typing effect — slower for dramatic effect
+      const typingDelay = 0.5; // start typing after fantasy fades in
+      const charsPerSec = 25;  // slower typing (was 40)
       if (cardTime > typingDelay) {
         const elapsed = cardTime - typingDelay;
         narrationCharIndex = Math.min(
@@ -279,7 +438,7 @@ export function updateIntro(dt, camera) {
       }
       terminalEl.textContent = card.terminal.substring(0, narrationCharIndex);
 
-      // Terminal fade matches fantasy
+      // Terminal fade matches fantasy with slight delay
       if (cardTime < NARRATION_FADE + typingDelay) {
         terminalEl.style.opacity = String(Math.min(1, (cardTime - typingDelay * 0.5) / NARRATION_FADE));
       } else if (cardTime > NARRATION_PER_CARD - NARRATION_FADE) {
@@ -325,19 +484,18 @@ export function updateIntro(dt, camera) {
     }
 
     case 'HANDOFF': {
-      // Hold "Attune..." for 3 seconds, then complete
-      // Keep camera at ground level with slow rotation
+      // Hold "Attune..." for 5 seconds (was 3), then complete
       camera.position.set(0, EYE_H, 0);
       camera.rotation.order = 'YXZ';
       camera.rotation.x = 0;
       camera.rotation.y += dt * 0.06;
 
-      if (phaseTimer > 3.0) {
+      if (phaseTimer > 5.0) {
         // Fade out attune text
         attuneEl.style.opacity = '0';
       }
 
-      if (phaseTimer > 4.2) {
+      if (phaseTimer > 6.2) {
         // Cinematic complete — remove DOM and hand off to game
         phase = 'DONE';
         container.style.opacity = '0';
@@ -353,35 +511,188 @@ export function updateIntro(dt, camera) {
 }
 
 // ================================================================
-// Pixie animation — orbits around the title text
+// Puffling animation — hops in place of the 'I' in title
+// ================================================================
+function animatePuffling(t) {
+  if (!pufflingEl || !titleEl) return;
+
+  const titleRect = titleEl.getBoundingClientRect();
+  if (!titleRect.width) return;
+
+  // Position at the first 'I' in LUMINARIES (4th letter)
+  // Title is "L U M _ N A R _ E S" where _ = spacer for I
+  // The spacer is at roughly 18.5% of the title width (3.5 chars out of ~19 visual chars)
+  const iOffset = titleRect.width * 0.195;
+  const baseX = titleRect.left + iOffset;
+  const baseY = titleRect.top + titleRect.height * 0.5;
+
+  // Hop animation: quick up, slow down, pause at bottom
+  const hopCycle = t * 1.8; // hop frequency
+  const hopPhase = hopCycle % 1.0;
+  let hopY = 0;
+  if (hopPhase < 0.3) {
+    // Rising: fast ease-out
+    const p = hopPhase / 0.3;
+    hopY = -Math.sin(p * Math.PI * 0.5) * 12;
+  } else if (hopPhase < 0.5) {
+    // Falling: ease-in
+    const p = (hopPhase - 0.3) / 0.2;
+    hopY = -Math.cos(p * Math.PI * 0.5) * 12;
+  }
+  // 0.5-1.0: resting on ground (hopY = 0)
+
+  // Slight tilt during hop
+  const tilt = hopPhase < 0.5 ? Math.sin(hopPhase * Math.PI * 2) * 5 : 0;
+
+  pufflingEl.style.left = (baseX - 11) + 'px';
+  pufflingEl.style.top = (baseY - 11 + hopY) + 'px';
+  pufflingEl.style.transform = 'rotate(' + tilt + 'deg)';
+}
+
+// ================================================================
+// Mushroom glow animation — pulsing emissive
+// ================================================================
+function animateMushrooms(t) {
+  for (let i = 0; i < mushDecor.length; i++) {
+    const m = mushDecor[i];
+    const pulse = 0.6 + Math.sin(t * 1.5 + m.phase) * 0.3;
+    const cap = m.el.firstChild;
+    if (cap) {
+      cap.style.filter = 'brightness(' + (0.9 + pulse * 0.4) + ')';
+    }
+  }
+}
+
+// ================================================================
+// Pixie animation — chaotic random movement with dust trail
 // ================================================================
 function animatePixie(t) {
   if (!pixieEl || !container) return;
 
-  const cx = container.clientWidth * 0.5;
-  const cy = container.clientHeight * 0.42; // match titleEl top:42%
-  const radiusX = Math.min(container.clientWidth * 0.28, 280);
-  const radiusY = 30;
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+  const cx = cw * 0.5;
+  const cy = ch * 0.42;
 
-  // Main pixie — elliptical orbit with wobble
-  const angle = t * 0.8;
-  const wobbleX = Math.sin(t * 2.3) * 8;
-  const wobbleY = Math.cos(t * 1.7) * 5;
-  const px = cx + Math.cos(angle) * radiusX + wobbleX;
-  const py = cy + Math.sin(angle * 1.1) * radiusY + wobbleY;
-  pixieEl.style.left = px - 5 + 'px';
-  pixieEl.style.top = py - 5 + 'px';
-  pixieEl.style.opacity = String(0.7 + Math.sin(t * 3) * 0.3);
+  // Base elliptical orbit (slower)
+  const angle = t * 0.6;
+  const radiusX = Math.min(cw * 0.3, 300);
+  const radiusY = 40;
 
-  // Trail — follows with time offset (~0.3s behind)
-  const trailAngle = (t - 0.3) * 0.8;
-  const trailWobbleX = Math.sin((t - 0.3) * 2.3) * 8;
-  const trailWobbleY = Math.cos((t - 0.3) * 1.7) * 5;
-  const tx = cx + Math.cos(trailAngle) * radiusX + trailWobbleX;
-  const ty = cy + Math.sin(trailAngle * 1.1) * radiusY + trailWobbleY;
-  pixieTrailEl.style.left = tx - 3 + 'px';
-  pixieTrailEl.style.top = ty - 3 + 'px';
-  pixieTrailEl.style.opacity = String(0.25 + Math.sin(t * 3 - 0.5) * 0.15);
+  // Multi-layer noise for chaotic, unpredictable movement
+  const n1x = (smoothNoise(t, 0.7) - 0.5) * 80;   // slow wide wander
+  const n1y = (smoothNoise(t + 50, 0.7) - 0.5) * 60;
+  const n2x = (smoothNoise(t, 2.1) - 0.5) * 40;   // medium jitter
+  const n2y = (smoothNoise(t + 100, 2.3) - 0.5) * 30;
+  const n3x = (smoothNoise(t, 5.3) - 0.5) * 15;   // fast twitch
+  const n3y = (smoothNoise(t + 200, 4.7) - 0.5) * 12;
+
+  // Random direction changes — occasional sharp darts
+  const dart = Math.sin(t * 7.1) > 0.92 ? Math.sin(t * 13.3) * 50 : 0;
+  const dartY = Math.cos(t * 6.3) > 0.93 ? Math.cos(t * 11.7) * 30 : 0;
+
+  const px = cx + Math.cos(angle) * radiusX + n1x + n2x + n3x + dart;
+  const py = cy + Math.sin(angle * 1.1) * radiusY + n1y + n2y + n3y + dartY;
+
+  // Clamp to container bounds
+  const clampedX = Math.max(10, Math.min(cw - 20, px));
+  const clampedY = Math.max(10, Math.min(ch - 20, py));
+
+  pixieEl.style.left = (clampedX - 6) + 'px';
+  pixieEl.style.top = (clampedY - 6) + 'px';
+
+  // Flickering opacity with more variation
+  const flicker = 0.65 + Math.sin(t * 3.7) * 0.15 + Math.sin(t * 7.3) * 0.1 + Math.sin(t * 13) * 0.08;
+  pixieEl.style.opacity = String(Math.max(0.3, Math.min(1, flicker)));
+
+  // Glow size varies
+  const glowSize = 10 + Math.sin(t * 2.5) * 4;
+  pixieEl.style.boxShadow =
+    '0 0 ' + glowSize + 'px #88ffcc,' +
+    '0 0 ' + (glowSize * 2) + 'px #44dd99,' +
+    '0 0 ' + (glowSize * 3.5) + 'px rgba(50,220,150,.35)';
+
+  // Trail — follows with more time offset for random path
+  const trailT = t - 0.4;
+  const trailAngle = trailT * 0.6;
+  const tn1x = (smoothNoise(trailT, 0.7) - 0.5) * 80;
+  const tn1y = (smoothNoise(trailT + 50, 0.7) - 0.5) * 60;
+  const tn2x = (smoothNoise(trailT, 2.1) - 0.5) * 40;
+  const tn2y = (smoothNoise(trailT + 100, 2.3) - 0.5) * 30;
+  const tx = cx + Math.cos(trailAngle) * radiusX + tn1x + tn2x;
+  const ty = cy + Math.sin(trailAngle * 1.1) * radiusY + tn1y + tn2y;
+  const ctX = Math.max(10, Math.min(cw - 15, tx));
+  const ctY = Math.max(10, Math.min(ch - 15, ty));
+  pixieTrailEl.style.left = (ctX - 3) + 'px';
+  pixieTrailEl.style.top = (ctY - 3) + 'px';
+  pixieTrailEl.style.opacity = String(0.2 + Math.sin(t * 3 - 0.5) * 0.15);
+
+  // Spawn pixie dust from current position
+  spawnDust(clampedX, clampedY);
+}
+
+// ================================================================
+// Pixie dust — spawns at pixie position, falls and fades
+// ================================================================
+function spawnDust(x, y) {
+  // Spawn 1-2 particles per call (~60fps = 60-120/s, but pool caps at 24)
+  for (let n = 0; n < 2; n++) {
+    // Find inactive slot
+    let idx = -1;
+    for (let i = 0; i < DUST_MAX; i++) {
+      if (!dustParticles[i].active) { idx = i; break; }
+    }
+    if (idx < 0) {
+      // Reuse oldest (lowest life)
+      let minLife = Infinity;
+      for (let i = 0; i < DUST_MAX; i++) {
+        if (dustParticles[i].life < minLife) { minLife = dustParticles[i].life; idx = i; }
+      }
+    }
+    if (idx < 0) return;
+
+    const p = dustParticles[idx];
+    p.active = true;
+    p.x = x + (Math.random() - 0.5) * 8;
+    p.y = y + (Math.random() - 0.5) * 4;
+    p.vx = (Math.random() - 0.5) * 15; // slight horizontal drift
+    p.vy = 20 + Math.random() * 30;     // falls downward
+    p.life = 1.5 + Math.random() * 1.0; // 1.5-2.5 seconds
+    p.maxLife = p.life;
+    p.size = 2 + Math.random() * 3;
+  }
+}
+
+function updateDust(dt) {
+  for (let i = 0; i < DUST_MAX; i++) {
+    const p = dustParticles[i];
+    if (!p.active) continue;
+
+    p.life -= dt;
+    if (p.life <= 0) {
+      p.active = false;
+      dustEls[i].style.opacity = '0';
+      continue;
+    }
+
+    // Physics: fall with slight deceleration and horizontal drift
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy *= 0.98; // slight deceleration
+    p.vx *= 0.96; // horizontal damping
+
+    // Opacity fades as life decreases
+    const lifeRatio = p.life / p.maxLife;
+    const opacity = lifeRatio * lifeRatio * 0.7; // quadratic fade
+
+    const el = dustEls[i];
+    el.style.left = (p.x - p.size * 0.5) + 'px';
+    el.style.top = (p.y - p.size * 0.5) + 'px';
+    el.style.width = (p.size * lifeRatio) + 'px';
+    el.style.height = (p.size * lifeRatio) + 'px';
+    el.style.opacity = String(opacity);
+    el.style.boxShadow = '0 0 ' + Math.round(p.size * lifeRatio * 2) + 'px rgba(100,255,200,' + (opacity * 0.5) + ')';
+  }
 }
 
 // ================================================================

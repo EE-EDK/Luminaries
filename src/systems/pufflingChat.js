@@ -156,7 +156,7 @@ export function triggerPufflingChat(puffGroup, sectorRestored, nearOrb, attuneme
   const message = pickMessage(sectorRestored, nearOrb, attunement, hasFrequency);
   chatEl.textContent = message;
   chatEl.style.opacity = '1';
-  chatTimer = 3.0; // 3s display
+  chatTimer = 5.0; // 5s display
   chatCooldown = 8 + Math.random() * 6; // 8-14s between chats
   chatVisible = true;
   chatTargetPuff = puffGroup;

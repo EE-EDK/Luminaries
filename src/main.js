@@ -34,7 +34,8 @@ import {
   SPIRALFROND_N, CORPSEBLOOM_N, ORBBUSH_N, LANTERNPOD_N, VEILMOSS_N, GROUND_GLOW_N,
   C,
   FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, DEER_FLEE_R, DEER_FLEE_SPEED_MULT,
-  DIMMING_FACTOR
+  DIMMING_FACTOR,
+  PLAYER_LIGHT_COLORS, PLAYER_LIGHT_INTENSITY, PLAYER_LIGHT_RANGE
 } from './constants.js';
 
 // Utils
@@ -82,7 +83,7 @@ import { makeOrb } from './entities/magical/orbs.js';
 
 // Entities — World
 import { makeRock, makeBoulder, initPebbles, addPebble, finalizePebbles } from './entities/world/rocks.js';
-import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings } from './entities/world/obelisk.js';
+import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings, getRuneFaces } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
 import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/world/rainbows.js';
 
@@ -96,6 +97,7 @@ import { initBubblePops, spawnBubblePop, updateBubblePops } from './particles/bu
 import { updateDustMotes } from './particles/dust.js';
 import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
 import { initFootprints, spawnFootprint, updateFootprints } from './particles/footprints.js';
+import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurst.js';
 
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
@@ -107,7 +109,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, startResonanceDrone } from './systems/audio.js';
 
 // AI
 import { canSee, canHear, isNear } from './systems/ai/senses.js';
@@ -117,7 +119,7 @@ import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBo
 import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected } from './systems/dimming.js';
 
 // Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI } from './systems/discoveries.js';
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbDiscovery } from './systems/discoveries.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -163,6 +165,9 @@ let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
 // ================================================================
 let smoothedDimFactor = 0.35; // starts dimmed — lerps toward actual per frame
 let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
+const _playerLightColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
+const _playerLightTargetColor = new THREE.Color(PLAYER_LIGHT_COLORS[0]);
+let _prevOrbsFound = 0; // track orb count changes for player light transitions
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -2301,6 +2306,7 @@ function director(dt, t) {
   updateLeaves(dt, t);
   updateDustMotes(dt);
   updateBubblePops(dt);
+  updateOrbBurst(dt, t);
   updateEchoBloom(dt, t);
   const chainCount = updateFloraReactions(dt, t);
   updateQuest(dt, t);
@@ -2360,6 +2366,16 @@ function animate() {
   updateDimming(dt);
   // Progressive glow boost: +5% per orb found
   _orbBoost = 1.15 + orbsFound * 0.05;
+
+  // ================================================================
+  // Player light evolution — color/intensity/range scales with orbs
+  // ================================================================
+  const orbIdx = Math.min(orbsFound, ORB_N);
+  _playerLightTargetColor.set(PLAYER_LIGHT_COLORS[orbIdx]);
+  _playerLightColor.lerp(_playerLightTargetColor, Math.min(2.0 * dt, 1.0));
+  playerLight.color.copy(_playerLightColor);
+  playerLight.intensity = PLAYER_LIGHT_INTENSITY[orbIdx];
+  playerLight.distance = PLAYER_LIGHT_RANGE[orbIdx];
 
   // Global dimming — blends player's current sector with overall restoration.
   // Fast lerp gives immediate feedback when crossing sector boundaries.
@@ -2536,6 +2552,7 @@ try {
   initBubblePops(30);
   initLeaves(50);
   initFootprints();
+  initOrbBurst();
 
   // Aurora (sky event)
   initAurora();
@@ -2584,7 +2601,11 @@ try {
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
-    notifyOrbCollected: notifyOrbCollected
+    notifyOrbCollected: notifyOrbCollected,
+    showOrbDiscovery: showOrbDiscovery,
+    spawnOrbBurst: spawnOrbBurst,
+    startResonanceDrone: startResonanceDrone,
+    runeFaces: getRuneFaces()
   });
 
   // Wire up go callback

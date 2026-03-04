@@ -77,6 +77,11 @@ export const DIMMING_WAVE_SPEED = 30;   // Restoration wave expansion speed (m/s
 // Light budget: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
 export const MAX_CRYSTAL_LIGHTS = 5;
 
+// Player light evolution — color/intensity/range scales with orbs found (0–5)
+export const PLAYER_LIGHT_COLORS = [0x668888, 0x88aacc, 0x66ddaa, 0xaaffcc, 0xddffee, 0xffffff];
+export const PLAYER_LIGHT_INTENSITY = [0.4, 0.6, 0.8, 1.0, 1.2, 1.5];
+export const PLAYER_LIGHT_RANGE = [12, 16, 20, 25, 30, 40];
+
 // Deer AI
 export const DEER_FLEE_R = 8;
 export const DEER_FLEE_SPEED_MULT = 2.2;

@@ -44,6 +44,14 @@ let stopLaserHumsFn = null;
 // Dimming callback (Phase 2)
 let notifyOrbCollectedFn = null;
 
+// Phase 2 enhancement callbacks
+let showOrbDiscoveryFn = null;
+let spawnOrbBurstFn = null;
+let startResonanceDroneFn = null;
+
+// Rune face references (from obelisk.js via config)
+let runeFaces = [];
+
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
 
@@ -186,6 +194,10 @@ export function initQuest(config) {
   playLaserHumFn = config.playLaserHum || null;
   stopLaserHumsFn = config.stopLaserHums || null;
   notifyOrbCollectedFn = config.notifyOrbCollected || null;
+  showOrbDiscoveryFn = config.showOrbDiscovery || null;
+  spawnOrbBurstFn = config.spawnOrbBurst || null;
+  startResonanceDroneFn = config.startResonanceDrone || null;
+  runeFaces = config.runeFaces || [];
   initGlitter();
 }
 
@@ -262,6 +274,26 @@ export function updateQuest(dt, t) {
         if (playOrbCollectFn) playOrbCollectFn();
         // Notify dimming system — start restoration wave
         if (notifyOrbCollectedFn) notifyOrbCollectedFn(i);
+        // Discovery narrative text
+        if (showOrbDiscoveryFn) showOrbDiscoveryFn(orbsFound - 1);
+        // Golden particle burst at orb position
+        if (spawnOrbBurstFn) spawnOrbBurstFn(o.x, o.group.position.y, o.z);
+        // Resonance drone audio layer
+        if (startResonanceDroneFn) startResonanceDroneFn(orbsFound);
+        // Progressive rune reveal — one face per orb (up to 4 faces)
+        const faceIdx = orbsFound - 1;
+        if (faceIdx < runeFaces.length) {
+          const face = runeFaces[faceIdx];
+          face.revealed = true;
+          face.revealTimer = 0;
+          for (let m = 0; m < face.meshes.length; m++) {
+            face.meshes[m].visible = true;
+          }
+        }
+        // 5th orb: reveal all remaining elements (glyphs, dots, cap edges)
+        if (orbsFound >= ORB_N) {
+          revealAllObeliskDetails();
+        }
       }
     }
 
@@ -339,6 +371,17 @@ export function updateQuest(dt, t) {
       const riseT = Math.max(0, Math.min(1, (obeliskY + OBELISK_H) / OBELISK_H));
       oLight.intensity = riseT * 1.5 * (0.8 + Math.sin(t * 1.5) * 0.2);
     }
+  }
+
+  // --- Progressive rune reveal animation ---
+  for (let fi = 0; fi < runeFaces.length; fi++) {
+    const face = runeFaces[fi];
+    if (!face.revealed) continue;
+    face.revealTimer += dt;
+    // Fade in over 2 seconds with gentle pulse
+    const fadeIn = Math.min(face.revealTimer / 2.0, 1.0);
+    const pulse = Math.sin(t * 1.5 + fi * 1.57) * 0.1 + 0.9;
+    face.mat.opacity = fadeIn * 0.6 * pulse;
   }
 
   // --- Pinnacle orb + rings animation ---
@@ -603,6 +646,27 @@ export function updateQuest(dt, t) {
       const pulse = Math.sin(t * 1.5) * 0.5 + 0.5;
       pinnacleOrb.mat.opacity = 0.85 + pulse * 0.15;
       pinnacleOrb.hazeMat.opacity = 0.3 + pulse * 0.2;
+    }
+  }
+}
+
+// Reveal all hidden obelisk details (glyphs, dots, cap edges) on final orb
+function revealAllObeliskDetails() {
+  if (!obeliskGroup) return;
+  const children = obeliskGroup.children;
+  for (let i = 0; i < children.length; i++) {
+    const ch = children[i];
+    // Reveal any hidden mesh that isn't already managed by runeFaces
+    if (!ch.visible && ch.isMesh) {
+      let isRuneMesh = false;
+      for (let fi = 0; fi < runeFaces.length; fi++) {
+        const meshes = runeFaces[fi].meshes;
+        for (let m = 0; m < meshes.length; m++) {
+          if (meshes[m] === ch) { isRuneMesh = true; break; }
+        }
+        if (isRuneMesh) break;
+      }
+      if (!isRuneMesh) ch.visible = true;
     }
   }
 }

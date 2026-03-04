@@ -127,6 +127,9 @@ import { updateAttunement, getAttunement, getPlayerFrequency, consumeFrequency, 
 // Discoveries
 import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery } from './systems/discoveries.js';
 
+// Intro cinematic (Phase 2)
+import { initIntro, updateIntro, introActive, introDone } from './systems/intro.js';
+
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
@@ -1286,13 +1289,16 @@ function updatePuffs(dt, t) {
         const frac = p.hopTimer / hopDur;
         if (frac >= 1.0) {
           p.state = 'idle'; p.idleTimer = (1.5 + Math.random() * 3) * puffIdleMult; g.position.y = p._baseY;
+          p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
         } else {
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
           g.position.x += Math.sin(p.wanderAng) * p.speed * puffSpeedMult * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * dt;
+          // Squash/stretch on body + head only — face meshes stay undistorted
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
           const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
-          g.scale.set(sq, st, sq);
+          p.body.scale.set(sq, st, sq);
+          p.head.scale.set(sq, st, sq);
           g.rotation.y = p.wanderAng;
         }
         break;
@@ -1305,10 +1311,11 @@ function updatePuffs(dt, t) {
         // Scatter with separation force (Batch 2 Item 7)
         g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt + sep.x * 0.5 * dt;
         g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt + sep.z * 0.5 * dt;
-        g.scale.set(0.85, 1.3, 0.85);
+        p.body.scale.set(0.85, 1.3, 0.85);
+        p.head.scale.set(0.85, 1.3, 0.85);
         if (p._scaredT <= 0) {
           p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
-          g.position.y = p._baseY; g.scale.set(1, 1, 1);
+          g.position.y = p._baseY; p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
         }
         break;
       }
@@ -1419,6 +1426,12 @@ function updatePuffs(dt, t) {
       p.bodyMat.emissiveIntensity = 0.3 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
     } else if (p.bodyMat) {
       p.bodyMat.emissiveIntensity = 0.3;
+    }
+    // Ground glow disc — subtle pulsing hint of attunement importance
+    if (p.glowMat) {
+      const glowBase = 0.08 + Math.sin(t * 2 + p.phase) * 0.04;
+      const glowAttune = pDist2 < 64 ? curAttune * 0.2 : 0;
+      p.glowMat.opacity = (glowBase + glowAttune) * getLocalGlow(px, pz, bioGlow * _orbBoost);
     }
 
     // World bounds
@@ -2416,12 +2429,18 @@ let fpsS = 60;
 // ================================================================
 let elapsed = 0;
 let gameStarted = false;
+let introStarted = false;
 
 function go() {
-  if (gameStarted) return;
-  gameStarted = true;
-  setStarted(true);
-  showGame();
+  if (introStarted) return;
+  introStarted = true;
+  // Don't start game yet — intro cinematic controls the transition
+  initIntro(() => {
+    // Cinematic complete — hand off to player
+    gameStarted = true;
+    setStarted(true);
+    showGame();
+  });
 }
 
 function animate() {
@@ -2522,12 +2541,16 @@ function animate() {
   setLeafWind(windX, windZ, windStrength);
 
   if (!gameStarted) {
-    // Pre-game idle animation
-    yaw; // read-only
-    camera.position.set(0, EYE_H, 0);
-    camera.rotation.order = 'YXZ';
-    camera.rotation.y += dt * 0.08;
-    camera.rotation.x = 0;
+    // Intro cinematic camera control (if active)
+    updateIntro(dt, camera);
+
+    // Pre-game idle camera (only if intro isn't controlling it)
+    if (!introActive()) {
+      camera.position.set(0, EYE_H, 0);
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y += dt * 0.08;
+      camera.rotation.x = 0;
+    }
 
     // Still pulse mushrooms + crystals
     for (let i = 0; i < mush_data.length; i++) {

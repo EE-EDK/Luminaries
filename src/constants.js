@@ -82,6 +82,11 @@ export const ATTUNE_RATE = 0.15;       // attunement gain per second while match
 export const ATTUNE_DECAY = 0.05;      // attunement loss per second when not matching
 export const ATTUNE_SPRINT_R2 = 64;    // squared distance: must sprint within 8m
 
+// Player light evolution — color/intensity/range scales with orbs found (0–5)
+export const PLAYER_LIGHT_COLORS = [0x668888, 0x88aacc, 0x66ddaa, 0xaaffcc, 0xddffee, 0xffffff];
+export const PLAYER_LIGHT_INTENSITY = [0.4, 0.6, 0.8, 1.0, 1.2, 1.5];
+export const PLAYER_LIGHT_RANGE = [12, 16, 20, 25, 30, 40];
+
 // Deer AI
 export const DEER_FLEE_R = 8;
 export const DEER_FLEE_SPEED_MULT = 2.2;

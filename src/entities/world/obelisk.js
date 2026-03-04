@@ -15,12 +15,14 @@ let obeliskMat = null;
 let obeliskGlowMat = null;
 let pinnacleOrb = null; // pink orb at tip
 let pinnacleRings = []; // 4 rotating purple rings
+const runeFaces = []; // per-face rune data: { mat, meshes[] }
 
 export function getObeliskGroup() { return obeliskGroup; }
 export function getObeliskMat() { return obeliskMat; }
 export function getObeliskGlowMat() { return obeliskGlowMat; }
 export function getPinnacleOrb() { return pinnacleOrb; }
 export function getPinnacleRings() { return pinnacleRings; }
+export function getRuneFaces() { return runeFaces; }
 
 export function makeObelisk() {
   const g = new THREE.Group();
@@ -44,20 +46,26 @@ export function makeObelisk() {
     g.add(cham);
   }
 
-  // Surface rune carvings (glowing line segments on each face) — hidden until quest finale
-  const runeMat = new THREE.MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
+  // Surface rune carvings (glowing line segments on each face) — revealed per orb
+  runeFaces.length = 0;
   for (let fi = 0; fi < 4; fi++) {
+    const faceMat = new THREE.MeshBasicMaterial({
+      color: C.obeliskPink, transparent: true, opacity: 0.0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const faceMeshes = [];
     const fAngle = (fi / 4) * 6.28 + Math.PI / 4;
     for (let rl = 0; rl < 3; rl++) {
       const ry = 6 + rl * 4;
-      const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 3), runeMat);
+      const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 3), faceMat);
       rune.position.set(Math.cos(fAngle) * 1.6, ry, Math.sin(fAngle) * 1.6);
       rune.rotation.z = Math.PI / 2; rune.rotation.y = -fAngle;
-      rune.visible = false; g.add(rune);
+      rune.visible = false; g.add(rune); faceMeshes.push(rune);
     }
-    const vRune = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 2.5, 3), runeMat);
+    const vRune = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 2.5, 3), faceMat);
     vRune.position.set(Math.cos(fAngle) * 1.6, 12, Math.sin(fAngle) * 1.6);
-    vRune.visible = false; g.add(vRune);
+    vRune.visible = false; g.add(vRune); faceMeshes.push(vRune);
+    runeFaces.push({ mat: faceMat, meshes: faceMeshes, revealed: false, revealTimer: 0 });
   }
 
   // Capstone (pyramid tip)

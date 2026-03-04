@@ -1024,6 +1024,69 @@ export function playFairyBounce() {
 }
 
 // ================================================================
+// Resonance drone — ambient hum that builds with each orb collected
+// ================================================================
+let droneOscs = [];
+let droneGain = null;
+
+export function startResonanceDrone(orbCount) {
+  if (!initialized || muted) return;
+  // Stop previous drone if any
+  stopResonanceDrone();
+  const now = ctx.currentTime;
+  droneGain = ctx.createGain();
+  droneGain.gain.setValueAtTime(0, now);
+  // Fade in over 3 seconds — volume scales with orb count
+  const targetVol = 0.015 + orbCount * 0.006; // 0.021 at 1 orb → 0.045 at 5
+  droneGain.gain.linearRampToValueAtTime(targetVol, now + 3.0);
+  connectWithReverb(droneGain, masterGain, 0.7);
+
+  // Base frequency: 60Hz fundamental
+  const baseFreq = 60;
+  // Add harmonics based on orb count: 1 orb=fundamental+octave, 2=+fifth, etc.
+  const harmonics = [1, 2]; // always 60Hz + 120Hz
+  if (orbCount >= 2) harmonics.push(1.5); // perfect fifth: 90Hz
+  if (orbCount >= 3) harmonics.push(3);   // 180Hz
+  if (orbCount >= 4) harmonics.push(2.5); // 150Hz
+  if (orbCount >= 5) harmonics.push(4);   // 240Hz
+
+  for (let i = 0; i < harmonics.length; i++) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = baseFreq * harmonics[i];
+    // Individual gain per harmonic — lower for higher harmonics
+    const hGain = ctx.createGain();
+    hGain.gain.value = i < 2 ? 1.0 : 0.4;
+    osc.connect(hGain).connect(droneGain);
+    osc.start(now);
+    droneOscs.push({ osc, gain: hGain });
+  }
+
+  // Slow amplitude modulation (breathing effect)
+  const lfo = ctx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.15; // very slow breathing
+  const lfoGain = ctx.createGain();
+  lfoGain.gain.value = targetVol * 0.3; // ±30% modulation depth
+  lfo.connect(lfoGain).connect(droneGain.gain);
+  lfo.start(now);
+  droneOscs.push({ osc: lfo, gain: lfoGain });
+}
+
+function stopResonanceDrone() {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  for (let i = 0; i < droneOscs.length; i++) {
+    droneOscs[i].osc.stop(now + 0.5);
+  }
+  droneOscs = [];
+  if (droneGain) {
+    droneGain.gain.linearRampToValueAtTime(0, now + 0.4);
+    droneGain = null;
+  }
+}
+
+// ================================================================
 // Toggle mute
 // ================================================================
 export function toggleMute() {

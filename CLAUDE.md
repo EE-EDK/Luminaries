@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API / troika-three-text. ~13,000 lines across 64 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
+Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~13,000 lines across 64 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
 
 **Live:** https://ee-edk.github.io/Luminaries/
 
@@ -58,12 +58,13 @@ These are non-negotiable. Every session must follow them.
 
 ### Coding Conventions
 - `const`/`let` only, no `var`. No classes — functional style.
-- `import * as THREE from 'three'`; named imports for project modules.
+- Named imports from Three.js: `import { Scene, Mesh, Vector3 } from 'three'`. Named imports for project modules.
 - Seeded RNG (`sr()` from `utils/rng.js`) for world generation. `Math.random()` only for runtime variation.
 - Colors from `C` object in `constants.js`. Never inline hex values.
 - `depthWrite: false` for all transparent/glow/haze materials.
 - Banner comments: `// ===...===` for major sections.
-- **Text rendering:** Use `troika-three-text` for all in-world and UI text. Never use HTML overlays or canvas-based text.
+- **Text rendering:** DOM-based overlays for intro/discovery/HUD text. `troika-three-text` for in-world 3D text.
+- **Material sharing:** Lift non-modulated materials to module scope with `_` prefix (e.g., `_rockMat`). Keep per-instance materials only when `emissiveIntensity` or other properties are individually animated at runtime.
 
 ### Audio Rules
 - Entity files **NEVER** import audio.js. Use callback injection through main.js.
@@ -119,12 +120,29 @@ These are non-negotiable. Every session must follow them.
 | Day/night + bioGlow | `src/systems/dayNightCycle.js` |
 | Sector dimming | `src/systems/dimming.js` → `getLocalGlow()`, `initDimming()` |
 | Discovery text | `src/systems/discoveries.js` |
+| Intro sequence | `src/systems/intro.js` (title, narration, pixie, mushrooms, puffling) |
+| Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
+| Game guide | `GAME_GUIDE.md` (player-facing, update as features change) |
+
+## Recent Optimizations
+
+Performance pass based on WebGL FPS Guide v2 analysis:
+
+- **Bloom resolution** capped at 512x512 (was unbounded at half-viewport)
+- **Shadow autoUpdate** disabled; throttled to ~1Hz manual updates
+- **Tree frustum culling** — camera-aware per-instance culling in `updateTreeLOD()` with generous sphere radius
+- **Shared materials** — 10 module-scoped materials in mushrooms, 9 in crystals (300+ fewer material instances)
+- **Named imports** — All 54 source files converted from `import * as THREE` to named imports for tree-shaking
+- **Terser build** — 2-pass compression, `drop_console`, `toplevel` mangle, `es2020` target
+- **perfMonitor** — Dev-only EMA timing per director subsystem + `renderer.info` monitoring (tree-shaken in production)
+- **Intro overhaul** — Dramatic title with CSS mushrooms and animated puffling, multi-layer noise pixie with dust particles, slower narration pacing (7s per card)
+- **Gameplay fixes** — Puffling Z-axis speed parity, reduced rock collision radii, tighter terrain tracking threshold
 
 ## Known Technical Debt
 
 1. **`state.js`** — Legacy shared state. Most state migrated to main.js module scope but some duplication remains (quest state in both places).
-2. **`howler`** — In package.json but completely unused. All audio is Web Audio API.
-3. **`main.js` size** — 2,356 lines. The `director()` function is the monolith. Phase 2 should extract per-system update modules.
-4. **No save/load** — Game resets on refresh.
-5. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
+2. **`main.js` size** — 2,356 lines. The `director()` function is the monolith (now instrumented with perfMonitor). Phase 2 should extract per-system update modules.
+3. **No save/load** — Game resets on refresh.
+4. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
+5. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).

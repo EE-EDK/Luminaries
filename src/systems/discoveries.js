@@ -24,6 +24,15 @@ const labels = {
   pond: 'Moonlit Pond'
 };
 
+// Per-orb narrative text — shown when each orb is collected
+const orbLabels = [
+  'The First Light Returns',
+  'The Forest Remembers',
+  'Roots of Radiance',
+  'The Veil Thins',
+  'Convergence'
+];
+
 let discoveryEl = null;
 let fadeTimer = 0;
 let fadeText = '';
@@ -45,6 +54,17 @@ function showDiscovery(key) {
   discovered[key] = true;
   fadeText = labels[key];
   fadeTimer = 3.0;
+  if (discoveryEl) {
+    discoveryEl.textContent = fadeText;
+    discoveryEl.style.opacity = '1';
+  }
+}
+
+export function showOrbDiscovery(orbIndex) {
+  const text = orbLabels[orbIndex];
+  if (!text) return;
+  fadeText = text;
+  fadeTimer = 4.0; // slightly longer than creature discoveries
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';

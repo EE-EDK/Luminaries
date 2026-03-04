@@ -84,8 +84,8 @@ let dustParticles = [];
 // Camera sweep parameters
 const SWEEP_START_Y = 120;
 const SWEEP_DURATION = 8.0;
-const NARRATION_PER_CARD = 7.0; // seconds per text pair — slow and dramatic
-const NARRATION_FADE = 1.2;     // fade in/out duration
+const NARRATION_PER_CARD = 11.0; // seconds per text pair — slow and dramatic
+const NARRATION_FADE = 2.0;      // fade in/out duration
 const NARRATION_HOLD = 5.0;     // hold at full opacity when complete
 
 // ================================================================
@@ -836,9 +836,9 @@ export function updateIntro(dt, camera) {
     }
 
     case 'NARRATION': {
-      // Each card: [dark gap 0.8s] [fade in 1.2s] [hold] [fade out 1.2s]
-      // Total card time = NARRATION_PER_CARD (7s)
-      const DARK_GAP = 0.8; // darkness between cards
+      // Each card: [dark gap 1.5s] [fade in 2.0s] [hold] [fade out 2.0s]
+      // Total card time = NARRATION_PER_CARD (11s)
+      const DARK_GAP = 1.5; // darkness between cards
       const cardTime = phaseTimer % NARRATION_PER_CARD;
       const cardIndex = Math.floor(phaseTimer / NARRATION_PER_CARD);
 

@@ -52,6 +52,7 @@ const NARRATION = [
 // Phases: TITLE → FADE_OUT → NARRATION → SWEEP → HANDOFF → DONE
 let phase = 'TITLE';
 let phaseTimer = 0;
+let titleTime = 0; // accumulated time for pixie animation during TITLE
 let narrationIndex = 0;
 let narrationCharIndex = 0; // for terminal typing effect
 let sweepProgress = 0;
@@ -65,6 +66,8 @@ let blackScreen = null;
 let fantasyEl = null;
 let terminalEl = null;
 let attuneEl = null;
+let pixieEl = null;
+let pixieTrailEl = null;
 
 // Camera sweep parameters
 const SWEEP_START_Y = 120;
@@ -73,7 +76,7 @@ const NARRATION_PER_CARD = 3.5; // seconds per text pair
 const NARRATION_FADE = 0.6;     // fade in/out duration
 
 // ================================================================
-// Init — create DOM structure
+// Init — create DOM structure (called at startup)
 // ================================================================
 export function initIntro(completeFn) {
   onComplete = completeFn;
@@ -84,45 +87,64 @@ export function initIntro(completeFn) {
   container.style.cssText =
     'position:fixed;top:0;left:0;width:100%;height:100%;z-index:300;pointer-events:auto;';
 
-  // Black screen backdrop
+  // Dark grey backdrop — visible immediately, covers the 3D scene
   blackScreen = document.createElement('div');
   blackScreen.style.cssText =
-    'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;opacity:0;' +
+    'position:absolute;top:0;left:0;width:100%;height:100%;background:#222;opacity:1;' +
     'transition:opacity 1.2s ease;';
   container.appendChild(blackScreen);
 
-  // Title (replaces the old #overlay)
+  // Title — single line, responsive size
   titleEl = document.createElement('div');
   titleEl.style.cssText =
-    'position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:Georgia,serif;font-size:36px;color:#aaffdd;letter-spacing:8px;' +
-    'text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);' +
-    'text-align:center;opacity:1;transition:opacity 1s ease;';
+    'position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);' +
+    'font-family:Georgia,serif;font-size:clamp(28px,5vw,48px);color:#aaffdd;letter-spacing:8px;' +
+    'text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25),' +
+    '0 0 60px rgba(50,200,150,.15);' +
+    'text-align:center;opacity:1;transition:opacity 1s ease;white-space:nowrap;';
   titleEl.textContent = 'L U M I N A R I E S';
   container.appendChild(titleEl);
 
   titleSubEl = document.createElement('div');
   titleSubEl.style.cssText =
-    'position:absolute;top:52%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
     'font-family:\'Courier New\',monospace;font-size:12px;color:#66ccaa;letter-spacing:2px;' +
-    'text-align:center;opacity:0.7;transition:opacity 1s ease;';
+    'text-align:center;opacity:0.6;transition:opacity 1s ease;';
   titleSubEl.textContent = 'click to begin';
   container.appendChild(titleSubEl);
 
-  // Fantasy text layer (center, serif, luminous)
+  // Pixie sprite — small green glowing orb
+  pixieEl = document.createElement('div');
+  pixieEl.style.cssText =
+    'position:absolute;width:10px;height:10px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,#aaffdd 0%,#44cc88 40%,transparent 70%);' +
+    'box-shadow:0 0 8px #66ffaa,0 0 16px #33cc88,0 0 24px rgba(50,200,130,.3);' +
+    'opacity:0.8;transition:opacity 1s ease;';
+  container.appendChild(pixieEl);
+
+  // Pixie trail — smaller, fainter, follows with delay
+  pixieTrailEl = document.createElement('div');
+  pixieTrailEl.style.cssText =
+    'position:absolute;width:6px;height:6px;border-radius:50%;pointer-events:none;' +
+    'background:radial-gradient(circle,#88eebb 0%,#33aa77 50%,transparent 70%);' +
+    'box-shadow:0 0 6px #44cc88,0 0 12px rgba(50,200,130,.2);' +
+    'opacity:0.4;transition:opacity 1s ease;';
+  container.appendChild(pixieTrailEl);
+
+  // Fantasy text layer (upper center, serif, luminous)
   fantasyEl = document.createElement('div');
   fantasyEl.style.cssText =
-    'position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);' +
     'font-family:Georgia,serif;font-size:24px;color:#ccffee;letter-spacing:3px;' +
     'text-shadow:0 0 14px rgba(100,255,200,.6),0 0 30px rgba(50,200,150,.3);' +
     'text-align:center;max-width:600px;line-height:1.6;opacity:0;' +
     'transition:opacity 0.6s ease;pointer-events:none;';
   container.appendChild(fantasyEl);
 
-  // Terminal text layer (below fantasy, monospace, amber)
+  // Terminal text layer (lower center, monospace, green)
   terminalEl = document.createElement('div');
   terminalEl.style.cssText =
-    'position:absolute;top:52%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);' +
     'font-family:\'Courier New\',monospace;font-size:13px;color:#88aa66;letter-spacing:1px;' +
     'text-shadow:0 0 6px rgba(100,180,60,.4),0 0 15px rgba(60,120,30,.2);' +
     'text-align:center;max-width:650px;line-height:1.4;opacity:0;' +
@@ -144,32 +166,60 @@ export function initIntro(completeFn) {
   // Hide the old #overlay since we're replacing it
   const oldOverlay = document.getElementById('overlay');
   if (oldOverlay) oldOverlay.style.display = 'none';
-
-  // Click handler to start
-  container.addEventListener('click', handleClick);
-  container.addEventListener('touchstart', handleClick);
 }
 
-function handleClick(e) {
-  if (phase !== 'TITLE') return;
-  e.preventDefault();
+// ================================================================
+// Start — triggered by first user interaction (click/key)
+// ================================================================
+let started = false;
+export function startIntro() {
+  if (started || phase !== 'TITLE') return;
+  started = true;
+
   phase = 'FADE_OUT';
   phaseTimer = 0;
 
-  // Fade title out, black screen in
+  // Fade title + pixie out, black screen goes fully black for narration
   titleEl.style.opacity = '0';
   titleSubEl.style.opacity = '0';
-  blackScreen.style.opacity = '1';
+  pixieEl.style.opacity = '0';
+  pixieTrailEl.style.opacity = '0';
+  blackScreen.style.background = '#000';
 
   // Allow input system through during cinematic
   container.style.pointerEvents = 'none';
+
+  // Also register the click handler removal
+  container.removeEventListener('click', onTitleClick);
+  container.removeEventListener('touchstart', onTitleClick);
+}
+
+function onTitleClick(e) {
+  e.preventDefault();
+  startIntro();
+}
+
+// ================================================================
+// Attach click handler — called after DOM is ready
+// ================================================================
+export function enableTitleClick() {
+  if (!container) return;
+  container.addEventListener('click', onTitleClick);
+  container.addEventListener('touchstart', onTitleClick);
 }
 
 // ================================================================
 // Update — called each frame from animate loop
 // ================================================================
 export function updateIntro(dt, camera) {
-  if (phase === 'DONE' || phase === 'TITLE') return;
+  if (phase === 'DONE') return;
+
+  // Pixie animation during TITLE phase
+  if (phase === 'TITLE') {
+    titleTime += dt;
+    animatePixie(titleTime);
+    return;
+  }
 
   phaseTimer += dt;
 
@@ -300,6 +350,38 @@ export function updateIntro(dt, camera) {
       break;
     }
   }
+}
+
+// ================================================================
+// Pixie animation — orbits around the title text
+// ================================================================
+function animatePixie(t) {
+  if (!pixieEl || !container) return;
+
+  const cx = container.clientWidth * 0.5;
+  const cy = container.clientHeight * 0.42; // match titleEl top:42%
+  const radiusX = Math.min(container.clientWidth * 0.28, 280);
+  const radiusY = 30;
+
+  // Main pixie — elliptical orbit with wobble
+  const angle = t * 0.8;
+  const wobbleX = Math.sin(t * 2.3) * 8;
+  const wobbleY = Math.cos(t * 1.7) * 5;
+  const px = cx + Math.cos(angle) * radiusX + wobbleX;
+  const py = cy + Math.sin(angle * 1.1) * radiusY + wobbleY;
+  pixieEl.style.left = px - 5 + 'px';
+  pixieEl.style.top = py - 5 + 'px';
+  pixieEl.style.opacity = String(0.7 + Math.sin(t * 3) * 0.3);
+
+  // Trail — follows with time offset (~0.3s behind)
+  const trailAngle = (t - 0.3) * 0.8;
+  const trailWobbleX = Math.sin((t - 0.3) * 2.3) * 8;
+  const trailWobbleY = Math.cos((t - 0.3) * 1.7) * 5;
+  const tx = cx + Math.cos(trailAngle) * radiusX + trailWobbleX;
+  const ty = cy + Math.sin(trailAngle * 1.1) * radiusY + trailWobbleY;
+  pixieTrailEl.style.left = tx - 3 + 'px';
+  pixieTrailEl.style.top = ty - 3 + 'px';
+  pixieTrailEl.style.opacity = String(0.25 + Math.sin(t * 3 - 0.5) * 0.15);
 }
 
 // ================================================================

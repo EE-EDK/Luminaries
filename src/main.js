@@ -128,7 +128,7 @@ import { updateAttunement, getAttunement, getPlayerFrequency, consumeFrequency, 
 import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery } from './systems/discoveries.js';
 
 // Intro cinematic (Phase 2)
-import { initIntro, updateIntro, introActive, introDone } from './systems/intro.js';
+import { initIntro, startIntro, enableTitleClick, updateIntro, introActive, introDone } from './systems/intro.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -2429,18 +2429,10 @@ let fpsS = 60;
 // ================================================================
 let elapsed = 0;
 let gameStarted = false;
-let introStarted = false;
 
 function go() {
-  if (introStarted) return;
-  introStarted = true;
-  // Don't start game yet — intro cinematic controls the transition
-  initIntro(() => {
-    // Cinematic complete — hand off to player
-    gameStarted = true;
-    setStarted(true);
-    showGame();
-  });
+  // Trigger intro cinematic — startIntro guards against double-call
+  startIntro();
 }
 
 function animate() {
@@ -2681,6 +2673,15 @@ try {
   // Init UI (must be before quest so orb HUD element is available)
   initHUD();
   initOverlay();
+
+  // Init intro cinematic (creates title screen immediately)
+  initIntro(() => {
+    // Cinematic complete — hand off to player
+    gameStarted = true;
+    setStarted(true);
+    showGame();
+  });
+  enableTitleClick();
 
   // Init dimming system (Phase 2 — must be before quest so orb collection can notify)
   initDimming(orbs);

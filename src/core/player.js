@@ -19,6 +19,10 @@ let currentFOV = 65, targetFOV = 65;
 let landingDip = 0, wasOnGround = true, landingVelY = 0;
 export let playerIdleTime = 0;
 
+// Gravity multiplier (for feather fall, set from main)
+export let gravityMult = 1.0;
+export function setGravityMult(val) { gravityMult = val; }
+
 // Audio callbacks (set from main)
 let onStepFn = null, onJumpFn = null, onLandFn = null;
 let prevBobSign = 1;
@@ -46,7 +50,7 @@ export function updatePlayer(dt) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   player.vel.x = inp.x;
   player.vel.z = inp.z;
-  player.vel.y -= GRAVITY * dt;
+  player.vel.y -= GRAVITY * gravityMult * dt;
   if ((keys['Space'] || touchJump) && player.onGround) {
     player.vel.y = JUMP_IMPULSE; player.onGround = false; setTouchJump(false);
     if (onJumpFn) onJumpFn();

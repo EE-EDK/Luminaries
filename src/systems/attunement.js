@@ -2,8 +2,11 @@
 // Creature Attunement — Symbiotic Frequency Matching
 // ================================================================
 // The player synchronizes with creatures by matching their energy.
-// Sprint near pufflings to build attunement. At full sync, the player
-// "carries" the creature's frequency — needed to activate orbs.
+// Each creature type has a unique matching mechanic:
+//   Puffling — Sprint within 8m
+//   Jelly    — Stand still within 6m, tap SPACE in rhythm (±0.3s)
+//   Deer     — Walk (no sprint) within 12m, same direction (±45°)
+//   Moth     — Move laterally within 8m, look toward moth
 //
 // FIELD LOG (Dr. K. Oduya, observation blind #4):
 //   Subject 12 discovered it by accident. She was running alongside the
@@ -17,23 +20,149 @@
 import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_SPRINT_R2 } from '../constants.js';
 
 // ================================================================
+// Constants
+// ================================================================
+const JELLY_R2 = 36;        // 6m squared — must be within 6m
+const DEER_R2_MIN = 64;     // 8m squared — must be 8-12m away
+const DEER_R2_MAX = 144;    // 12m squared
+const MOTH_R2 = 64;         // 8m squared — must be within 8m
+const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
+const JELLY_TOLERANCE = 0.3; // ±0.3s tolerance for rhythm match
+const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
+
+// ================================================================
 // State
 // ================================================================
 let playerFrequency = null;  // 'puff' | 'jelly' | 'deer' | 'moth' | null
 let attunement = 0.0;        // 0.0–1.0 progress toward creature type
 let attunementTarget = null;  // which creature we're building toward
 let flashPending = false;     // true for one frame when attunement hits 1.0
+let flashCreaturePos = null;  // position of creature when flash triggers
+
+// Jelly rhythm tracking
+let _jellyTapTimes = [];      // timestamps of recent SPACE taps
+let _jellyLastSpace = false;  // previous frame's space state (edge detect)
 
 // ================================================================
 // Update — called once per frame from director
 // ================================================================
 // Returns current attunement value (0.0–1.0) for visual/audio feedback.
 // When attunement first reaches 1.0, flashPending is set true.
-export function updateAttunement(dt, sprinting, nearestPuffDist2) {
-  // Puffling matching: sprint within 8m of nearest puffling
+//
+// creatureData: {
+//   sprinting: bool,
+//   nearestPuffDist2: number, nearestPuffPos: {x,z},
+//   nearestJellyDist2: number, nearestJellyPos: {x,z}, nearestJellyPulsePhase: number,
+//   nearestDeerDist2: number, nearestDeerPos: {x,z}, nearestDeerWanderAng: number,
+//   nearestMothDist2: number, nearestMothPos: {x,z},
+//   playerYaw: number, playerSpeed: number, spacePressed: bool,
+//   playerX: number, playerZ: number, time: number
+// }
+export function updateAttunement(dt, sprinting, nearestPuffDist2, creatureData) {
+  // Backward-compatible: if no creatureData, use legacy puffling-only path
+  if (!creatureData) {
+    return _updatePuffOnly(dt, sprinting, nearestPuffDist2);
+  }
+
+  const {
+    nearestJellyDist2, nearestJellyPos,
+    nearestDeerDist2, nearestDeerPos, nearestDeerWanderAng,
+    nearestMothDist2, nearestMothPos,
+    playerYaw, playerSpeed, spacePressed,
+    playerX, playerZ, time
+  } = creatureData;
+
+  // Determine which creature (if any) is being matched this frame
+  let matchType = null;
+
+  // --- Puffling: Sprint within 8m ---
+  if (sprinting && nearestPuffDist2 < ATTUNE_SPRINT_R2 && nearestPuffDist2 < Infinity) {
+    matchType = 'puff';
+  }
+
+  // --- Jelly: Stand still within 6m + tap SPACE in rhythm ---
+  if (!matchType && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
+    // Track space taps (rising edge)
+    if (spacePressed && !_jellyLastSpace) {
+      _jellyTapTimes.push(time);
+      // Keep only last 5 taps
+      if (_jellyTapTimes.length > 5) _jellyTapTimes.shift();
+    }
+    _jellyLastSpace = spacePressed;
+
+    // Check if recent taps match the rhythm (~2s interval, ±0.3s)
+    if (_jellyTapTimes.length >= 2) {
+      const lastInterval = _jellyTapTimes[_jellyTapTimes.length - 1] - _jellyTapTimes[_jellyTapTimes.length - 2];
+      if (Math.abs(lastInterval - JELLY_RHYTHM) < JELLY_TOLERANCE) {
+        matchType = 'jelly';
+      }
+    }
+  } else {
+    _jellyLastSpace = spacePressed;
+  }
+
+  // --- Deer: Walk (no sprint) within 8-12m, same direction (±45°) ---
+  if (!matchType && !sprinting && nearestDeerDist2 >= DEER_R2_MIN && nearestDeerDist2 < DEER_R2_MAX
+      && nearestDeerDist2 < Infinity && playerSpeed > 1.0) {
+    // Compare player heading to deer heading
+    // Player walks toward yaw direction; deer faces wanderAng
+    // Normalize angle difference to [-π, π]
+    let angleDiff = playerYaw - nearestDeerWanderAng;
+    // Wrap to [-π, π]
+    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+    if (Math.abs(angleDiff) < DEER_ANGLE_TOL) {
+      matchType = 'deer';
+    }
+  }
+
+  // --- Moth: Move laterally within 8m + look toward moth ---
+  if (!matchType && nearestMothDist2 < MOTH_R2 && nearestMothDist2 < Infinity && playerSpeed > 0.5) {
+    // Check if player is looking toward moth (angle between look direction and direction to moth < 60°)
+    const toMothX = nearestMothPos.x - playerX;
+    const toMothZ = nearestMothPos.z - playerZ;
+    const toMothAng = Math.atan2(toMothX, toMothZ);
+    let lookDiff = playerYaw - toMothAng;
+    while (lookDiff > Math.PI) lookDiff -= 2 * Math.PI;
+    while (lookDiff < -Math.PI) lookDiff += 2 * Math.PI;
+    if (Math.abs(lookDiff) < 1.047) { // ~60° (π/3)
+      matchType = 'moth';
+    }
+  }
+
+  // --- Apply attunement gain/decay ---
+  if (matchType) {
+    if (attunementTarget !== matchType) {
+      // Switching targets resets progress
+      attunementTarget = matchType;
+      attunement = 0;
+    }
+    attunement += ATTUNE_RATE * dt;
+    if (attunement >= 1.0 && playerFrequency !== matchType) {
+      attunement = 1.0;
+      playerFrequency = matchType;
+      flashPending = true;
+      // Store creature position for flash effect
+      switch (matchType) {
+        case 'puff': flashCreaturePos = creatureData.nearestPuffPos; break;
+        case 'jelly': flashCreaturePos = nearestJellyPos; break;
+        case 'deer': flashCreaturePos = nearestDeerPos; break;
+        case 'moth': flashCreaturePos = nearestMothPos; break;
+      }
+    }
+  } else if (attunementTarget && attunement > 0 && !playerFrequency) {
+    // Decay when not matching (but don't decay once frequency is carried)
+    attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
+    if (attunement === 0) attunementTarget = null;
+  }
+
+  return attunement;
+}
+
+// Legacy path: puffling-only (maintains backward compatibility during migration)
+function _updatePuffOnly(dt, sprinting, nearestPuffDist2) {
   if (sprinting && nearestPuffDist2 < ATTUNE_SPRINT_R2 && nearestPuffDist2 < Infinity) {
     if (attunementTarget !== 'puff') {
-      // Switching targets resets progress
       attunementTarget = 'puff';
       attunement = 0;
     }
@@ -44,11 +173,9 @@ export function updateAttunement(dt, sprinting, nearestPuffDist2) {
       flashPending = true;
     }
   } else if (attunementTarget === 'puff' && attunement > 0 && playerFrequency !== 'puff') {
-    // Decay when not matching (but don't decay once frequency is carried)
     attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
     if (attunement === 0) attunementTarget = null;
   }
-
   return attunement;
 }
 
@@ -67,6 +194,10 @@ export function getPlayerFrequency() {
   return playerFrequency;
 }
 
+export function getFlashCreaturePos() {
+  return flashCreaturePos;
+}
+
 // ================================================================
 // Consume — called when orb is collected, resets frequency
 // ================================================================
@@ -75,6 +206,8 @@ export function consumeFrequency() {
   attunement = 0;
   attunementTarget = null;
   flashPending = false;
+  flashCreaturePos = null;
+  _jellyTapTimes = [];
 }
 
 // ================================================================

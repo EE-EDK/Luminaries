@@ -4,7 +4,7 @@
 // SphereGeometry base with gentle noise displacement for organic lumpy
 // shapes. Three size classes: boulders, medium rocks, pebbles.
 // Five rock types with distinct color palettes.
-import * as THREE from 'three';
+import { BufferAttribute, Color, Group, InstancedMesh, Mesh, MeshStandardMaterial, Object3D, SphereGeometry, StaticDrawUsage } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, PEBBLE_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -45,10 +45,10 @@ function displaceSmooth(geo, amplitude, seed) {
 // ================================================================
 // Vertex color variation — subtle grain and weathering
 // ================================================================
-const _vc = new THREE.Color();
-const _vcBase = new THREE.Color();
-const _vcHi = new THREE.Color();
-const _vcDark = new THREE.Color();
+const _vc = new Color();
+const _vcBase = new Color();
+const _vcHi = new Color();
+const _vcDark = new Color();
 
 function applyVertexColors(geo, pal) {
   const pos = geo.attributes.position;
@@ -71,7 +71,7 @@ function applyVertexColors(geo, pal) {
     colors[i * 3 + 1] = _vc.g;
     colors[i * 3 + 2] = _vc.b;
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('color', new BufferAttribute(colors, 3));
 }
 
 // ================================================================
@@ -80,7 +80,7 @@ function applyVertexColors(geo, pal) {
 function pickRockType() {
   const type = ROCK_TYPES[Math.floor(sr() * ROCK_TYPES.length)];
   const pal = C[type.palette]; // [base, hi, dark, accent]
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new MeshStandardMaterial({
     vertexColors: true,
     roughness: type.roughness,
     metalness: type.metalness,
@@ -91,7 +91,7 @@ function pickRockType() {
 // ================================================================
 // Shared moss material
 // ================================================================
-const mossMat = new THREE.MeshStandardMaterial({
+const mossMat = new MeshStandardMaterial({
   color: C.rockMoss, emissive: C.rockMoss, emissiveIntensity: 0.03, roughness: 0.95
 });
 
@@ -99,16 +99,16 @@ const mossMat = new THREE.MeshStandardMaterial({
 // makeRock — medium rocks (0.3-0.8m)
 // ================================================================
 export function makeRock(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const { mat, pal } = pickRockType();
   const seed = sr() * 100;
 
   // Main stone — smooth sphere with gentle lumps
   const mainR = 0.3 + sr() * 0.5;
-  const mainGeo = new THREE.SphereGeometry(mainR, 10, 8);
+  const mainGeo = new SphereGeometry(mainR, 10, 8);
   displaceSmooth(mainGeo, mainR * 0.08, seed);
   applyVertexColors(mainGeo, pal);
-  const main = new THREE.Mesh(mainGeo, mat);
+  const main = new Mesh(mainGeo, mat);
   // Flatten and stretch for natural rock proportions
   const sy = 0.35 + sr() * 0.3;
   const sx = 0.9 + sr() * 0.5;
@@ -126,10 +126,10 @@ export function makeRock(x, z) {
   for (let ci = 0; ci < compN; ci++) {
     const { mat: cMat, pal: cPal } = pickRockType();
     const cR = mainR * (0.25 + sr() * 0.35);
-    const cGeo = new THREE.SphereGeometry(cR, 8, 6);
+    const cGeo = new SphereGeometry(cR, 8, 6);
     displaceSmooth(cGeo, cR * 0.07, seed + ci * 13.7);
     applyVertexColors(cGeo, cPal);
-    const comp = new THREE.Mesh(cGeo, cMat);
+    const comp = new Mesh(cGeo, cMat);
     const cSy = 0.3 + sr() * 0.35;
     comp.scale.set(0.9 + sr() * 0.4, cSy, 0.9 + sr() * 0.4);
     const ang = sr() * 6.28;
@@ -143,7 +143,7 @@ export function makeRock(x, z) {
   // Small moss patch on top (50% chance)
   if (sr() < 0.5) {
     const mSz = mainR * 0.2 + sr() * mainR * 0.15;
-    const moss = new THREE.Mesh(new THREE.SphereGeometry(mSz, 5, 4), mossMat);
+    const moss = new Mesh(new SphereGeometry(mSz, 5, 4), mossMat);
     moss.scale.set(1.3, 0.15, 1.3);
     moss.position.set(sr() * mainR * 0.2, mainR * sy * 0.4, sr() * mainR * 0.2);
     g.add(moss);
@@ -158,16 +158,16 @@ export function makeRock(x, z) {
 // makeBoulder — large rock formations (1.2-3.0m)
 // ================================================================
 export function makeBoulder(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const { mat, pal } = pickRockType();
   const seed = sr() * 100;
 
   // Main boulder — larger sphere, more segments for smoother appearance
   const mainR = 1.2 + sr() * 1.8;
-  const mainGeo = new THREE.SphereGeometry(mainR, 14, 10);
+  const mainGeo = new SphereGeometry(mainR, 14, 10);
   displaceSmooth(mainGeo, mainR * 0.10, seed);
   applyVertexColors(mainGeo, pal);
-  const main = new THREE.Mesh(mainGeo, mat);
+  const main = new Mesh(mainGeo, mat);
   const sy = 0.45 + sr() * 0.25;
   main.scale.set(1 + sr() * 0.4, sy, 1 + sr() * 0.4);
   // Sink into ground — boulders look heavy and embedded
@@ -181,10 +181,10 @@ export function makeBoulder(x, z) {
   if (sr() < 0.6) {
     const { mat: sMat, pal: sPal } = pickRockType();
     const sR = mainR * (0.3 + sr() * 0.25);
-    const sGeo = new THREE.SphereGeometry(sR, 10, 8);
+    const sGeo = new SphereGeometry(sR, 10, 8);
     displaceSmooth(sGeo, sR * 0.09, seed + 37.1);
     applyVertexColors(sGeo, sPal);
-    const slab = new THREE.Mesh(sGeo, sMat);
+    const slab = new Mesh(sGeo, sMat);
     const sSy = 0.3 + sr() * 0.25;
     slab.scale.set(1.2 + sr() * 0.4, sSy, 0.9 + sr() * 0.4);
     const slabAng = sr() * 6.28;
@@ -202,7 +202,7 @@ export function makeBoulder(x, z) {
   const mossN = 2 + Math.floor(sr() * 3);
   for (let mi = 0; mi < mossN; mi++) {
     const mR = mainR * 0.12 + sr() * mainR * 0.1;
-    const moss = new THREE.Mesh(new THREE.SphereGeometry(mR, 5, 4), mossMat);
+    const moss = new Mesh(new SphereGeometry(mR, 5, 4), mossMat);
     moss.scale.set(1.4, 0.15, 1.4);
     const ma = sr() * 6.28;
     moss.position.set(
@@ -222,24 +222,24 @@ export function makeBoulder(x, z) {
 // Pebble InstancedMesh — scattered tiny stones, 1 draw call
 // ================================================================
 let pebbleMesh = null;
-const _pebDummy = new THREE.Object3D();
+const _pebDummy = new Object3D();
 
 export function initPebbles() {
   // Smooth sphere pebble — flattened per instance
-  const geo = new THREE.SphereGeometry(1, 6, 5);
+  const geo = new SphereGeometry(1, 6, 5);
   displaceSmooth(geo, 0.08, 42.7);
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new MeshStandardMaterial({
     color: C.rockBase, roughness: 0.90, metalness: 0.03
   });
-  pebbleMesh = new THREE.InstancedMesh(geo, mat, PEBBLE_N);
-  pebbleMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  pebbleMesh = new InstancedMesh(geo, mat, PEBBLE_N);
+  pebbleMesh.instanceMatrix.setUsage(StaticDrawUsage);
   pebbleMesh.count = 0;
   scene.add(pebbleMesh);
   return pebbleMesh;
 }
 
 // Color variation for pebble instances
-const _pebColor = new THREE.Color();
+const _pebColor = new Color();
 const PEBBLE_COLORS = [0x8a8a90, 0x9a8a70, 0xa0a098, 0x607080, 0x7a7a82, 0x706860, 0x908880];
 
 export function addPebble(x, z, groundY) {

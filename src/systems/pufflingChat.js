@@ -16,7 +16,7 @@
 //   They've always known.
 
 import { camera } from '../core/renderer.js';
-import * as THREE from 'three';
+import { Vector3 } from 'three';
 
 // ================================================================
 // Message pools — context-sensitive cryptic text
@@ -108,7 +108,7 @@ let chatVisible = false;
 let chatTargetPuff = null; // which puffling is "speaking"
 
 // Pre-allocated vector for 3D → 2D projection
-const _projVec = new THREE.Vector3();
+const _projVec = new Vector3();
 
 // ================================================================
 // Init — create DOM element for speech bubble

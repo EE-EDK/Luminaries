@@ -4,28 +4,28 @@
 // Spawned at the moment of orb collection. Particles radiate outward
 // then drift downward like embers, fading over several seconds.
 
-import * as THREE from 'three';
+import { AdditiveBlending, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, SphereGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 
 const ORB_BURST_COUNT = 150;
 let mesh = null;
 const particles = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
-const goldColor = new THREE.Color(C.orbGold);
-const glowColor = new THREE.Color(C.orbGlow);
+const dummy = new Object3D();
+const tmpColor = new Color();
+const goldColor = new Color(C.orbGold);
+const glowColor = new Color(C.orbGlow);
 
 export function initOrbBurst() {
-  const mat = new THREE.MeshBasicMaterial({
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: AdditiveBlending, depthWrite: false
   });
-  const geo = new THREE.SphereGeometry(0.05, 4, 3);
-  mesh = new THREE.InstancedMesh(geo, mat, ORB_BURST_COUNT);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ORB_BURST_COUNT * 3), 3);
-  mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  const geo = new SphereGeometry(0.05, 4, 3);
+  mesh = new InstancedMesh(geo, mat, ORB_BURST_COUNT);
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(ORB_BURST_COUNT * 3), 3);
+  mesh.instanceColor.setUsage(DynamicDrawUsage);
 
   dummy.scale.setScalar(0);
   dummy.updateMatrix();

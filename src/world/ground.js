@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { BufferAttribute, CanvasTexture, Mesh, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, SRGBColorSpace } from 'three';
 import { WORLD_R, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from './terrain.js';
@@ -254,10 +254,10 @@ function makeGroundTexture() {
     ctx.beginPath(); ctx.arc(dx, dy, 0.5 + R() * 1.5, 0, 6.28); ctx.fill();
   }
 
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  const tex = new CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = RepeatWrapping;
   tex.repeat.set(8, 8);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.colorSpace = SRGBColorSpace;
   return tex;
 }
 
@@ -285,7 +285,7 @@ export function createGround() {
   const groundTex = makeGroundTexture();
   const size = WORLD_R * 3;
   const segs = 200;
-  const geo = new THREE.PlaneGeometry(size, size, segs, segs);
+  const geo = new PlaneGeometry(size, size, segs, segs);
   const posAttr = geo.attributes.position;
 
   // --- Vertex color biomes ---
@@ -340,10 +340,10 @@ export function createGround() {
     colorArr[i * 3 + 1] = g * hTint;
     colorArr[i * 3 + 2] = b * hTint;
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+  geo.setAttribute('color', new BufferAttribute(colorArr, 3));
   geo.computeVertexNormals();
 
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new MeshStandardMaterial({
     map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
     emissive: 0x152e18, emissiveIntensity: 0.25
   });
@@ -481,7 +481,7 @@ export function createGround() {
     );
   };
 
-  const ground = new THREE.Mesh(geo, mat);
+  const ground = new Mesh(geo, mat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);

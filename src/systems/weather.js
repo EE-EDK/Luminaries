@@ -5,7 +5,7 @@
 // Weighted random transitions with 30-90s smooth blending.
 // Exports wind vector, fog modifier, rain rate, and lightning flash.
 
-import * as THREE from 'three';
+import { CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { scene } from '../core/renderer.js';
 
 // Live exports (read by main.js and other systems)
@@ -87,15 +87,15 @@ function buildMistPlanes() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 64);
-  const fogTex = new THREE.CanvasTexture(cv);
+  const fogTex = new CanvasTexture(cv);
 
-  const geo = new THREE.PlaneGeometry(40, 14);
+  const geo = new PlaneGeometry(40, 14);
   for (let i = 0; i < MAX_MIST; i++) {
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = new MeshBasicMaterial({
       map: fogTex, color: 0x556677, transparent: true, opacity: 0,
-      side: THREE.DoubleSide, depthWrite: false
+      side: DoubleSide, depthWrite: false
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new Mesh(geo, mat);
     mesh.visible = false;
     scene.add(mesh);
     mistPlanes.push({

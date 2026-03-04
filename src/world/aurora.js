@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, BufferAttribute, Color, DoubleSide, DynamicDrawUsage, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { SKY_R } from '../constants.js';
 import { scene } from '../core/renderer.js';
 
@@ -16,16 +16,16 @@ let auroraGroup = null;
 
 // Muted, desaturated color palette for soft aurora
 const AURORA_COLORS = [
-  new THREE.Color(0x1a7755), // muted green
-  new THREE.Color(0x2a8877), // muted teal
-  new THREE.Color(0x557766), // pale sage
-  new THREE.Color(0x665588), // muted purple
-  new THREE.Color(0x884466), // muted rose
-  new THREE.Color(0x336655), // dark teal
+  new Color(0x1a7755), // muted green
+  new Color(0x2a8877), // muted teal
+  new Color(0x557766), // pale sage
+  new Color(0x665588), // muted purple
+  new Color(0x884466), // muted rose
+  new Color(0x336655), // dark teal
 ];
 
 export function initAurora() {
-  auroraGroup = new THREE.Group();
+  auroraGroup = new Group();
   auroraGroup.visible = false;
 
   for (let r = 0; r < RIBBON_COUNT; r++) {
@@ -36,7 +36,7 @@ export function initAurora() {
     const heightMult = 0.10 + r * 0.012 + Math.sin(r * 2.3) * 0.02;
     const height = SKY_R * heightMult;
     // More vertical rows for gradient falloff
-    const geo = new THREE.PlaneGeometry(width, height, SEGMENTS, 3);
+    const geo = new PlaneGeometry(width, height, SEGMENTS, 3);
 
     // Curve the ribbon into an arc across the sky
     const posArr = geo.attributes.position.array;
@@ -66,25 +66,25 @@ export function initAurora() {
       posArr[i * 3 + 2] = Math.cos(azimuth) * Math.sin(elev) * skyR;
     }
     geo.attributes.position.needsUpdate = true;
-    geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
+    geo.attributes.position.setUsage(DynamicDrawUsage);
     geo.computeVertexNormals();
 
     // Vertex colors for animation
     const colors = new Float32Array(vertCount * 3);
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geo.attributes.color.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('color', new BufferAttribute(colors, 3));
+    geo.attributes.color.setUsage(DynamicDrawUsage);
 
-    const mat = new THREE.MeshBasicMaterial({
+    const mat = new MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
       opacity: 0,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
+      side: DoubleSide,
+      blending: AdditiveBlending,
       depthWrite: false,
       fog: false
     });
 
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new Mesh(geo, mat);
     auroraGroup.add(mesh);
 
     ribbons.push({

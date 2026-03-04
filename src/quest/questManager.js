@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DynamicDrawUsage, LineCurve3, Mesh, MeshBasicMaterial, Points, PointsMaterial, TubeGeometry, Vector3 } from 'three';
 import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
 import { scene } from '../core/renderer.js';
@@ -7,8 +7,8 @@ import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 
-const _orbGoldColor = new THREE.Color(C.orbGold);
-const _whiteColor = new THREE.Color(0xffffff);
+const _orbGoldColor = new Color(C.orbGold);
+const _whiteColor = new Color(0xffffff);
 
 // Quest state
 // SEEK → RISING → COMPLETE → FINALE → TRANSFORM
@@ -80,28 +80,28 @@ let glitterExploded = false;
 
 function initGlitter() {
   if (glitterMesh) return;
-  const geo = new THREE.BufferGeometry();
+  const geo = new BufferGeometry();
   const positions = new Float32Array(GLITTER_COUNT * 3);
   const colors = new Float32Array(GLITTER_COUNT * 3);
   const sizes = new Float32Array(GLITTER_COUNT);
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
-  geo.attributes.color.setUsage(THREE.DynamicDrawUsage);
-  geo.attributes.size.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', new BufferAttribute(positions, 3));
+  geo.setAttribute('color', new BufferAttribute(colors, 3));
+  geo.setAttribute('size', new BufferAttribute(sizes, 1));
+  geo.attributes.position.setUsage(DynamicDrawUsage);
+  geo.attributes.color.setUsage(DynamicDrawUsage);
+  geo.attributes.size.setUsage(DynamicDrawUsage);
 
-  const mat = new THREE.PointsMaterial({
+  const mat = new PointsMaterial({
     size: 0.3, vertexColors: true, transparent: true, opacity: 0.9,
-    blending: THREE.AdditiveBlending, depthWrite: false,
+    blending: AdditiveBlending, depthWrite: false,
     sizeAttenuation: true
   });
-  glitterMesh = new THREE.Points(geo, mat);
+  glitterMesh = new Points(geo, mat);
   glitterMesh.visible = false;
   scene.add(glitterMesh);
 
-  const pinkBase = new THREE.Color(C.obeliskPink);
-  const purpleBase = new THREE.Color(0xaa44ff);
+  const pinkBase = new Color(C.obeliskPink);
+  const purpleBase = new Color(0xaa44ff);
   for (let i = 0; i < GLITTER_COUNT; i++) {
     const c = Math.random() < 0.7 ? pinkBase : purpleBase;
     colors[i * 3] = c.r * (0.8 + Math.random() * 0.4);
@@ -466,7 +466,7 @@ export function updateQuest(dt, t) {
     }
     if (pinnacleOrb && pinnacleOrb.mesh.visible && finaleTimer >= 3 && !glitterExploded) {
       // EXPLODE! Get world position of pinnacle orb
-      const worldPos = new THREE.Vector3();
+      const worldPos = new Vector3();
       pinnacleOrb.mesh.getWorldPosition(worldPos);
       explodeGlitter(worldPos.x, worldPos.y, worldPos.z);
       // Hide pinnacle orb and rings
@@ -583,24 +583,24 @@ export function updateQuest(dt, t) {
         const idx = treeLasers.length;
         const tr = trees[idx];
         const tY = getObeliskTipY();
-        const path = new THREE.LineCurve3(
-          new THREE.Vector3(0, tY, 0),
-          new THREE.Vector3(tr.x, 0, tr.z)
+        const path = new LineCurve3(
+          new Vector3(0, tY, 0),
+          new Vector3(tr.x, 0, tr.z)
         );
-        const tMat = new THREE.MeshBasicMaterial({
+        const tMat = new MeshBasicMaterial({
           color: C.laserPink, transparent: true, opacity: 0,
-          blending: THREE.AdditiveBlending, depthWrite: false
+          blending: AdditiveBlending, depthWrite: false
         });
-        const tube = new THREE.Mesh(
-          new THREE.TubeGeometry(path, 8, 0.06, 4, false), tMat
+        const tube = new Mesh(
+          new TubeGeometry(path, 8, 0.06, 4, false), tMat
         );
         scene.add(tube);
-        const gMat = new THREE.MeshBasicMaterial({
+        const gMat = new MeshBasicMaterial({
           color: C.laserGlow, transparent: true, opacity: 0,
-          blending: THREE.AdditiveBlending, depthWrite: false
+          blending: AdditiveBlending, depthWrite: false
         });
-        const glow = new THREE.Mesh(
-          new THREE.TubeGeometry(path, 8, 0.18, 4, false), gMat
+        const glow = new Mesh(
+          new TubeGeometry(path, 8, 0.18, 4, false), gMat
         );
         scene.add(glow);
         treeLasers.push({ tube, glow, mat: tMat, glowMat: gMat, timer: 0 });

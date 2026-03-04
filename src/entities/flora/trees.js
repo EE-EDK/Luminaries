@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, RepeatWrapping, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -106,9 +106,9 @@ function getBarkTexture() {
     ctx.stroke();
   }
 
-  _barkTexture = new THREE.CanvasTexture(canvas);
-  _barkTexture.wrapS = THREE.RepeatWrapping;
-  _barkTexture.wrapT = THREE.RepeatWrapping;
+  _barkTexture = new CanvasTexture(canvas);
+  _barkTexture.wrapS = RepeatWrapping;
+  _barkTexture.wrapT = RepeatWrapping;
   return _barkTexture;
 }
 
@@ -139,21 +139,21 @@ function getGlowTexture() {
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   c.fillStyle = grad;
   c.fillRect(0, 0, size, size);
-  _glowTexture = new THREE.CanvasTexture(canvas);
+  _glowTexture = new CanvasTexture(canvas);
   return _glowTexture;
 }
 
 // Create a billboard impostor sprite for a tree (1 draw call at distance)
 export function makeTreeImpostor(treeH, groundY) {
-  const mat = new THREE.SpriteMaterial({
+  const mat = new SpriteMaterial({
     map: getGlowTexture(),
     color: 0x33cc88,
     transparent: true,
     opacity: 0.65,
     depthWrite: false,
-    blending: THREE.AdditiveBlending
+    blending: AdditiveBlending
   });
-  const sprite = new THREE.Sprite(mat);
+  const sprite = new Sprite(mat);
   const canopyW = treeH * 0.55;
   sprite.scale.set(canopyW * 2.2, canopyW * 1.6, 1);
   sprite.position.y = groundY + treeH * 0.6;
@@ -168,13 +168,13 @@ export function makeTreeImpostor(treeH, groundY) {
 //             'glow' (haze/underglow), 'detail' (veins/roots/branches/moss/fungi)
 // ================================================================
 function generateTemplateTree(palIdx) {
-  const g = new THREE.Group();
+  const g = new Group();
   const h = 6 + sr() * 10, r = 0.2 + sr() * 0.3;
 
   // Trunk — wider flared base tapering upward (like the reference image)
   const baseFlare = r * 1.8; // wide buttress base
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.4, baseFlare, h, 8));
-  trunk.material = new THREE.MeshStandardMaterial({ color: 0x7a5840 });
+  const trunk = new Mesh(new CylinderGeometry(r * 0.4, baseFlare, h, 8));
+  trunk.material = new MeshStandardMaterial({ color: 0x7a5840 });
   trunk.position.y = h / 2;
   trunk.userData._cat = 'trunk';
   g.add(trunk);
@@ -184,8 +184,8 @@ function generateTemplateTree(palIdx) {
   for (let vi = 0; vi < veinN; vi++) {
     const va = vi / veinN * 6.28 + sr() * 0.5;
     const vH = h * 0.4 + sr() * h * 0.4;
-    const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.015, vH, 3));
-    vein.material = new THREE.MeshStandardMaterial({ color: 0x228855 });
+    const vein = new Mesh(new CylinderGeometry(0.008, 0.015, vH, 3));
+    vein.material = new MeshStandardMaterial({ color: 0x228855 });
     vein.position.set(Math.cos(va) * r * 0.74, h * 0.15 + vH / 2, Math.sin(va) * r * 0.74);
     vein.userData._cat = 'detail';
     g.add(vein);
@@ -193,7 +193,7 @@ function generateTemplateTree(palIdx) {
 
   // Buttress roots — thick roots spreading along the ground surface
   // Like the reference: wide, prominent roots radiating outward from the flared base
-  const _rootUp = new THREE.Vector3(0, 1, 0);
+  const _rootUp = new Vector3(0, 1, 0);
   const rootN = 4 + Math.floor(sr() * 4); // 4-7 major roots
   for (let ri = 0; ri < rootN; ri++) {
     const ra = ri / rootN * 6.28 + sr() * 0.4;
@@ -205,13 +205,13 @@ function generateTemplateTree(palIdx) {
     const rdx = Math.cos(ra) * Math.cos(rootDown);
     const rdy = Math.sin(rootDown);
     const rdz = Math.sin(ra) * Math.cos(rootDown);
-    const rootDir = new THREE.Vector3(rdx, rdy, rdz).normalize();
+    const rootDir = new Vector3(rdx, rdy, rdz).normalize();
 
-    const rootGeo = new THREE.CylinderGeometry(rTipR, rBaseR, rLen, 5);
+    const rootGeo = new CylinderGeometry(rTipR, rBaseR, rLen, 5);
     rootGeo.translate(0, rLen / 2, 0); // base at origin
-    const rootMesh = new THREE.Mesh(rootGeo, new THREE.MeshStandardMaterial({ color: 0x6a5038 }));
+    const rootMesh = new Mesh(rootGeo, new MeshStandardMaterial({ color: 0x6a5038 }));
     rootMesh.position.set(Math.cos(ra) * baseFlare * 0.6, 0.05, Math.sin(ra) * baseFlare * 0.6);
-    const rq = new THREE.Quaternion().setFromUnitVectors(_rootUp, rootDir);
+    const rq = new Quaternion().setFromUnitVectors(_rootUp, rootDir);
     rootMesh.quaternion.copy(rq);
     rootMesh.userData._cat = 'trunk';
     g.add(rootMesh);
@@ -221,21 +221,21 @@ function generateTemplateTree(palIdx) {
       const subT = 0.4 + sr() * 0.3;
       const subAng = ra + (sr() - 0.5) * 1.2;
       const subLen = 0.5 + sr() * 1.0;
-      const subDir = new THREE.Vector3(
+      const subDir = new Vector3(
         Math.cos(subAng) * Math.cos(-0.1),
         Math.sin(-0.1),
         Math.sin(subAng) * Math.cos(-0.1)
       ).normalize();
-      const subGeo = new THREE.CylinderGeometry(0.02, rBaseR * 0.3, subLen, 4);
+      const subGeo = new CylinderGeometry(0.02, rBaseR * 0.3, subLen, 4);
       subGeo.translate(0, subLen / 2, 0);
-      const subMesh = new THREE.Mesh(subGeo, new THREE.MeshStandardMaterial({ color: 0x6a5038 }));
-      const sBase = new THREE.Vector3(
+      const subMesh = new Mesh(subGeo, new MeshStandardMaterial({ color: 0x6a5038 }));
+      const sBase = new Vector3(
         Math.cos(ra) * baseFlare * 0.6 + rdx * rLen * subT,
         0.05 + rdy * rLen * subT,
         Math.sin(ra) * baseFlare * 0.6 + rdz * rLen * subT
       );
       subMesh.position.copy(sBase);
-      const sq = new THREE.Quaternion().setFromUnitVectors(_rootUp, subDir);
+      const sq = new Quaternion().setFromUnitVectors(_rootUp, subDir);
       subMesh.quaternion.copy(sq);
       subMesh.userData._cat = 'trunk';
       g.add(subMesh);
@@ -245,18 +245,18 @@ function generateTemplateTree(palIdx) {
   // ---- Realistic branching system ----
   // Lower scaffold branches + crown branches with sub-branching + canopy at tips
   const pal = GLOW_PALETTES[palIdx % GLOW_PALETTES.length];
-  const _branchMat = new THREE.MeshStandardMaterial({ color: 0x7a5840 });
-  const _branchMatDark = new THREE.MeshStandardMaterial({ color: 0x6a4835 });
-  const _up = new THREE.Vector3(0, 1, 0);
+  const _branchMat = new MeshStandardMaterial({ color: 0x7a5840 });
+  const _branchMatDark = new MeshStandardMaterial({ color: 0x6a4835 });
+  const _up = new Vector3(0, 1, 0);
 
   // Helper: create a tapered branch cylinder oriented from base toward direction
   function addBranch(basePos, dir, len, baseR, tipR, mat) {
-    const geo = new THREE.CylinderGeometry(tipR, baseR, len, 5);
+    const geo = new CylinderGeometry(tipR, baseR, len, 5);
     geo.translate(0, len / 2, 0); // base at local origin, tip at (0,len,0)
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new Mesh(geo, mat);
     mesh.position.copy(basePos);
     const d = dir.clone().normalize();
-    const quat = new THREE.Quaternion().setFromUnitVectors(_up, d);
+    const quat = new Quaternion().setFromUnitVectors(_up, d);
     mesh.quaternion.copy(quat);
     mesh.userData._cat = 'trunk';
     g.add(mesh);
@@ -270,10 +270,10 @@ function generateTemplateTree(palIdx) {
     const spread = size * 0.45;
     for (let ci = 0; ci < cloudN; ci++) {
       const cloudR = size * (0.12 + sr() * 0.18); // varied small radii
-      const cloud = new THREE.Mesh(new THREE.IcosahedronGeometry(cloudR, 1));
+      const cloud = new Mesh(new IcosahedronGeometry(cloudR, 1));
       // Alternate between leaf and brighter core colors for depth
       const isBright = sr() < 0.3;
-      cloud.material = new THREE.MeshStandardMaterial({
+      cloud.material = new MeshStandardMaterial({
         color: isBright ? pal.core : pal.leaf
       });
       // Scatter position irregularly around the center
@@ -293,8 +293,8 @@ function generateTemplateTree(palIdx) {
     }
 
     // Soft glow haze — slightly smaller than before, centered
-    const haze = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.5, 1));
-    haze.material = new THREE.MeshStandardMaterial({ color: pal.glow });
+    const haze = new Mesh(new IcosahedronGeometry(size * 0.5, 1));
+    haze.material = new MeshStandardMaterial({ color: pal.glow });
     haze.position.set(cx, cy, cz);
     haze.scale.set(1 + sr() * 0.3, 0.7 + sr() * 0.4, 1 + sr() * 0.3);
     haze.userData._cat = 'glow';
@@ -314,15 +314,15 @@ function generateTemplateTree(palIdx) {
     const dx = Math.cos(ang) * Math.cos(upAngle);
     const dy = Math.sin(upAngle);
     const dz = Math.sin(ang) * Math.cos(upAngle);
-    const dir = new THREE.Vector3(dx, dy, dz);
-    const base = new THREE.Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
+    const dir = new Vector3(dx, dy, dz);
+    const base = new Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
     addBranch(base, dir, len, baseR, tipR, _branchMat);
 
     // Occasional hanging moss from lower branches
     if (sr() < 0.4) {
       const mLen = 0.4 + sr() * 0.8;
-      const moss = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, mLen, 3));
-      moss.material = new THREE.MeshStandardMaterial({ color: 0x2a5030 });
+      const moss = new Mesh(new CylinderGeometry(0.008, 0.003, mLen, 3));
+      moss.material = new MeshStandardMaterial({ color: 0x2a5030 });
       const mT = 0.4 + sr() * 0.4; // along branch
       moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
       moss.userData._cat = 'detail';
@@ -342,8 +342,8 @@ function generateTemplateTree(palIdx) {
     const dx = Math.cos(ang) * Math.cos(upAngle);
     const dy = Math.sin(upAngle);
     const dz = Math.sin(ang) * Math.cos(upAngle);
-    const dir = new THREE.Vector3(dx, dy, dz);
-    const base = new THREE.Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
+    const dir = new Vector3(dx, dy, dz);
+    const base = new Vector3(Math.cos(ang) * r * 0.95, by, Math.sin(ang) * r * 0.95);
     addBranch(base, dir, len, baseR, tipR, _branchMat);
 
     // Tip position for canopy
@@ -357,7 +357,7 @@ function generateTemplateTree(palIdx) {
     const subN = 1 + Math.floor(sr() * 3);
     for (let si = 0; si < subN; si++) {
       const subT = 0.35 + sr() * 0.35; // 35-70% along parent
-      const subBase = new THREE.Vector3(
+      const subBase = new Vector3(
         base.x + dx * len * subT,
         base.y + dy * len * subT,
         base.z + dz * len * subT
@@ -365,7 +365,7 @@ function generateTemplateTree(palIdx) {
       const subAng = ang + (sr() - 0.5) * 1.8;
       const subUp = 0.45 + sr() * 0.55; // 26-57° upward
       const subLen = 0.6 + sr() * 1.4;
-      const subDir = new THREE.Vector3(
+      const subDir = new Vector3(
         Math.cos(subAng) * Math.cos(subUp),
         Math.sin(subUp),
         Math.sin(subAng) * Math.cos(subUp)
@@ -383,8 +383,8 @@ function generateTemplateTree(palIdx) {
     // Hanging moss on some crown branches
     if (sr() < 0.3) {
       const mLen = 0.3 + sr() * 0.7;
-      const moss = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, mLen, 3));
-      moss.material = new THREE.MeshStandardMaterial({ color: 0x2a5030 });
+      const moss = new Mesh(new CylinderGeometry(0.008, 0.003, mLen, 3));
+      moss.material = new MeshStandardMaterial({ color: 0x2a5030 });
       const mT = 0.5 + sr() * 0.3;
       moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
       moss.userData._cat = 'detail';
@@ -398,8 +398,8 @@ function generateTemplateTree(palIdx) {
     const fy = 1 + sr() * h * 0.4;
     const fa = sr() * 6.28;
     const fungR = 0.08 + sr() * 0.08;
-    const fung = new THREE.Mesh(new THREE.SphereGeometry(fungR, 5, 3));
-    fung.material = new THREE.MeshStandardMaterial({ color: 0x5a3520 });
+    const fung = new Mesh(new SphereGeometry(fungR, 5, 3));
+    fung.material = new MeshStandardMaterial({ color: 0x5a3520 });
     fung.scale.set(1.5, 0.3, 1);
     fung.position.set(Math.cos(fa) * r * 0.8, fy, Math.sin(fa) * r * 0.8);
     fung.rotation.y = -fa;
@@ -408,8 +408,8 @@ function generateTemplateTree(palIdx) {
   }
 
   // Underglow — positioned near canopy to light from above, not mid-trunk
-  const under = new THREE.Mesh(new THREE.SphereGeometry(2.5 + sr() * 1.5, 8, 6));
-  under.material = new THREE.MeshStandardMaterial({ color: new THREE.Color(C.leaf) });
+  const under = new Mesh(new SphereGeometry(2.5 + sr() * 1.5, 8, 6));
+  under.material = new MeshStandardMaterial({ color: new Color(C.leaf) });
   under.position.y = h * 0.85;
   under.userData._cat = 'glow';
   g.add(under);
@@ -436,7 +436,7 @@ function bakeTemplate(palIdx, seedOffset) {
   group.updateMatrixWorld(true);
 
   const trunkGeoms = [], canopyGeoms = [], glowGeoms = [], detailGeoms = [];
-  const color = new THREE.Color();
+  const color = new Color();
 
   for (let ci = 0; ci < group.children.length; ci++) {
     const mesh = group.children[ci];
@@ -472,7 +472,7 @@ function bakeTemplate(palIdx, seedOffset) {
       colors[vi * 3 + 1] = color.g;
       colors[vi * 3 + 2] = color.b;
     }
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('color', new BufferAttribute(colors, 3));
 
     // Keep UVs on trunk geometry for bark texture mapping;
     // remove UVs from other categories (not all have them, causes merge issues)
@@ -481,7 +481,7 @@ function bakeTemplate(palIdx, seedOffset) {
       if (!geo.attributes.uv) {
         // Safety: generate placeholder UVs if missing
         const uvs = new Float32Array(vCount * 2);
-        geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        geo.setAttribute('uv', new BufferAttribute(uvs, 2));
       }
     } else {
       if (geo.attributes.uv) geo.deleteAttribute('uv');
@@ -514,13 +514,16 @@ function bakeTemplate(palIdx, seedOffset) {
 // Create InstancedMesh set for all templates
 // Returns array of { trunk, canopy, glow, detail, instances: [] } per template
 // ================================================================
-const _dummy = new THREE.Object3D();
-const _slopeUp = new THREE.Vector3(0, 1, 0);
-const _slopeNorm = new THREE.Vector3();
-const _slopeQ = new THREE.Quaternion();
-const _identQ = new THREE.Quaternion();
-const _swayQ = new THREE.Quaternion();
-const _yRotQ = new THREE.Quaternion();
+const _dummy = new Object3D();
+const _slopeUp = new Vector3(0, 1, 0);
+const _slopeNorm = new Vector3();
+const _slopeQ = new Quaternion();
+const _identQ = new Quaternion();
+const _swayQ = new Quaternion();
+const _yRotQ = new Quaternion();
+const _frustum = new Frustum();
+const _projScreenMatrix = new Matrix4();
+const _testPoint = new Vector3();
 const SLOPE_FACTOR = 0.15; // Subtle tilt — keeps trunks vertical, roots do the work via steep template angles
 
 // Apply slope tilt + Y rotation to _dummy quaternion using cached normal
@@ -552,22 +555,22 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     // Trunk InstancedMesh (bark, branches, mound) — bark texture, warm self-illumination
     // Warm brown emissive so bark texture shows even under green scene lighting
     const barkTex = getBarkTexture();
-    const trunkMat = new THREE.MeshStandardMaterial({
+    const trunkMat = new MeshStandardMaterial({
       vertexColors: true,
       map: barkTex,
       roughness: 0.75,
       emissive: 0x553318,
       emissiveIntensity: 0.6
     });
-    const trunkMesh = tmpl.trunkGeo ? new THREE.InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;
+    const trunkMesh = tmpl.trunkGeo ? new InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;
     if (trunkMesh) {
-      trunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      trunkMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       trunkMesh.count = 0;
       scene.add(trunkMesh);
     }
 
     // Canopy InstancedMesh (cores, mid-canopy leaves) — semi-transparent glowing volumes
-    const canopyMat = new THREE.MeshStandardMaterial({
+    const canopyMat = new MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
@@ -576,15 +579,15 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       opacity: 0.5,
       depthWrite: false
     });
-    const canopyMesh = tmpl.canopyGeo ? new THREE.InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
+    const canopyMesh = tmpl.canopyGeo ? new InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
     if (canopyMesh) {
-      canopyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      canopyMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       canopyMesh.count = 0;
       scene.add(canopyMesh);
     }
 
     // Glow InstancedMesh (haze, underglow) — soft transparent halos
-    const glowMat = new THREE.MeshStandardMaterial({
+    const glowMat = new MeshStandardMaterial({
       vertexColors: true,
       emissive: palData.glow,
       emissiveIntensity: 0.4,
@@ -592,22 +595,22 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       opacity: 0.15,
       depthWrite: false
     });
-    const glowMesh = tmpl.glowGeo ? new THREE.InstancedMesh(tmpl.glowGeo, glowMat, maxPerTemplate) : null;
+    const glowMesh = tmpl.glowGeo ? new InstancedMesh(tmpl.glowGeo, glowMat, maxPerTemplate) : null;
     if (glowMesh) {
-      glowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      glowMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       glowMesh.count = 0;
       scene.add(glowMesh);
     }
 
     // Detail InstancedMesh (veins, roots, moss, fungi) — small features, close range only
-    const detailMat = new THREE.MeshStandardMaterial({
+    const detailMat = new MeshStandardMaterial({
       vertexColors: true,
       emissive: palData.glow,
       emissiveIntensity: 0.4
     });
-    const detailMesh = tmpl.detailGeo ? new THREE.InstancedMesh(tmpl.detailGeo, detailMat, maxPerTemplate) : null;
+    const detailMesh = tmpl.detailGeo ? new InstancedMesh(tmpl.detailGeo, detailMat, maxPerTemplate) : null;
     if (detailMesh) {
-      detailMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      detailMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       detailMesh.count = 0;
       scene.add(detailMesh);
     }
@@ -670,7 +673,13 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
 // LOD update for instanced trees
 // Rebuilds instance matrices each frame based on distance
 // ================================================================
-export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ) {
+export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, cam) {
+  // Update camera frustum once per frame (if camera provided)
+  if (cam) {
+    _projScreenMatrix.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+    _frustum.setFromProjectionMatrix(_projScreenMatrix);
+  }
+
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const mesh = treeMeshes[ti];
     let trunkCount = 0, canopyCount = 0, glowCount = 0, detailCount = 0;
@@ -687,6 +696,24 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       if (d2 > 13225) {
         if (impostor) impostor.visible = false;
         continue;
+      }
+
+      // Frustum cull: skip 3D mesh for trees outside camera view
+      // Only cull trees that would use 3D InstancedMesh (< 75m)
+      // Impostors (sprites) are cheap, so let them through
+      if (cam && d2 < 5625) {
+        const treeR = (inst.treeH || 10) * 0.35 * inst.scale;
+        _testPoint.set(inst.x, inst.y + (inst.treeH || 10) * 0.4, inst.z);
+        let inFrustum = true;
+        for (let p = 0; p < 6; p++) {
+          if (_frustum.planes[p].distanceToPoint(_testPoint) < -treeR) {
+            inFrustum = false; break;
+          }
+        }
+        if (!inFrustum) {
+          if (impostor) impostor.visible = false;
+          continue;
+        }
       }
 
       // Fade-out zone (105-115m): impostor fading to invisible

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, Shape, ShapeGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from '../world/terrain.js';
@@ -14,16 +14,16 @@ const LIFETIME = 8.0; // seconds
 
 let iMesh = null;
 const prints = [];
-const dummy = new THREE.Object3D();
-const tmpColor = new THREE.Color();
-const baseColor = new THREE.Color(0x44ddaa);
+const dummy = new Object3D();
+const tmpColor = new Color();
+const baseColor = new Color(0x44ddaa);
 
 // Track player position for spawn spacing
 let lastX = 0, lastZ = 0;
 let inited = false;
 
 function createFootShape() {
-  const s = new THREE.Shape();
+  const s = new Shape();
   // 3-toed dinosaur/reptile foot — approx 0.28 wide, 0.45 tall
   // Origin at center of the shape. Y points forward (toes up).
 
@@ -61,20 +61,20 @@ function createFootShape() {
   s.lineTo(-0.11, -0.06);
   s.quadraticCurveTo(-0.10, -0.17, 0, -0.18);
 
-  return new THREE.ShapeGeometry(s);
+  return new ShapeGeometry(s);
 }
 
 export function initFootprints() {
   const geo = createFootShape();
-  const mat = new THREE.MeshBasicMaterial({
+  const mat = new MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 1,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-    side: THREE.DoubleSide
+    blending: AdditiveBlending, depthWrite: false,
+    side: DoubleSide
   });
-  iMesh = new THREE.InstancedMesh(geo, mat, POOL);
-  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  iMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  iMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  iMesh = new InstancedMesh(geo, mat, POOL);
+  iMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  iMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
+  iMesh.instanceColor.setUsage(DynamicDrawUsage);
 
   // Hide all instances initially
   dummy.position.set(0, -100, 0);

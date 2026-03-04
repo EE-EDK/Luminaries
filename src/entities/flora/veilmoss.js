@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -9,7 +9,7 @@ import { sr } from '../../utils/rng.js';
 // ================================================================
 
 export function makeVeilMoss(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const supportN = 1 + Math.floor(sr() * 2); // 1-2 supports
   const veilMats = [];
 
@@ -18,20 +18,20 @@ export function makeVeilMoss(x, z) {
     const supportH = 1.0 + sr() * 0.8; // 1.0-1.8m
 
     // --- Vertical support (thin trunk/branch) ---
-    const supportMat = new THREE.MeshStandardMaterial({
+    const supportMat = new MeshStandardMaterial({
       color: C.veilSupport, roughness: 0.85,
       emissive: 0x0a0a08, emissiveIntensity: 0.03
     });
-    const support = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.015, 0.03, supportH, 4), supportMat
+    const support = new Mesh(
+      new CylinderGeometry(0.015, 0.03, supportH, 4), supportMat
     );
     support.position.set(sx, supportH / 2, 0);
     g.add(support);
 
     // Cross-bar at top
     const barLen = 0.2 + sr() * 0.15;
-    const bar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.008, 0.012, barLen, 3), supportMat
+    const bar = new Mesh(
+      new CylinderGeometry(0.008, 0.012, barLen, 3), supportMat
     );
     bar.position.set(sx, supportH * 0.9, 0);
     bar.rotation.z = Math.PI / 2;
@@ -44,15 +44,15 @@ export function makeVeilMoss(x, z) {
       const veilH = supportH * (0.3 + sr() * 0.4);
       const vxOff = (vi - (veilN - 1) * 0.5) * (barLen / veilN);
 
-      const veilMat = new THREE.MeshStandardMaterial({
+      const veilMat = new MeshStandardMaterial({
         color: C.veilMoss, emissive: C.veilGlow,
         emissiveIntensity: 0.12 + sr() * 0.08,
         transparent: true, opacity: 0.25 + sr() * 0.15,
-        roughness: 0.6, side: THREE.DoubleSide
+        roughness: 0.6, side: DoubleSide
       });
 
-      const veil = new THREE.Mesh(
-        new THREE.PlaneGeometry(veilW, veilH), veilMat
+      const veil = new Mesh(
+        new PlaneGeometry(veilW, veilH), veilMat
       );
       // Hang from cross-bar, draping downward
       veil.position.set(
@@ -67,12 +67,12 @@ export function makeVeilMoss(x, z) {
 
       // Glowing edge dots along bottom of each veil
       const dotN = 2 + Math.floor(sr() * 2);
-      const edgeMat = new THREE.MeshBasicMaterial({
+      const edgeMat = new MeshBasicMaterial({
         color: C.veilEdge, transparent: true, opacity: 0.4
       });
       for (let di = 0; di < dotN; di++) {
-        const dot = new THREE.Mesh(
-          new THREE.SphereGeometry(0.006, 3, 3), edgeMat
+        const dot = new Mesh(
+          new SphereGeometry(0.006, 3, 3), edgeMat
         );
         dot.position.set(
           sx + vxOff + (sr() - 0.5) * veilW * 0.8,
@@ -84,15 +84,15 @@ export function makeVeilMoss(x, z) {
     }
 
     // Tiny lichen patches on support
-    const lichenMat = new THREE.MeshStandardMaterial({
+    const lichenMat = new MeshStandardMaterial({
       color: C.veilMoss, emissive: C.veilGlow,
       emissiveIntensity: 0.08, transparent: true, opacity: 0.3
     });
     for (let li = 0; li < 3; li++) {
       const ly = supportH * (0.2 + sr() * 0.5);
       const la = sr() * 6.28;
-      const lichen = new THREE.Mesh(
-        new THREE.SphereGeometry(0.015 + sr() * 0.01, 4, 3), lichenMat
+      const lichen = new Mesh(
+        new SphereGeometry(0.015 + sr() * 0.01, 4, 3), lichenMat
       );
       lichen.scale.set(1.5, 0.5, 1);
       lichen.position.set(
@@ -105,12 +105,12 @@ export function makeVeilMoss(x, z) {
   }
 
   // --- Base moss/debris ---
-  const baseMat = new THREE.MeshStandardMaterial({
+  const baseMat = new MeshStandardMaterial({
     color: 0x2a3a28, roughness: 0.9,
     emissive: C.veilGlow, emissiveIntensity: 0.03
   });
-  const base = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 5, 4), baseMat
+  const base = new Mesh(
+    new SphereGeometry(0.12, 5, 4), baseMat
   );
   base.scale.set(1.5, 0.3, 1.5);
   base.position.y = 0.02;

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { AdditiveBlending, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -9,12 +9,12 @@ import { sr } from '../../utils/rng.js';
 // ================================================================
 
 export function makeOrbBush(x, z) {
-  const g = new THREE.Group();
+  const g = new Group();
   const bushR = 0.3 + sr() * 0.15;
   const bushH = 0.3 + sr() * 0.2;
 
   // --- Bush base (5-8 overlapping leaf clusters) ---
-  const bushMat = new THREE.MeshStandardMaterial({
+  const bushMat = new MeshStandardMaterial({
     color: C.orbBushLeaf, roughness: 0.8,
     emissive: 0x0a1a0a, emissiveIntensity: 0.06
   });
@@ -23,8 +23,8 @@ export function makeOrbBush(x, z) {
     const ca = sr() * 6.28;
     const cr = sr() * bushR * 0.6;
     const cSize = 0.1 + sr() * 0.08;
-    const cluster = new THREE.Mesh(
-      new THREE.SphereGeometry(cSize, 5, 4), bushMat
+    const cluster = new Mesh(
+      new SphereGeometry(cSize, 5, 4), bushMat
     );
     cluster.scale.set(1.2, 0.6, 1.2);
     cluster.position.set(
@@ -36,15 +36,15 @@ export function makeOrbBush(x, z) {
   }
 
   // --- Small leaves on bush surface ---
-  const leafMat = new THREE.MeshStandardMaterial({
+  const leafMat = new MeshStandardMaterial({
     color: C.orbBushStem, emissive: 0x0a1a0a,
-    emissiveIntensity: 0.04, side: THREE.DoubleSide
+    emissiveIntensity: 0.04, side: DoubleSide
   });
   for (let i = 0; i < 6; i++) {
     const la = sr() * 6.28;
     const lr = bushR * 0.5 + sr() * bushR * 0.3;
-    const leaf = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.06, 0.08), leafMat
+    const leaf = new Mesh(
+      new PlaneGeometry(0.06, 0.08), leafMat
     );
     leaf.position.set(
       Math.cos(la) * lr,
@@ -58,7 +58,7 @@ export function makeOrbBush(x, z) {
   // --- Glowing orbs on thin filaments ---
   const orbMats = [];
   const orbN = 6 + Math.floor(sr() * 5); // 6-10 orbs
-  const filMat = new THREE.MeshStandardMaterial({
+  const filMat = new MeshStandardMaterial({
     color: C.orbBushStem, roughness: 0.7,
     emissive: C.orbBushGlow, emissiveIntensity: 0.05
   });
@@ -71,8 +71,8 @@ export function makeOrbBush(x, z) {
 
     // Filament stem
     const fH = oh - bushH * 0.3;
-    const fil = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.003, 0.005, fH, 3), filMat
+    const fil = new Mesh(
+      new CylinderGeometry(0.003, 0.005, fH, 3), filMat
     );
     fil.position.set(
       Math.cos(oa) * od,
@@ -85,14 +85,14 @@ export function makeOrbBush(x, z) {
     g.add(fil);
 
     // Glowing orb
-    const orbMat = new THREE.MeshStandardMaterial({
+    const orbMat = new MeshStandardMaterial({
       color: C.orbBushOrb, emissive: C.orbBushGlow,
       emissiveIntensity: 0.5 + sr() * 0.3,
       transparent: true, opacity: 0.7,
       roughness: 0.2
     });
-    const orb = new THREE.Mesh(
-      new THREE.SphereGeometry(orbSize, 5, 4), orbMat
+    const orb = new Mesh(
+      new SphereGeometry(orbSize, 5, 4), orbMat
     );
     orb.position.set(
       Math.cos(oa) * od + (sr() - 0.5) * 0.03,
@@ -103,11 +103,11 @@ export function makeOrbBush(x, z) {
     orbMats.push(orbMat);
 
     // Tiny haze around each orb
-    const haze = new THREE.Mesh(
-      new THREE.SphereGeometry(orbSize * 2.5, 4, 3),
-      new THREE.MeshBasicMaterial({
+    const haze = new Mesh(
+      new SphereGeometry(orbSize * 2.5, 4, 3),
+      new MeshBasicMaterial({
         color: C.orbBushGlow, transparent: true, opacity: 0.03,
-        blending: THREE.AdditiveBlending, depthWrite: false
+        blending: AdditiveBlending, depthWrite: false
       })
     );
     haze.position.copy(orb.position);
@@ -115,13 +115,13 @@ export function makeOrbBush(x, z) {
   }
 
   // --- Ground debris ---
-  const debrisMat = new THREE.MeshStandardMaterial({
+  const debrisMat = new MeshStandardMaterial({
     color: 0x1a2018, roughness: 0.9
   });
   for (let i = 0; i < 3; i++) {
     const da = sr() * 6.28, dd = bushR + sr() * 0.1;
-    const debris = new THREE.Mesh(
-      new THREE.SphereGeometry(0.015, 3, 3), debrisMat
+    const debris = new Mesh(
+      new SphereGeometry(0.015, 3, 3), debrisMat
     );
     debris.position.set(Math.cos(da) * dd, 0.01, Math.sin(da) * dd);
     debris.scale.set(1, 0.4, 1);

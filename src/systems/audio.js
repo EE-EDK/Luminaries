@@ -42,6 +42,12 @@ let waterNode = null, waterGain = null, waterFilter = null;
 // Creature sound cooldowns
 const creatureCooldowns = { jelly: 0, puff: 0, deer: 0, moth: 0, puffSing: 0 };
 
+// Audio sync progression — orb count affects audio layers
+let _audioOrbCount = 0;
+export function setAudioOrbCount(count) { _audioOrbCount = count; }
+// Cooldown multiplier: halved at 2+ orbs (creatures call more frequently)
+function _cooldownMult() { return _audioOrbCount >= 2 ? 0.5 : 1.0; }
+
 // Footstep state
 let lastStepPhase = 0;
 
@@ -348,7 +354,7 @@ export function playCreatureSound(type, position, playerPos) {
       connectWithReverb(panner, masterGain, 0.4);
       vib.start(now); osc1.start(now); osc2.start(now);
       vib.stop(now + 1.5); osc1.stop(now + 1.5); osc2.stop(now + 1.5);
-      creatureCooldowns.jelly = 4 + Math.random() * 5;
+      creatureCooldowns.jelly = (4 + Math.random() * 5) * _cooldownMult();
       break;
     }
 
@@ -370,7 +376,7 @@ export function playCreatureSound(type, position, playerPos) {
         osc.stop(noteStart + 0.18);
       }
       connectWithReverb(panner, masterGain, 0.3);
-      creatureCooldowns.puff = 8 + Math.random() * 10;
+      creatureCooldowns.puff = (8 + Math.random() * 10) * _cooldownMult();
       break;
     }
 
@@ -401,7 +407,7 @@ export function playCreatureSound(type, position, playerPos) {
       connectWithReverb(panner, masterGain, 0.3);
       osc1.start(now); osc2.start(now);
       osc1.stop(now + 0.7); osc2.stop(now + 0.7);
-      creatureCooldowns.deer = 5 + Math.random() * 6;
+      creatureCooldowns.deer = (5 + Math.random() * 6) * _cooldownMult();
       break;
     }
 
@@ -423,7 +429,7 @@ export function playCreatureSound(type, position, playerPos) {
       connectWithReverb(panner, masterGain, 0.2);
       lfo.start(now); osc.start(now);
       lfo.stop(now + 0.3); osc.stop(now + 0.3);
-      creatureCooldowns.moth = 4 + Math.random() * 5;
+      creatureCooldowns.moth = (4 + Math.random() * 5) * _cooldownMult();
       break;
     }
   }

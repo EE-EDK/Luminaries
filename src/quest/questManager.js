@@ -6,6 +6,8 @@ import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
+import { revealConstellation } from '../world/sky.js';
+import { showFinaleText, showTransformText, showFreeRoamText } from '../systems/discoveries.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(0xffffff);
@@ -71,6 +73,7 @@ let treeLasers = [];
 let flashPlane = null; // DOM overlay element
 let transformDone = false;
 let orbLasersCleaned = false;
+let _freeRoamTimer = 0;
 
 // Pinnacle explosion glitter
 const GLITTER_COUNT = 200;
@@ -295,6 +298,8 @@ export function updateQuest(dt, t) {
           if (spawnOrbBurstFn) spawnOrbBurstFn(o.x, o.group.position.y, o.z);
           // Resonance drone audio layer
           if (startResonanceDroneFn) startResonanceDroneFn(orbsFound);
+          // Constellation reveal — one creature pattern per orb
+          revealConstellation(orbsFound - 1);
           // Progressive rune reveal — one face per orb (up to 4 faces)
           const faceIdx = orbsFound - 1;
           if (faceIdx < runeFaces.length) {
@@ -382,6 +387,7 @@ export function updateQuest(dt, t) {
   if (orbsFound >= ORB_N && obeliskY >= -0.01 && questPhase === 'RISING') {
     questPhase = 'COMPLETE';
     finaleTimer = 0;
+    showFinaleText();
   }
 
   // Obelisk subtle rotation + light intensity
@@ -556,6 +562,7 @@ export function updateQuest(dt, t) {
       questPhase = 'TRANSFORM';
       transformTimer = 0;
       initFlashOverlay();
+      showTransformText();
       console.log('✦ Quest → TRANSFORM (trees=' + trees.length + ')');
     }
   }
@@ -668,6 +675,38 @@ export function updateQuest(dt, t) {
       pinnacleOrb.mat.opacity = 0.85 + pulse * 0.15;
       pinnacleOrb.hazeMat.opacity = 0.3 + pulse * 0.2;
     }
+
+    // Transition to FREE_ROAM after transform completes
+    if (transformTimer >= 20) {
+      questPhase = 'FREE_ROAM';
+      _freeRoamTimer = 0;
+      console.log('✦ Quest → FREE_ROAM');
+    }
+  }
+
+  // === FREE ROAM — peaceful post-quest endgame ===
+  if (questPhase === 'FREE_ROAM') {
+    _freeRoamTimer += dt;
+    // Show free roam discovery text 10s after entering
+    if (_freeRoamTimer > 10 && _freeRoamTimer < 11) {
+      showFreeRoamText();
+    }
+    // Sustain visual state from TRANSFORM
+    if (obeliskMat) obeliskMat.emissiveIntensity = 1.5 + Math.sin(t * 0.5) * 0.3;
+    if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = 2.5 + Math.sin(t * 0.7) * 0.5;
+    if (moatMesh) moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02;
+    for (let i = 0; i < rainbowArcs.length; i++) {
+      rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
+      rainbowArcs[i].mat.opacity = 0.45 + Math.sin(t + i) * 0.1;
+    }
+    if (pinnacleOrb && pinnacleOrb.mesh.visible) {
+      const pulse = Math.sin(t * 1.5) * 0.5 + 0.5;
+      pinnacleOrb.mat.opacity = 0.85 + pulse * 0.15;
+      pinnacleOrb.hazeMat.opacity = 0.3 + pulse * 0.2;
+    }
+    // Update HUD label
+    const hud = orbHudEl || document.getElementById('orb-hud');
+    if (hud && hud.textContent !== '✦ Luminaries') hud.innerHTML = '✦ Luminaries';
   }
 }
 

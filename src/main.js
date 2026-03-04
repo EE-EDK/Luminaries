@@ -43,12 +43,12 @@ import { sr } from './utils/rng.js';
 
 // World
 import { createGround, updateGroundUniforms } from './world/ground.js';
-import { createSkyDome, skyGroup, updateSky } from './world/sky.js';
+import { createSkyDome, skyGroup, updateSky, checkShootingStarWish } from './world/sky.js';
 import { getGroundY, getGroundNormal, registerFlatZone } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
-import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks } from './core/player.js';
+import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks, setGravityMult } from './core/player.js';
 
 // Entities — Flora
 import { makeTreeImpostor, createTreeTemplates, createTreeInstances, updateTreeLOD, transformTreeMaterials } from './entities/flora/trees.js';
@@ -109,7 +109,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
 
 // Puffling Chat (Phase 2)
 import { initPufflingChat, triggerPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
@@ -122,13 +122,13 @@ import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBo
 import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestored } from './systems/dimming.js';
 
 // Attunement (Phase 2)
-import { updateAttunement, getAttunement, getPlayerFrequency, consumeFrequency, checkFlash } from './systems/attunement.js';
+import { updateAttunement, getAttunement, getAttunementTarget, getPlayerFrequency, getFlashCreaturePos, consumeFrequency, checkFlash } from './systems/attunement.js';
 
 // Performance monitoring (dev-only, tree-shaken in production)
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
 
 // Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery } from './systems/discoveries.js';
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, togglePerspective, getPerspective, showNarrativeText } from './systems/discoveries.js';
 
 // Intro cinematic (Phase 2)
 import { initIntro, startIntro, enableTitleClick, updateIntro, introActive, introDone } from './systems/intro.js';
@@ -187,7 +187,15 @@ let _prevOrbsFound = 0; // track orb count changes for player light transitions
 let _attuneFlashTimer = 0; // decays after full-attunement flash
 let _nearestPuffDist2 = Infinity; // updated per frame during puffling loop
 let _nearestPuffPos = { x: 0, z: 0 }; // position of nearest puffling
+let _nearestJellyDist2 = Infinity; // updated per frame during jelly loop
+let _nearestJellyPos = { x: 0, z: 0 };
+let _nearestDeerDist2 = Infinity; // updated per frame during deer loop
+let _nearestDeerPos = { x: 0, z: 0 };
+let _nearestDeerWanderAng = 0;
+let _nearestMothDist2 = Infinity; // updated per frame during moth loop
+let _nearestMothPos = { x: 0, z: 0 };
 let _puffSingTimer = 0; // per-puffling singing timer for following state
+let _featherFallTimer = 0; // fairy ring super-jump feather fall timer
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -1073,6 +1081,7 @@ function updateJellies(dt, t) {
   // Batch 2 Item 4: Jelly day/night — higher at DEEP_NIGHT, lower at DAWN
   const jellyAltMod = dayPhase === 'DEEP_NIGHT' ? 2.0 : (dayPhase === 'DAWN' ? -1.5 : 0);
 
+  _nearestJellyDist2 = Infinity;
   for (let i = 0; i < jellies.length; i++) {
     // Visibility culling — skip rendering/update for distant jellies
     const _jg = jellies[i].group;
@@ -1083,6 +1092,14 @@ function updateJellies(dt, t) {
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
     const jFloatY = j.floatY + jellyAltMod;
+
+    // Track nearest jelly for attunement (horizontal distance only)
+    const _jhd2 = _jdx * _jdx + _jdz * _jdz;
+    if (_jhd2 < _nearestJellyDist2) {
+      _nearestJellyDist2 = _jhd2;
+      _nearestJellyPos.x = jx;
+      _nearestJellyPos.z = jz;
+    }
 
     // State transitions
     j._stT -= dt;
@@ -1144,6 +1161,13 @@ function updateJellies(dt, t) {
       }
     }
 
+    // Curiosity: jelly drifts toward idle player (5s+, within 10m)
+    if (playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display') {
+      const driftFrac = Math.min((playerIdleTime - 5) / 5, 0.4); // gentle, max 40% bias
+      g.position.x += (player.pos.x - g.position.x) * driftFrac * dt * 0.3;
+      g.position.z += (player.pos.z - g.position.z) * driftFrac * dt * 0.3;
+    }
+
     // Terrain floor — prevent jellies going underground on hills
     const jellyGroundY = getGroundY(g.position.x, g.position.z);
     if (g.position.y < jellyGroundY + 3) g.position.y = jellyGroundY + 3;
@@ -1168,7 +1192,10 @@ function updateJellies(dt, t) {
       // Even drifting jellies get subtle sync glow
       emissiveMult = 1.0 + basePulse * 0.3;
     }
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult;
+    // Attunement glow boost — nearest jelly brightens when player is attuning
+    const jellyAttuneTarget = getAttunementTarget();
+    const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 36) ? (1.0 + getAttunement() * 1.2) : 1.0;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult * jellyAttuneMult;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     // Tip bulb twinkling — random sparkle effect on tentacle tips
     if (j.tipMat) {
@@ -1442,19 +1469,11 @@ function updatePuffs(dt, t) {
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
   }
 
-  // --- Post-loop: update attunement system ---
-  updateAttunement(dt, sprinting, _nearestPuffDist2);
-
-  // Handle attunement flash (one-time trigger when reaching 1.0)
-  if (checkFlash()) {
-    _attuneFlashTimer = 0.5; // 0.5s flash decay
-    playAttunementFlash(_nearestPuffPos, player.pos);
-  }
-  if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
 }
 
 function updateDeers(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  _nearestDeerDist2 = Infinity;
   for (let i = 0; i < deers.length; i++) {
     const d = deers[i], g = d.group;
     const gx = g.position.x, gz = g.position.z;
@@ -1465,10 +1484,20 @@ function updateDeers(dt, t) {
     if (pDist2 > 3600) { g.visible = false; continue; }
     g.visible = true;
 
+    // Track nearest deer for attunement (only non-fleeing deer)
+    if (d.state !== 'flee' && pDist2 < _nearestDeerDist2) {
+      _nearestDeerDist2 = pDist2;
+      _nearestDeerPos.x = gx;
+      _nearestDeerPos.z = gz;
+      _nearestDeerWanderAng = d.wanderAng;
+    }
+
     const pAng = Math.atan2(ddx, ddz);
-    const alertR = sprinting ? 18 : 12;
+    // Curiosity: deer are less skittish when player stands still (5s+)
+    const curiousFrac = Math.min(Math.max(playerIdleTime - 5, 0) / 3, 1); // 0→1 over 3s after idle
+    const alertR = sprinting ? 18 : (12 - curiousFrac * 4); // 12→8m when curious
     const alertR2 = alertR * alertR;
-    const fleeR = sprinting ? 10 : DEER_FLEE_R;
+    const fleeR = sprinting ? 10 : (DEER_FLEE_R - curiousFrac * 4); // 8→4m when curious
     const fleeR2 = fleeR * fleeR;
 
     // Only recalc terrain height when moved enough (>0.5m)
@@ -1695,9 +1724,10 @@ function updateDeers(dt, t) {
     if (d.state === 'alert') d.tailPivot.rotation.z = Math.sin(t * 6) * 0.1;
     else d.tailPivot.rotation.z *= 0.9;
 
-    // Emissive
+    // Emissive — boost when player is attuning to this deer
     const deerGlow = getLocalGlow(gx, gz, bioGlow * _orbBoost);
-    d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow;
+    const deerAttuneMult = (getAttunementTarget() === 'deer' && pDist2 < 144) ? (1.0 + getAttunement() * 0.8) : 1.0;
+    d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow * deerAttuneMult;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -1729,14 +1759,23 @@ function updateDeers(dt, t) {
 }
 
 function updateMoths(dt, t) {
+  _nearestMothDist2 = Infinity;
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
     const mx = g.position.x, mz = g.position.z;
 
     // Visibility culling — skip rendering/update for distant moths
     const _mdx = mx - player.pos.x, _mdz = mz - player.pos.z;
-    if (_mdx * _mdx + _mdz * _mdz > 2025) { g.visible = false; continue; }
+    const _mhd2 = _mdx * _mdx + _mdz * _mdz;
+    if (_mhd2 > 2025) { g.visible = false; continue; }
     g.visible = true;
+
+    // Track nearest moth for attunement
+    if (_mhd2 < _nearestMothDist2) {
+      _nearestMothDist2 = _mhd2;
+      _nearestMothPos.x = mx;
+      _nearestMothPos.z = mz;
+    }
 
     // State transitions from patrol
     if (m._state === 'patrol') {
@@ -1828,6 +1867,13 @@ function updateMoths(dt, t) {
       }
     }
 
+    // Curiosity: moth orbit center shifts toward idle player (5s+, within 10m)
+    if (playerIdleTime > 5 && _mhd2 < 100 && m._state === 'patrol') {
+      const driftFrac = Math.min((playerIdleTime - 5) / 5, 0.3);
+      m.centerX += (player.pos.x - m.centerX) * driftFrac * dt * 0.4;
+      m.centerZ += (player.pos.z - m.centerZ) * driftFrac * dt * 0.4;
+    }
+
     // Terrain floor — prevent moths going underground on hills
     const mothGroundY = getGroundY(g.position.x, g.position.z);
     if (g.position.y < mothGroundY + 1.5) g.position.y = mothGroundY + 1.5;
@@ -1840,18 +1886,21 @@ function updateMoths(dt, t) {
       wp.pivot.rotation.z = flap * wp.side;
     }
 
-    // Emissive
+    // Emissive — boost when player is attuning to this moth
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
     const attractBoost = m._state === 'attracted' ? 0.4 : 0;
-    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost);
+    const mothAttuneMult = (getAttunementTarget() === 'moth' && _mhd2 < 64) ? (1.0 + getAttunement() * 1.0) : 1.0;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * mothAttuneMult;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
 
 function updateWisps(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  const carriedFreq = getPlayerFrequency();
   let guideOrb = null;
-  if (playerIdleTime > 5 && (questPhase === 'SEEK' || questPhase === 'RISING')) {
+  // Guide to nearest unfound orb when: player is idle 5s+ OR carrying a frequency
+  if ((playerIdleTime > 5 || carriedFreq) && (questPhase === 'SEEK' || questPhase === 'RISING')) {
     let bestD = Infinity;
     for (let oi = 0; oi < orbs.length; oi++) {
       if (orbs[oi].found) continue;
@@ -1869,9 +1918,13 @@ function updateWisps(dt, t) {
     w.targetY = player.pos.y - EYE_H + orbitY;
     w.targetZ = player.pos.z + Math.sin(orbitAng) * orbitR;
     if (i === 0 && guideOrb) {
-      const guideFrac = Math.min((playerIdleTime - 5) / 3, 0.6);
-      w.targetX += (guideOrb.x - player.pos.x) * guideFrac;
-      w.targetZ += (guideOrb.z - player.pos.z) * guideFrac;
+      // Stronger guide when carrying frequency, gentler when just idle
+      const guideFrac = carriedFreq ? 0.5 : Math.min((playerIdleTime - 5) / 3, 0.6);
+      // Target midpoint between player and orb (not directly at orb — subtlety)
+      const midX = (player.pos.x + guideOrb.x) * 0.5;
+      const midZ = (player.pos.z + guideOrb.z) * 0.5;
+      w.targetX += (midX - player.pos.x) * guideFrac;
+      w.targetZ += (midZ - player.pos.z) * guideFrac;
       w.targetY += 0.5;
     }
     const followRate = sprinting ? 0.8 : 2.5;
@@ -1927,7 +1980,14 @@ function updateFairyRings(dt, t) {
     fr.discMat.opacity = fr.glowIntensity * 0.25 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
     fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow * _orbBoost);
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
-      player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
+      // Restored zones: super-jump (3.5× impulse) + feather fall
+      const ringRestored = isRestored(fr.x, fr.z);
+      if (ringRestored) {
+        player.vel.y = JUMP_IMPULSE * 3.5;
+        _featherFallTimer = 4.0; // 4 seconds of reduced gravity
+      } else {
+        player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
+      }
       fr.glowIntensity = 1.5;
       playFairyBounce();
     }
@@ -2352,7 +2412,30 @@ function director(dt, t) {
   updatePuffs(dt, t);
   updateDeers(dt, t);
   updateMoths(dt, t);
+
+  // --- Centralized attunement update (after all creature loops) ---
+  const _attuneSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
+  updateAttunement(dt, _attuneSprinting, _nearestPuffDist2, {
+    nearestPuffPos: _nearestPuffPos,
+    nearestJellyDist2: _nearestJellyDist2, nearestJellyPos: _nearestJellyPos,
+    nearestDeerDist2: _nearestDeerDist2, nearestDeerPos: _nearestDeerPos, nearestDeerWanderAng: _nearestDeerWanderAng,
+    nearestMothDist2: _nearestMothDist2, nearestMothPos: _nearestMothPos,
+    playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
+    playerX: player.pos.x, playerZ: player.pos.z, time: t
+  });
+  // Handle attunement flash (one-time trigger when reaching 1.0)
+  if (checkFlash()) {
+    _attuneFlashTimer = 0.5;
+    const flashPos = getFlashCreaturePos() || _nearestPuffPos;
+    playAttunementFlash(flashPos, player.pos);
+  }
+  if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
+
   updateSky(dt, t);
+  // Shooting star wishes — narrative fragments when sky-watching
+  const _wishText = checkShootingStarWish(pitch, orbsFound, getPerspective());
+  if (_wishText) showNarrativeText(_wishText, 5.0);
   updateVegetation(dt, t);
   timeEnd('fauna');
 
@@ -2530,21 +2613,29 @@ function animate() {
     scene.background.b = Math.min(scene.background.b + lightningFlash * 0.12, 0.35);
   }
 
-  // Player light color shift — warm pink when carrying puffling frequency
+  // Player light color shift — tinted by carried creature frequency
   const pFreq = getPlayerFrequency();
-  if (pFreq === 'puff') {
-    // Lerp toward puffling warm glow (0xffaa88 = r:1.0, g:0.667, b:0.533)
-    playerLight.color.r += (1.0 - playerLight.color.r) * 2.0 * dt;
-    playerLight.color.g += (0.667 - playerLight.color.g) * 2.0 * dt;
-    playerLight.color.b += (0.533 - playerLight.color.b) * 2.0 * dt;
-  } else if (!pFreq) {
-    // Lerp back to default (0x668888 = r:0.4, g:0.533, b:0.533)
+  if (pFreq) {
+    // Each creature shifts the player light to its signature color
+    let tr = 0.4, tg = 0.533, tb = 0.533;
+    switch (pFreq) {
+      case 'puff': tr = 1.0; tg = 0.667; tb = 0.533; break;   // warm pink (0xffaa88)
+      case 'jelly': tr = 0.4; tg = 0.8; tb = 1.0; break;      // cyan (0x66ccff)
+      case 'deer': tr = 0.4; tg = 1.0; tb = 0.8; break;       // seafoam (0x66ffcc)
+      case 'moth': tr = 0.6; tg = 1.0; tb = 0.5; break;       // lime green (0x99ff80)
+    }
+    playerLight.color.r += (tr - playerLight.color.r) * 2.0 * dt;
+    playerLight.color.g += (tg - playerLight.color.g) * 2.0 * dt;
+    playerLight.color.b += (tb - playerLight.color.b) * 2.0 * dt;
+  } else {
+    // Lerp back to default
     playerLight.color.r += (0.4 - playerLight.color.r) * 2.0 * dt;
     playerLight.color.g += (0.533 - playerLight.color.g) * 2.0 * dt;
     playerLight.color.b += (0.533 - playerLight.color.b) * 2.0 * dt;
   }
 
   // Update audio system (Items 1-3)
+  setAudioOrbCount(orbsFound);
   updateAudio(dt, windStrength, rainRate, isStorming, lightningFlash, dayPhase, player.pos, ponds);
   updateLaserHums(player.pos);
 
@@ -2620,6 +2711,13 @@ function animate() {
   }
 
   // Active game loop
+  // Feather fall — reduced gravity after fairy ring super-jump
+  if (_featherFallTimer > 0) {
+    _featherFallTimer -= dt;
+    setGravityMult(0.3); // 30% gravity during feather fall
+  } else {
+    setGravityMult(1.0);
+  }
   updatePlayer(dt);
   director(dt, elapsed);
   const flyC = updateFlies(dt, elapsed);
@@ -2762,6 +2860,11 @@ try {
 
   // Wire up go callback
   setGoCallback(go);
+
+  // Narrative perspective toggle (Tab key)
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Tab') { e.preventDefault(); togglePerspective(); }
+  });
 
   // Seed initial fireflies
   for (let i = 0; i < 50; i++) {

@@ -1,4 +1,4 @@
-import { AdditiveBlending, BackSide, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry } from 'three';
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry } from 'three';
 import { SKY_R } from '../constants.js';
 import { saveSeed, restoreSeed } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
@@ -418,6 +418,9 @@ export function updateSky(dt, t) {
     twinkleSizeAttr.needsUpdate = true;
   }
 
+  // --- Constellations ---
+  updateConstellations(dt);
+
   // --- Shooting stars ---
   shootingStarTimer -= dt;
   if (shootingStarTimer <= 0) {
@@ -444,10 +447,188 @@ export function updateSky(dt, t) {
   }
 }
 
+// ================================================================
+// Shooting Star Wishes — narrative fragments when sky-watching
+// ================================================================
+const wishesTriggered = [false, false, false, false, false]; // one per sync level
+const WISH_TEXTS = {
+  child: [
+    'Make a wish!',
+    'The stars are listening\u2026',
+    'Someone drew pictures in the sky.',
+    'I wonder who lived here before.',
+    'The stars feel closer tonight.'
+  ],
+  adult: [
+    '\u2026system boot sequence, cycle 1.',
+    '\u2026I built this place for her\u2026',
+    '\u2026oscillations matched her heartbeat\u2026',
+    '\u2026I hope she remembers the fireflies.',
+    '\u2026time cannot take what has been loved\u2026'
+  ]
+};
+
+// Check if a wish should trigger this frame
+// Returns wish text or null
+export function checkShootingStarWish(playerPitch, orbsFound, perspectiveStr) {
+  if (playerPitch > -0.5) return null; // not looking up enough
+  const idx = Math.min(orbsFound, 4);
+  if (wishesTriggered[idx]) return null;
+  // Check if any shooting star is currently active
+  let hasActive = false;
+  for (let i = 0; i < shootingStars.length; i++) {
+    if (shootingStars[i].active && shootingStars[i].life > 0.2) { hasActive = true; break; }
+  }
+  if (!hasActive) return null;
+  wishesTriggered[idx] = true;
+  const texts = WISH_TEXTS[perspectiveStr] || WISH_TEXTS.child;
+  return texts[idx] || null;
+}
+
 // Modulate sky brightness via color tint (called by day/night cycle)
 export function setSkyBrightness(brightness) {
   if (skyDomeMat) {
     const v = Math.max(0.15, brightness); // never fully black
     skyDomeMat.color.setRGB(v, v, v);
+  }
+}
+
+// ================================================================
+// Constellations — 5 creature-themed star patterns revealed per orb
+// ================================================================
+// Each constellation is a set of bright stars connected by faint lines.
+// Positioned at fixed sky dome positions, revealed one per orb collected.
+
+const constellations = [];
+let constellationsCreated = false;
+let _revealedCount = 0;
+
+// Star positions on sky dome (theta, phi in radians) → world coords
+// Each constellation: { stars: [{theta,phi},...], edges: [[i,j],...], color: hex }
+const CONSTELLATION_DEFS = [
+  { // The Drifter (jellyfish) — Orb 1
+    stars: [
+      { theta: 1.2, phi: 0.25 }, { theta: 1.35, phi: 0.2 }, { theta: 1.5, phi: 0.25 },
+      { theta: 1.15, phi: 0.38 }, { theta: 1.35, phi: 0.35 }, { theta: 1.55, phi: 0.38 },
+      { theta: 1.25, phi: 0.5 }, { theta: 1.45, phi: 0.5 }
+    ],
+    edges: [[0,1],[1,2],[0,3],[1,4],[2,5],[3,6],[4,6],[4,7],[5,7]],
+    color: 0x66ccff
+  },
+  { // The Hopper (puffling) — Orb 2
+    stars: [
+      { theta: 3.0, phi: 0.2 }, { theta: 3.15, phi: 0.15 }, { theta: 2.85, phi: 0.15 },
+      { theta: 2.9, phi: 0.3 }, { theta: 3.1, phi: 0.3 },
+      { theta: 2.85, phi: 0.42 }, { theta: 3.15, phi: 0.42 }
+    ],
+    edges: [[0,1],[0,2],[0,3],[0,4],[3,5],[4,6],[3,4]],
+    color: 0xffaa88
+  },
+  { // The Orbiter (moth) — Orb 3
+    stars: [
+      { theta: 4.8, phi: 0.22 }, // body center
+      { theta: 4.55, phi: 0.15 }, { theta: 4.55, phi: 0.32 }, // left wing
+      { theta: 5.05, phi: 0.15 }, { theta: 5.05, phi: 0.32 }, // right wing
+      { theta: 4.8, phi: 0.38 } // tail
+    ],
+    edges: [[0,1],[0,2],[0,3],[0,4],[0,5],[1,2],[3,4]],
+    color: 0x88ff66
+  },
+  { // The Strider (deer) — Orb 4
+    stars: [
+      { theta: 0.3, phi: 0.18 }, { theta: 0.25, phi: 0.1 }, { theta: 0.35, phi: 0.1 }, // head + antlers
+      { theta: 0.3, phi: 0.28 }, // body
+      { theta: 0.2, phi: 0.4 }, { theta: 0.4, phi: 0.4 }, // front legs
+      { theta: 0.15, phi: 0.33 }, { theta: 0.45, phi: 0.33 } // back legs
+    ],
+    edges: [[0,1],[0,2],[0,3],[3,6],[3,7],[6,4],[7,5]],
+    color: 0x66ffcc
+  },
+  { // The Convergence (pentagon) — Orb 5
+    stars: [
+      { theta: 5.8, phi: 0.12 }, { theta: 6.05, phi: 0.2 }, { theta: 5.95, phi: 0.38 },
+      { theta: 5.65, phi: 0.38 }, { theta: 5.55, phi: 0.2 }
+    ],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,0]],
+    color: 0xffdd44
+  }
+];
+
+function createConstellations() {
+  if (constellationsCreated) return;
+  constellationsCreated = true;
+  const R = SKY_R * 0.84;
+
+  for (let ci = 0; ci < CONSTELLATION_DEFS.length; ci++) {
+    const def = CONSTELLATION_DEFS[ci];
+    // Convert polar to world coords
+    const worldStars = def.stars.map(s => ({
+      x: R * Math.cos(s.theta) * Math.sin(s.phi),
+      y: R * Math.cos(s.phi),
+      z: R * Math.sin(s.theta) * Math.sin(s.phi)
+    }));
+
+    // Line segments connecting stars
+    const lineVerts = [];
+    for (let e = 0; e < def.edges.length; e++) {
+      const a = worldStars[def.edges[e][0]], b = worldStars[def.edges[e][1]];
+      lineVerts.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+    const lineGeo = new BufferGeometry();
+    lineGeo.setAttribute('position', new Float32BufferAttribute(lineVerts, 3));
+    const lineMat = new LineBasicMaterial({
+      color: def.color, transparent: true, opacity: 0,
+      blending: AdditiveBlending, depthWrite: false, fog: false
+    });
+    const lines = new LineSegments(lineGeo, lineMat);
+    lines.visible = false;
+    skyGroup.add(lines);
+
+    // Bright star points at vertices
+    const starVerts = [];
+    for (let si = 0; si < worldStars.length; si++) {
+      starVerts.push(worldStars[si].x, worldStars[si].y, worldStars[si].z);
+    }
+    const starGeo = new BufferGeometry();
+    starGeo.setAttribute('position', new Float32BufferAttribute(starVerts, 3));
+    const sizes = new Float32Array(worldStars.length).fill(4.0);
+    starGeo.setAttribute('size', new BufferAttribute(sizes, 1));
+    const starMat = new PointsMaterial({
+      color: def.color, size: 4, transparent: true, opacity: 0,
+      blending: AdditiveBlending, depthWrite: false, fog: false,
+      sizeAttenuation: false
+    });
+    const starPoints = new Points(starGeo, starMat);
+    starPoints.visible = false;
+    skyGroup.add(starPoints);
+
+    constellations.push({
+      lines, lineMat, starPoints, starMat,
+      revealed: false, revealTimer: 0, targetOpacity: 0.2
+    });
+  }
+}
+
+// Called when an orb is collected — reveal the next constellation
+export function revealConstellation(orbIndex) {
+  if (!constellationsCreated) createConstellations();
+  if (orbIndex < 0 || orbIndex >= constellations.length) return;
+  const c = constellations[orbIndex];
+  if (c.revealed) return;
+  c.revealed = true;
+  c.revealTimer = 0;
+  c.lines.visible = true;
+  c.starPoints.visible = true;
+}
+
+// Update constellation fade-in (called from updateSky)
+function updateConstellations(dt) {
+  for (let i = 0; i < constellations.length; i++) {
+    const c = constellations[i];
+    if (!c.revealed) continue;
+    c.revealTimer += dt;
+    const fade = Math.min(c.revealTimer / 3.0, 1.0); // 3s fade in
+    c.lineMat.opacity = fade * 0.15;
+    c.starMat.opacity = fade * 0.25;
   }
 }

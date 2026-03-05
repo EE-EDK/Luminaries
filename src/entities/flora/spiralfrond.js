@@ -40,6 +40,7 @@ export function makeSpiralFrond(x, z) {
 
   // --- Spiraling fronds ---
   const tipMats = [];
+  const tipMeshes = [];
 
   for (let fi = 0; fi < frondN; fi++) {
     const baseAngle = (fi / frondN) * 6.28 + sr() * 0.4;
@@ -100,6 +101,7 @@ export function makeSpiralFrond(x, z) {
     tip.position.copy(tipPt);
     g.add(tip);
     tipMats.push(tipMat);
+    tipMeshes.push({ mesh: tip, baseY: tipPt.y });
 
     // Tip haze
     const haze = new Mesh(
@@ -131,5 +133,5 @@ export function makeSpiralFrond(x, z) {
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, tipMats, phase: sr() * 6.28, x, z };
+  return { group: g, tipMats, tipMeshes, phase: sr() * 6.28, x, z };
 }

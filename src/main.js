@@ -844,7 +844,7 @@ function updateVegetation(dt, t) {
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor * _orbBoost);
   // Ground shader uniforms (procedural patterns + player proximity glow)
   updateGroundUniforms(t, px, pz);
-  // Ferns — visibility cull beyond 40m, animate within 30m (3D distance)
+  // Ferns — multi-frequency sway with secondary flutter harmonic
   for (let i = 0; i < ferns.length; i++) {
     const f = ferns[i];
     const fdx = f.group.position.x - px, fdy = f.group.position.y - py, fdz = f.group.position.z - pz;
@@ -855,13 +855,13 @@ function updateVegetation(dt, t) {
     if (f.slopeQ) {
       f.group.quaternion.copy(f.slopeQ);
       _slopeSwayQuat.set(
-        (Math.sin(t * 0.6 + f.phase + 1) * 0.02 * wAmp + wLeanZ) * 0.5, 0,
-        (Math.sin(t * 0.8 + f.phase) * 0.03 * wAmp + wLeanX) * 0.5, 1
+        (Math.sin(t * 0.6 + f.phase + 1) * 0.02 + Math.sin(t * 1.8 + f.phase * 2.3) * 0.006) * wAmp * 0.5 + wLeanZ * 0.5, 0,
+        (Math.sin(t * 0.8 + f.phase) * 0.03 + Math.sin(t * 2.2 + f.phase * 1.7) * 0.008) * wAmp * 0.5 + wLeanX * 0.5, 1
       ).normalize();
       f.group.quaternion.multiply(_slopeSwayQuat);
     }
   }
-  // Flowers — visibility cull beyond 40m, animate within 30m (3D distance)
+  // Flowers — elliptical sway (X + Z at different frequencies) + stamen animation
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const fldx = fl.group.position.x - px, fldy = fl.group.position.y - py, fldz = fl.group.position.z - pz;
@@ -873,10 +873,18 @@ function updateVegetation(dt, t) {
     fl.petalMat.emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * _orbBoost);
     if (fl.slopeQ) {
       fl.group.quaternion.copy(fl.slopeQ);
-      _slopeSwayQuat.set(0, 0,
-        (Math.sin(t * 0.9 + fl.phase) * 0.04 * wAmp + wLeanX * 0.5) * 0.5, 1
+      _slopeSwayQuat.set(
+        (Math.sin(t * 0.7 + fl.phase + 1.5) * 0.02 * wAmp + wLeanZ * 0.3) * 0.5, 0,
+        (Math.sin(t * 0.9 + fl.phase) * 0.04 + Math.sin(t * 2.1 + fl.phase * 1.4) * 0.008) * wAmp * 0.5 + wLeanX * 0.3, 1
       ).normalize();
       fl.group.quaternion.multiply(_slopeSwayQuat);
+    }
+    // Stamen sway — gentle independent oscillation
+    if (fl.stamens) {
+      for (let si = 0; si < fl.stamens.length; si++) {
+        fl.stamens[si].rotation.x = Math.sin(t * 1.5 + fl.phase + si * 2.1) * 0.06;
+        fl.stamens[si].rotation.z = Math.sin(t * 1.2 + fl.phase + si * 1.7) * 0.04;
+      }
     }
   }
   // Reeds — visibility cull beyond 40m, animate within 30m (3D distance)
@@ -940,6 +948,13 @@ function updateVegetation(dt, t) {
       for (let j = 0; j < sf.tipMats.length; j++) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
         sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(sf.x, sf.z, bioGlow * _orbBoost);
+      }
+      // Tip bobbing — independent gentle bob on glowing tips
+      if (sf.tipMeshes) {
+        for (let ti = 0; ti < sf.tipMeshes.length; ti++) {
+          const tm = sf.tipMeshes[ti];
+          tm.mesh.position.y = tm.baseY + Math.sin(t * 1.5 + sf.phase + ti * 1.8) * 0.03;
+        }
       }
       if (sf.slopeQ) {
         sf.group.quaternion.copy(sf.slopeQ);
@@ -1011,6 +1026,14 @@ function updateVegetation(dt, t) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
         lp.podMats[j].emissiveIntensity = (0.5 + p * 0.6) * getLocalGlow(lp.x, lp.z, bioGlow * _orbBoost);
       }
+      // Pod pendulum swing — gentle hanging arc motion
+      if (lp.podMeshes) {
+        for (let pi = 0; pi < lp.podMeshes.length; pi++) {
+          const pod = lp.podMeshes[pi];
+          pod.rotation.x = Math.sin(t * 0.6 + lp.phase + pi * 1.4) * 0.06 * wAmp;
+          pod.rotation.z = Math.sin(t * 0.8 + lp.phase + pi * 0.9) * 0.04 * wAmp;
+        }
+      }
       if (lp.slopeQ) {
         lp.group.quaternion.copy(lp.slopeQ);
         _slopeSwayQuat.set(
@@ -1029,8 +1052,18 @@ function updateVegetation(dt, t) {
     if (vd2 > 1600) { if (vm.group.visible) vm.group.visible = false; continue; }
     if (!vm.group.visible) vm.group.visible = true;
     if (vd2 < 900) {
-      for (let j = 0; j < vm.veilMats.length; j++) {
-        vm.veilMats[j].rotation.z = Math.sin(t * 0.8 + vm.phase + j * 0.7) * 0.06 * wAmp;
+      // Enhanced pendulum sway — depth-dependent, dual-axis
+      if (vm.veilRefs) {
+        for (let j = 0; j < vm.veilRefs.length; j++) {
+          const vr = vm.veilRefs[j];
+          const d = vr.depth;
+          vr.mesh.rotation.z = Math.sin(t * 0.8 + vm.phase + j * 0.7) * 0.06 * d * wAmp;
+          vr.mesh.rotation.x = Math.sin(t * 0.5 + vm.phase + j * 0.9) * 0.04 * d * wAmp;
+        }
+      } else {
+        for (let j = 0; j < vm.veilMats.length; j++) {
+          vm.veilMats[j].rotation.z = Math.sin(t * 0.8 + vm.phase + j * 0.7) * 0.06 * wAmp;
+        }
       }
       if (vm.slopeQ) {
         vm.group.quaternion.copy(vm.slopeQ);
@@ -1673,18 +1706,28 @@ function updateDeers(dt, t) {
     if (wd2 > (WORLD_R * 0.9) * (WORLD_R * 0.9)) {
       d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
     }
-    // Return to ground from rest / track terrain
+    // Return to ground from rest / track terrain (exponential smoothing)
     if (d.state !== 'rest') {
       const yDiff = deerBaseY - g.position.y;
-      if (Math.abs(yDiff) > 0.01) {
-        g.position.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), dt * 2);
-      } else {
-        g.position.y = deerBaseY;
-      }
+      g.position.y += yDiff * Math.min(1, dt * 4);
+    }
+    // Body vertical bounce during walk
+    if (isMoving) {
+      g.position.y += Math.sin(d.legCycle * 2) * 0.015;
     }
 
-    // Heading
-    g.rotation.y = d.wanderAng;
+    // Heading — smooth angle-wrapping lerp (no snap)
+    let _deerAngDiff = d.wanderAng - g.rotation.y;
+    while (_deerAngDiff > Math.PI) _deerAngDiff -= 6.2832;
+    while (_deerAngDiff < -Math.PI) _deerAngDiff += 6.2832;
+    g.rotation.y += _deerAngDiff * Math.min(1, dt * 5);
+
+    // Body roll/sway during walk (weight shift)
+    if (isMoving) {
+      g.rotation.z = Math.sin(d.legCycle) * 0.015 * (moveSpeed / d.speed);
+    } else {
+      g.rotation.z *= 0.92;
+    }
 
     // Head tracking for alert/watching
     if (d.state === 'alert' || d.state === 'watching') {
@@ -1692,23 +1735,41 @@ function updateDeers(dt, t) {
       d.headLook += (targetYaw * 0.5 - d.headLook) * dt * 3;
     }
 
-    // Neck pivot animation
+    // Neck pivot animation — Lissajous head bob pattern
     const targetBob = d.headBob || 0;
     d.neckPivot.rotation.x += (targetBob - d.neckPivot.rotation.x) * dt * 3;
     d.neckPivot.rotation.y += (d.headLook - d.neckPivot.rotation.y) * dt * 4;
     if (isMoving && d.state !== 'graze' && d.state !== 'drink') {
-      d.neckPivot.rotation.x += Math.sin(d.legCycle * 2) * 0.05;
+      const speedFrac = moveSpeed / d.speed;
+      d.neckPivot.rotation.x += Math.sin(d.legCycle * 2) * 0.03 * speedFrac;
+      d.neckPivot.rotation.z = Math.sin(d.legCycle) * 0.018 * speedFrac;
+    } else {
+      d.neckPivot.rotation.z *= 0.95;
     }
 
-    // Leg animation
+    // Ear twitch animation
+    d.earTwitchTimer -= dt;
+    if (d.earTwitchTimer <= 0) {
+      d.earTwitchVal = (Math.random() - 0.5) * 0.2;
+      d.earTwitchTimer = 2 + Math.random() * 4;
+    }
+    if (d.ears) {
+      for (let ei = 0; ei < d.ears.length; ei++) {
+        const earTarget = d.earTwitchVal * (ei === 0 ? 1 : -1);
+        d.ears[ei].rotation.x += (earTarget - d.ears[ei].rotation.x) * dt * 6;
+      }
+    }
+
+    // Leg animation — eased swing with natural knee flex
     for (let li = 0; li < d.legPivots.length; li++) {
       const lp = d.legPivots[li];
       if (isMoving) {
         const offset = lp.isFront ? 0 : Math.PI;
         const sideOff = lp.side > 0 ? Math.PI : 0;
-        const swing = Math.sin(d.legCycle + offset + sideOff) * 0.4 * (moveSpeed / d.speed);
+        const rawSwing = Math.sin(d.legCycle + offset + sideOff);
+        const swing = rawSwing * Math.abs(rawSwing) * 0.4 * (moveSpeed / d.speed);
         lp.upper.rotation.x = swing;
-        lp.lower.rotation.x = Math.max(0, -swing * 0.6);
+        lp.lower.rotation.x = swing < 0 ? -swing * 0.5 : swing * 0.15;
       } else if (d.state === 'rest' && g.position.y < -0.1) {
         lp.upper.rotation.x += (0.8 - lp.upper.rotation.x) * dt * 2;
         lp.lower.rotation.x += (1.0 - lp.lower.rotation.x) * dt * 2;
@@ -1718,11 +1779,20 @@ function updateDeers(dt, t) {
       }
     }
 
-    // Tail
-    d.tailPivot.rotation.x = Math.sin(t * 1.5 + d.phase) * 0.15;
-    if (d.state === 'flee') d.tailPivot.rotation.x += 0.3;
-    if (d.state === 'alert') d.tailPivot.rotation.z = Math.sin(t * 6) * 0.1;
-    else d.tailPivot.rotation.z *= 0.9;
+    // Tail — state-dependent animation with gait sync
+    if (isMoving && d.state !== 'flee') {
+      d.tailPivot.rotation.x = Math.sin(t * 1.5 + d.phase) * 0.12;
+      d.tailPivot.rotation.z = Math.sin(d.legCycle * 0.5) * 0.08;
+    } else if (d.state === 'flee') {
+      d.tailPivot.rotation.x += (0.5 - d.tailPivot.rotation.x) * dt * 8;
+      d.tailPivot.rotation.z = Math.sin(t * 8) * 0.15;
+    } else if (d.state === 'alert') {
+      d.tailPivot.rotation.x *= 0.95;
+      d.tailPivot.rotation.z = Math.sin(t * 6) * 0.1;
+    } else {
+      d.tailPivot.rotation.x = Math.sin(t * 0.8 + d.phase) * 0.06;
+      d.tailPivot.rotation.z *= 0.92;
+    }
 
     // Emissive — boost when player is attuning to this deer
     const deerGlow = getLocalGlow(gx, gz, bioGlow * _orbBoost);
@@ -1797,6 +1867,7 @@ function updateMoths(dt, t) {
         if (bestTarget) {
           m._state = 'attracted'; m._attractTarget = bestTarget;
           m._stT = 6 + Math.random() * 8;
+          m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
           playCreatureSound('moth', { x: mx, z: mz }, player.pos);
         }
       }
@@ -1812,6 +1883,7 @@ function updateMoths(dt, t) {
         if (bestTree) {
           m._state = 'rest'; m._restTree = bestTree;
           m._stT = dayPhase === 'DAWN' ? (8 + Math.random() * 10) : (4 + Math.random() * 6);
+          m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
         }
       }
     }
@@ -1820,31 +1892,45 @@ function updateMoths(dt, t) {
     const mothSpeed = dayPhase === 'DEEP_NIGHT' ? 1.6 : (dayPhase === 'DAWN' ? 0.5 : 1.0);
     const mothRange = dayPhase === 'DEEP_NIGHT' ? 1.4 : 1.0;
 
+    // Store previous position for velocity-based effects
+    m._prevMx = mx; m._prevMz = mz; m._prevY = g.position.y;
+
     switch (m._state) {
       case 'patrol': {
         m.orbitAng += dt * 0.4 * mothSpeed;
-        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR * mothRange;
-        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR * mothRange;
+        // Multi-sine organic flight path — layered perturbations for natural wobble
+        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR * mothRange
+          + Math.sin(t * 1.3 + m.phase * 2.1) * 0.5
+          + Math.sin(t * 2.7 + m.phase) * 0.2;
+        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR * mothRange
+          + Math.sin(t * 1.7 + m.phase * 1.3) * 0.4
+          + Math.sin(t * 3.1 + m.phase * 2) * 0.15;
         g.position.x += (tx - mx) * dt * 1.5;
         g.position.z += (tz - mz) * dt * 1.5;
-        g.position.y = m.floatY + Math.sin(t * 0.7 + m.phase) * 0.8;
-        g.rotation.y = m.orbitAng + Math.PI / 2;
+        // Multi-sine vertical bob — 3 layered frequencies
+        g.position.y = m.floatY
+          + Math.sin(t * 0.7 + m.phase) * 0.5
+          + Math.sin(t * 1.3 + m.phase * 1.7) * 0.2
+          + Math.sin(t * 2.1 + m.phase * 0.6) * 0.08;
         break;
       }
       case 'attracted': {
         m._stT -= dt;
         if (!m._attractTarget || m._stT <= 0) {
-          m._state = 'patrol'; m._attractTarget = null; break;
+          m._state = 'patrol'; m._attractTarget = null;
+          m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
+          break;
         }
         m.orbitAng += dt * 0.8;
         const tgt = m._attractTarget;
         const spiral = Math.max(0.5, m._stT * 0.4);
-        const tx = tgt.x + Math.cos(m.orbitAng) * spiral;
-        const tz = tgt.z + Math.sin(m.orbitAng) * spiral;
+        const tx = tgt.x + Math.cos(m.orbitAng) * spiral
+          + Math.sin(t * 2.0 + m.phase) * 0.15;
+        const tz = tgt.z + Math.sin(m.orbitAng) * spiral
+          + Math.sin(t * 2.5 + m.phase * 1.5) * 0.1;
         g.position.x += (tx - mx) * dt * 2.0;
         g.position.z += (tz - mz) * dt * 2.0;
         g.position.y += (2.0 - g.position.y) * dt * 0.5;
-        g.rotation.y = m.orbitAng + Math.PI / 2;
         break;
       }
       case 'rest': {
@@ -1852,20 +1938,49 @@ function updateMoths(dt, t) {
         if (!m._restTree || m._stT <= 0) {
           m._state = 'patrol'; m._restTree = null;
           m.centerX = g.position.x; m.centerZ = g.position.z;
+          m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
           break;
         }
         const tree = m._restTree;
         const tdx = tree.x + 0.5 - mx, tdz = tree.z + 0.5 - mz;
-        const td = Math.sqrt(tdx * tdx + tdz * tdz);
-        if (td > 0.3) {
-          g.position.x += tdx / td * dt * 2;
-          g.position.z += tdz / td * dt * 2;
+        const td2 = tdx * tdx + tdz * tdz;
+        if (td2 > 0.09) {
+          const tdInv = 1.0 / (Math.sqrt(td2) + 0.001);
+          g.position.x += tdx * tdInv * dt * 2;
+          g.position.z += tdz * tdInv * dt * 2;
         }
         g.position.y += (2.5 - g.position.y) * dt * 1.5;
-        g.rotation.y = Math.atan2(tdx, tdz);
         break;
       }
     }
+
+    // Smooth state transition blending
+    if (m._transitionT > 0) {
+      m._transitionT -= dt;
+      const blend = Math.max(0, m._transitionT / 0.6);
+      g.position.x = g.position.x * (1 - blend) + m._prevPx * blend;
+      g.position.z = g.position.z * (1 - blend) + m._prevPz * blend;
+    }
+
+    // Smooth heading — lerp toward movement direction
+    const _mothDx = g.position.x - m._prevMx, _mothDz = g.position.z - m._prevMz;
+    if (Math.abs(_mothDx) + Math.abs(_mothDz) > 0.0005) {
+      const targetYaw = Math.atan2(_mothDx, _mothDz);
+      let _mothYawDiff = targetYaw - g.rotation.y;
+      while (_mothYawDiff > Math.PI) _mothYawDiff -= 6.2832;
+      while (_mothYawDiff < -Math.PI) _mothYawDiff += 6.2832;
+      g.rotation.y += _mothYawDiff * Math.min(1, dt * 3);
+    }
+
+    // Body banking during turns — smooth lateral velocity into bank angle
+    const lateralDelta = g.position.x - m._prevMx;
+    m._bank += (lateralDelta * -3.0 - m._bank) * Math.min(1, dt * 4);
+    m._bank = Math.max(-0.5, Math.min(0.5, m._bank));
+    g.rotation.z = m._bank;
+
+    // Body pitch from vertical velocity
+    const yVel = g.position.y - m._prevY;
+    g.rotation.x = yVel * -2.0;
 
     // Curiosity: moth orbit center shifts toward idle player (5s+, within 10m)
     if (playerIdleTime > 5 && _mhd2 < 100 && m._state === 'patrol') {
@@ -1878,12 +1993,31 @@ function updateMoths(dt, t) {
     const mothGroundY = getGroundY(g.position.x, g.position.z);
     if (g.position.y < mothGroundY + 1.5) g.position.y = mothGroundY + 1.5;
 
-    // Wing flap (barely flutter when resting)
+    // Wing flap with speed variation (barely flutter when resting)
     const flapIntensity = m._state === 'rest' ? 0.05 : 0.4;
-    const flap = Math.sin(t * m.flapSpeed + m.phase) * flapIntensity;
+    const flapMod = 1.0 + Math.sin(t * 0.3 + m.phase * 3) * 0.15;
+    const flap = Math.sin(t * m.flapSpeed * flapMod + m.phase) * flapIntensity;
     for (let w = 0; w < g._wingPivots.length; w++) {
       const wp = g._wingPivots[w];
       wp.pivot.rotation.z = flap * wp.side;
+    }
+
+    // Antennae sway — independent gentle oscillation
+    if (m.antennae) {
+      for (let ai = 0; ai < m.antennae.length; ai++) {
+        m.antennae[ai].rotation.x = Math.sin(t * 1.8 + m.phase + ai * 2.0) * 0.08;
+        m.antennae[ai].rotation.z = Math.sin(t * 1.2 + m.phase + ai * 1.5) * 0.05;
+      }
+    }
+
+    // Dust mote trailing animation
+    if (m.dustMotes) {
+      for (let di = 0; di < m.dustMotes.length; di++) {
+        const dm = m.dustMotes[di];
+        dm.mesh.position.z = dm.baseZ + Math.sin(t * 2.5 + m.phase + di * 1.8) * 0.02;
+        dm.mesh.position.x = Math.sin(t * 1.8 + m.phase + di * 2.5) * 0.015;
+        dm.mesh.position.y = Math.sin(t * 1.3 + m.phase + di * 1.2) * 0.01;
+      }
     }
 
     // Emissive — boost when player is attuning to this moth

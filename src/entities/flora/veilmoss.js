@@ -12,6 +12,7 @@ export function makeVeilMoss(x, z) {
   const g = new Group();
   const supportN = 1 + Math.floor(sr() * 2); // 1-2 supports
   const veilMats = [];
+  const veilRefs = []; // mesh refs with depth for pendulum animation
 
   for (let si = 0; si < supportN; si++) {
     const sx = (si - (supportN - 1) * 0.5) * 0.3; // spread supports
@@ -64,6 +65,7 @@ export function makeVeilMoss(x, z) {
       veil.rotation.y = (sr() - 0.5) * 0.4;
       g.add(veil);
       veilMats.push(veil);
+      veilRefs.push({ mesh: veil, depth: 0.5 + vi * 0.3 });
 
       // Glowing edge dots along bottom of each veil
       const dotN = 2 + Math.floor(sr() * 2);
@@ -104,6 +106,21 @@ export function makeVeilMoss(x, z) {
     }
   }
 
+  // --- Drip drops at veil bottom edges ---
+  const dripMat = new MeshStandardMaterial({
+    color: C.veilEdge, emissive: C.veilGlow, emissiveIntensity: 0.15,
+    transparent: true, opacity: 0.4, roughness: 0.0, metalness: 0.3
+  });
+  for (let dri = 0; dri < 3; dri++) {
+    const drip = new Mesh(new SphereGeometry(0.005, 3, 3), dripMat);
+    drip.position.set(
+      (sr() - 0.5) * 0.3,
+      0.15 + sr() * 0.3,
+      (sr() - 0.5) * 0.06
+    );
+    g.add(drip);
+  }
+
   // --- Base moss/debris ---
   const baseMat = new MeshStandardMaterial({
     color: 0x2a3a28, roughness: 0.9,
@@ -118,5 +135,5 @@ export function makeVeilMoss(x, z) {
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, veilMats, phase: sr() * 6.28, x, z };
+  return { group: g, veilMats, veilRefs, phase: sr() * 6.28, x, z };
 }

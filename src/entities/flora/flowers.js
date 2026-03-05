@@ -33,10 +33,13 @@ export function makeFlower(x, z) {
     sepal.position.set(Math.cos(sa) * 0.025, h - 0.005, Math.sin(sa) * 0.025);
     sepal.rotation.x = -1.2; sepal.rotation.y = -sa; g.add(sepal);
   }
-  // Petals (6 around center, slightly overlapping)
+  // Petals (6 around center, slightly overlapping) with vein detail
   const petalMat = new MeshStandardMaterial({
     color: C.flower, emissive: C.flowerGlow, emissiveIntensity: 0.4 + sr() * 0.4,
     transparent: true, opacity: 0.85, side: DoubleSide
+  });
+  const veinMat = new MeshBasicMaterial({
+    color: C.flowerGlow, transparent: true, opacity: 0.15
   });
   for (let i = 0; i < 6; i++) {
     const pa = (i / 6) * 6.28;
@@ -44,6 +47,17 @@ export function makeFlower(x, z) {
     petal.position.set(Math.cos(pa) * 0.03, h + 0.01, Math.sin(pa) * 0.03);
     petal.rotation.x = -0.8; petal.rotation.y = -pa;
     g.add(petal);
+    // Petal vein lines (1-2 thin cylinders per petal)
+    for (let vi = 0; vi < 2; vi++) {
+      const vein = new Mesh(new CylinderGeometry(0.001, 0.001, 0.03, 3), veinMat);
+      vein.position.set(
+        Math.cos(pa) * (0.025 + vi * 0.008), h + 0.012,
+        Math.sin(pa) * (0.025 + vi * 0.008)
+      );
+      vein.rotation.x = -0.8; vein.rotation.y = -pa;
+      vein.rotation.z = (vi - 0.5) * 0.3;
+      g.add(vein);
+    }
   }
   // Glowing center
   const centerMat = new MeshStandardMaterial({
@@ -51,17 +65,21 @@ export function makeFlower(x, z) {
   });
   const center = new Mesh(new SphereGeometry(0.02, 4, 3), centerMat);
   center.position.y = h + 0.02; g.add(center);
-  // Stamen filaments (3 tiny uprights with pollen tips)
+  // Stamen filaments (3 tiny uprights with pollen tips) — stored for animation
   const stamenMat = new MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.7 });
   const pollenMat = new MeshBasicMaterial({ color: 0xffee44 });
+  const stamens = [];
   for (let fi = 0; fi < 3; fi++) {
     const fa = (fi / 3) * 6.28 + 0.5;
+    const stamenPivot = new Group();
+    stamenPivot.position.set(Math.cos(fa) * 0.012, h + 0.03, Math.sin(fa) * 0.012);
     const filament = new Mesh(new CylinderGeometry(0.002, 0.002, 0.025, 3), stamenMat);
-    filament.position.set(Math.cos(fa) * 0.012, h + 0.03, Math.sin(fa) * 0.012);
-    g.add(filament);
+    stamenPivot.add(filament);
     const pollen = new Mesh(new SphereGeometry(0.005, 3, 3), pollenMat);
-    pollen.position.set(Math.cos(fa) * 0.012, h + 0.045, Math.sin(fa) * 0.012);
-    g.add(pollen);
+    pollen.position.y = 0.015;
+    stamenPivot.add(pollen);
+    g.add(stamenPivot);
+    stamens.push(stamenPivot);
   }
   // Floating pollen dust (2 tiny motes above)
   const pdustMat = new MeshBasicMaterial({ color: 0xffffcc, transparent: true, opacity: 0.3 });
@@ -102,5 +120,5 @@ export function makeFlower(x, z) {
   }
 
   g.position.set(x, 0, z); scene.add(g);
-  return { group: g, petalMat: petalMat, phase: sr() * 6.28, baseH: h };
+  return { group: g, petalMat: petalMat, stamens, phase: sr() * 6.28, baseH: h };
 }

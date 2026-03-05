@@ -17,7 +17,7 @@
 //   We've started calling it "attunement." The creatures call it nothing.
 //   They just know.
 
-import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_SPRINT_R2 } from '../constants.js';
+import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2 } from '../constants.js';
 
 // ================================================================
 // Constants
@@ -58,10 +58,10 @@ let _jellyLastSpace = false;  // previous frame's space state (edge detect)
 //   playerYaw: number, playerSpeed: number, spacePressed: bool,
 //   playerX: number, playerZ: number, time: number
 // }
-export function updateAttunement(dt, sprinting, nearestPuffDist2, creatureData) {
+export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
   // Backward-compatible: if no creatureData, use legacy puffling-only path
   if (!creatureData) {
-    return _updatePuffOnly(dt, sprinting, nearestPuffDist2);
+    return _updatePuffOnly(dt, jumping, nearestPuffDist2);
   }
 
   const {
@@ -75,8 +75,8 @@ export function updateAttunement(dt, sprinting, nearestPuffDist2, creatureData) 
   // Determine which creature (if any) is being matched this frame
   let matchType = null;
 
-  // --- Puffling: Sprint within 8m ---
-  if (sprinting && nearestPuffDist2 < ATTUNE_SPRINT_R2 && nearestPuffDist2 < Infinity) {
+  // --- Puffling: Jump within 8m ---
+  if (jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
     matchType = 'puff';
   }
 
@@ -160,8 +160,8 @@ export function updateAttunement(dt, sprinting, nearestPuffDist2, creatureData) 
 }
 
 // Legacy path: puffling-only (maintains backward compatibility during migration)
-function _updatePuffOnly(dt, sprinting, nearestPuffDist2) {
-  if (sprinting && nearestPuffDist2 < ATTUNE_SPRINT_R2 && nearestPuffDist2 < Infinity) {
+function _updatePuffOnly(dt, jumping, nearestPuffDist2) {
+  if (jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
     if (attunementTarget !== 'puff') {
       attunementTarget = 'puff';
       attunement = 0;

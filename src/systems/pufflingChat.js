@@ -67,10 +67,11 @@ const MESSAGES_ATTUNING = [
   'you feel like us now',
   'vari! vari! you hum!',
   'your light shifts warm',
-  'almost... keep running!',
+  'jump jump jump! like us!',
   'sel tavi ori — together!',
-  'the song is in you',
+  'the song is in your leap!',
   'we can hear your glow',
+  'we love to jump! you too!',
 ];
 
 // When player carries frequency
@@ -82,6 +83,8 @@ const MESSAGES_CARRYING = [
   'quick, before it fades',
   'ori nesh — find the anchor!',
   'your glow is our glow',
+  'jumping is how we sing!',
+  'every hop carries the hum',
 ];
 
 // General / idle following

@@ -155,6 +155,7 @@ export function checkDiscoveries(playerPos, deers, puffs, jellies, moths, fairyR
 // ================================================================
 let hintEl = null;
 let hintTimer = 0;
+let orbRejectCount = 0;
 
 export function showOrbRejectHint() {
   if (!hintEl) {
@@ -165,16 +166,18 @@ export function showOrbRejectHint() {
       'font-family:Georgia,serif;font-size:16px;color:#ffddaa;font-style:italic;' +
       'text-shadow:0 0 10px #cc8844,0 0 25px #885522;' +
       'pointer-events:none;opacity:0;transition:opacity 0.8s;z-index:100;' +
-      'letter-spacing:2px;text-align:center;max-width:400px;';
+      'letter-spacing:2px;text-align:center;max-width:400px;white-space:pre-line;';
     document.body.appendChild(hintEl);
   }
-  const hints = {
-    child: "The forest\u2019s voice is missing\u2026 listen to those who still sing.",
-    adult: "Frequency mismatch. Acquire biological signature first."
-  };
+  orbRejectCount++;
+  const hints = orbRejectCount <= 1
+    ? { child: "Be still\u2026 listen to the music of the forest.",
+        adult: "Frequency mismatch. Environmental audio synchronization required." }
+    : { child: "The creatures hum with joy when you jump near them\u2026\nfind their frequency!",
+        adult: "Kinetic resonance detected in micro-fauna. Attempt frequency acquisition via jumping." };
   hintEl.textContent = hints[perspective] || hints.child;
   hintEl.style.opacity = '1';
-  hintTimer = 4.0;
+  hintTimer = 5.0;
 }
 
 // ================================================================
@@ -260,5 +263,42 @@ export function updateDiscoveryUI(dt) {
     if (finaleTimer <= 2.0 && finaleEl) {
       finaleEl.style.opacity = '0';
     }
+  }
+}
+
+// ================================================================
+// Idle Hints — escalating helpful text after extended inactivity
+// ================================================================
+let idleHintIndex = 0;
+
+const idleHints = {
+  child: [
+    'The forest is waiting\u2026 try walking around!',
+    'Some creatures only come out when you move\u2026',
+    'Jump near the little pufflings \u2014 they love it!',
+    'The golden orbs need a special song to wake up\u2026',
+    'Have you tried standing still near a jellyfish?',
+    'Walk alongside the deer \u2014 match their pace!',
+  ],
+  adult: [
+    'Movement data stagnant. Explore the environment.',
+    'Biological signatures require proximity interaction.',
+    'Micro-fauna respond to kinetic input. Try jumping.',
+    'Orb activation requires frequency synchronization.',
+    'Drifter resonance requires rhythmic spatial input.',
+    'Cervid attunement requires parallel locomotion.',
+  ]
+};
+
+export function checkIdleHints(idleTime) {
+  // Reset hint progression when player moves
+  if (idleTime < 300) { idleHintIndex = 0; return; }
+  // Show a hint every 60 seconds after the 5-minute mark
+  const timeSinceThreshold = idleTime - 300;
+  const expectedHints = Math.floor(timeSinceThreshold / 60) + 1;
+  if (expectedHints > idleHintIndex && idleHintIndex < idleHints.child.length) {
+    const hints = idleHints[perspective] || idleHints.child;
+    showNarrativeText(hints[idleHintIndex], 6.0);
+    idleHintIndex++;
   }
 }

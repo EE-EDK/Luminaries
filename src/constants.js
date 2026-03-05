@@ -80,7 +80,7 @@ export const MAX_CRYSTAL_LIGHTS = 5;
 // Creature Attunement (Phase 2)
 export const ATTUNE_RATE = 0.15;       // attunement gain per second while matching
 export const ATTUNE_DECAY = 0.05;      // attunement loss per second when not matching
-export const ATTUNE_SPRINT_R2 = 64;    // squared distance: must sprint within 8m
+export const ATTUNE_JUMP_R2 = 64;      // squared distance: must jump within 8m
 
 // Player light evolution — color/intensity/range scales with orbs found (0–5)
 export const PLAYER_LIGHT_COLORS = [0x668888, 0x88aacc, 0x66ddaa, 0xaaffcc, 0xddffee, 0xffffff];

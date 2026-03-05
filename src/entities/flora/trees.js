@@ -1,4 +1,4 @@
-import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, RepeatWrapping, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -143,6 +143,57 @@ function getGlowTexture() {
   return _glowTexture;
 }
 
+// ================================================================
+// Procedural canopy alpha map — soft organic blob for billboard quads
+// ================================================================
+let _canopyAlphaMap = null;
+function getCanopyAlphaMap() {
+  if (_canopyAlphaMap) return _canopyAlphaMap;
+  const S = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const cx = S / 2, cy = S / 2, maxR = S / 2;
+
+  // Build pixel data for organic blob shape (grayscale — alphaMap reads green channel)
+  const imgData = ctx.createImageData(S, S);
+  const data = imgData.data;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+
+      // Organic edge: perturb radius with layered sine waves
+      const edgeR = maxR * (0.82
+        + 0.09 * Math.sin(angle * 3 + 0.5)
+        + 0.06 * Math.sin(angle * 5 + 1.7)
+        + 0.03 * Math.sin(angle * 7 + 3.1)
+      );
+
+      // Soft radial falloff with gentle core
+      const t = dist / edgeR;
+      let alpha;
+      if (t < 0.5) {
+        alpha = 1.0;
+      } else {
+        alpha = Math.max(0, 1.0 - Math.pow((t - 0.5) / 0.5, 1.5));
+      }
+
+      const v = Math.floor(alpha * 255);
+      const idx = (y * S + x) * 4;
+      data[idx] = v;
+      data[idx + 1] = v;
+      data[idx + 2] = v;
+      data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  _canopyAlphaMap = new CanvasTexture(canvas);
+  return _canopyAlphaMap;
+}
+
 // Create a billboard impostor sprite for a tree (1 draw call at distance)
 export function makeTreeImpostor(treeH, groundY) {
   const mat = new SpriteMaterial({
@@ -262,37 +313,39 @@ function generateTemplateTree(palIdx) {
     g.add(mesh);
   }
 
-  // Helper: add organic canopy cluster — multiple small scattered leaf clouds
-  // instead of uniform spheres, creating irregular natural-looking foliage
+  // Helper: add billboard canopy cluster — camera-facing quads with alpha map
+  // for fluffy, volumetric bioluminescent foliage
   function addCanopy(cx, cy, cz, size) {
-    // 3-6 small leaf cloud volumes scattered around branch tip
-    const cloudN = 3 + Math.floor(sr() * 4);
+    // 6-8 billboard quads scattered around branch tip
+    const quadN = 6 + Math.floor(sr() * 3);
     const spread = size * 0.45;
-    for (let ci = 0; ci < cloudN; ci++) {
-      const cloudR = size * (0.12 + sr() * 0.18); // varied small radii
-      const cloud = new Mesh(new IcosahedronGeometry(cloudR, 1));
-      // Alternate between leaf and brighter core colors for depth
+
+    for (let ci = 0; ci < quadN; ci++) {
+      const qSize = size * (0.3 + sr() * 0.4); // varied quad sizes
       const isBright = sr() < 0.3;
-      cloud.material = new MeshStandardMaterial({
+
+      // Tiny PlaneGeometry — billboard shader does the expansion in view space
+      const quadGeo = new PlaneGeometry(0.01, 0.01);
+      // Store billboard expansion size as custom vertex attribute
+      const vCount = quadGeo.attributes.position.count;
+      const sizeArr = new Float32Array(vCount);
+      for (let vi = 0; vi < vCount; vi++) sizeArr[vi] = qSize;
+      quadGeo.setAttribute('quadSize', new BufferAttribute(sizeArr, 1));
+
+      const quad = new Mesh(quadGeo, new MeshStandardMaterial({
         color: isBright ? pal.core : pal.leaf
-      });
+      }));
       // Scatter position irregularly around the center
-      cloud.position.set(
+      quad.position.set(
         cx + (sr() - 0.5) * spread * 2,
-        cy + (sr() - 0.3) * spread * 1.4, // bias slightly upward
+        cy + (sr() - 0.3) * spread * 1.4,
         cz + (sr() - 0.5) * spread * 2
       );
-      // Non-uniform scale: elongated, squashed, stretched for organic shape
-      cloud.scale.set(
-        0.7 + sr() * 0.8,
-        0.5 + sr() * 0.9,
-        0.7 + sr() * 0.8
-      );
-      cloud.userData._cat = 'canopy';
-      g.add(cloud);
+      quad.userData._cat = 'canopy';
+      g.add(quad);
     }
 
-    // Soft glow haze — slightly smaller than before, centered
+    // Soft glow haze — volumetric underglow beneath canopy
     const haze = new Mesh(new IcosahedronGeometry(size * 0.5, 1));
     haze.material = new MeshStandardMaterial({ color: pal.glow });
     haze.position.set(cx, cy, cz);
@@ -447,7 +500,7 @@ function bakeTemplate(palIdx, seedOffset) {
     mesh.updateMatrix();
     geo.applyMatrix4(mesh.matrix);
 
-    // Normalize to non-indexed geometry (CylinderGeometry is indexed,
+    // Normalize to non-indexed geometry (CylinderGeometry/PlaneGeometry are indexed,
     // IcosahedronGeometry is not — mergeGeometries requires all same)
     if (geo.index) {
       const nonIndexed = geo.toNonIndexed();
@@ -474,15 +527,17 @@ function bakeTemplate(palIdx, seedOffset) {
     }
     geo.setAttribute('color', new BufferAttribute(colors, 3));
 
-    // Keep UVs on trunk geometry for bark texture mapping;
-    // remove UVs from other categories (not all have them, causes merge issues)
+    // Keep UVs on trunk geometry (bark texture) and canopy geometry (billboard shader);
+    // remove UVs from glow/detail categories (not all have them, causes merge issues)
     if (cat === 'trunk') {
       // Ensure trunk geo has UVs (CylinderGeometry and SphereGeometry do)
       if (!geo.attributes.uv) {
-        // Safety: generate placeholder UVs if missing
         const uvs = new Float32Array(vCount * 2);
         geo.setAttribute('uv', new BufferAttribute(uvs, 2));
       }
+    } else if (cat === 'canopy') {
+      // Canopy quads: preserve UVs (billboard shader) and quadSize attribute
+      // PlaneGeometry always has UVs, so no safety check needed
     } else {
       if (geo.attributes.uv) geo.deleteAttribute('uv');
     }
@@ -525,6 +580,36 @@ const _frustum = new Frustum();
 const _projScreenMatrix = new Matrix4();
 const _testPoint = new Vector3();
 const SLOPE_FACTOR = 0.15; // Subtle tilt — keeps trunks vertical, roots do the work via steep template angles
+
+// Billboard vertex shader injection for canopy quads
+// Expands degenerate quads in view space using UV-based offsets and quadSize attribute
+function canopyOnBeforeCompile(shader) {
+  // Declare custom attribute
+  shader.vertexShader = shader.vertexShader.replace(
+    'void main() {',
+    'attribute float quadSize;\nvoid main() {'
+  );
+  // Compute billboard offset from UVs after begin_vertex
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+    vec2 billboardOffset = (uv - 0.5) * 2.0 * quadSize;`
+  );
+  // Replace project_vertex: transform center to view space, expand, then project
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <project_vertex>',
+    `vec4 mvPosition = vec4(transformed, 1.0);
+    #ifdef USE_BATCHING
+      mvPosition = batchingMatrix * mvPosition;
+    #endif
+    #ifdef USE_INSTANCING
+      mvPosition = instanceMatrix * mvPosition;
+    #endif
+    mvPosition = modelViewMatrix * mvPosition;
+    mvPosition.xy += billboardOffset;
+    gl_Position = projectionMatrix * mvPosition;`
+  );
+}
 
 // Apply slope tilt + Y rotation to _dummy quaternion using cached normal
 function applySlopeTilt(nx, ny, nz, yRot) {
@@ -569,16 +654,20 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       scene.add(trunkMesh);
     }
 
-    // Canopy InstancedMesh (cores, mid-canopy leaves) — semi-transparent glowing volumes
+    // Canopy InstancedMesh — billboard quads with alpha-mapped fluffy glow
     const canopyMat = new MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.5,
       emissive: palData.glow,
       emissiveIntensity: 1.2,
       transparent: true,
-      opacity: 0.5,
-      depthWrite: false
+      opacity: 0.55,
+      depthWrite: false,
+      side: DoubleSide,
+      alphaMap: getCanopyAlphaMap(),
+      alphaTest: 0.12
     });
+    canopyMat.onBeforeCompile = canopyOnBeforeCompile;
     const canopyMesh = tmpl.canopyGeo ? new InstancedMesh(tmpl.canopyGeo, canopyMat, maxPerTemplate) : null;
     if (canopyMesh) {
       canopyMesh.instanceMatrix.setUsage(DynamicDrawUsage);

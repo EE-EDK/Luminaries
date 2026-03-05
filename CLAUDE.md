@@ -34,15 +34,23 @@ npm run build        # Production build to dist/
 
 **Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 9 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
-**Phase 2 (Symbiotic Attunement): IN PROGRESS.** See `reference/MANIFESTO.md` for full design. Key additions:
+**Phase 2 (Symbiotic Attunement): 13/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
 
-1. **The Dimming** — Sector-based bioGlow suppression (DONE: 5 angular sectors, restoration waves, edge blending)
-2. **Creature Attunement** — Match creature rhythms to carry their frequency
-3. **Orb Activation Gate** — Frequency required to activate orbs
-4. **Dual Narrative** — Child ("Magic Garden") / Adult ("Chronobiological Archive") text layers
-5. **Player Light Evolution** — Color/intensity/range scales with sync level (0/5 → 5/5)
-6. **Audio Sync Progression** — New layers unlock as orbs are found
-7. **21 total features** — Prioritized in `reference/phase-2-roadmap.md`
+Implemented:
+1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
+2. **Creature Attunement** — DONE: All 4 types — jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look) (`systems/attunement.js`)
+3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questManager.js`)
+4. **Stillness/Curiosity** — DONE: Jelly drift, deer flee shrink, moth orbit shift, puffling follow (`main.js`)
+5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`core/player.js`)
+6. **Audio Sync Progression** — DONE: Creature cooldowns halved at 2+ orbs (`systems/audio.js`)
+7. **Player Light Evolution** — DONE: 6-level color/intensity/range + attunement color overlay
+8. **Wisp Guides** — DONE: Midpoint targeting, frequency-aware guide fraction (`main.js`)
+9. **Dual Narrative** — DONE: Tab toggle, child/adult discovery text (`systems/discoveries.js`)
+10. **Sky Constellations** — DONE: 5 patterns revealed per orb (`world/sky.js`)
+11. **Shooting Star Wishes** — DONE: 5 wish levels gated by orbs, dual perspective (`world/sky.js`)
+12. **Finale/Transform/Free Roam** — DONE: Overlay text + FREE_ROAM endgame state
+
+Remaining (8 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
 
 ## Critical Rules
 
@@ -99,12 +107,12 @@ These are non-negotiable. Every session must follow them.
 3. Always call `.stop(time)`. Keep volume 0.02-0.08.
 4. Export from audio.js, import in main.js, pass as callback to consuming system
 
-### Implementing Phase 2 Features
-1. Read `reference/phase-2-roadmap.md` for priority order and file lists
+### Implementing Remaining Phase 2 Features
+1. Read `reference/phase-2-roadmap.md` for remaining items (8 of 21)
 2. Read `reference/MANIFESTO.md` for detailed design per feature
-3. Start with Tier 1 (Dimming → Attunement → Orb Gate → Curiosity)
-4. Tier 2 items are independent of each other
-5. Tier 3 (narrative) needs stable gameplay loop first
+3. Tier 1 is COMPLETE — core gameplay loop works end-to-end
+4. Remaining Tier 2 items (9-14) are independent of each other
+5. Remaining Tier 3 items: ground glyphs (18) and echo-visions (21)
 
 ## Key File Locations
 
@@ -119,7 +127,8 @@ These are non-negotiable. Every session must follow them.
 | Weather states | `src/systems/weather.js` |
 | Day/night + bioGlow | `src/systems/dayNightCycle.js` |
 | Sector dimming | `src/systems/dimming.js` → `getLocalGlow()`, `initDimming()` |
-| Discovery text | `src/systems/discoveries.js` |
+| Creature attunement | `src/systems/attunement.js` → `updateAttunement()`, `getPlayerFrequency()`, `consumeFrequency()` |
+| Discovery text + narrative | `src/systems/discoveries.js` → `togglePerspective()`, `getPerspective()`, dual child/adult labels |
 | Intro sequence | `src/systems/intro.js` (title, narration, pixie, mushrooms, puffling) |
 | Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
@@ -138,11 +147,14 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - **perfMonitor** — Dev-only EMA timing per director subsystem + `renderer.info` monitoring (tree-shaken in production)
 - **Intro overhaul** — Dramatic title with CSS mushrooms and animated puffling, multi-layer noise pixie with dust particles, slower narration pacing (7s per card)
 - **Gameplay fixes** — Puffling Z-axis speed parity, reduced rock collision radii, tighter terrain tracking threshold
+- **Organic ponds** — Noise-deformed geometry with lobes, elongation, mud bank rims (no longer circular)
+- **Fairy ring fixes** — Mushrooms raised +0.06m, glow disc raised to y=0.12, wider flat zones (radius 5m)
+- **Intro typing** — Terminal text at 10 chars/sec with punctuation pauses (was 25 chars/sec uniform)
 
 ## Known Technical Debt
 
 1. **`state.js`** — Legacy shared state. Most state migrated to main.js module scope but some duplication remains (quest state in both places).
-2. **`main.js` size** — 2,356 lines. The `director()` function is the monolith (now instrumented with perfMonitor). Phase 2 should extract per-system update modules.
+2. **`main.js` size** — ~2,900 lines. The `director()` function is the monolith (now instrumented with perfMonitor). Should extract per-system update modules.
 3. **No save/load** — Game resets on refresh.
 4. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
 5. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).

@@ -9,25 +9,25 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 
 ## Implementation Tiers
 
-### Tier 1 — Core Loop (Must Build First)
+### Tier 1 — Core Loop (Must Build First) ✅ COMPLETE
 
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
 | 1 | **The Dimming** — Sector-based bioGlow suppression | `systems/dimming.js`, `main.js`, `constants.js` | Low | **DONE** |
-| 2 | **Creature Attunement** — Behavior matching + frequency carry | `entities/fauna/*.js`, `main.js`, `core/player.js` | Medium | Not started |
-| 3 | **Orb Activation Gate** — Require carried frequency | `quest/questManager.js` | Low | Not started |
-| 4 | **Stillness/Curiosity** — Creatures approach stationary player | `entities/fauna/*.js` | Low | Not started |
+| 2 | **Creature Attunement** — Behavior matching + frequency carry | `systems/attunement.js`, `main.js` | Medium | **DONE** — All 4 types: jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look) |
+| 3 | **Orb Activation Gate** — Require carried frequency | `quest/questManager.js` | Low | **DONE** — Frequency check + reject hint + 3s cooldown |
+| 4 | **Stillness/Curiosity** — Creatures approach stationary player | `main.js` | Low | **DONE** — Jelly drift toward idle player, deer flee radius 8→4m, moth orbit shift, puffling follow |
 
-**Tier 1 Definition of Done:** Player can stand still near a deer, match its walking pace to attune, carry its frequency (playerLight turns teal), walk to an orb, and activate it. The orb's zone blooms to full brightness. Repeat for all 5 zones.
+**Tier 1 Definition of Done:** ✅ Player can stand still near a deer, match its walking pace to attune, carry its frequency (playerLight turns teal), walk to an orb, and activate it. The orb's zone blooms to full brightness. Repeat for all 5 zones.
 
-### Tier 2 — World Enrichment
+### Tier 2 — World Enrichment (4/10 done)
 
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
-| 5 | **Fairy Ring Boost** — Super-jump + feather fall | `core/player.js`, `entities/magical/fairyRings.js` | Low | Not started |
-| 6 | **Audio Sync Progression** — Layer gating by orbsFound | `systems/audio.js` | Low | Not started |
-| 7 | **Player Light Evolution** — Color/intensity/range by sync level | `core/lighting.js` or `core/player.js` | Trivial | Not started |
-| 8 | **Wisp Guides** — Target override toward unfound orbs | `entities/magical/wisps.js`, `main.js` | Low | Not started |
+| 5 | **Fairy Ring Boost** — Super-jump + feather fall | `core/player.js`, `main.js` | Low | **DONE** — 3.5× impulse in restored zones + 4s feather fall via `setGravityMult(0.3)` |
+| 6 | **Audio Sync Progression** — Layer gating by orbsFound | `systems/audio.js` | Low | **DONE** — `_cooldownMult()` halves creature cooldowns at 2+ orbs |
+| 7 | **Player Light Evolution** — Color/intensity/range by sync level | `constants.js`, `main.js` | Trivial | **DONE** — 6-level arrays, smooth color lerp 0x668888→0xffffff, attunement color overlay |
+| 8 | **Wisp Guides** — Target override toward unfound orbs | `main.js` `updateWisps()` | Low | **DONE** — Midpoint targeting, frequency-aware guide fraction, idle or carrying trigger |
 | 9 | **Weather Attunement Modifiers** — Rate scaling per creature+weather | `main.js` | Trivial | Not started |
 | 10 | **Day/Night Gating** — bioGlow scales attunement + orb visibility | `main.js`, `quest/questManager.js` | Trivial | Not started |
 | 11 | **Bubble Pop Micro-Rewards** — Zone-aware pop behavior | `entities/magical/bubbles.js`, `main.js` | Low | Not started |
@@ -35,18 +35,18 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 | 13 | **Dandelion Seed Wayfinding** — Seeds drift toward unfound orbs | `particles/seeds.js` | Low | Not started |
 | 14 | **Obelisk Rune Reveal** — One face per orb, creature-colored | `entities/world/obelisk.js`, `quest/questManager.js` | Low | Not started |
 
-### Tier 3 — Narrative & Polish
+### Tier 3 — Narrative & Polish (5/7 done)
 
-> **Text rendering:** Use `troika-three-text` for all in-world and UI text (discovery messages, narrative overlays, HUD elements). No HTML overlays or canvas text.
+> **Text rendering:** DOM-based overlays for intro/discovery/HUD text. `troika-three-text` for in-world 3D text.
 
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
-| 15 | **Dual-Narrative Text** — Child/adult perspective toggle (use `troika-three-text`) | `systems/discoveries.js`, `ui/hud.js` | Low | Not started |
-| 16 | **Sky Constellations** — Reveal star patterns per orb | `world/sky.js` | Low | Not started |
-| 17 | **Shooting Star Wishes** — Poetic fragments triggered by sky-watching | `world/sky.js`, `systems/discoveries.js` | Low | Not started |
+| 15 | **Dual-Narrative Text** — Child/adult perspective toggle (Tab key) | `systems/discoveries.js` | Low | **DONE** — `togglePerspective()`/`getPerspective()`, child/adult label maps, Tab key handler |
+| 16 | **Sky Constellations** — Reveal star patterns per orb | `world/sky.js`, `quest/questManager.js` | Low | **DONE** — 5 constellation definitions, LineSegments+Points, 3s fade-in per orb |
+| 17 | **Shooting Star Wishes** — Poetic fragments triggered by sky-watching | `world/sky.js` | Low | **DONE** — `checkShootingStarWish()`, 5 wish levels gated by orbsFound, dual perspective |
 | 18 | **Ground Glyphs** — Hidden discovery markers revealed by stillness | `systems/discoveries.js`, `main.js` | Low | Not started |
-| 19 | **Finale Narrative Text** — Overlay during COMPLETE/TRANSFORM | `quest/questManager.js` | Trivial | Not started |
-| 20 | **Free Roam State** — Post-TRANSFORM peaceful endgame | `quest/questManager.js`, `systems/audio.js` | Low | Not started |
+| 19 | **Finale Narrative Text** — Overlay during COMPLETE/TRANSFORM | `quest/questManager.js`, `systems/discoveries.js` | Trivial | **DONE** — `showFinaleText()`, `showTransformText()`, `showFreeRoamText()` |
+| 20 | **Free Roam State** — Post-TRANSFORM peaceful endgame | `quest/questManager.js` | Low | **DONE** — FREE_ROAM phase after 20s TRANSFORM, persistent text at 10s |
 | 21 | **Echo-Visions** — Storm-sprint creature path traces | `main.js`, `systems/weather.js` | Medium | Not started |
 
 ## The Five Synchronization Zones
@@ -61,19 +61,18 @@ Each orb sits within a natural zone. No hard biome boundaries — zones are soft
 | 4 | The Canopy | Deer | Stride-match (walk same direction) | Walk (not sprint) into orb |
 | 5 | The Convergence | Any | Any carried frequency | Standard proximity |
 
-## New Constants Needed (for constants.js)
+## Constants (in constants.js)
 
 ```js
-// Already implemented:
-export const DIMMING_FACTOR = 0.18;        // bioGlow multiplier in unrestored sectors (near-greyscale)
+// All implemented:
+export const DIMMING_FACTOR = 0.18;        // bioGlow multiplier in unrestored sectors
 export const DIMMING_WAVE_SPEED = 30;      // Restoration wave expansion speed (m/s)
-// Planned:
 export const ATTUNE_RATE = 0.15;           // Attunement gain per second when matching
 export const ATTUNE_DECAY = 0.05;          // Attunement loss per second when not matching
-export const CURIOSITY_IDLE_TIME = 5;      // Seconds of stillness before curiosity triggers
-export const FAIRY_BOOST_MULT = 3.5;       // Fairy ring jump multiplier
-export const FEATHER_FALL_DURATION = 4;    // Seconds of slow fall
-export const FEATHER_FALL_GRAVITY = 0.3;   // Gravity multiplier during feather fall
+export const ATTUNE_SPRINT_R2 = 64;        // Squared distance for puffling sprint attunement (8m)
+export const FAIRY_RING_R = 2.5;           // Fairy ring radius
+export const FAIRY_BOUNCE = 6;             // Fairy ring bounce impulse
+// Player light evolution: PLAYER_LIGHT_COLORS, PLAYER_LIGHT_INTENSITY, PLAYER_LIGHT_RANGE (6-level arrays)
 ```
 
 ## Creature Attunement Details
@@ -98,15 +97,22 @@ Weather modifiers multiply the base rate. bioGlow multiplies the rate. See `refe
 | 4/5 | 0xddffee | 1.2 | 30m |
 | 5/5 | 0xffffff | 1.5 | 40m |
 
-## Recommended Build Order
+## Progress Summary
 
-1. **Dimming system** first — it's the visual foundation everything else builds on
-2. **Creature attunement** — the core mechanic
-3. **Orb activation gate** — connects attunement to quest progression
-4. **Player light evolution** — immediate visual feedback for progression
-5. **Audio sync progression** — sonic feedback layer
-6. Build Tier 2 items in any order (they're independent)
-7. Tier 3 narrative last (needs gameplay loop stable first)
+**13 of 21 features implemented.** Tier 1 complete. Core gameplay loop functional. 8 features remaining:
+
+| Remaining | Priority |
+|-----------|----------|
+| 9. Weather attunement modifiers | Low — trivial multiplier table |
+| 10. Day/night gating | Low — trivial multiplier |
+| 11. Bubble pop micro-rewards | Low |
+| 12. Crystal resonance chains | Medium — needs chain tracking + audio |
+| 13. Dandelion seed wayfinding | Low |
+| 14. Obelisk rune reveal | Low |
+| 18. Ground glyphs | Low |
+| 21. Echo-visions | Medium — storm-sprint creature traces |
+
+Items 9-10 are trivial additions. Items 12 and 21 are the most complex remaining features.
 
 ## Explicitly Descoped
 

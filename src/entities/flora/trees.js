@@ -582,9 +582,9 @@ const _testPoint = new Vector3();
 const SLOPE_FACTOR = 0.15; // Subtle tilt — keeps trunks vertical, roots do the work via steep template angles
 
 // Billboard vertex shader injection for canopy quads
-// Expands degenerate quads in view space using UV-based offsets and quadSize attribute
+// Keeps standard project_vertex (handles instancing/batching), then adds billboard expansion
 function canopyOnBeforeCompile(shader) {
-  // Declare custom attribute
+  // Declare custom attribute for per-quad expansion size
   shader.vertexShader = shader.vertexShader.replace(
     'void main() {',
     'attribute float quadSize;\nvoid main() {'
@@ -595,17 +595,11 @@ function canopyOnBeforeCompile(shader) {
     `#include <begin_vertex>
     vec2 billboardOffset = (uv - 0.5) * 2.0 * quadSize;`
   );
-  // Replace project_vertex: transform center to view space, expand, then project
+  // Keep standard project_vertex intact (sets mvPosition correctly with instancing),
+  // then add billboard expansion in view space and recompute gl_Position
   shader.vertexShader = shader.vertexShader.replace(
     '#include <project_vertex>',
-    `vec4 mvPosition = vec4(transformed, 1.0);
-    #ifdef USE_BATCHING
-      mvPosition = batchingMatrix * mvPosition;
-    #endif
-    #ifdef USE_INSTANCING
-      mvPosition = instanceMatrix * mvPosition;
-    #endif
-    mvPosition = modelViewMatrix * mvPosition;
+    `#include <project_vertex>
     mvPosition.xy += billboardOffset;
     gl_Position = projectionMatrix * mvPosition;`
   );
@@ -651,6 +645,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (trunkMesh) {
       trunkMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       trunkMesh.count = 0;
+      trunkMesh.frustumCulled = false;
       scene.add(trunkMesh);
     }
 
@@ -672,6 +667,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (canopyMesh) {
       canopyMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       canopyMesh.count = 0;
+      canopyMesh.frustumCulled = false;
       scene.add(canopyMesh);
     }
 
@@ -688,6 +684,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (glowMesh) {
       glowMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       glowMesh.count = 0;
+      glowMesh.frustumCulled = false;
       scene.add(glowMesh);
     }
 
@@ -701,6 +698,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (detailMesh) {
       detailMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       detailMesh.count = 0;
+      detailMesh.frustumCulled = false;
       scene.add(detailMesh);
     }
 

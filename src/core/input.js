@@ -64,11 +64,13 @@ export const mobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
 const jzEl = document.getElementById('joy-zone');
 const jkEl = document.getElementById('joy-knob');
 const bjEl = document.getElementById('btn-jump');
+const bsEl = document.getElementById('btn-sprint');
 
 if (mobile) {
   jzEl.style.display = 'block';
   bjEl.style.display = 'block';
-  document.getElementById('controls').textContent = 'Stick: Move · Drag right: Look · JUMP';
+  if (bsEl) bsEl.style.display = 'block';
+  document.getElementById('controls').textContent = 'Stick: Move · Drag right: Look · JUMP · SPRINT';
 }
 
 function updJoy(cx, cy) {
@@ -113,6 +115,15 @@ bjEl.addEventListener('touchstart', (e) => {
 bjEl.addEventListener('touchend', (e) => {
   e.preventDefault(); e.stopPropagation(); touchJump = false;
 }, { passive: false });
+
+if (bsEl) {
+  bsEl.addEventListener('touchstart', (e) => {
+    e.preventDefault(); e.stopPropagation(); triggerGo(); touchSprint = true;
+  }, { passive: false });
+  bsEl.addEventListener('touchend', (e) => {
+    e.preventDefault(); e.stopPropagation(); touchSprint = false;
+  }, { passive: false });
+}
 
 // Right-side look
 renderer.domElement.addEventListener('touchstart', (e) => {

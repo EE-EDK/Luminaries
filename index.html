@@ -21,6 +21,10 @@ canvas{display:block;cursor:crosshair}
   background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
   pointer-events:auto;display:none;color:#88ffcc;font-size:11px;font-family:monospace;
   line-height:65px;text-align:center}
+#btn-sprint{position:absolute;bottom:105px;right:25px;width:65px;height:65px;border-radius:50%;
+  background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
+  pointer-events:auto;display:none;color:#88ffcc;font-size:10px;font-family:monospace;
+  line-height:65px;text-align:center}
 #overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
   font-size:24px;z-index:200;text-align:center;pointer-events:none;
   text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
@@ -35,6 +39,7 @@ canvas{display:block;cursor:crosshair}
 <div id="controls">WASD · SPACE Jump · SHIFT Sprint · Click+Drag Look</div>
 <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
 <div id="btn-jump">JUMP</div>
+<div id="btn-sprint">SPRINT</div>
 <div id="orb-hud">✦ 0 / 5</div>
 <div id="overlay" style="display:none">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
 <script type="module" src="/src/main.js"></script>

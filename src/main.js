@@ -128,7 +128,7 @@ import { updateAttunement, getAttunement, getAttunementTarget, getPlayerFrequenc
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
 
 // Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, togglePerspective, getPerspective, showNarrativeText } from './systems/discoveries.js';
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, togglePerspective, getPerspective, showNarrativeText, checkIdleHints } from './systems/discoveries.js';
 
 // Intro cinematic (Phase 2)
 import { initIntro, startIntro, enableTitleClick, updateIntro, introActive, introDone } from './systems/intro.js';
@@ -1334,8 +1334,9 @@ function updatePuffs(dt, t) {
           g.position.x += coh.x * 0.05 * dt;
           g.position.z += coh.z * 0.05 * dt;
         }
-        // Puffling singing — context-sensitive warbling melody
-        if (Math.random() < 0.0004) {
+        // Puffling singing — boosted when player jumps nearby
+        const _puffJumpBoost = (!player.onGround && pDist2 < 100) ? 8 : 1;
+        if (Math.random() < 0.0004 * _puffJumpBoost) {
           const restored = isRestored(px, pz);
           playPufflingSinging({ x: px, z: pz }, player.pos, restored, curAttune);
         }
@@ -1397,8 +1398,9 @@ function updatePuffs(dt, t) {
         } else {
           g.position.y = p._baseY + Math.sin(t * 3 + p.phase) * 0.03;
         }
-        // Following pufflings sing openly — bright phrases (always "restored" = true)
-        if (Math.random() < 0.001) {
+        // Following pufflings sing openly — boosted when player jumps
+        const _followJumpBoost = (!player.onGround && pDist2 < 100) ? 5 : 1;
+        if (Math.random() < 0.001 * _followJumpBoost) {
           playPufflingSinging({ x: px, z: pz }, player.pos, true, curAttune);
         }
         // Puffling chat — cryptic speech when close and following
@@ -2548,9 +2550,9 @@ function director(dt, t) {
   updateMoths(dt, t);
 
   // --- Centralized attunement update (after all creature loops) ---
-  const _attuneSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  const _attuneJumping = !player.onGround;
   const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
-  updateAttunement(dt, _attuneSprinting, _nearestPuffDist2, {
+  updateAttunement(dt, _attuneJumping, _nearestPuffDist2, {
     nearestPuffPos: _nearestPuffPos,
     nearestJellyDist2: _nearestJellyDist2, nearestJellyPos: _nearestJellyPos,
     nearestDeerDist2: _nearestDeerDist2, nearestDeerPos: _nearestDeerPos, nearestDeerWanderAng: _nearestDeerWanderAng,
@@ -2665,6 +2667,7 @@ function director(dt, t) {
   // Discoveries (Item 10)
   timeStart('discoveries');
   checkDiscoveries(player.pos, deers, puffs, jellies, moths, fairyRings, ponds, chainCount);
+  checkIdleHints(playerIdleTime);
   updateDiscoveryUI(dt);
   updatePufflingChat(dt, renderer.domElement);
   timeEnd('discoveries');

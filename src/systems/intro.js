@@ -988,15 +988,33 @@ export function updateIntro(dt, camera) {
         }
         fantasyEl.textContent = card.fantasy;
 
-        // Terminal typing effect
-        const typingDelay = 0.5;
-        const charsPerSec = 25;
+        // Terminal typing effect — slow, natural human typing cadence
+        const typingDelay = 0.8;
+        const baseCharsPerSec = 10; // slower base rate (~100ms per character)
         if (visTime > typingDelay) {
           const elapsed = visTime - typingDelay;
-          narrationCharIndex = Math.min(
-            Math.floor(elapsed * charsPerSec),
-            card.terminal.length
-          );
+          // Simulate natural typing: bursts and pauses
+          // Characters come in groups with tiny pauses between words
+          let charCount = 0;
+          let cumTime = 0;
+          const text = card.terminal;
+          for (let ci = 0; ci < text.length; ci++) {
+            // Base interval per character
+            let interval = 1.0 / baseCharsPerSec;
+            // Longer pause after punctuation (period, comma, colon, dash)
+            const prevChar = ci > 0 ? text[ci - 1] : '';
+            if (prevChar === '.' || prevChar === ':' || prevChar === '\u2014') {
+              interval += 0.18; // ~180ms pause after punctuation
+            } else if (prevChar === ',' || prevChar === ';') {
+              interval += 0.1;
+            } else if (prevChar === ' ') {
+              interval += 0.04; // slight pause between words
+            }
+            cumTime += interval;
+            if (cumTime > elapsed) break;
+            charCount = ci + 1;
+          }
+          narrationCharIndex = Math.min(charCount, text.length);
         }
         terminalEl.textContent = card.terminal.substring(0, narrationCharIndex);
 

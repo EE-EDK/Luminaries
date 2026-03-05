@@ -2552,12 +2552,14 @@ function director(dt, t) {
   // --- Centralized attunement update (after all creature loops) ---
   const _attuneJumping = !player.onGround;
   const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
+  const _attuneSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   updateAttunement(dt, _attuneJumping, _nearestPuffDist2, {
     nearestPuffPos: _nearestPuffPos,
     nearestJellyDist2: _nearestJellyDist2, nearestJellyPos: _nearestJellyPos,
     nearestDeerDist2: _nearestDeerDist2, nearestDeerPos: _nearestDeerPos, nearestDeerWanderAng: _nearestDeerWanderAng,
     nearestMothDist2: _nearestMothDist2, nearestMothPos: _nearestMothPos,
     playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
+    sprinting: _attuneSprinting,
     playerX: player.pos.x, playerZ: player.pos.z, time: t
   });
   // Handle attunement flash (one-time trigger when reaching 1.0)

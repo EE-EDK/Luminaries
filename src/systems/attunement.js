@@ -68,7 +68,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
     nearestJellyDist2, nearestJellyPos,
     nearestDeerDist2, nearestDeerPos, nearestDeerWanderAng,
     nearestMothDist2, nearestMothPos,
-    playerYaw, playerSpeed, spacePressed,
+    playerYaw, playerSpeed, spacePressed, sprinting,
     playerX, playerZ, time
   } = creatureData;
 

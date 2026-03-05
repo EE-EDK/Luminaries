@@ -1,5 +1,5 @@
 // --- Luna Moth (large glowing wings — enhanced detail) ---
-import { CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry } from 'three';
+import { ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -12,6 +12,13 @@ export function makeMoth(x, y, z) {
   });
   const body = new Mesh(new CylinderGeometry(0.04, 0.05, 0.3, 5), bodyMat);
   body.rotation.x = Math.PI / 2; g.add(body);
+  // Abdomen taper — tapered rear segment for realistic moth silhouette
+  const abdomenMat = new MeshStandardMaterial({
+    color: C.mothBody, emissive: C.mothGlow, emissiveIntensity: 0.35, roughness: 0.7
+  });
+  const abdomen = new Mesh(new ConeGeometry(0.045, 0.12, 5), abdomenMat);
+  abdomen.rotation.x = Math.PI / 2 + 0.15; // slight upward curl
+  abdomen.position.z = -0.2; g.add(abdomen);
   // Abdomen segment rings (3 subtle bands)
   const segMat = new MeshStandardMaterial({
     color: C.mothBody, emissive: C.mothGlow, emissiveIntensity: 0.5, roughness: 0.6
@@ -29,15 +36,26 @@ export function makeMoth(x, y, z) {
     const eye = new Mesh(new SphereGeometry(0.018, 4, 3), eyeMat);
     eye.position.set(i * 0.03, 0.01, 0.21); g.add(eye);
   }
-  // Antennae (2 thin cylinders) with feathered tips
+  // Antennae (2 thin cylinders) with feathered tips — stored for sway animation
+  const antennae = [];
   for (let i = -1; i <= 1; i += 2) {
+    const antPivot = new Group();
+    antPivot.position.set(i * 0.03, 0.03, 0.22);
     const ant = new Mesh(new CylinderGeometry(0.005, 0.005, 0.15, 3), bodyMat);
-    ant.position.set(i * 0.03, 0.03, 0.22); ant.rotation.x = -0.6; ant.rotation.z = i * 0.4; g.add(ant);
+    ant.rotation.x = -0.6; ant.rotation.z = i * 0.4; antPivot.add(ant);
     // Feathered tip (tiny flattened sphere)
     const tipMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.7 });
     const tip = new Mesh(new SphereGeometry(0.015, 3, 3), tipMat);
     tip.scale.set(2, 0.5, 1);
-    tip.position.set(i * 0.05, 0.12, 0.28); g.add(tip);
+    tip.position.set(i * 0.02, 0.09, 0.06); antPivot.add(tip);
+    // Feathered barbs along antenna shaft
+    for (let bi = 0; bi < 3; bi++) {
+      const barb = new Mesh(new CylinderGeometry(0.001, 0.001, 0.02, 3), tipMat);
+      barb.position.set(i * 0.005, 0.03 + bi * 0.025, 0.02 + bi * 0.01);
+      barb.rotation.z = i * 0.6; antPivot.add(barb);
+    }
+    g.add(antPivot);
+    antennae.push(antPivot);
   }
   // Wings (4 flattened spheres — 2 large, 2 small hindwings)
   const wingMat = new MeshStandardMaterial({
@@ -76,14 +94,31 @@ export function makeMoth(x, y, z) {
       vein.position.set(i * 0.15, 0.01, -0.02 + vi * 0.06);
       vein.rotation.z = Math.PI / 2 + i * (0.15 + vi * 0.15); pivot.add(vein);
     }
+    // Wing scale patterns — overlapping circles suggesting scale texture
+    const scaleMat = new MeshBasicMaterial({
+      color: C.mothWing, transparent: true, opacity: 0.15
+    });
+    for (let sci = 0; sci < 4; sci++) {
+      const scale = new Mesh(new SphereGeometry(0.025 + sci * 0.005, 3, 3), scaleMat);
+      scale.scale.set(1.2, 0.04, 0.8);
+      scale.position.set(
+        i * (0.1 + sci * 0.04),
+        0.015,
+        -0.04 + sci * 0.03
+      );
+      pivot.add(scale);
+    }
     g.add(pivot);
     g._wingPivots.push({ pivot: pivot, side: i });
   }
-  // Faint dust trail (tiny motes behind body)
+  // Faint dust trail (tiny motes behind body) — stored for trailing animation
   const dustMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.25 });
+  const dustMotes = [];
   for (let di = 0; di < 3; di++) {
     const dust = new Mesh(new SphereGeometry(0.008, 3, 3), dustMat);
-    dust.position.set((sr() - 0.5) * 0.04, 0, -0.15 - di * 0.05); g.add(dust);
+    dust.position.set((sr() - 0.5) * 0.04, 0, -0.15 - di * 0.05);
+    g.add(dust);
+    dustMotes.push({ mesh: dust, baseZ: -0.15 - di * 0.05 });
   }
 
   // Proboscis (coiled feeding tube under head)
@@ -127,6 +162,9 @@ export function makeMoth(x, y, z) {
   return {
     group: g, wingMat: wingMat, phase: sr() * 6.28, orbitAng: sr() * 6.28,
     orbitR: 2 + sr() * 4, centerX: x, centerZ: z, floatY: y, flapSpeed: 6 + sr() * 4,
-    _init: true, _state: 'patrol', _stT: 0, _attractTarget: null, _restTree: null
+    antennae, dustMotes,
+    _init: true, _state: 'patrol', _stT: 0, _attractTarget: null, _restTree: null,
+    _prevMx: x, _prevMz: z, _prevY: y, _bank: 0,
+    _transitionT: 0, _prevPx: x, _prevPz: z
   };
 }

@@ -163,17 +163,17 @@ export function updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlowFn) {
     // Body glow pulse
     s.bodyMat.emissiveIntensity = (0.5 + Math.sin(t * 1.5 + s.phase) * 0.3) * localGlow;
 
-    // Frond waving — cascading sine waves through segments
+    // Frond waving — cascading sine with whip-like drag delay
     for (let fi = 0; fi < s.fronds.length; fi++) {
       const f = s.fronds[fi];
-      const speed = 1.2 + (fi % 3) * 0.3; // vary speed per frond
+      const speed = 1.2 + (fi % 3) * 0.3;
 
       for (let si = 0; si < f.segments.length; si++) {
         const seg = f.segments[si];
-        // Each segment adds more wave; tips move the most
         const amp = 0.15 + si * 0.12;
-        const wave = Math.sin(t * speed + f.phaseOffset + si * 0.5) * amp;
-        const wave2 = Math.cos(t * speed * 0.7 + f.phaseOffset + si * 0.3) * amp * 0.6;
+        const drag = si * 0.35; // cumulative phase delay per segment — whip trailing
+        const wave = Math.sin(t * speed + f.phaseOffset + drag) * amp;
+        const wave2 = Math.cos(t * speed * 0.7 + f.phaseOffset + drag * 0.8) * amp * 0.6;
         seg.rotation.z = wave;
         seg.rotation.x = wave2;
       }

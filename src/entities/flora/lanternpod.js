@@ -12,6 +12,7 @@ export function makeLanternPod(x, z) {
   const g = new Group();
   const stemN = 2 + Math.floor(sr() * 3); // 2-4 stems
   const podMats = [];
+  const podMeshes = [];
 
   // --- Root mound ---
   const rootMat = new MeshStandardMaterial({
@@ -126,9 +127,27 @@ export function makeLanternPod(x, z) {
     cap.position.copy(tipPt);
     cap.rotation.x = Math.PI; // point downward
     g.add(cap);
+
+    // Hanging silk threads from pod bottom
+    const silkMat = new MeshBasicMaterial({
+      color: C.lanternGlow, transparent: true, opacity: 0.15
+    });
+    for (let thi = 0; thi < 2; thi++) {
+      const threadLen = 0.04 + sr() * 0.04;
+      const thread = new Mesh(new CylinderGeometry(0.001, 0.001, threadLen, 3), silkMat);
+      thread.position.set(
+        pod.position.x + (sr() - 0.5) * podR * 0.5,
+        pod.position.y - podR - threadLen * 0.5,
+        pod.position.z + (sr() - 0.5) * podR * 0.5
+      );
+      g.add(thread);
+    }
+
+    // Store pod mesh for pendulum animation
+    podMeshes.push(pod);
   }
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, podMats, phase: sr() * 6.28, x, z };
+  return { group: g, podMats, podMeshes, phase: sr() * 6.28, x, z };
 }

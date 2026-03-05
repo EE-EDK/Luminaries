@@ -18,6 +18,7 @@
 //   They just know.
 
 import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2 } from '../constants.js';
+import { isLocked, getLockType, resetLock } from './spiritHum.js';
 
 // ================================================================
 // Constants
@@ -73,15 +74,18 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
   } = creatureData;
 
   // Determine which creature (if any) is being matched this frame
+  // Phase 2 gate: behavior only counts when spirit hum is pitch-locked to that type
   let matchType = null;
+  const _locked = isLocked();
+  const _lockTarget = getLockType();
 
-  // --- Puffling: Jump within 8m ---
-  if (jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
+  // --- Puffling: Jump within 8m (requires pitch-lock to puff) ---
+  if (_locked && _lockTarget === 'puff' && jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
     matchType = 'puff';
   }
 
-  // --- Jelly: Stand still within 6m + tap SPACE in rhythm ---
-  if (!matchType && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
+  // --- Jelly: Stand still within 6m + tap SPACE in rhythm (requires pitch-lock to jelly) ---
+  if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
     // Track space taps (rising edge)
     if (spacePressed && !_jellyLastSpace) {
       _jellyTapTimes.push(time);
@@ -101,8 +105,8 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
     _jellyLastSpace = spacePressed;
   }
 
-  // --- Deer: Walk (no sprint) within 8-12m, same direction (±45°) ---
-  if (!matchType && !sprinting && nearestDeerDist2 >= DEER_R2_MIN && nearestDeerDist2 < DEER_R2_MAX
+  // --- Deer: Walk (no sprint) within 8-12m, same direction (±45°, requires pitch-lock to deer) ---
+  if (!matchType && _locked && _lockTarget === 'deer' && !sprinting && nearestDeerDist2 >= DEER_R2_MIN && nearestDeerDist2 < DEER_R2_MAX
       && nearestDeerDist2 < Infinity && playerSpeed > 1.0) {
     // Compare player heading to deer heading
     // Player walks toward yaw direction; deer faces wanderAng
@@ -116,8 +120,8 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
     }
   }
 
-  // --- Moth: Move laterally within 8m + look toward moth ---
-  if (!matchType && nearestMothDist2 < MOTH_R2 && nearestMothDist2 < Infinity && playerSpeed > 0.5) {
+  // --- Moth: Move laterally within 8m + look toward moth (requires pitch-lock to moth) ---
+  if (!matchType && _locked && _lockTarget === 'moth' && nearestMothDist2 < MOTH_R2 && nearestMothDist2 < Infinity && playerSpeed > 0.5) {
     // Check if player is looking toward moth (angle between look direction and direction to moth < 60°)
     const toMothX = nearestMothPos.x - playerX;
     const toMothZ = nearestMothPos.z - playerZ;
@@ -208,6 +212,8 @@ export function consumeFrequency() {
   flashPending = false;
   flashCreaturePos = null;
   _jellyTapTimes = [];
+  // Reset spirit hum lock so player must re-discover next creature's pitch
+  resetLock();
 }
 
 // ================================================================

@@ -1093,6 +1093,167 @@ function stopResonanceDrone() {
 }
 
 // ================================================================
+// Spirit Hum — Player tone generator for creature resonance
+// ================================================================
+// Architecture: sine (fundamental) + detuned sine (+7 cents) + triangle (octave up)
+// Routed through gain → reverb. Resonance layer fades in when near creature band.
+let _humOsc1 = null, _humOsc2 = null, _humOscOct = null;
+let _humLfo = null, _humLfoGain = null;
+let _humGain = null;
+let _humResOsc = null, _humResGain = null;
+let _humStarted = false;
+
+export function startSpiritHumAudio() {
+  if (!initialized || muted) return;
+  if (_humStarted) return;
+  _humStarted = true;
+
+  const now = ctx.currentTime;
+
+  // Main gain
+  _humGain = ctx.createGain();
+  _humGain.gain.setValueAtTime(0, now);
+  _humGain.gain.linearRampToValueAtTime(0.04, now + 0.3);
+  connectWithReverb(_humGain, masterGain, 0.5);
+
+  // Fundamental sine
+  _humOsc1 = ctx.createOscillator();
+  _humOsc1.type = 'sine';
+  _humOsc1.frequency.value = 300;
+  _humOsc1.connect(_humGain);
+  _humOsc1.start(now);
+
+  // Detuned sine (+7 cents for warmth)
+  _humOsc2 = ctx.createOscillator();
+  _humOsc2.type = 'sine';
+  _humOsc2.frequency.value = 300;
+  _humOsc2.detune.value = 7;
+  const g2 = ctx.createGain();
+  g2.gain.value = 0.6;
+  _humOsc2.connect(g2).connect(_humGain);
+  _humOsc2.start(now);
+
+  // Octave triangle (quiet brightness)
+  _humOscOct = ctx.createOscillator();
+  _humOscOct.type = 'triangle';
+  _humOscOct.frequency.value = 600;
+  const gOct = ctx.createGain();
+  gOct.gain.value = 0.15;
+  _humOscOct.connect(gOct).connect(_humGain);
+  _humOscOct.start(now);
+
+  // LFO for organic warble (3-5Hz, ±4Hz)
+  _humLfo = ctx.createOscillator();
+  _humLfo.type = 'sine';
+  _humLfo.frequency.value = 3.5;
+  _humLfoGain = ctx.createGain();
+  _humLfoGain.gain.value = 4;
+  _humLfo.connect(_humLfoGain);
+  _humLfoGain.connect(_humOsc1.frequency);
+  _humLfoGain.connect(_humOsc2.frequency);
+  _humLfo.start(now);
+
+  // Resonance layer — creature sympathetic tone (starts silent)
+  _humResOsc = ctx.createOscillator();
+  _humResOsc.type = 'sine';
+  _humResOsc.frequency.value = 300;
+  _humResGain = ctx.createGain();
+  _humResGain.gain.value = 0;
+  _humResOsc.connect(_humResGain).connect(_humGain);
+  _humResOsc.start(now);
+}
+
+export function updateSpiritHumAudio(hz, resonance, creatureType) {
+  if (!_humStarted || !_humOsc1) return;
+  const now = ctx.currentTime;
+  const glide = 0.08; // 80ms glide
+
+  // Update fundamental + detuned oscillator pitches
+  _humOsc1.frequency.setTargetAtTime(hz, now, glide);
+  _humOsc2.frequency.setTargetAtTime(hz, now, glide);
+  _humOscOct.frequency.setTargetAtTime(hz * 2, now, glide);
+
+  // Update resonance layer
+  if (resonance > 0.05 && creatureType) {
+    // Set resonance oscillator to creature's center frequency
+    let centerHz = 300;
+    switch (creatureType) {
+      case 'deer':  centerHz = 120; _humResOsc.type = 'triangle'; break;
+      case 'moth':  centerHz = 240; _humResOsc.type = 'sine'; break;
+      case 'jelly': centerHz = 390; _humResOsc.type = 'sine'; break;
+      case 'puff':  centerHz = 550; _humResOsc.type = 'sine'; break;
+    }
+    _humResOsc.frequency.setTargetAtTime(centerHz, now, glide);
+    // Volume scales with resonance: 0–0.025
+    _humResGain.gain.setTargetAtTime(resonance * 0.025, now, 0.1);
+  } else {
+    _humResGain.gain.setTargetAtTime(0, now, 0.15);
+  }
+}
+
+export function stopSpiritHumAudio() {
+  if (!_humStarted) return;
+  _humStarted = false;
+  const now = ctx.currentTime;
+
+  // Fade out over 0.5s then stop
+  if (_humGain) {
+    _humGain.gain.setTargetAtTime(0, now, 0.12);
+  }
+  const stopTime = now + 0.6;
+  try { if (_humOsc1) _humOsc1.stop(stopTime); } catch (_) { /* */ }
+  try { if (_humOsc2) _humOsc2.stop(stopTime); } catch (_) { /* */ }
+  try { if (_humOscOct) _humOscOct.stop(stopTime); } catch (_) { /* */ }
+  try { if (_humLfo) _humLfo.stop(stopTime); } catch (_) { /* */ }
+  try { if (_humResOsc) _humResOsc.stop(stopTime); } catch (_) { /* */ }
+
+  _humOsc1 = _humOsc2 = _humOscOct = _humLfo = _humLfoGain = null;
+  _humGain = null;
+  _humResOsc = _humResGain = null;
+}
+
+export function playPitchLockSound(creatureType) {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // Get creature's center frequency
+  let baseHz = 300;
+  switch (creatureType) {
+    case 'deer':  baseHz = 120; break;
+    case 'moth':  baseHz = 240; break;
+    case 'jelly': baseHz = 390; break;
+    case 'puff':  baseHz = 550; break;
+  }
+
+  // Ascending 2-note chime: root + perfect 5th
+  const notes = [baseHz, baseHz * 1.5];
+  for (let i = 0; i < notes.length; i++) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = notes[i];
+
+    // Add shimmer with slight detune
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = notes[i] * 1.003;
+
+    const g = ctx.createGain();
+    const noteStart = now + i * 0.15;
+    g.gain.setValueAtTime(0, noteStart);
+    g.gain.linearRampToValueAtTime(0.06, noteStart + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.5);
+
+    osc.connect(g);
+    osc2.connect(g);
+    connectWithReverb(g, masterGain, 0.6);
+    osc.start(noteStart);
+    osc2.start(noteStart);
+    osc.stop(noteStart + 0.55);
+    osc2.stop(noteStart + 0.55);
+  }
+}
+
+// ================================================================
 // Toggle mute
 // ================================================================
 export function toggleMute() {

@@ -15,6 +15,11 @@ export let joyY = 0;
 export let joyOn = false;
 export let touchJump = false;
 export let touchSprint = false;
+export let rightMouseDown = false;
+export let mouseY = 0;
+export let screenH = window.innerHeight;
+export let touchHum = false;
+export let touchHumY = 0.5; // normalized 0–1 (0=top/high pitch, 1=bottom/low pitch)
 
 let joyTid = null;
 let lookTid = null;
@@ -46,12 +51,21 @@ window.addEventListener('keydown', (e) => {
   triggerGo();
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rightMouseDown = false; });
+window.addEventListener('resize', () => { screenH = window.innerHeight; });
 
-// Mouse
-renderer.domElement.addEventListener('mousedown', () => { mouseDown = true; triggerGo(); });
-window.addEventListener('mouseup', () => { mouseDown = false; });
+// Mouse — left-click = camera look, right-click = spirit hum
+renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (e.button === 2) { rightMouseDown = true; triggerGo(); }
+  else { mouseDown = true; triggerGo(); }
+});
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 2) rightMouseDown = false;
+  else mouseDown = false;
+});
 window.addEventListener('mousemove', (e) => {
+  mouseY = e.clientY;
   if (!mouseDown) return;
   yaw -= e.movementX * MOUSE_SENS;
   pitch -= e.movementY * MOUSE_SENS;
@@ -70,7 +84,7 @@ if (mobile) {
   jzEl.style.display = 'block';
   bjEl.style.display = 'block';
   if (bsEl) bsEl.style.display = 'block';
-  document.getElementById('controls').textContent = 'Stick: Move · Drag right: Look · JUMP · SPRINT';
+  document.getElementById('controls').textContent = 'Stick: Move · Drag right: Look · JUMP · SPRINT · HUM';
 }
 
 function updJoy(cx, cy) {
@@ -122,6 +136,41 @@ if (bsEl) {
   }, { passive: false });
   bsEl.addEventListener('touchend', (e) => {
     e.preventDefault(); e.stopPropagation(); touchSprint = false;
+  }, { passive: false });
+}
+
+// HUM button (mobile) — hold and drag up/down for pitch control
+const bhEl = document.getElementById('btn-hum');
+let _humTid = null;
+let _humStartY = 0;
+
+if (bhEl && mobile) {
+  bhEl.style.display = 'block';
+  bhEl.addEventListener('touchstart', (e) => {
+    e.preventDefault(); e.stopPropagation(); triggerGo();
+    touchHum = true;
+    const t = e.changedTouches[0];
+    _humTid = t.identifier;
+    _humStartY = t.clientY;
+    touchHumY = 0.5; // start at midpoint
+  }, { passive: false });
+  bhEl.addEventListener('touchmove', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === _humTid) {
+        // Drag range: ±100px maps to 0–1
+        const dy = e.changedTouches[i].clientY - _humStartY;
+        touchHumY = Math.max(0, Math.min(1, 0.5 + dy / 200));
+      }
+    }
+  }, { passive: false });
+  bhEl.addEventListener('touchend', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === _humTid) {
+        _humTid = null; touchHum = false;
+      }
+    }
   }, { passive: false });
 }
 

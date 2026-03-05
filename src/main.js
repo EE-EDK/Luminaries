@@ -22,7 +22,7 @@ import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Colo
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender, bloomPass, setSaturation } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump } from './core/input.js';
+import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump, rightMouseDown, mouseY, screenH, touchHum, touchHumY } from './core/input.js';
 import { GEO } from './core/geometries.js';
 
 // Constants
@@ -98,6 +98,7 @@ import { updateDustMotes } from './particles/dust.js';
 import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
 import { initFootprints, spawnFootprint, updateFootprints } from './particles/footprints.js';
 import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurst.js';
+import { initResonanceRings, spawnResonanceRing, updateResonanceRings } from './particles/resonanceRings.js';
 
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
@@ -109,7 +110,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
+import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone, setAudioOrbCount, startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from './systems/audio.js';
 
 // Puffling Chat (Phase 2)
 import { initPufflingChat, triggerPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
@@ -123,6 +124,9 @@ import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestore
 
 // Attunement (Phase 2)
 import { updateAttunement, getAttunement, getAttunementTarget, getPlayerFrequency, getFlashCreaturePos, consumeFrequency, checkFlash } from './systems/attunement.js';
+
+// Spirit Hum (Phase 2)
+import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked } from './systems/spiritHum.js';
 
 // Performance monitoring (dev-only, tree-shaken in production)
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
@@ -196,6 +200,13 @@ let _nearestMothDist2 = Infinity; // updated per frame during moth loop
 let _nearestMothPos = { x: 0, z: 0 };
 let _puffSingTimer = 0; // per-puffling singing timer for following state
 let _featherFallTimer = 0; // fairy ring super-jump feather fall timer
+
+// ================================================================
+// Spirit hum visual state
+// ================================================================
+let _humWasActive = false;       // edge-detect for start/stop audio
+let _humRingTimer = 0;           // ring spawn timer (~3Hz)
+const _humLightColor = new Color(0x668888); // pre-allocated for hum color blending
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -2549,6 +2560,60 @@ function director(dt, t) {
   updateDeers(dt, t);
   updateMoths(dt, t);
 
+  // --- Spirit Hum — input → state → audio → visuals ---
+  const _humInput = rightMouseDown || touchHum;
+  if (_humInput && !_humWasActive) {
+    startHum();
+    startSpiritHumAudio();
+  } else if (!_humInput && _humWasActive) {
+    stopHum();
+    stopSpiritHumAudio();
+  }
+  _humWasActive = _humInput;
+
+  // Pitch input: desktop = mouseY/screenH, mobile = touchHumY
+  const _humInputY = touchHum ? touchHumY : (screenH > 0 ? mouseY / screenH : 0.5);
+
+  updateHum(dt, _humInputY, {
+    deerDist2: _nearestDeerDist2,
+    jellyDist2: _nearestJellyDist2,
+    mothDist2: _nearestMothDist2,
+    puffDist2: _nearestPuffDist2
+  });
+
+  // Spirit hum audio update
+  if (isHumming()) {
+    updateSpiritHumAudio(getHumPitch(), getResonance(), getResonanceType());
+  }
+
+  // Pitch lock flash — one-shot when lock first happens
+  if (justLocked()) {
+    playPitchLockSound(getLockType());
+    _attuneFlashTimer = 0.3;
+  }
+
+  // Resonance ring particles — spawn ~3/sec when resonance > 0
+  const _humRes = getResonance();
+  const _humResType = getResonanceType();
+  if (_humRes > 0.1 && _humResType && isHumming()) {
+    _humRingTimer += dt;
+    if (_humRingTimer > 0.33) {
+      _humRingTimer = 0;
+      // Spawn ring at nearest creature of the resonant type
+      let rx = 0, rz = 0;
+      switch (_humResType) {
+        case 'deer':  rx = _nearestDeerPos.x; rz = _nearestDeerPos.z; break;
+        case 'moth':  rx = _nearestMothPos.x; rz = _nearestMothPos.z; break;
+        case 'jelly': rx = _nearestJellyPos.x; rz = _nearestJellyPos.z; break;
+        case 'puff':  rx = _nearestPuffPos.x; rz = _nearestPuffPos.z; break;
+      }
+      const ry = getGroundY(rx, rz);
+      spawnResonanceRing(rx, ry, rz, _humResType, _humRes);
+    }
+  } else {
+    _humRingTimer = 0;
+  }
+
   // --- Centralized attunement update (after all creature loops) ---
   const _attuneJumping = !player.onGround;
   const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
@@ -2636,6 +2701,7 @@ function director(dt, t) {
   updateBubblePops(dt);
   updateOrbBurst(dt, t);
   updateEchoBloom(dt, t);
+  updateResonanceRings(dt);
   timeEnd('particles');
 
   timeStart('quest');
@@ -2750,6 +2816,29 @@ function animate() {
     scene.background.r = Math.min(scene.background.r + lightningFlash * 0.08, 0.25);
     scene.background.g = Math.min(scene.background.g + lightningFlash * 0.08, 0.25);
     scene.background.b = Math.min(scene.background.b + lightningFlash * 0.12, 0.35);
+  }
+
+  // Spirit hum — player light modulation while humming
+  if (isHumming() || isLocked()) {
+    // Pulse intensity at ~2Hz
+    const humPulse = 1.0 + 0.15 * Math.sin(t * 4 * Math.PI);
+    playerLight.intensity *= humPulse;
+    // Expand range by 30%
+    playerLight.distance *= 1.3;
+    // Color shift based on pitch band proximity
+    const _humResNow = getResonance();
+    const _humResTypeNow = getResonanceType();
+    if (_humResNow > 0.1 && _humResTypeNow) {
+      let hcol = 0x668888;
+      switch (_humResTypeNow) {
+        case 'deer':  hcol = C.deerGlow;  break; // 0x88ddff
+        case 'moth':  hcol = C.mothGlow;  break; // 0xccffaa
+        case 'jelly': hcol = C.jellyGlow; break; // 0xaaccff
+        case 'puff':  hcol = C.puffGlow;  break; // 0xffaa88
+      }
+      _humLightColor.setHex(hcol);
+      playerLight.color.lerp(_humLightColor, Math.min(_humResNow * 3 * dt, 1));
+    }
   }
 
   // Player light color shift — tinted by carried creature frequency
@@ -2930,6 +3019,7 @@ try {
   initLeaves(50);
   initFootprints();
   initOrbBurst();
+  initResonanceRings(scene);
 
   // Aurora (sky event)
   initAurora();

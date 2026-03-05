@@ -702,7 +702,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       // Only cull trees that would use 3D InstancedMesh (< 75m)
       // Impostors (sprites) are cheap, so let them through
       if (cam && d2 < 5625) {
-        const treeR = (inst.treeH || 10) * 0.7 * inst.scale;
+        const treeR = (inst.treeH || 10) * 1.2 * inst.scale;
         _testPoint.set(inst.x, inst.y + (inst.treeH || 10) * 0.4, inst.z);
         let inFrustum = true;
         for (let p = 0; p < 6; p++) {

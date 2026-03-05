@@ -84,7 +84,7 @@ let dustParticles = [];
 // Camera sweep parameters
 const SWEEP_START_Y = 120;
 const SWEEP_DURATION = 8.0;
-const NARRATION_PER_CARD = 11.0; // seconds per text pair — slow and dramatic
+const NARRATION_PER_CARD = 14.0; // seconds per text pair — slow and dramatic
 const NARRATION_FADE = 2.0;      // fade in/out duration
 const NARRATION_HOLD = 5.0;     // hold at full opacity when complete
 

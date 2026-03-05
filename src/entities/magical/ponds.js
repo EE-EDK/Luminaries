@@ -8,7 +8,7 @@ import { sr } from '../../utils/rng.js';
 function makeOrganicDiscGeo(baseR, segments, seed) {
   const verts = [];
   const indices = [];
-  // Center vertex
+  // Center vertex (XY plane, matching CircleGeometry convention)
   verts.push(0, 0, 0);
   // Generate organic perimeter with noise
   const lobeCount = 2 + Math.floor(seed * 3); // 2-4 lobes
@@ -20,7 +20,7 @@ function makeOrganicDiscGeo(baseR, segments, seed) {
                      + 0.12 * Math.sin(a * (lobeCount + 2) + lobePhase * 1.7)
                      + 0.06 * Math.sin(a * 7 + seed * 3.14);
     const r = baseR * lobe;
-    verts.push(Math.cos(a) * r, 0, Math.sin(a) * r);
+    verts.push(Math.cos(a) * r, Math.sin(a) * r, 0);
     if (i > 0) {
       indices.push(0, i, i + 1);
     }

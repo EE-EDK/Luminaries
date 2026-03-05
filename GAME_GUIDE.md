@@ -31,8 +31,9 @@ You are a small light in a vast dark forest. The forest once sang. Now it is qui
 | Input | Action |
 |-------|--------|
 | **W A S D** | Move |
-| **SPACE** | Jump |
+| **SPACE** | Jump (or tap rhythm near jellyfish to attune) |
 | **SHIFT** | Sprint |
+| **TAB** | Toggle narrative perspective (Child / Adult) |
 | **Click + Drag** | Look around |
 
 On mobile, a virtual joystick appears on the left and a jump button on the right.
@@ -40,9 +41,15 @@ On mobile, a virtual joystick appears on the left and a jump button on the right
 ### Tips for Exploration
 
 - **Walk, don't sprint.** The forest reveals itself to those who move slowly. Sprint past a crystal and you miss its hum. Walk near a deer and it may not flee.
-- **Stand still.** Pause near creatures. Watch their rhythms. The forest rewards patience.
-- **Follow the light.** Brighter areas often hold discoveries. Dim areas hold mysteries.
-- **Listen.** Every creature has a unique synthesized voice. Frogs sing near ponds. Crickets chirp near grass. The wind tells you the weather.
+- **Stand still.** Pause near creatures. Watch their rhythms. After a few seconds, they may approach you. The forest rewards patience.
+- **Match their rhythms.** Each creature has a unique attunement method. Sprint with pufflings, walk with deer, stand still and tap SPACE near jellyfish, circle around moths. When you're in sync, your light changes color.
+- **Carry the frequency.** Once attuned, hurry to an orb before the frequency fades. Orbs won't activate without a carried frequency.
+- **Follow the wisps.** When you're carrying a frequency or standing still long enough, your companion wisps drift toward the nearest unfound orb.
+- **Jump in fairy rings.** In restored zones, fairy ring mushroom circles grant super-jumps with a slow feather-fall descent.
+- **Look up during shooting stars.** They carry fragments of the forest's story, gated by how many orbs you've found.
+- **Press Tab.** Toggle between the child's wonder and the scientist's data. Both perspectives describe the same world.
+- **Follow the light.** Brighter areas often hold discoveries. Dim areas hold mysteries — and zones waiting to be restored.
+- **Listen.** Every creature has a unique synthesized voice. Frogs sing near ponds. Crickets chirp near grass. The wind tells you the weather. As you find orbs, the creatures sing more often.
 
 ---
 
@@ -95,33 +102,54 @@ The world breathes on a continuous cycle through four phases:
 
 ## The Quest
 
-Five golden orbs are hidden across the forest. Each is tied to a zone — a natural region defined by its dominant flora and fauna.
+### The Dimming
 
-When you collect an orb, it fires a laser beam to the central obelisk. The obelisk rises with each connection. Discovery text marks each moment:
+The forest dims in five angular sectors radiating from the center. Each sector is suppressed — muted colors, reduced bioluminescence — until its orb is restored. When you activate an orb, a restoration wave blooms outward, returning the zone to full luminosity.
 
-1. *"The First Light Returns"*
-2. *"The Forest Remembers"*
-3. *"Roots of Radiance"*
-4. *"The Veil Thins"*
-5. *"Convergence"*
+### Creature Attunement
 
-The fifth orb triggers a finale: glitter explosions, rainbow arcs across the sky, creatures migrating to the center, and a world-wide color transformation. The forest remembers what it was.
+Five golden orbs are hidden across the forest. But orbs won't activate for just anyone — you must carry a creature's frequency to unlock them.
+
+| Creature | How to Attune | What Happens |
+|----------|---------------|--------------|
+| **Jellyfish** | Stand still within 6m, tap SPACE in their rhythm (~2s) | Glass-harmonica voice brightens |
+| **Puffling** | Sprint (SHIFT) within 8m | Chirp arpeggio quickens |
+| **Deer** | Walk (no sprint) within 8-12m, same direction | Horn tone rises |
+| **Moth** | Move within 8m, look toward the moth | Flutter intensifies |
+
+When attuned, your player light shifts color (cyan for jelly, seafoam for puffling, lime for moth, warm for deer). Carry this frequency to an orb to activate it. The frequency decays over time, so move with purpose.
+
+### Orb Activation
+
+When you collect an orb, it fires a laser beam to the central obelisk. The obelisk rises with each connection. A constellation appears in the sky — one per orb, shaped after the creature types. Discovery text marks each moment in your chosen narrative perspective.
+
+The fifth orb triggers a finale: glitter explosions, rainbow arcs across the sky, creatures migrating to the center, and a world-wide color transformation. After the transformation, the world enters **Free Roam** — the dimming is gone, all fairy rings are active, and the forest is at peace.
+
+### Player Light Evolution
+
+Your light grows as you restore the forest:
+
+| Orbs Found | Color | Intensity | Range |
+|------------|-------|-----------|-------|
+| 0 | Dim teal | Low | 12m |
+| 1-2 | Blue-green | Medium | 16-20m |
+| 3-4 | Bright green-white | High | 25-30m |
+| 5 | Pure white | Maximum | 40m |
 
 ---
 
 ## Discovery Moments
 
-The first time you encounter something new, atmospheric text appears briefly on screen:
+The first time you encounter something new, atmospheric text appears briefly on screen. Press **Tab** to toggle between the child's wonder and the scientist's data:
 
-| Encounter | Discovery Text |
-|-----------|---------------|
-| Spirit Deer (within 12m) | "Spirit Deer" |
-| Puffling (within 8m) | "Puffling" |
-| Luminous Jelly (within 10m) | "Luminous Jelly" |
-| Moon Moth (within 8m) | "Moon Moth" |
-| Fairy Ring (within 4m) | "Fairy Ring" |
-| Crystal chain (3+ interactions) | "Crystal Resonance" |
-| Moonlit Pond (within 5m) | "Moonlit Pond" |
+| Encounter | Child Perspective | Adult Perspective |
+|-----------|-------------------|-------------------|
+| Spirit Deer | "Spirit Deer — it glows like starlight" | "Cervidae luminaris — bioluminescent antler tissue" |
+| Puffling | "Puffling — a tiny bouncing friend!" | "Organism: micro-fauna, rapid locomotion pattern" |
+| Luminous Jelly | "Luminous Jelly — floating like a dream" | "Medusozoa suspensa — photonic membrane detected" |
+| Moon Moth | "Moon Moth — dancing with the crystals" | "Lepidoptera lunaris — orbital harmonic resonance" |
+| Fairy Ring | "Fairy Ring — the mushrooms are whispering" | "Mycorrhizal network node — substrate frequency detected" |
+| Moonlit Pond | "Moonlit Pond — the water remembers the sky" | "Aquatic substrate — residual luminance signature" |
 
 These moments are quiet acknowledgments — the forest noting that you noticed.
 
@@ -156,28 +184,18 @@ You are an **Autonomic Diagnostic Routine** within a decaying biological hard dr
 
 ---
 
-## What's Coming: Phase 2
+## What's Coming Next
 
-### The Dimming
+The following features are planned but not yet implemented:
 
-The forest dims in sectors where orbs haven't been activated. Five angular zones radiate from the center, each waiting to be restored. Before activation: muted colors, reduced bioluminescence. After: the zone blooms to full luminosity. The Dimming creates urgency without threat — the world is slowly forgetting, and your role is to remind it.
-
-### Creature Attunement
-
-Each creature type embodies a distinct frequency:
-
-| Creature | Rhythm | How to Attune |
-|----------|--------|---------------|
-| Jelly | Slow pulse (~0.5Hz) | Stand still, match its meditative bob |
-| Puffling | Fast staccato (~2Hz) | Sprint nearby, match its frenetic energy |
-| Deer | Graceful stride (~0.8Hz) | Walk (don't sprint) in its direction |
-| Moth | Orbital sweep (~1.2Hz) | Circle around it, matching its pattern |
-
-Matching a creature's rhythm makes it sing more brightly. Carry that frequency to the matching orb to activate it.
-
-### Player Light Evolution
-
-As you attune and restore, your own light changes — color shifts to match the creature you've harmonized with, intensity grows, range expands. By the finale, you are as luminous as the forest itself.
+- **Weather Attunement Modifiers** — Fog calms deer (easier attunement), rain energizes pufflings, storms excite moths
+- **Day/Night Phase Gating** — bioGlow scales attunement rate; some discoveries only visible at certain times
+- **Bubble Pop Micro-Rewards** — Zone-aware bubble behavior with small bonuses
+- **Crystal Resonance Chains** — Chain 3+ crystal interactions for harmonic tones and bioGlow corridors
+- **Dandelion Seed Wayfinding** — Seeds drift subtly toward unfound orbs
+- **Obelisk Rune Reveal** — One creature-colored rune face revealed per orb
+- **Ground Glyphs** — Hidden discovery markers revealed by standing still in the right places
+- **Echo-Visions** — Sprint through a storm to see ghostly traces of creature paths
 
 ---
 

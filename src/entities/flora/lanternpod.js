@@ -1,4 +1,4 @@
-import { AdditiveBlending, CatmullRomCurve3, ConeGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from 'three';
+import { AdditiveBlending, CatmullRomCurve3, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';

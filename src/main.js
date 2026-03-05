@@ -374,11 +374,11 @@ function populate() {
       if (ok2) break;
     }
     if (ok2) {
-      registerFlatZone(fx, fz, 4);
+      registerFlatZone(fx, fz, 5); // wider flat zone to prevent mushroom clipping
       const fr = makeFairyRing(fx, fz);
       fr.group.position.y = getGroundY(fx, fz);
       fairyRings.push(fr);
-      keepOutZones.push({ x: fx, z: fz, r2: 64 }); // 8m radius — matches flat zone effect range
+      keepOutZones.push({ x: fx, z: fz, r2: 81 }); // 9m radius — matches wider flat zone
     }
   }
   // Ponds — spawn early so other entities respect keep-out zones
@@ -391,11 +391,11 @@ function populate() {
       if (ok3) break;
     }
     if (ok3) {
-      registerFlatZone(px, pz, 3);
+      registerFlatZone(px, pz, 5); // larger flat zone for bigger ponds
       const po = makePond(px, pz);
       po.group.position.y = getGroundY(px, pz);
       ponds.push(po);
-      keepOutZones.push({ x: px, z: pz, r2: 49 }); // 7m radius — matches flat zone effect range
+      keepOutZones.push({ x: px, z: pz, r2: 81 }); // 9m radius — matches larger flat zone
     }
   }
   // Precompute tree density weights for biome-aware flora placement
@@ -1977,7 +1977,7 @@ function updateFairyRings(dt, t) {
     const inRing = dist2 < (FAIRY_RING_R + 0.5) * (FAIRY_RING_R + 0.5);
     const targetGlow = inRing ? 1.0 : 0.0;
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
-    fr.discMat.opacity = fr.glowIntensity * 0.25 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
+    fr.discMat.opacity = fr.glowIntensity * 0.5 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
     fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow * _orbBoost);
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       // Restored zones: super-jump (3.5× impulse) + feather fall

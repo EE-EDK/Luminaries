@@ -1,25 +1,64 @@
 // --- Pond Lily (enhanced water patch + lily pads + flowers) ---
-import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry } from 'three';
+import { BufferAttribute, BufferGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 
+// Create an organic, non-circular pond shape
+function makeOrganicDiscGeo(baseR, segments, seed) {
+  const verts = [];
+  const indices = [];
+  // Center vertex
+  verts.push(0, 0, 0);
+  // Generate organic perimeter with noise
+  const lobeCount = 2 + Math.floor(seed * 3); // 2-4 lobes
+  const lobePhase = seed * 6.28;
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    // Organic distortion: primary lobe + secondary wobble
+    const lobe = 1.0 + 0.25 * Math.sin(a * lobeCount + lobePhase)
+                     + 0.12 * Math.sin(a * (lobeCount + 2) + lobePhase * 1.7)
+                     + 0.06 * Math.sin(a * 7 + seed * 3.14);
+    const r = baseR * lobe;
+    verts.push(Math.cos(a) * r, 0, Math.sin(a) * r);
+    if (i > 0) {
+      indices.push(0, i, i + 1);
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new BufferAttribute(new Float32Array(verts), 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 export function makePond(x, z) {
   const g = new Group();
-  const pondR = 1.5 + sr() * 1.0;
+  const pondR = 2.5 + sr() * 1.5; // larger: 2.5–4.0m (was 1.5–2.5)
+  const shapeSeed = sr();
+  // Slight elongation for natural shape
+  const elongX = 1.0 + sr() * 0.35;
+  const elongZ = 1.0 + sr() * 0.35;
+  const rotY = sr() * Math.PI; // random orientation
   // Shallow depression (dark disc below water for depth illusion)
   const depthMat = new MeshStandardMaterial({
     color: 0x050812, roughness: 0.9
   });
-  const depth = new Mesh(new CircleGeometry(pondR * 0.85, 10), depthMat);
-  depth.rotation.x = -Math.PI / 2; depth.position.y = 0.005; g.add(depth);
+  const depthGeo = makeOrganicDiscGeo(pondR * 0.85, 24, shapeSeed);
+  const depth = new Mesh(depthGeo, depthMat);
+  depth.rotation.x = -Math.PI / 2; depth.position.y = 0.04; // raised from 0.005
+  depth.scale.set(elongX, 1, elongZ); depth.rotation.z = rotY;
+  g.add(depth);
   // Water surface disc
   const waterMat = new MeshStandardMaterial({
     color: C.pondWater, emissive: C.pondGlow, emissiveIntensity: 0.2,
     transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.4
   });
-  const water = new Mesh(new CircleGeometry(pondR, 12), waterMat);
-  water.rotation.x = -Math.PI / 2; water.position.y = 0.03; g.add(water);
+  const waterGeo = makeOrganicDiscGeo(pondR, 24, shapeSeed);
+  const water = new Mesh(waterGeo, waterMat);
+  water.rotation.x = -Math.PI / 2; water.position.y = 0.06; // raised from 0.03
+  water.scale.set(elongX, 1, elongZ); water.rotation.z = rotY;
+  g.add(water);
   // Edge stones (5-8 irregular pebbles around rim)
   const stoneMat = new MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.85 });
   const stoneN = 5 + Math.floor(sr() * 4);
@@ -51,8 +90,8 @@ export function makePond(x, z) {
   });
   const ripples = [];
   for (let rri = 0; rri < 3; rri++) {
-    const ripple = new Mesh(new TorusGeometry(1.0, 0.004, 4, 20), rippleMat.clone());
-    ripple.rotation.x = Math.PI / 2; ripple.position.y = 0.036; g.add(ripple);
+    const ripple = new Mesh(new TorusGeometry(pondR * 0.4, 0.004, 4, 20), rippleMat.clone());
+    ripple.rotation.x = Math.PI / 2; ripple.position.y = 0.07; g.add(ripple);
     ripples.push({ mesh: ripple, phase: rri / 3 });
   }
   // Lily pads (4-5 flat discs)
@@ -148,16 +187,36 @@ export function makePond(x, z) {
     g.add(algae);
   }
 
-  // Surface tension film ring at edge (meniscus)
+  // Surface tension film ring at edge (meniscus) — matches organic shape
   const menMat = new MeshBasicMaterial({ color: 0xccddee, transparent: true, opacity: 0.06 });
-  const meniscus = new Mesh(new TorusGeometry(pondR - 0.05, 0.01, 4, 16), menMat);
-  meniscus.rotation.x = Math.PI / 2; meniscus.position.y = 0.035; g.add(meniscus);
+  const menGeo = makeOrganicDiscGeo(pondR - 0.05, 24, shapeSeed);
+  const meniscus = new Mesh(menGeo, menMat);
+  meniscus.rotation.x = -Math.PI / 2; meniscus.position.y = 0.065;
+  meniscus.scale.set(elongX, 1, elongZ); meniscus.rotation.z = rotY;
+  g.add(meniscus);
 
   // Fallen leaf on water surface
   const fLeafMat = new MeshStandardMaterial({ color: 0x4a3018, roughness: 0.8, side: DoubleSide, transparent: true, opacity: 0.6 });
-  const fLeaf = new Mesh(new CircleGeometry(0.03, 5), fLeafMat);
-  fLeaf.rotation.x = -Math.PI / 2;
-  fLeaf.position.set((sr() - 0.5) * pondR * 0.5, 0.04, (sr() - 0.5) * pondR * 0.5); g.add(fLeaf);
+  const fLeaf = new Mesh(new SphereGeometry(0.03, 5, 3), fLeafMat);
+  fLeaf.scale.set(1.3, 0.2, 1.0);
+  fLeaf.position.set((sr() - 0.5) * pondR * 0.5, 0.07, (sr() - 0.5) * pondR * 0.5); g.add(fLeaf);
+
+  // Mud bank rim — organic mound around edges to contain water
+  const bankMat = new MeshStandardMaterial({ color: 0x2a2018, roughness: 0.9 });
+  const bankSegments = 16;
+  for (let bi = 0; bi < bankSegments; bi++) {
+    const ba = (bi / bankSegments) * Math.PI * 2;
+    const lobeR = 1.0 + 0.25 * Math.sin(ba * (2 + Math.floor(shapeSeed * 3)) + shapeSeed * 6.28)
+                      + 0.12 * Math.sin(ba * (4 + Math.floor(shapeSeed * 3)) + shapeSeed * 1.7 * 6.28);
+    const br = pondR * lobeR;
+    const bx = Math.cos(ba + rotY) * br * elongX;
+    const bz = Math.sin(ba + rotY) * br * elongZ;
+    const bankH = 0.04 + sr() * 0.03;
+    const bank = new Mesh(new SphereGeometry(0.15 + sr() * 0.1, 4, 3), bankMat);
+    bank.scale.set(1.5 + sr() * 0.5, bankH / 0.1, 1.5 + sr() * 0.5);
+    bank.position.set(bx, bankH * 0.5, bz);
+    g.add(bank);
+  }
 
   g.position.set(x, 0, z); scene.add(g);
   return {

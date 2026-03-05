@@ -19,16 +19,17 @@ export function makeFairyRing(x, z) {
     const a = (i / mushCount) * 6.28 + sr() * 0.15;
     const mr = ringR + sr() * 0.3 - 0.15;
     const sc = 0.15 + sr() * 0.2;
+    const liftY = 0.06; // raise all mushrooms above ground to prevent terrain clipping
     // Mini mushroom stem
     const s = new Mesh(GEO.mushStem, stemMat);
-    s.scale.setScalar(sc); s.position.set(Math.cos(a) * mr, sc * 0.3, Math.sin(a) * mr); g.add(s);
+    s.scale.setScalar(sc); s.position.set(Math.cos(a) * mr, sc * 0.3 + liftY, Math.sin(a) * mr); g.add(s);
     // Mini cap
     const cap = new Mesh(GEO.mushCap, mushMat);
-    cap.scale.set(sc, sc * 0.4, sc); cap.position.set(Math.cos(a) * mr, sc * 0.55, Math.sin(a) * mr); g.add(cap);
+    cap.scale.set(sc, sc * 0.4, sc); cap.position.set(Math.cos(a) * mr, sc * 0.55 + liftY, Math.sin(a) * mr); g.add(cap);
     // Cap dot (white spot on each mini cap)
     const dotMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
     const dot = new Mesh(new SphereGeometry(sc * 0.08, 3, 3), dotMat);
-    dot.position.set(Math.cos(a) * mr, sc * 0.6, Math.sin(a) * mr); g.add(dot);
+    dot.position.set(Math.cos(a) * mr, sc * 0.6 + liftY, Math.sin(a) * mr); g.add(dot);
   }
   // Tiny toadstools between main mushrooms (smaller extras)
   const toadMat = new MeshStandardMaterial({
@@ -40,7 +41,7 @@ export function makeFairyRing(x, z) {
     const tsc = 0.06 + sr() * 0.06;
     const toad = new Mesh(GEO.mushCap, toadMat);
     toad.scale.set(tsc, tsc * 0.5, tsc);
-    toad.position.set(Math.cos(ta) * tr, tsc * 0.35, Math.sin(ta) * tr); g.add(toad);
+    toad.position.set(Math.cos(ta) * tr, tsc * 0.35 + 0.04, Math.sin(ta) * tr); g.add(toad);
   }
   // Moss patches on ground between mushrooms (3-5 green blobs)
   const mossMat = new MeshStandardMaterial({
@@ -70,12 +71,12 @@ export function makeFairyRing(x, z) {
     g.add(spore);
     spores.push({ mesh: spore, baseX: sx, baseZ: sz, drift: sr() * 6.28, speed: 0.2 + sr() * 0.3 });
   }
-  // Central glow disc (flat ring on ground)
+  // Central glow disc (flat ring on ground — raised above terrain)
   const discMat = new MeshBasicMaterial({
     color: C.fairyRing, transparent: true, opacity: 0.0, side: DoubleSide
   });
   const disc = new Mesh(new RingGeometry(0.3, ringR - 0.3, 16), discMat);
-  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc);
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.12; g.add(disc); // raised from 0.02
 
   // Mycelium web threads on ground (radial connecting lines between mushrooms)
   const webMat = new MeshBasicMaterial({

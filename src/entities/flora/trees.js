@@ -645,6 +645,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (trunkMesh) {
       trunkMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       trunkMesh.count = 0;
+      trunkMesh.frustumCulled = false;
       scene.add(trunkMesh);
     }
 
@@ -666,6 +667,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (canopyMesh) {
       canopyMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       canopyMesh.count = 0;
+      canopyMesh.frustumCulled = false;
       scene.add(canopyMesh);
     }
 
@@ -682,6 +684,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (glowMesh) {
       glowMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       glowMesh.count = 0;
+      glowMesh.frustumCulled = false;
       scene.add(glowMesh);
     }
 
@@ -695,6 +698,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
     if (detailMesh) {
       detailMesh.instanceMatrix.setUsage(DynamicDrawUsage);
       detailMesh.count = 0;
+      detailMesh.frustumCulled = false;
       scene.add(detailMesh);
     }
 

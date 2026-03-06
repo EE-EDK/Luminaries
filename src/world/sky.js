@@ -602,9 +602,19 @@ function createConstellations() {
     starPoints.visible = false;
     skyGroup.add(starPoints);
 
+    // Compute center direction (average theta, average phi) for camera look
+    let sumTheta = 0, sumPhi = 0;
+    for (let si = 0; si < def.stars.length; si++) {
+      sumTheta += def.stars[si].theta;
+      sumPhi += def.stars[si].phi;
+    }
+    const centerTheta = sumTheta / def.stars.length;
+    const centerPhi = sumPhi / def.stars.length;
+
     constellations.push({
       lines, lineMat, starPoints, starMat,
-      revealed: false, revealTimer: 0, targetOpacity: 0.2
+      revealed: false, revealTimer: 0, targetOpacity: 0.2,
+      centerTheta, centerPhi
     });
   }
 }
@@ -619,6 +629,15 @@ export function revealConstellation(orbIndex) {
   c.revealTimer = 0;
   c.lines.visible = true;
   c.starPoints.visible = true;
+}
+
+// Get constellation center direction as {theta, phi} for camera look
+// theta = azimuthal angle (maps to yaw), phi = polar from zenith (maps to pitch)
+export function getConstellationDir(orbIndex) {
+  if (!constellationsCreated) createConstellations();
+  if (orbIndex < 0 || orbIndex >= constellations.length) return null;
+  const c = constellations[orbIndex];
+  return { theta: c.centerTheta, phi: c.centerPhi };
 }
 
 // Update constellation fade-in (called from updateSky)

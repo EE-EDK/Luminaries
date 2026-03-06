@@ -30,8 +30,8 @@ index.html
         │   └── entities/world/       → 4 types (rocks, obelisk, moat, rainbows)
         │
         ├── PARTICLE INIT ─────────────────────────────────────
-        │   └── particles/            → 9 systems (fireflies, spores, dust, seeds, starMotes,
-        │                               bubblePops, leaves, footprints, rain)
+        │   └── particles/            → 10 systems (fireflies, spores, dust, seeds, starMotes,
+        │                               bubblePops, leaves, footprints, rain, resonanceRings)
         │
         ├── SYSTEM INIT ───────────────────────────────────────
         │   ├── systems/audio.js      → initAudio() → Web Audio API graph
@@ -40,6 +40,7 @@ index.html
         │   ├── systems/dayNightCycle.js → initDayNight() → 4-phase cycle
         │   ├── systems/dimming.js    → initDimming() → sector-based bioGlow suppression (Phase 2)
         │   ├── systems/discoveries.js → initDiscoveries() → first-encounter tracker
+        │   ├── systems/spiritHum.js  → Spirit hum state machine (pitch lock + resonance detection)
         │   └── systems/ai/           → senses.js + steering.js (used by fauna)
         │
         ├── QUEST INIT ────────────────────────────────────────
@@ -103,6 +104,9 @@ main.js ───────→ Module-scoped arrays: trees_data[], mush_data[]
 8. **Puffling update** → hop/idle/wander states, visibility cull (40m)
 9. **Deer update** → walk/pause/look/flee AI, IK legs, visibility cull (60m)
 10. **Moth update** → orbit/patrol, wing flap, visibility cull (45m)
+10b. **Spirit hum** → `updateHum()` with input Y + nearest creature distances
+10c. **Spirit hum audio** → `startSpiritHumAudio` / `updateSpiritHumAudio` / `stopSpiritHumAudio`
+10d. **Resonance rings** → `spawnResonanceRing()` at ~3Hz when resonance > 0, `updateResonanceRings(dt)`
 11. **Wisp update** → target tracking, scatter, glow
 12. **Flora updates** → ferns, flowers, reeds, dandelions, snapthorns, etc.
 13. **Bubble update** → drift, bob, proximity pop
@@ -152,9 +156,9 @@ initQuest({
 | `core/` | 6 | ~450 | Engine infrastructure |
 | `world/` | 4 | ~1,200 | World generation |
 | `entities/` | 29 | ~5,500 | Entity builders |
-| `particles/` | 9 | ~900 | Particle systems |
-| `systems/` | 7 | ~1,800 | Audio, weather, day/night, AI |
+| `particles/` | 10 | ~1,000 | Particle systems |
+| `systems/` | 8 | ~2,000 | Audio, weather, day/night, AI, spiritHum |
 | `quest/` | 2 | ~900 | Quest state machine |
 | `ui/` | 2 | ~100 | HUD elements |
 | `utils/` | 2 | ~50 | RNG, math helpers |
-| **Total** | **64** | **~13,000** | |
+| **Total** | **66** | **~13,300** | |

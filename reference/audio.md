@@ -56,6 +56,9 @@ All creature sounds use the `playCreatureSound(type, position, playerPos)` funct
 | Orb warble | Near uncollected orb | `playOrbWarble()` |
 | Laser zap | Orb laser fires | `playLaserZap()` |
 | Laser hum | Active laser beam | `playLaserHum()` |
+| Spirit Hum Tone | Right-click held | `startSpiritHumAudio()` — 3 oscillators (sine + detuned sine + triangle octave) + LFO |
+| Pitch Lock Chime | 2s sustained match | `playPitchLockSound()` — ascending root + perfect 5th |
+| Resonance Layer | Pitch in creature band | Sympathetic oscillator fades in via `updateSpiritHumAudio()` |
 
 ### Music System (`music.js`)
 - Generative ambient: harp, flute, drone, chime layers
@@ -112,3 +115,9 @@ export function playNewSound(param1, param2) {
 - Add `if (!initialized || muted) return` guard to every public function
 - No audio files — everything is Web Audio API synthesis
 - Howler.js is in package.json but completely unused
+
+## Spirit Hum Audio
+
+Player tone: sine fundamental + detuned sine (+7 cents) + triangle (octave up), routed through gain → `connectWithReverb(0.5)`. LFO at 3.5Hz ±4Hz for organic warble. Volume: 0.04 with 0.3s attack. Pitch glides via `setTargetAtTime(hz, now, 0.08)`.
+
+Resonance layer: creature's oscillator type fades in (0.025 max vol) when pitch is within band. `stopSpiritHumAudio()` disconnects gain node to prevent node accumulation.

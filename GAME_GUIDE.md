@@ -34,9 +34,10 @@ You are a small light in a vast dark forest. The forest once sang. Now it is qui
 | **SPACE** | Jump (or tap rhythm near jellyfish to attune) |
 | **SHIFT** | Sprint |
 | **TAB** | Toggle narrative perspective (Child / Adult) |
+| **Right-click (hold)** | Spirit Hum — move mouse up/down to control pitch |
 | **Click + Drag** | Look around |
 
-On mobile, a virtual joystick appears on the left and a jump button on the right.
+On mobile, a virtual joystick appears on the left, jump/sprint buttons on the right, and a vertical **HUM slider** on the left edge for pitch control (drag up/down).
 
 ### Tips for Exploration
 
@@ -106,9 +107,22 @@ The world breathes on a continuous cycle through four phases:
 
 The forest dims in five angular sectors radiating from the center. Each sector is suppressed — muted colors, reduced bioluminescence — until its orb is restored. When you activate an orb, a restoration wave blooms outward, returning the zone to full luminosity.
 
-### Creature Attunement
+### Creature Attunement (Two-Phase Unlock)
 
-Five golden orbs are hidden across the forest. But orbs won't activate for just anyone — you must carry a creature's frequency to unlock them.
+Five golden orbs are hidden across the forest. But orbs won't activate for just anyone — you must carry a creature's frequency to unlock them. Each creature requires a **two-phase unlock**:
+
+**Phase 1 — Spirit Hum (Discover their frequency):**
+Hold right-click to hum, then move your mouse up/down to sweep pitch. When you're near a creature's frequency, you'll see glowing rings and hear resonance. Sustain the match for 2 seconds to lock the pitch.
+
+| Creature | Pitch Hint | Character |
+|----------|-----------|-----------|
+| **Deer** | Low hum (~120 Hz) | Deep and warm |
+| **Moth** | Mid-low (~240 Hz) | Gentle flutter |
+| **Jellyfish** | Mid-high (~390 Hz) | Glass harmonica shimmer |
+| **Puffling** | High (~550 Hz) | Bright chirp |
+
+**Phase 2 — Resonance Behavior (Perform their dance):**
+With pitch locked, perform the creature-specific action to build attunement. Neither humming alone nor behavior alone unlocks — both are required.
 
 | Creature | How to Attune | What Happens |
 |----------|---------------|--------------|

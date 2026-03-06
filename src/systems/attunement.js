@@ -44,6 +44,9 @@ let flashCreaturePos = null;  // position of creature when flash triggers
 let _jellyTapTimes = [];      // timestamps of recent SPACE taps
 let _jellyLastSpace = false;  // previous frame's space state (edge detect)
 
+// Puff jump edge detection
+let _puffWasJumping = false;  // previous frame's jump state
+
 // ================================================================
 // Update — called once per frame from director
 // ================================================================
@@ -80,10 +83,16 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
   const _lockTarget = getLockType();
 
   // --- Puffling: Jump near syncing pufflings (requires pitch-lock to puff) ---
-  // Each jump builds attunement; pufflings glow brighter as it progresses
-  if (_locked && _lockTarget === 'puff' && jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
+  // Discrete: each takeoff gives a big attunement chunk (~6 jumps to fill)
+  // Also small continuous gain while airborne so it feels responsive
+  let _puffJumpChunk = 0;
+  const _puffNear = _locked && _lockTarget === 'puff' && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity;
+  if (_puffNear && jumping) {
     matchType = 'puff';
+    // Rising edge: just left the ground → big chunk
+    if (!_puffWasJumping) _puffJumpChunk = 0.18;
   }
+  _puffWasJumping = jumping;
 
   // --- Jelly: Stand still within 6m + tap SPACE in rhythm (requires pitch-lock to jelly) ---
   if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
@@ -142,7 +151,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       attunementTarget = matchType;
       attunement = 0;
     }
-    attunement += ATTUNE_RATE * dt;
+    attunement += ATTUNE_RATE * dt + _puffJumpChunk;
     if (attunement >= 1.0 && playerFrequency !== matchType) {
       attunement = 1.0;
       playerFrequency = matchType;
@@ -156,9 +165,13 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       }
     }
   } else if (attunementTarget && attunement > 0 && !playerFrequency) {
-    // Decay when not matching (but don't decay once frequency is carried)
-    attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
-    if (attunement === 0) attunementTarget = null;
+    // Don't decay puff attunement while pitch-locked near pufflings (between jumps)
+    if (attunementTarget === 'puff' && _puffNear) {
+      // Hold — no decay while linked
+    } else {
+      attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
+      if (attunement === 0) attunementTarget = null;
+    }
   }
 
   return attunement;
@@ -213,6 +226,7 @@ export function consumeFrequency() {
   flashPending = false;
   flashCreaturePos = null;
   _jellyTapTimes = [];
+  _puffWasJumping = false;
   // Reset spirit hum lock so player must re-discover next creature's pitch
   resetLock();
 }

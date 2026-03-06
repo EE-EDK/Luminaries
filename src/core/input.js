@@ -139,36 +139,45 @@ if (bsEl) {
   }, { passive: false });
 }
 
-// HUM button (mobile) — hold and drag up/down for pitch control
-const bhEl = document.getElementById('btn-hum');
+// HUM slider (mobile) — vertical frequency slider, touch+drag for pitch
+const slEl = document.getElementById('hum-slider');
+const thumbEl = document.getElementById('hum-thumb');
+const trackEl = document.getElementById('hum-track');
 let _humTid = null;
-let _humStartY = 0;
 
-if (bhEl && mobile) {
-  bhEl.style.display = 'block';
-  bhEl.addEventListener('touchstart', (e) => {
+function _updateSliderFromTouch(clientY) {
+  const rect = trackEl.getBoundingClientRect();
+  // Clamp to track bounds, map to 0 (top=high pitch) → 1 (bottom=low pitch)
+  const t = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+  touchHumY = t;
+  // Move thumb: bottom offset. t=0 → top of track, t=1 → bottom
+  thumbEl.style.bottom = ((1 - t) * (rect.height - 20)) + 'px';
+}
+
+if (slEl && mobile) {
+  slEl.style.display = 'block';
+  slEl.addEventListener('touchstart', (e) => {
     e.preventDefault(); e.stopPropagation(); triggerGo();
     touchHum = true;
     const t = e.changedTouches[0];
     _humTid = t.identifier;
-    _humStartY = t.clientY;
-    touchHumY = 0.5; // start at midpoint
+    _updateSliderFromTouch(t.clientY);
+    if (thumbEl) thumbEl.style.borderColor = 'rgba(100,255,180,.9)';
   }, { passive: false });
-  bhEl.addEventListener('touchmove', (e) => {
+  slEl.addEventListener('touchmove', (e) => {
     e.preventDefault(); e.stopPropagation();
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === _humTid) {
-        // Drag range: ±100px maps to 0–1
-        const dy = e.changedTouches[i].clientY - _humStartY;
-        touchHumY = Math.max(0, Math.min(1, 0.5 + dy / 200));
+        _updateSliderFromTouch(e.changedTouches[i].clientY);
       }
     }
   }, { passive: false });
-  bhEl.addEventListener('touchend', (e) => {
+  slEl.addEventListener('touchend', (e) => {
     e.preventDefault(); e.stopPropagation();
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === _humTid) {
         _humTid = null; touchHum = false;
+        if (thumbEl) thumbEl.style.borderColor = 'rgba(100,255,180,.5)';
       }
     }
   }, { passive: false });

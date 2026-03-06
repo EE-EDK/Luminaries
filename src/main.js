@@ -2094,11 +2094,20 @@ function updateMoths(dt, t) {
       wp.pivot.rotation.z = flap * wp.side;
     }
 
+    // Tail streamer trailing animation — gentle wave and twist
+    if (m.tails) {
+      for (let ti = 0; ti < m.tails.length; ti++) {
+        const tail = m.tails[ti];
+        tail.rotation.x = 0.1 + (ti + 1) * 0.05 + Math.sin(t * 2.5 + m.phase + ti * 1.2) * 0.12;
+        tail.rotation.z = Math.sin(t * 1.8 + m.phase + ti * 0.9) * 0.08;
+      }
+    }
+
     // Antennae sway — independent gentle oscillation
     if (m.antennae) {
       for (let ai = 0; ai < m.antennae.length; ai++) {
-        m.antennae[ai].rotation.x = Math.sin(t * 1.8 + m.phase + ai * 2.0) * 0.08;
-        m.antennae[ai].rotation.z = Math.sin(t * 1.2 + m.phase + ai * 1.5) * 0.05;
+        m.antennae[ai].rotation.x = Math.sin(t * 1.8 + m.phase + ai * 2.0) * 0.1;
+        m.antennae[ai].rotation.z = Math.sin(t * 1.2 + m.phase + ai * 1.5) * 0.06;
       }
     }
 

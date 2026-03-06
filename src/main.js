@@ -22,7 +22,7 @@ import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Colo
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender, bloomPass, setSaturation } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump, rightMouseDown, mouseY, screenH, touchHum, touchHumY } from './core/input.js';
+import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump, rightMouseDown, mouseY, screenH, touchHum, touchHumY, setYaw, setPitch } from './core/input.js';
 import { GEO } from './core/geometries.js';
 
 // Constants
@@ -43,7 +43,7 @@ import { sr } from './utils/rng.js';
 
 // World
 import { createGround, updateGroundUniforms } from './world/ground.js';
-import { createSkyDome, skyGroup, updateSky, checkShootingStarWish } from './world/sky.js';
+import { createSkyDome, skyGroup, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
 import { getGroundY, getGroundNormal, registerFlatZone } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
@@ -219,6 +219,21 @@ const _humBandColors = {
   puff:  'rgba(255,170,136,',
 };
 let _humSliderDirty = false; // track whether slider styles need reset
+
+// ================================================================
+// Constellation camera pan — forced look at star formation on orb collect
+// ================================================================
+let _camPanActive = false;
+let _camPanTimer = 0;
+let _camPanTargetYaw = 0;
+let _camPanTargetPitch = 0;
+let _camPanSavedYaw = 0;
+let _camPanSavedPitch = 0;
+let _camPanOrbsPrev = 0;
+const CAM_PAN_LERP_IN = 2.0;   // seconds to pan to constellation
+const CAM_PAN_HOLD = 2.5;      // seconds to hold on constellation
+const CAM_PAN_LERP_OUT = 1.5;  // seconds to return to player control
+const CAM_PAN_TOTAL = CAM_PAN_LERP_IN + CAM_PAN_HOLD + CAM_PAN_LERP_OUT;
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -3024,6 +3039,30 @@ function animate() {
   // Progressive glow boost: +5% per orb found
   _orbBoost = 1.15 + orbsFound * 0.05;
 
+  // Constellation camera pan — trigger when a new orb is collected
+  if (orbsFound > _camPanOrbsPrev && orbsFound <= 5) {
+    const cDir = getConstellationDir(orbsFound - 1);
+    if (cDir) {
+      _camPanActive = true;
+      _camPanTimer = 0;
+      _camPanSavedYaw = yaw;
+      _camPanSavedPitch = pitch;
+      // Convert sky dome theta/phi to camera yaw/pitch
+      // theta = azimuthal angle; phi = polar from zenith (0 = straight up)
+      // Camera yaw = -theta (Three.js Y rotation is inverted)
+      // Camera pitch = -(pi/2 - phi) — phi=0.2 → nearly overhead → pitch ~ -1.17
+      // Compute target angles
+      let targetYaw = -cDir.theta;
+      // Normalize yaw difference to shortest path
+      let yawDiff = targetYaw - yaw;
+      while (yawDiff > Math.PI) yawDiff -= 2 * Math.PI;
+      while (yawDiff < -Math.PI) yawDiff += 2 * Math.PI;
+      _camPanTargetYaw = _camPanSavedYaw + yawDiff;
+      _camPanTargetPitch = Math.max(-1.4, -(Math.PI / 2 - cDir.phi));
+    }
+  }
+  _camPanOrbsPrev = orbsFound;
+
   // ================================================================
   // Player light evolution — color/intensity/range scales with orbs
   // ================================================================
@@ -3204,8 +3243,35 @@ function animate() {
   camera.position.copy(player.pos);
   camera.position.y += cameraBobY;
   camera.rotation.order = 'YXZ';
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch;
+
+  // Constellation camera pan — smoothly override yaw/pitch
+  let _finalYaw = yaw, _finalPitch = pitch;
+  if (_camPanActive) {
+    _camPanTimer += dt;
+    if (_camPanTimer >= CAM_PAN_TOTAL) {
+      // Done — set player facing the constellation and release
+      setYaw(_camPanTargetYaw);
+      setPitch(_camPanTargetPitch);
+      _camPanActive = false;
+      _finalYaw = _camPanTargetYaw;
+      _finalPitch = _camPanTargetPitch;
+    } else {
+      let t;
+      if (_camPanTimer < CAM_PAN_LERP_IN) {
+        // Smooth pan toward constellation
+        t = _camPanTimer / CAM_PAN_LERP_IN;
+      } else {
+        // Hold + gentle ease to full lock
+        t = 1.0;
+      }
+      const ease = t * t * (3 - 2 * t); // smoothstep
+      _finalYaw = _camPanSavedYaw + (_camPanTargetYaw - _camPanSavedYaw) * ease;
+      _finalPitch = _camPanSavedPitch + (_camPanTargetPitch - _camPanSavedPitch) * ease;
+    }
+  }
+
+  camera.rotation.y = _finalYaw;
+  camera.rotation.x = _finalPitch;
 
   updateHUD(dt, player.pos);
   postRender();

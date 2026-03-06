@@ -50,6 +50,7 @@ let notifyOrbCollectedFn = null;
 // Orb rejection callbacks + state (Phase 2: Activation Gate)
 let playOrbRejectFn = null;
 let showOrbRejectHintFn = null;
+let showOrbListeningFn = null;
 let orbRejectCooldown = 0; // prevent spam
 
 // Phase 2 enhancement callbacks
@@ -205,6 +206,7 @@ export function initQuest(config) {
   notifyOrbCollectedFn = config.notifyOrbCollected || null;
   playOrbRejectFn = config.playOrbReject || null;
   showOrbRejectHintFn = config.showOrbRejectHint || null;
+  showOrbListeningFn = config.showOrbListening || null;
   showOrbDiscoveryFn = config.showOrbDiscovery || null;
   spawnOrbBurstFn = config.spawnOrbBurst || null;
   startResonanceDroneFn = config.startResonanceDrone || null;
@@ -258,6 +260,10 @@ export function updateQuest(dt, t) {
         // Scale pulse — orb swells slightly when player approaches
         const sc = 1.0 + glow * 0.3;
         o.group.scale.setScalar(sc);
+        // "The orb hears you" — feedback when carrying frequency near orb
+        if (glow > 0.15 && getPlayerFrequency() && showOrbListeningFn) {
+          showOrbListeningFn();
+        }
       } else {
         o.group.scale.setScalar(1.0);
       }

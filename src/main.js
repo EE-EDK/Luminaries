@@ -132,7 +132,7 @@ import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumP
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
 
 // Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, togglePerspective, getPerspective, showNarrativeText, checkIdleHints } from './systems/discoveries.js';
+import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, showOrbListening, togglePerspective, getPerspective, showNarrativeText, checkIdleHints } from './systems/discoveries.js';
 
 // Intro cinematic (Phase 2)
 import { initIntro, startIntro, enableTitleClick, updateIntro, introActive, introDone } from './systems/intro.js';
@@ -1408,6 +1408,19 @@ function updatePuffs(dt, t) {
           const restored = isRestored(px, pz);
           playPufflingSinging({ x: px, z: pz }, player.pos, restored, curAttune);
         }
+        // Puffling chat — idle chatter when player is nearby (< 8m)
+        if (pDist2 < 64 && Math.random() < 0.0006) {
+          const restored = isRestored(px, pz);
+          let nearOrb = false;
+          for (let oi = 0; oi < orbs.length; oi++) {
+            if (orbs[oi].found) continue;
+            const odx = px - orbs[oi].x, odz = pz - orbs[oi].z;
+            if (odx * odx + odz * odz < 400) { nearOrb = true; break; }
+          }
+          const hasFreq = getPlayerFrequency() !== null;
+          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
+          if (msg) playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+        }
         if (p.idleTimer <= 0) {
           // Bias hop direction toward flock center
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
@@ -1475,7 +1488,7 @@ function updatePuffs(dt, t) {
           playPufflingSinging({ x: px, z: pz }, player.pos, true, curAttune);
         }
         // Puffling chat — cryptic speech when close and following
-        if (pDist2 < 25 && Math.random() < 0.0003) {
+        if (pDist2 < 36 && Math.random() < 0.001) {
           const restored = isRestored(px, pz);
           // Check if near an unfound orb
           let nearOrb = false;
@@ -3048,17 +3061,17 @@ function animate() {
       _camPanSavedYaw = yaw;
       _camPanSavedPitch = pitch;
       // Convert sky dome theta/phi to camera yaw/pitch
-      // theta = azimuthal angle; phi = polar from zenith (0 = straight up)
-      // Camera yaw = -theta (Three.js Y rotation is inverted)
-      // Camera pitch = -(pi/2 - phi) — phi=0.2 → nearly overhead → pitch ~ -1.17
-      // Compute target angles
-      let targetYaw = -cDir.theta;
+      // Sky dome: x = R*cos(theta)*sin(phi), y = R*cos(phi), z = R*sin(theta)*sin(phi)
+      // Camera forward = (-sin(yaw), 0, -cos(yaw)) with YXZ euler order
+      // To face constellation: yaw = atan2(-cos(theta), -sin(theta))
+      // Pitch: negative = look up; elevation = PI/2 - phi
+      let targetYaw = Math.atan2(-Math.cos(cDir.theta), -Math.sin(cDir.theta));
       // Normalize yaw difference to shortest path
       let yawDiff = targetYaw - yaw;
       while (yawDiff > Math.PI) yawDiff -= 2 * Math.PI;
       while (yawDiff < -Math.PI) yawDiff += 2 * Math.PI;
       _camPanTargetYaw = _camPanSavedYaw + yawDiff;
-      _camPanTargetPitch = Math.max(-1.4, -(Math.PI / 2 - cDir.phi));
+      _camPanTargetPitch = -(Math.PI / 2 - cDir.phi); // negative = look up
     }
   }
   _camPanOrbsPrev = orbsFound;
@@ -3397,6 +3410,7 @@ try {
     notifyOrbCollected: notifyOrbCollected,
     playOrbReject: playOrbReject,
     showOrbRejectHint: () => showOrbRejectHint(),
+    showOrbListening: () => showOrbListening(),
     showOrbDiscovery: showOrbDiscovery,
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,

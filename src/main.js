@@ -207,6 +207,8 @@ let _featherFallTimer = 0; // fairy ring super-jump feather fall timer
 let _humWasActive = false;       // edge-detect for start/stop audio
 let _humRingTimer = 0;           // ring spawn timer (~3Hz)
 const _humLightColor = new Color(0x668888); // pre-allocated for hum color blending
+let _humResonanceType = null;    // which creature band is resonating (prev frame)
+let _humResonanceStr = 0;        // 0–1 resonance strength (prev frame)
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -1239,7 +1241,8 @@ function updateJellies(dt, t) {
     // Attunement glow boost — nearest jelly brightens when player is attuning
     const jellyAttuneTarget = getAttunementTarget();
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 36) ? (1.0 + getAttunement() * 1.2) : 1.0;
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult * jellyAttuneMult;
+    const jellyResMult = (_humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     // Tip bulb twinkling — random sparkle effect on tentacle tips
     if (j.tipMat) {
@@ -1480,6 +1483,7 @@ function updatePuffs(dt, t) {
 
     // Sparkle mote orbiting — speed and opacity scale with attunement
     const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0; // within 8m
+    const puffResMult = (_humResonanceType === 'puff' && pDist2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
     const attuneSpeedMult = pDist2 < 64 ? (1.0 + curAttune * 2.0) : 1.0;
     if (p.sparkles) {
       for (let si = 0; si < p.sparkles.length; si++) {
@@ -1495,7 +1499,7 @@ function updatePuffs(dt, t) {
     }
     // Crown glow — intensifies with attunement
     if (p.crownMat) {
-      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult;
+      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult * puffResMult;
     }
     // Body emissive — brightens with attunement when nearby
     if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
@@ -1810,7 +1814,8 @@ function updateDeers(dt, t) {
     // Emissive — boost when player is attuning to this deer
     const deerGlow = getLocalGlow(gx, gz, bioGlow * _orbBoost);
     const deerAttuneMult = (getAttunementTarget() === 'deer' && pDist2 < 144) ? (1.0 + getAttunement() * 0.8) : 1.0;
-    d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow * deerAttuneMult;
+    const deerResMult = (_humResonanceType === 'deer' && pDist2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
+    d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow * deerAttuneMult * deerResMult;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -2037,7 +2042,8 @@ function updateMoths(dt, t) {
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
     const attractBoost = m._state === 'attracted' ? 0.4 : 0;
     const mothAttuneMult = (getAttunementTarget() === 'moth' && _mhd2 < 64) ? (1.0 + getAttunement() * 1.0) : 1.0;
-    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * mothAttuneMult;
+    const mothResMult = (_humResonanceType === 'moth' && _mhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * mothAttuneMult * mothResMult;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
@@ -2613,6 +2619,10 @@ function director(dt, t) {
   } else {
     _humRingTimer = 0;
   }
+
+  // Store resonance state for creature glow (used next frame in creature loops)
+  _humResonanceType = _humResType;
+  _humResonanceStr = _humRes;
 
   // --- Centralized attunement update (after all creature loops) ---
   const _attuneJumping = !player.onGround;

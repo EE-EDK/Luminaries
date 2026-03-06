@@ -25,10 +25,16 @@ canvas{display:block;cursor:crosshair}
   background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
   pointer-events:auto;display:none;color:#88ffcc;font-size:10px;font-family:monospace;
   line-height:65px;text-align:center}
-#btn-hum{position:absolute;bottom:160px;left:52px;width:65px;height:65px;border-radius:50%;
-  background:rgba(100,255,180,.12);border:2px solid rgba(100,255,180,.25);z-index:150;
-  pointer-events:auto;display:none;color:#88ffcc;font-size:10px;font-family:monospace;
-  line-height:65px;text-align:center}
+#hum-slider{position:absolute;bottom:160px;left:8px;width:50px;height:180px;
+  z-index:150;pointer-events:auto;display:none}
+#hum-track{position:absolute;left:11px;width:28px;height:180px;border-radius:14px;
+  background:rgba(100,255,180,.08);border:1px solid rgba(100,255,180,.2)}
+#hum-thumb{position:absolute;left:15px;width:20px;height:20px;border-radius:50%;
+  background:rgba(100,255,180,.35);border:2px solid rgba(100,255,180,.5);bottom:80px}
+#hum-label{position:absolute;bottom:-14px;left:0;width:50px;text-align:center;
+  color:#88ffcc;font-size:8px;font-family:monospace;opacity:0.6}
+.hum-tick{position:absolute;left:42px;font-size:7px;color:#88ffcc;opacity:0.4;
+  font-family:monospace;pointer-events:none}
 #overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
   font-size:24px;z-index:200;text-align:center;pointer-events:none;
   text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
@@ -38,14 +44,22 @@ canvas{display:block;cursor:crosshair}
   padding:8px 14px;border-radius:6px;font-size:14px;z-index:100;pointer-events:none;
   border:1px solid rgba(255,220,80,.3);text-shadow:0 0 8px rgba(255,200,50,.5);
   font-family:'Courier New',monospace;letter-spacing:1px;display:none}
-</style>  <script type="module" crossorigin src="./assets/index-D82ncTUO.js"></script>
+</style>  <script type="module" crossorigin src="./assets/index-D4v8C3iF.js"></script>
 </head><body>
 <div id="hud">LOADING...</div>
 <div id="controls">WASD · SPACE Jump · SHIFT Sprint · Right-Click Hum · Click+Drag Look</div>
 <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
 <div id="btn-jump">JUMP</div>
 <div id="btn-sprint">SPRINT</div>
-<div id="btn-hum">HUM</div>
+<div id="hum-slider">
+<div id="hum-track"></div>
+<div id="hum-thumb"></div>
+<div class="hum-tick" style="bottom:136px;color:#ffaa88">550</div>
+<div class="hum-tick" style="bottom:90px;color:#aaccff">390</div>
+<div class="hum-tick" style="bottom:46px;color:#ccffaa">240</div>
+<div class="hum-tick" style="bottom:12px;color:#88ddff">120</div>
+<div id="hum-label">HUM</div>
+</div>
 <div id="orb-hud">✦ 0 / 5</div>
 <div id="overlay" style="display:none">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
 </body></html>

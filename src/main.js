@@ -1214,9 +1214,12 @@ function updateJellies(dt, t) {
       g.position.z += (player.pos.z - g.position.z) * driftFrac * dt * 0.3;
     }
 
-    // Terrain floor — prevent jellies going underground on hills
+    // Terrain floor — smooth upward push, prevent jellies going underground on hills
     const jellyGroundY = getGroundY(g.position.x, g.position.z);
-    if (g.position.y < jellyGroundY + 3) g.position.y = jellyGroundY + 3;
+    const jellyMinY = jellyGroundY + 3;
+    if (g.position.y < jellyMinY) {
+      g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 4);
+    }
 
     // Periodic hum sound
     if (j._state === 'pulse' && Math.random() < 0.003) {
@@ -1250,9 +1253,13 @@ function updateJellies(dt, t) {
       j.tipMat.opacity = 0.3 + 0.7 * (twinkle * 0.5 + 0.5);
     }
     g.rotation.y += dt * 0.2;
-    for (let ti = 2; ti < g.children.length; ti++) {
-      g.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
-      g.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
+    // Bell pulse — gentle squash/stretch on bell group
+    const bellPulse = Math.sin(t * 2.5 + j.phase) * 0.08;
+    j.bell.scale.set(1.0 + bellPulse * 0.5, 1.0 - bellPulse, 1.0 + bellPulse * 0.5);
+    // Tentacle sway — isolated to tentacle group
+    for (let ti = 0; ti < j.tentGroup.children.length; ti++) {
+      j.tentGroup.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
+      j.tentGroup.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
     }
   }
 }
@@ -1575,9 +1582,13 @@ function updateDeers(dt, t) {
     const fleeR = sprinting ? 10 : (DEER_FLEE_R - curiousFrac * 4); // 8→4m when curious
     const fleeR2 = fleeR * fleeR;
 
-    // Only recalc terrain height when moved enough (>0.5m)
+    // Recalc terrain height when moved enough (>0.5m), smooth to prevent snapping
     const dtx = gx - d._lastTX, dtz = gz - d._lastTZ;
-    if (dtx * dtx + dtz * dtz > 0.25) { d._baseY = getGroundY(gx, gz); d._lastTX = gx; d._lastTZ = gz; }
+    if (dtx * dtx + dtz * dtz > 0.25) {
+      const targetDeerY = getGroundY(gx, gz);
+      d._baseY += (targetDeerY - d._baseY) * Math.min(dt * 6, 1);
+      d._lastTX = gx; d._lastTZ = gz;
+    }
     const deerBaseY = d._baseY;
 
     // Threat detection using AI senses (Item 5)
@@ -1657,6 +1668,11 @@ function updateDeers(dt, t) {
         if (deerNeighbors.length > 0) {
           const herdAng = Math.atan2(deerCoh.x * 0.15 + deerSep.x * 0.8, deerCoh.z * 0.15 + deerSep.z * 0.8);
           d.wanderAng += (herdAng - d.wanderAng) * dt * 0.3;
+        }
+        // Tree avoidance during walk
+        const walkAvoid = avoidObstacles({ x: gx, z: gz }, d.wanderAng, trees_data, 2.5, 1.2);
+        if (walkAvoid.x * walkAvoid.x + walkAvoid.z * walkAvoid.z > 0.01) {
+          d.wanderAng += Math.atan2(walkAvoid.z, walkAvoid.x) * 0.4;
         }
         break;
       }
@@ -1742,6 +1758,21 @@ function updateDeers(dt, t) {
       g.position.x += Math.sin(d.wanderAng) * moveSpeed * dt;
       g.position.z += Math.cos(d.wanderAng) * moveSpeed * dt;
       d.legCycle += dt * moveSpeed * 3;
+      // Tree collision pushback
+      const _dgx = g.position.x, _dgz = g.position.z;
+      for (let ti = 0; ti < trees_data.length; ti++) {
+        const tr = trees_data[ti];
+        const tdx = _dgx - tr.x, tdz = _dgz - tr.z;
+        const td2 = tdx * tdx + tdz * tdz;
+        if (td2 > 16) continue; // skip trees > 4m away
+        const treeR = (tr.scale || 1) * 1.0 + 0.5; // trunk radius + deer body
+        if (td2 < treeR * treeR && td2 > 0.001) {
+          const td = Math.sqrt(td2);
+          const push = (treeR - td) / td;
+          g.position.x += tdx * push;
+          g.position.z += tdz * push;
+        }
+      }
     }
     // World bounds
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
@@ -2032,9 +2063,27 @@ function updateMoths(dt, t) {
       m.centerZ += (player.pos.z - m.centerZ) * driftFrac * dt * 0.4;
     }
 
-    // Terrain floor — prevent moths going underground on hills
+    // Terrain floor — smooth upward push, prevent moths going underground on hills
     const mothGroundY = getGroundY(g.position.x, g.position.z);
-    if (g.position.y < mothGroundY + 1.5) g.position.y = mothGroundY + 1.5;
+    const mothMinY = mothGroundY + 1.5;
+    if (g.position.y < mothMinY) {
+      g.position.y += (mothMinY - g.position.y) * Math.min(1, dt * 4);
+    }
+
+    // Tree avoidance — gently steer orbit center away from tree trunks
+    for (let ti = 0; ti < trees_data.length; ti++) {
+      const tr = trees_data[ti];
+      const tdx = g.position.x - tr.x, tdz = g.position.z - tr.z;
+      const td2 = tdx * tdx + tdz * tdz;
+      if (td2 > 16) continue; // skip trees > 4m away
+      const treeR = (tr.scale || 1) * 1.2 + 0.5;
+      if (td2 < treeR * treeR && td2 > 0.001) {
+        const td = Math.sqrt(td2);
+        // Nudge orbit center away from tree
+        m.centerX += (tdx / td) * dt * 2;
+        m.centerZ += (tdz / td) * dt * 2;
+      }
+    }
 
     // Wing flap with speed variation (barely flutter when resting)
     const flapIntensity = m._state === 'rest' ? 0.05 : 0.4;

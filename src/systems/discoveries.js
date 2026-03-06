@@ -151,6 +151,47 @@ export function checkDiscoveries(playerPos, deers, puffs, jellies, moths, fairyR
 }
 
 // ================================================================
+// Orb Listening — subtle feedback when orb detects player frequency
+// ================================================================
+let orbListenEl = null;
+let orbListenTimer = 0;
+let orbListenCooldown = 0;
+const ORB_LISTEN_MESSAGES_CHILD = [
+  'The orb hears you\u2026',
+  'It\u2019s listening\u2026',
+  'The light stirs\u2026 it knows your voice.',
+  'Your hum reaches the gold\u2026',
+  'The orb remembers this song.',
+];
+const ORB_LISTEN_MESSAGES_ADULT = [
+  'Frequency lock detected.',
+  'Resonance handshake initiated.',
+  'Harmonic signature recognized.',
+  'Audio bridge established.',
+  'Synchronization in range.',
+];
+
+export function showOrbListening() {
+  if (orbListenCooldown > 0) return;
+  if (!orbListenEl) {
+    orbListenEl = document.createElement('div');
+    orbListenEl.id = 'orb-listen-text';
+    orbListenEl.style.cssText =
+      'position:fixed;top:55%;left:50%;transform:translateX(-50%);' +
+      'font-family:Georgia,serif;font-size:14px;color:#ffeebb;font-style:italic;' +
+      'text-shadow:0 0 12px #ddaa44,0 0 20px #886622;' +
+      'pointer-events:none;opacity:0;transition:opacity 1.0s;z-index:100;' +
+      'letter-spacing:2px;text-align:center;';
+    document.body.appendChild(orbListenEl);
+  }
+  const pool = perspective === 'adult' ? ORB_LISTEN_MESSAGES_ADULT : ORB_LISTEN_MESSAGES_CHILD;
+  orbListenEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+  orbListenEl.style.opacity = '1';
+  orbListenTimer = 3.5;
+  orbListenCooldown = 15; // don't spam — 15s between messages
+}
+
+// ================================================================
 // Orb Rejection Hint — shown when approaching orb without frequency
 // ================================================================
 let hintEl = null;
@@ -264,6 +305,13 @@ export function updateDiscoveryUI(dt) {
       finaleEl.style.opacity = '0';
     }
   }
+  if (orbListenTimer > 0) {
+    orbListenTimer -= dt;
+    if (orbListenTimer <= 1.0 && orbListenEl) {
+      orbListenEl.style.opacity = '0';
+    }
+  }
+  if (orbListenCooldown > 0) orbListenCooldown -= dt;
 }
 
 // ================================================================

@@ -2821,7 +2821,7 @@ function animate() {
   // Spirit hum — player light modulation while humming
   if (isHumming() || isLocked()) {
     // Pulse intensity at ~2Hz
-    const humPulse = 1.0 + 0.15 * Math.sin(t * 4 * Math.PI);
+    const humPulse = 1.0 + 0.15 * Math.sin(elapsed * 4 * Math.PI);
     playerLight.intensity *= humPulse;
     // Expand range by 30%
     playerLight.distance *= 1.3;

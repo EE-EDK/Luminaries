@@ -1327,11 +1327,12 @@ function updatePuffs(dt, t) {
 
     // Update terrain-relative base Y — smooth interpolation to prevent snapping
     const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
-    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) {
-      const targetY = getGroundY(px, pz);
-      p._baseY += (targetY - p._baseY) * Math.min(dt * 8, 1); // ~125ms smoothing
+    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.02) {
+      p._targetY = getGroundY(px, pz);
       p._lastTX = px; p._lastTZ = pz;
     }
+    if (p._targetY === undefined) p._targetY = p._baseY;
+    p._baseY += (p._targetY - p._baseY) * Math.min(dt * 14, 1);
 
     // Batch 2 Item 7: Puffling flocking — gather neighbors for boid forces
     const puffPos = { x: px, z: pz };
@@ -1354,10 +1355,10 @@ function updatePuffs(dt, t) {
         p.idleTimer -= dt;
         g.position.y = p._baseY + Math.sin(t * 2 + p.phase) * 0.02;
         g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
-        // Idle drift toward flock center (very gentle)
-        if (flockMag > 0.1 && puffNeighbors.length > 1) {
-          g.position.x += coh.x * 0.05 * dt;
-          g.position.z += coh.z * 0.05 * dt;
+        // Idle drift: separation + gentle cohesion to prevent clipping
+        if (puffNeighbors.length > 0) {
+          g.position.x += (sep.x * 0.8 + coh.x * 0.05) * dt;
+          g.position.z += (sep.z * 0.8 + coh.z * 0.05) * dt;
         }
         // Puffling singing — boosted when player jumps nearby
         const _puffJumpBoost = (!player.onGround && pDist2 < 100) ? 8 : 1;
@@ -1492,6 +1493,22 @@ function updatePuffs(dt, t) {
       }
     }
 
+    // Puffling-puffling collision — hard push to prevent body overlap
+    for (let j = i + 1; j < puffs.length; j++) {
+      const og = puffs[j].group;
+      const odx = g.position.x - og.position.x, odz = g.position.z - og.position.z;
+      const od2 = odx * odx + odz * odz;
+      const minR = 0.6; // 2× body radius (0.3 each)
+      if (od2 < minR * minR && od2 > 0.001) {
+        const od = Math.sqrt(od2);
+        const push = (minR - od) * 0.5 / od;
+        g.position.x += odx * push;
+        g.position.z += odz * push;
+        og.position.x -= odx * push;
+        og.position.z -= odz * push;
+      }
+    }
+
     // Eye blink animation
     p._blinkTimer -= dt;
     if (p._blinkTimer <= 0) {
@@ -1526,7 +1543,7 @@ function updatePuffs(dt, t) {
           0.5 + Math.sin(sa * 1.3) * 0.1,
           Math.sin(sa) * sp.orbitR
         );
-        sp.mat.opacity = (0.3 + Math.sin(t * 4 + sp.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult;
+        sp.mat.opacity = (0.4 + Math.sin(t * 4 + sp.phase) * 0.3) * Math.max(getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost), 0.3) * attuneGlowMult;
       }
     }
     // Crown glow — intensifies with attunement
@@ -1535,15 +1552,16 @@ function updatePuffs(dt, t) {
     }
     // Body emissive — brightens with attunement when nearby
     if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
-      p.bodyMat.emissiveIntensity = 0.3 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
+      p.bodyMat.emissiveIntensity = 0.5 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
     } else if (p.bodyMat) {
-      p.bodyMat.emissiveIntensity = 0.3;
+      p.bodyMat.emissiveIntensity = 0.5;
     }
-    // Ground glow disc — subtle pulsing hint of attunement importance
+    // Ground glow disc — visible warm pool beneath each puffling
     if (p.glowMat) {
-      const glowBase = 0.08 + Math.sin(t * 2 + p.phase) * 0.04;
+      const glowBase = 0.15 + Math.sin(t * 2 + p.phase) * 0.06;
       const glowAttune = pDist2 < 64 ? curAttune * 0.2 : 0;
-      p.glowMat.opacity = (glowBase + glowAttune) * getLocalGlow(px, pz, bioGlow * _orbBoost);
+      const localG = getLocalGlow(px, pz, bioGlow * _orbBoost);
+      p.glowMat.opacity = (glowBase + glowAttune) * Math.max(localG, 0.3);
     }
 
     // World bounds
@@ -1582,13 +1600,14 @@ function updateDeers(dt, t) {
     const fleeR = sprinting ? 10 : (DEER_FLEE_R - curiousFrac * 4); // 8→4m when curious
     const fleeR2 = fleeR * fleeR;
 
-    // Recalc terrain height when moved enough (>0.5m), smooth to prevent snapping
+    // Recalc terrain height frequently, smooth to prevent snapping
     const dtx = gx - d._lastTX, dtz = gz - d._lastTZ;
-    if (dtx * dtx + dtz * dtz > 0.25) {
-      const targetDeerY = getGroundY(gx, gz);
-      d._baseY += (targetDeerY - d._baseY) * Math.min(dt * 6, 1);
+    if (dtx * dtx + dtz * dtz > 0.04) { // re-sample every ~0.2m of movement
+      d._targetY = getGroundY(gx, gz);
       d._lastTX = gx; d._lastTZ = gz;
     }
+    if (d._targetY === undefined) d._targetY = d._baseY;
+    d._baseY += (d._targetY - d._baseY) * Math.min(dt * 14, 1);
     const deerBaseY = d._baseY;
 
     // Threat detection using AI senses (Item 5)
@@ -1779,10 +1798,10 @@ function updateDeers(dt, t) {
     if (wd2 > (WORLD_R * 0.9) * (WORLD_R * 0.9)) {
       d.wanderAng = Math.atan2(-g.position.x, -g.position.z);
     }
-    // Return to ground from rest / track terrain (exponential smoothing)
+    // Return to ground from rest / track terrain (fast exponential smoothing)
     if (d.state !== 'rest') {
       const yDiff = deerBaseY - g.position.y;
-      g.position.y += yDiff * Math.min(1, dt * 4);
+      g.position.y += yDiff * Math.min(1, dt * 12);
     }
     // Body vertical bounce during walk
     if (isMoving) {

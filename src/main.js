@@ -1318,9 +1318,13 @@ function updatePuffs(dt, t) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
-    // Update terrain-relative base Y only when moved enough (avoid per-frame noise calc)
+    // Update terrain-relative base Y — smooth interpolation to prevent snapping
     const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
-    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
+    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) {
+      const targetY = getGroundY(px, pz);
+      p._baseY += (targetY - p._baseY) * Math.min(dt * 8, 1); // ~125ms smoothing
+      p._lastTX = px; p._lastTZ = pz;
+    }
 
     // Batch 2 Item 7: Puffling flocking — gather neighbors for boid forces
     const puffPos = { x: px, z: pz };
@@ -1372,16 +1376,15 @@ function updatePuffs(dt, t) {
         const frac = p.hopTimer / hopDur;
         if (frac >= 1.0) {
           p.state = 'idle'; p.idleTimer = (1.5 + Math.random() * 3) * puffIdleMult; g.position.y = p._baseY;
-          p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
+          p.shell.scale.set(1, 1, 1);
         } else {
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
           g.position.x += Math.sin(p.wanderAng) * p.speed * puffSpeedMult * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * puffSpeedMult * dt;
-          // Squash/stretch on body + head only — face meshes stay undistorted
+          // Squash/stretch entire shell so all parts deform together
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
           const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
-          p.body.scale.set(sq, st, sq);
-          p.head.scale.set(sq, st, sq);
+          p.shell.scale.set(sq, st, sq);
           g.rotation.y = p.wanderAng;
         }
         break;
@@ -1394,11 +1397,10 @@ function updatePuffs(dt, t) {
         // Scatter with separation force (Batch 2 Item 7)
         g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt + sep.x * 0.5 * dt;
         g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt + sep.z * 0.5 * dt;
-        p.body.scale.set(0.85, 1.3, 0.85);
-        p.head.scale.set(0.85, 1.3, 0.85);
+        p.shell.scale.set(0.85, 1.3, 0.85);
         if (p._scaredT <= 0) {
           p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
-          g.position.y = p._baseY; p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
+          g.position.y = p._baseY; p.shell.scale.set(1, 1, 1);
         }
         break;
       }

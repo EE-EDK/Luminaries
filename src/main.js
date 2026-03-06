@@ -1313,8 +1313,8 @@ function updatePuffs(dt, t) {
       }
     }
 
-    // Following: cautiously approach idle player (lowered from 8s to 5s for Phase 2 curiosity)
-    if (playerIdleTime > 5 && pDist2 < 144 && p.state === 'idle' && Math.random() < 0.002) {
+    // Following: cautiously approach idle player (3s idle, 15m range)
+    if (playerIdleTime > 3 && pDist2 < 225 && p.state === 'idle' && Math.random() < 0.004) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
@@ -1358,6 +1358,11 @@ function updatePuffs(dt, t) {
           // Bias hop direction toward flock center
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5 + flockAng * 0.3; p.hopTimer = 0;
+          // Steer away from nearby trees before hopping
+          const avF = avoidObstacles({ x: px, z: pz }, p.wanderAng, trees_data, 2, 0.8);
+          if (avF.x * avF.x + avF.z * avF.z > 0.01) {
+            p.wanderAng += Math.atan2(avF.z, avF.x) * 0.5;
+          }
         }
         break;
       }
@@ -1457,6 +1462,24 @@ function updatePuffs(dt, t) {
         g.rotation.z = Math.sin(t * 8) * 0.05;
         g.position.y = p._baseY;
         break;
+      }
+    }
+
+    // Tree collision — push pufflings out of tree trunks
+    if (p.state !== 'idle') {
+      const _ppx = g.position.x, _ppz = g.position.z;
+      for (let ti = 0; ti < trees_data.length; ti++) {
+        const tr = trees_data[ti];
+        const tdx = _ppx - tr.x, tdz = _ppz - tr.z;
+        const td2 = tdx * tdx + tdz * tdz;
+        if (td2 > 9) continue; // skip trees > 3m away (fast reject)
+        const treeR = (tr.scale || 1) * 0.8 + 0.3; // trunk radius + puffling radius
+        if (td2 < treeR * treeR && td2 > 0.001) {
+          const td = Math.sqrt(td2);
+          const push = (treeR - td) / td;
+          g.position.x += tdx * push;
+          g.position.z += tdz * push;
+        }
       }
     }
 

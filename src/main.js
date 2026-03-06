@@ -1335,9 +1335,9 @@ function updatePuffs(dt, t) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
-    // Syncing: enter rhythmic co-jump when player pitch-locks to puff (15m range)
+    // Syncing: enter rhythmic co-jump when player pitch-locks to puff (30m range)
     const _puffLocked = isLocked() && getLockType() === 'puff';
-    if (_puffLocked && pDist2 < 225 &&
+    if (_puffLocked && pDist2 < 900 &&
         (p.state === 'idle' || p.state === 'hop' || p.state === 'following')) {
       p.state = 'syncing';
       p._syncTimer = 0;
@@ -1345,8 +1345,8 @@ function updatePuffs(dt, t) {
       if (p.bodyMat) p.bodyMat.emissiveIntensity = 3.0;
       if (p.crownMat) p.crownMat.emissiveIntensity = 2.0;
     }
-    // Exit syncing when lock lost or player moves away
-    if (p.state === 'syncing' && (!_puffLocked || pDist2 > 400)) {
+    // Exit syncing when lock lost or player moves away (>35m)
+    if (p.state === 'syncing' && (!_puffLocked || pDist2 > 1225)) {
       p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 2;
       g.position.y = p._baseY; p.shell.scale.set(1, 1, 1);
       if (p.bodyMat) p.bodyMat.emissiveIntensity = 0.5;
@@ -2765,6 +2765,24 @@ function director(dt, t) {
       _humThumbEl.style.transform = 'scale(1.5)';
       _humSliderDirty = true;
     }
+    // Narrative text for frequency lock — creature-specific
+    const _lockT = getLockType();
+    const _lockTexts = {
+      puff: { child: 'The pufflings hear you!', adult: 'Frequency matched — biosignature synchronized' },
+      deer: { child: 'The deer turn to listen...', adult: 'Cervine frequency locked — maintain stride' },
+      jelly: { child: 'The jellies glow brighter!', adult: 'Cnidarian resonance established — pulse in rhythm' },
+      moth: { child: 'The moths circle closer!', adult: 'Lepidoptera wavelength acquired — orbit and observe' }
+    };
+    if (_lockT && _lockTexts[_lockT]) {
+      const _ltxt = _lockTexts[_lockT][getPerspective()] || _lockTexts[_lockT].child;
+      showNarrativeText(_ltxt, 4.0);
+    }
+    // Burst of resonance rings at nearest creature of locked type
+    if (_lockT === 'puff') {
+      for (let ri = 0; ri < 5; ri++) {
+        spawnResonanceRing(_nearestPuffPos.x, getGroundY(_nearestPuffPos.x, _nearestPuffPos.z), _nearestPuffPos.z, 'puff', 1.0);
+      }
+    }
   }
 
   // Resonance ring particles — spawn ~3/sec when resonance > 0
@@ -2834,6 +2852,36 @@ function director(dt, t) {
     _attuneFlashTimer = 0.5;
     const flashPos = getFlashCreaturePos() || _nearestPuffPos;
     playAttunementFlash(flashPos, player.pos);
+    // Attunement completion celebration — creature-specific
+    const _flashType = getAttunementTarget();
+    const _attuneTexts = {
+      puff: { child: 'They know you now!', adult: 'Full attunement — the boundary between observer and observed dissolves' },
+      deer: { child: 'You walk as one.', adult: 'Stride-locked — biosignatures indistinguishable' },
+      jelly: { child: 'Your hearts beat together!', adult: 'Pulse synchronization complete — resonance achieved' },
+      moth: { child: 'You are part of the dance!', adult: 'Orbital lock confirmed — mutual observation state' }
+    };
+    if (_flashType && _attuneTexts[_flashType]) {
+      const _atxt = _attuneTexts[_flashType][getPerspective()] || _attuneTexts[_flashType].child;
+      showNarrativeText(_atxt, 5.0);
+    }
+    // Puffling celebration: all syncing pufflings do a big joyful hop + max glow
+    if (_flashType === 'puff') {
+      for (let pi = 0; pi < puffs.length; pi++) {
+        const pp = puffs[pi];
+        if (pp.state === 'syncing') {
+          pp._syncTimer = 0.27; // reset to just before hop phase (0.15*1.8=0.27) for a unified big jump
+          if (pp.bodyMat) pp.bodyMat.emissiveIntensity = 4.0;
+          if (pp.crownMat) pp.crownMat.emissiveIntensity = 3.0;
+        }
+      }
+      // Burst of rings at all nearby pufflings
+      for (let pi = 0; pi < puffs.length; pi++) {
+        const pp = puffs[pi];
+        if (pp.state !== 'syncing') continue;
+        const ppx = pp.group.position.x, ppz = pp.group.position.z;
+        spawnResonanceRing(ppx, getGroundY(ppx, ppz), ppz, 'puff', 1.0);
+      }
+    }
   }
   if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
 

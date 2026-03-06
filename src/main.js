@@ -219,7 +219,6 @@ const _humBandColors = {
   puff:  'rgba(255,170,136,',
 };
 let _humSliderDirty = false; // track whether slider styles need reset
-let _nearestPuffSyncPhase = -1; // 0–1 hop phase of nearest syncing puffling (-1 = none)
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -1281,7 +1280,6 @@ function updatePuffs(dt, t) {
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
   _nearestPuffDist2 = Infinity;
-  _nearestPuffSyncPhase = -1;
   const curAttune = getAttunement();
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
@@ -1338,17 +1336,20 @@ function updatePuffs(dt, t) {
     }
 
     // Syncing: enter rhythmic co-jump when player pitch-locks to puff (15m range)
-    if (isLocked() && getLockType() === 'puff' && pDist2 < 225 &&
+    const _puffLocked = isLocked() && getLockType() === 'puff';
+    if (_puffLocked && pDist2 < 225 &&
         (p.state === 'idle' || p.state === 'hop' || p.state === 'following')) {
-      if (p.state !== 'syncing') {
-        p.state = 'syncing';
-        p._syncTimer = 0;
-      }
+      p.state = 'syncing';
+      p._syncTimer = 0;
+      // Link flash — bright burst when entering sync
+      if (p.bodyMat) p.bodyMat.emissiveIntensity = 3.0;
+      if (p.crownMat) p.crownMat.emissiveIntensity = 2.0;
     }
     // Exit syncing when lock lost or player moves away
-    if (p.state === 'syncing' && (!isLocked() || getLockType() !== 'puff' || pDist2 > 400)) {
+    if (p.state === 'syncing' && (!_puffLocked || pDist2 > 400)) {
       p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 2;
       g.position.y = p._baseY; p.shell.scale.set(1, 1, 1);
+      if (p.bodyMat) p.bodyMat.emissiveIntensity = 0.5;
     }
 
     // Update terrain-relative base Y — smooth interpolation to prevent snapping
@@ -1500,32 +1501,32 @@ function updatePuffs(dt, t) {
         break;
       }
       case 'syncing': {
-        // Rhythmic co-jump: 1.8s cycle, face player, bigger hops
+        // Rhythmic hop: 1.8s cycle, face player, brightness ramps with attunement
         const SYNC_PERIOD = 1.8;
         p._syncTimer += dt;
-        const syncPhase = (p._syncTimer % SYNC_PERIOD) / SYNC_PERIOD; // 0–1
+        const syncPhase = (p._syncTimer % SYNC_PERIOD) / SYNC_PERIOD;
         // Face the player
         g.rotation.y = Math.atan2(player.pos.x - px, player.pos.z - pz);
-        // Hop arc: airborne during phase 0.15–0.75, grounded otherwise
+        // Hop arc: airborne during phase 0.15–0.75
         if (syncPhase > 0.15 && syncPhase < 0.75) {
           const hopFrac = (syncPhase - 0.15) / 0.6;
-          g.position.y = p._baseY + Math.sin(hopFrac * Math.PI) * 0.4;
+          const hopH = 0.35 + curAttune * 0.25; // hops get bigger as attunement builds
+          g.position.y = p._baseY + Math.sin(hopFrac * Math.PI) * hopH;
           const sq = 1.0 - Math.sin(hopFrac * Math.PI) * 0.18;
           const st = 1.0 + Math.sin(hopFrac * Math.PI) * 0.25;
           p.shell.scale.set(sq, st, sq);
         } else {
           g.position.y = p._baseY;
-          // Pre-hop crouch (anticipation squash)
           const crouchFrac = syncPhase < 0.15 ? syncPhase / 0.15 : (syncPhase - 0.75) / 0.25;
           p.shell.scale.set(1.0 + crouchFrac * 0.08, 1.0 - crouchFrac * 0.1, 1.0 + crouchFrac * 0.08);
         }
-        // Extra glow during sync
+        // Brightness ramp: each jump makes them glow brighter (0.5 → 3.0)
         if (p.bodyMat) {
-          p.bodyMat.emissiveIntensity = 0.5 + 0.4 * Math.sin(syncPhase * Math.PI);
+          const glowTarget = 0.5 + curAttune * 2.5;
+          p.bodyMat.emissiveIntensity += (glowTarget - p.bodyMat.emissiveIntensity) * Math.min(dt * 4, 1);
         }
-        // Track nearest syncing puffling's phase for attunement system
-        if (pDist2 < _nearestPuffDist2 || _nearestPuffSyncPhase < 0) {
-          if (pDist2 < 225) _nearestPuffSyncPhase = syncPhase;
+        if (p.crownMat) {
+          p.crownMat.emissiveIntensity = (0.4 + curAttune * 2.0) * getLocalGlow(px, pz, bioGlow * _orbBoost);
         }
         break;
       }
@@ -1602,22 +1603,25 @@ function updatePuffs(dt, t) {
         sp.mat.opacity = (0.4 + Math.sin(t * 4 + sp.phase) * 0.3) * Math.max(getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost), 0.3) * attuneGlowMult;
       }
     }
-    // Crown glow — intensifies with attunement
-    if (p.crownMat) {
+    // Crown glow — intensifies with attunement (syncing pufflings manage their own)
+    if (p.crownMat && p.state !== 'syncing') {
       p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult * puffResMult;
     }
-    // Body emissive — brightens with attunement when nearby
-    if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
-      p.bodyMat.emissiveIntensity = 0.5 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
-    } else if (p.bodyMat) {
-      p.bodyMat.emissiveIntensity = 0.5;
+    // Body emissive — brightens with attunement when nearby (syncing pufflings manage their own glow)
+    if (p.state !== 'syncing') {
+      if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
+        p.bodyMat.emissiveIntensity = 0.5 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
+      } else if (p.bodyMat) {
+        p.bodyMat.emissiveIntensity = 0.5;
+      }
     }
     // Ground glow disc — visible warm pool beneath each puffling
     if (p.glowMat) {
       const glowBase = 0.15 + Math.sin(t * 2 + p.phase) * 0.06;
       const glowAttune = pDist2 < 64 ? curAttune * 0.2 : 0;
+      const syncGlow = p.state === 'syncing' ? curAttune * 0.5 : 0;
       const localG = getLocalGlow(px, pz, bioGlow * _orbBoost);
-      p.glowMat.opacity = (glowBase + glowAttune) * Math.max(localG, 0.3);
+      p.glowMat.opacity = Math.min(1.0, (glowBase + glowAttune + syncGlow) * Math.max(localG, 0.3));
     }
 
     // World bounds
@@ -2823,8 +2827,7 @@ function director(dt, t) {
     nearestMothDist2: _nearestMothDist2, nearestMothPos: _nearestMothPos,
     playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
     sprinting: _attuneSprinting,
-    playerX: player.pos.x, playerZ: player.pos.z, time: t,
-    nearestPuffSyncPhase: _nearestPuffSyncPhase
+    playerX: player.pos.x, playerZ: player.pos.z, time: t
   });
   // Handle attunement flash (one-time trigger when reaching 1.0)
   if (checkFlash()) {

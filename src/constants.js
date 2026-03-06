@@ -80,7 +80,7 @@ export const MAX_CRYSTAL_LIGHTS = 5;
 // Creature Attunement (Phase 2)
 export const ATTUNE_RATE = 0.15;       // attunement gain per second while matching
 export const ATTUNE_DECAY = 0.05;      // attunement loss per second when not matching
-export const ATTUNE_JUMP_R2 = 64;      // squared distance: must jump within 8m
+export const ATTUNE_JUMP_R2 = 225;     // squared distance: must co-jump within 15m
 
 // Spirit Hum — two-phase creature unlock (Phase 2)
 // Right-click (desktop) or HUM button (mobile) to emit a continuous tone.

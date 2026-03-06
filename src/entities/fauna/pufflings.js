@@ -12,7 +12,7 @@ export function makePuff(x, z) {
   g.add(shell);
 
   const bodyMat = new MeshStandardMaterial({
-    color: C.puffBody, emissive: C.puffGlow, emissiveIntensity: 0.3, roughness: 0.8
+    color: C.puffBody, emissive: C.puffGlow, emissiveIntensity: 0.5, roughness: 0.8
   });
   // Body (big round)
   const body = new Mesh(new SphereGeometry(0.3, 8, 6), bodyMat);

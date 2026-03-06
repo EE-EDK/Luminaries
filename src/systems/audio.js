@@ -1208,6 +1208,7 @@ export function stopSpiritHumAudio() {
   try { if (_humResOsc) _humResOsc.stop(stopTime); } catch (_) { /* */ }
 
   _humOsc1 = _humOsc2 = _humOscOct = _humLfo = _humLfoGain = null;
+  if (_humGain) { try { _humGain.disconnect(); } catch (_) { /* */ } }
   _humGain = null;
   _humResOsc = _humResGain = null;
 }

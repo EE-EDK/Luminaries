@@ -124,10 +124,10 @@ export function updateHum(dt, inputY, nearestCreatures) {
 
   resonance = bestResonance;
 
-  // Build lock timer if resonating
-  if (resonance > 0.3 && !pitchLocked) {
+  // Build lock timer if resonating (low threshold so edge-of-band still progresses)
+  if (resonance > 0.15 && !pitchLocked) {
     // Stronger resonance builds faster
-    lockTimer += dt * resonance;
+    lockTimer += dt * (0.5 + resonance * 0.5);
     if (lockTimer >= HUM_LOCK_TIME) {
       pitchLocked = true;
       lockType = resonanceType;

@@ -88,13 +88,13 @@ export const ATTUNE_JUMP_R2 = 64;      // squared distance: must jump within 8m
 // Then perform the creature's physical behavior to build attunement.
 export const HUM_FREQ_MIN = 80;        // lowest pitch player can hum (Hz)
 export const HUM_FREQ_MAX = 700;       // highest pitch player can hum (Hz)
-export const HUM_LOCK_TIME = 2.0;      // seconds of sustained pitch match to lock
+export const HUM_LOCK_TIME = 1.2;      // seconds of sustained pitch match to lock
 export const HUM_LOCK_DECAY = 3.0;     // seconds before pitch lock fades after releasing hum
-// Creature resonance bands: { center, tol } in Hz
-export const HUM_BAND_DEER  = { center: 120, tol: 30 };
-export const HUM_BAND_MOTH  = { center: 240, tol: 35 };
-export const HUM_BAND_JELLY = { center: 390, tol: 40 };
-export const HUM_BAND_PUFF  = { center: 550, tol: 45 };
+// Creature resonance bands: { center, tol } in Hz — widened for mobile-friendly tuning
+export const HUM_BAND_DEER  = { center: 120, tol: 50 };
+export const HUM_BAND_MOTH  = { center: 240, tol: 55 };
+export const HUM_BAND_JELLY = { center: 390, tol: 60 };
+export const HUM_BAND_PUFF  = { center: 550, tol: 65 };
 
 // Player light evolution — color/intensity/range scales with orbs found (0–5)
 export const PLAYER_LIGHT_COLORS = [0x668888, 0x88aacc, 0x66ddaa, 0xaaffcc, 0xddffee, 0xffffff];

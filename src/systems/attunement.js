@@ -3,7 +3,7 @@
 // ================================================================
 // The player synchronizes with creatures by matching their energy.
 // Each creature type has a unique matching mechanic:
-//   Puffling — Sprint within 8m
+//   Puffling — Co-jump in sync with puffling hop rhythm within 15m
 //   Jelly    — Stand still within 6m, tap SPACE in rhythm (±0.3s)
 //   Deer     — Walk (no sprint) within 12m, same direction (±45°)
 //   Moth     — Move laterally within 8m, look toward moth
@@ -76,12 +76,30 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
   // Determine which creature (if any) is being matched this frame
   // Phase 2 gate: behavior only counts when spirit hum is pitch-locked to that type
   let matchType = null;
+  let _puffSyncBonus = 1.0;   // rate multiplier for tight sync (1×–2×)
+  let _puffSyncPenalty = false; // true if player jumped while puffling grounded
   const _locked = isLocked();
   const _lockTarget = getLockType();
 
-  // --- Puffling: Jump within 8m (requires pitch-lock to puff) ---
-  if (_locked && _lockTarget === 'puff' && jumping && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
-    matchType = 'puff';
+  // --- Puffling: Co-jump in sync with syncing pufflings (requires pitch-lock to puff) ---
+  const _puffSync = creatureData.nearestPuffSyncPhase;
+  if (_locked && _lockTarget === 'puff' && nearestPuffDist2 < ATTUNE_JUMP_R2 && nearestPuffDist2 < Infinity) {
+    if (_puffSync >= 0 && jumping) {
+      // Puffling airborne during phase 0.15–0.75
+      if (_puffSync > 0.15 && _puffSync < 0.75) {
+        matchType = 'puff';
+        // Bonus: tighter sync = faster rate. Peak at phase 0.45 (mid-hop)
+        const syncAccuracy = 1.0 - Math.abs(_puffSync - 0.45) / 0.3;
+        _puffSyncBonus = 1.0 + Math.max(0, syncAccuracy) * 1.0; // 1×–2× rate
+      } else {
+        // Mistimed: puffling is grounded but player jumped — mild penalty
+        _puffSyncPenalty = true;
+      }
+    } else if (_puffSync < 0 && jumping) {
+      // No pufflings syncing yet — fallback to basic jump check
+      matchType = 'puff';
+      _puffSyncBonus = 1.0;
+    }
   }
 
   // --- Jelly: Stand still within 6m + tap SPACE in rhythm (requires pitch-lock to jelly) ---
@@ -141,7 +159,8 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       attunementTarget = matchType;
       attunement = 0;
     }
-    attunement += ATTUNE_RATE * dt;
+    const rateMulti = matchType === 'puff' ? _puffSyncBonus : 1.0;
+    attunement += ATTUNE_RATE * rateMulti * dt;
     if (attunement >= 1.0 && playerFrequency !== matchType) {
       attunement = 1.0;
       playerFrequency = matchType;
@@ -156,7 +175,9 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
     }
   } else if (attunementTarget && attunement > 0 && !playerFrequency) {
     // Decay when not matching (but don't decay once frequency is carried)
-    attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
+    // Mild penalty for mistimed puff jumps: 2× decay rate
+    const decayMulti = _puffSyncPenalty && attunementTarget === 'puff' ? 2.0 : 1.0;
+    attunement = Math.max(0, attunement - ATTUNE_DECAY * decayMulti * dt);
     if (attunement === 0) attunementTarget = null;
   }
 

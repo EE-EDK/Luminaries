@@ -90,6 +90,24 @@ export function updateHum(dt, inputY, nearestCreatures) {
   // Invert: top of screen = high pitch
   humTarget = HUM_FREQ_MAX - inputY * (HUM_FREQ_MAX - HUM_FREQ_MIN);
 
+  // Magnetic snapping — gently pull toward nearby creature band center
+  for (let i = 0; i < BANDS.length; i++) {
+    const band = BANDS[i];
+    const delta = Math.abs(humTarget - band.center);
+    if (delta >= band.tol * 1.5) continue;
+    let dist2 = Infinity;
+    switch (band.type) {
+      case 'deer':  dist2 = nearestCreatures.deerDist2;  break;
+      case 'moth':  dist2 = nearestCreatures.mothDist2;  break;
+      case 'jelly': dist2 = nearestCreatures.jellyDist2; break;
+      case 'puff':  dist2 = nearestCreatures.puffDist2;  break;
+    }
+    if (dist2 > RESONANCE_RANGE2) continue;
+    const proximity = 1.0 - delta / (band.tol * 1.5);
+    humTarget += (band.center - humTarget) * 0.25 * proximity;
+    break;
+  }
+
   // Smooth pitch glide (~80ms time constant)
   const glideRate = 12; // ~1/0.08
   humPitch += (humTarget - humPitch) * Math.min(glideRate * dt, 1);

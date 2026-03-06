@@ -210,6 +210,17 @@ const _humLightColor = new Color(0x668888); // pre-allocated for hum color blend
 let _humResonanceType = null;    // which creature band is resonating (prev frame)
 let _humResonanceStr = 0;        // 0–1 resonance strength (prev frame)
 
+// Slider DOM refs for visual feedback
+const _humThumbEl = document.getElementById('hum-thumb');
+const _humBandColors = {
+  deer:  'rgba(136,221,255,',
+  moth:  'rgba(204,255,170,',
+  jelly: 'rgba(170,204,255,',
+  puff:  'rgba(255,170,136,',
+};
+let _humSliderDirty = false; // track whether slider styles need reset
+let _nearestPuffSyncPhase = -1; // 0–1 hop phase of nearest syncing puffling (-1 = none)
+
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
 // ================================================================
@@ -1270,6 +1281,7 @@ function updatePuffs(dt, t) {
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
   _nearestPuffDist2 = Infinity;
+  _nearestPuffSyncPhase = -1;
   const curAttune = getAttunement();
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
@@ -1289,7 +1301,7 @@ function updatePuffs(dt, t) {
     }
 
     // Startle check (also startled by nearby fleeing deer — Item 6: cross-species)
-    if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle') {
+    if (p.state !== 'startled' && p.state !== 'following' && p.state !== 'huddle' && p.state !== 'syncing') {
       const startleR = sprinting ? 3.5 : 2.0;
       let startled = pDist2 < startleR * startleR;
       if (!startled) {
@@ -1323,6 +1335,20 @@ function updatePuffs(dt, t) {
     // Following: cautiously approach idle player (3s idle, 15m range)
     if (playerIdleTime > 3 && pDist2 < 225 && p.state === 'idle' && Math.random() < 0.004) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
+    }
+
+    // Syncing: enter rhythmic co-jump when player pitch-locks to puff (15m range)
+    if (isLocked() && getLockType() === 'puff' && pDist2 < 225 &&
+        (p.state === 'idle' || p.state === 'hop' || p.state === 'following')) {
+      if (p.state !== 'syncing') {
+        p.state = 'syncing';
+        p._syncTimer = 0;
+      }
+    }
+    // Exit syncing when lock lost or player moves away
+    if (p.state === 'syncing' && (!isLocked() || getLockType() !== 'puff' || pDist2 > 400)) {
+      p.state = 'idle'; p.idleTimer = 1.5 + Math.random() * 2;
+      g.position.y = p._baseY; p.shell.scale.set(1, 1, 1);
     }
 
     // Update terrain-relative base Y — smooth interpolation to prevent snapping
@@ -1471,6 +1497,36 @@ function updatePuffs(dt, t) {
         }
         g.rotation.z = Math.sin(t * 8) * 0.05;
         g.position.y = p._baseY;
+        break;
+      }
+      case 'syncing': {
+        // Rhythmic co-jump: 1.8s cycle, face player, bigger hops
+        const SYNC_PERIOD = 1.8;
+        p._syncTimer += dt;
+        const syncPhase = (p._syncTimer % SYNC_PERIOD) / SYNC_PERIOD; // 0–1
+        // Face the player
+        g.rotation.y = Math.atan2(player.pos.x - px, player.pos.z - pz);
+        // Hop arc: airborne during phase 0.15–0.75, grounded otherwise
+        if (syncPhase > 0.15 && syncPhase < 0.75) {
+          const hopFrac = (syncPhase - 0.15) / 0.6;
+          g.position.y = p._baseY + Math.sin(hopFrac * Math.PI) * 0.4;
+          const sq = 1.0 - Math.sin(hopFrac * Math.PI) * 0.18;
+          const st = 1.0 + Math.sin(hopFrac * Math.PI) * 0.25;
+          p.shell.scale.set(sq, st, sq);
+        } else {
+          g.position.y = p._baseY;
+          // Pre-hop crouch (anticipation squash)
+          const crouchFrac = syncPhase < 0.15 ? syncPhase / 0.15 : (syncPhase - 0.75) / 0.25;
+          p.shell.scale.set(1.0 + crouchFrac * 0.08, 1.0 - crouchFrac * 0.1, 1.0 + crouchFrac * 0.08);
+        }
+        // Extra glow during sync
+        if (p.bodyMat) {
+          p.bodyMat.emissiveIntensity = 0.5 + 0.4 * Math.sin(syncPhase * Math.PI);
+        }
+        // Track nearest syncing puffling's phase for attunement system
+        if (pDist2 < _nearestPuffDist2 || _nearestPuffSyncPhase < 0) {
+          if (pDist2 < 225) _nearestPuffSyncPhase = syncPhase;
+        }
         break;
       }
     }
@@ -2698,6 +2754,13 @@ function director(dt, t) {
   if (justLocked()) {
     playPitchLockSound(getLockType());
     _attuneFlashTimer = 0.3;
+    // Flash slider thumb bright white on lock confirmation
+    if (_humThumbEl) {
+      _humThumbEl.style.background = 'rgba(255,255,255,0.95)';
+      _humThumbEl.style.boxShadow = '0 0 20px 10px rgba(255,255,255,0.8)';
+      _humThumbEl.style.transform = 'scale(1.5)';
+      _humSliderDirty = true;
+    }
   }
 
   // Resonance ring particles — spawn ~3/sec when resonance > 0
@@ -2726,6 +2789,29 @@ function director(dt, t) {
   _humResonanceType = _humResType;
   _humResonanceStr = _humRes;
 
+  // Slider visual feedback — thumb glow + lock progress
+  if (_humThumbEl) {
+    if (isHumming() && _humRes > 0.1 && _humResType) {
+      const cBase = _humBandColors[_humResType];
+      const alpha = 0.4 + _humRes * 0.6;
+      const lp = getLockProgress();
+      const spread = lp * 8;
+      const glowA = 0.3 + lp * 0.7;
+      const scale = 1.0 + lp * 0.3;
+      _humThumbEl.style.background = cBase + alpha + ')';
+      _humThumbEl.style.borderColor = cBase + '1)';
+      _humThumbEl.style.boxShadow = '0 0 ' + (spread + 4) + 'px ' + spread + 'px ' + cBase + glowA + ')';
+      _humThumbEl.style.transform = 'scale(' + scale + ')';
+      _humSliderDirty = true;
+    } else if (_humSliderDirty) {
+      _humThumbEl.style.background = 'rgba(100,255,180,.35)';
+      _humThumbEl.style.borderColor = 'rgba(100,255,180,.5)';
+      _humThumbEl.style.boxShadow = 'none';
+      _humThumbEl.style.transform = 'scale(1)';
+      _humSliderDirty = false;
+    }
+  }
+
   // --- Centralized attunement update (after all creature loops) ---
   const _attuneJumping = !player.onGround;
   const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
@@ -2737,7 +2823,8 @@ function director(dt, t) {
     nearestMothDist2: _nearestMothDist2, nearestMothPos: _nearestMothPos,
     playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
     sprinting: _attuneSprinting,
-    playerX: player.pos.x, playerZ: player.pos.z, time: t
+    playerX: player.pos.x, playerZ: player.pos.z, time: t,
+    nearestPuffSyncPhase: _nearestPuffSyncPhase
   });
   // Handle attunement flash (one-time trigger when reaching 1.0)
   if (checkFlash()) {

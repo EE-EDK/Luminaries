@@ -1313,14 +1313,18 @@ function updatePuffs(dt, t) {
       }
     }
 
-    // Following: cautiously approach idle player (lowered from 8s to 5s for Phase 2 curiosity)
-    if (playerIdleTime > 5 && pDist2 < 144 && p.state === 'idle' && Math.random() < 0.002) {
+    // Following: cautiously approach idle player (3s idle, 15m range)
+    if (playerIdleTime > 3 && pDist2 < 225 && p.state === 'idle' && Math.random() < 0.004) {
       p.state = 'following'; p._followT = 10 + Math.random() * 10;
     }
 
-    // Update terrain-relative base Y only when moved enough (avoid per-frame noise calc)
+    // Update terrain-relative base Y — smooth interpolation to prevent snapping
     const pdx2 = px - p._lastTX, pdz2 = pz - p._lastTZ;
-    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) { p._baseY = getGroundY(px, pz); p._lastTX = px; p._lastTZ = pz; }
+    if (pdx2 * pdx2 + pdz2 * pdz2 > 0.04) {
+      const targetY = getGroundY(px, pz);
+      p._baseY += (targetY - p._baseY) * Math.min(dt * 8, 1); // ~125ms smoothing
+      p._lastTX = px; p._lastTZ = pz;
+    }
 
     // Batch 2 Item 7: Puffling flocking — gather neighbors for boid forces
     const puffPos = { x: px, z: pz };
@@ -1358,6 +1362,11 @@ function updatePuffs(dt, t) {
           // Bias hop direction toward flock center
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5 + flockAng * 0.3; p.hopTimer = 0;
+          // Steer away from nearby trees before hopping
+          const avF = avoidObstacles({ x: px, z: pz }, p.wanderAng, trees_data, 2, 0.8);
+          if (avF.x * avF.x + avF.z * avF.z > 0.01) {
+            p.wanderAng += Math.atan2(avF.z, avF.x) * 0.5;
+          }
         }
         break;
       }
@@ -1367,16 +1376,15 @@ function updatePuffs(dt, t) {
         const frac = p.hopTimer / hopDur;
         if (frac >= 1.0) {
           p.state = 'idle'; p.idleTimer = (1.5 + Math.random() * 3) * puffIdleMult; g.position.y = p._baseY;
-          p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
+          p.shell.scale.set(1, 1, 1);
         } else {
           g.position.y = p._baseY + Math.sin(frac * Math.PI) * 0.3;
           g.position.x += Math.sin(p.wanderAng) * p.speed * puffSpeedMult * dt;
           g.position.z += Math.cos(p.wanderAng) * p.speed * puffSpeedMult * dt;
-          // Squash/stretch on body + head only — face meshes stay undistorted
+          // Squash/stretch entire shell so all parts deform together
           const sq = 1.0 - Math.sin(frac * Math.PI) * 0.15;
           const st = 1.0 + Math.sin(frac * Math.PI) * 0.2;
-          p.body.scale.set(sq, st, sq);
-          p.head.scale.set(sq, st, sq);
+          p.shell.scale.set(sq, st, sq);
           g.rotation.y = p.wanderAng;
         }
         break;
@@ -1389,11 +1397,10 @@ function updatePuffs(dt, t) {
         // Scatter with separation force (Batch 2 Item 7)
         g.position.x += Math.sin(p.wanderAng) * p.speed * 2 * dt + sep.x * 0.5 * dt;
         g.position.z += Math.cos(p.wanderAng) * p.speed * 2 * dt + sep.z * 0.5 * dt;
-        p.body.scale.set(0.85, 1.3, 0.85);
-        p.head.scale.set(0.85, 1.3, 0.85);
+        p.shell.scale.set(0.85, 1.3, 0.85);
         if (p._scaredT <= 0) {
           p.state = 'idle'; p.idleTimer = 3 + Math.random() * 3;
-          g.position.y = p._baseY; p.body.scale.set(1, 1, 1); p.head.scale.set(1, 1, 1);
+          g.position.y = p._baseY; p.shell.scale.set(1, 1, 1);
         }
         break;
       }
@@ -1457,6 +1464,24 @@ function updatePuffs(dt, t) {
         g.rotation.z = Math.sin(t * 8) * 0.05;
         g.position.y = p._baseY;
         break;
+      }
+    }
+
+    // Tree collision — push pufflings out of tree trunks
+    if (p.state !== 'idle') {
+      const _ppx = g.position.x, _ppz = g.position.z;
+      for (let ti = 0; ti < trees_data.length; ti++) {
+        const tr = trees_data[ti];
+        const tdx = _ppx - tr.x, tdz = _ppz - tr.z;
+        const td2 = tdx * tdx + tdz * tdz;
+        if (td2 > 9) continue; // skip trees > 3m away (fast reject)
+        const treeR = (tr.scale || 1) * 0.8 + 0.3; // trunk radius + puffling radius
+        if (td2 < treeR * treeR && td2 > 0.001) {
+          const td = Math.sqrt(td2);
+          const push = (treeR - td) / td;
+          g.position.x += tdx * push;
+          g.position.z += tdz * push;
+        }
       }
     }
 

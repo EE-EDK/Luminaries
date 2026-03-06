@@ -34,11 +34,12 @@ npm run build        # Production build to dist/
 
 **Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 9 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
-**Phase 2 (Symbiotic Attunement): 13/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
+**Phase 2 (Symbiotic Attunement): 14/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
 
 Implemented:
 1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
-2. **Creature Attunement** — DONE: All 4 types — jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look) (`systems/attunement.js`)
+2. **Creature Attunement** — DONE: All 4 types — jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by spirit hum pitch-lock (`systems/attunement.js`)
+2b. **Spirit Hum + Resonance Tuning** — DONE: Two-phase creature unlock; right-click/slider pitch control, 4 creature frequency bands, resonance glow, ring particles (`systems/spiritHum.js`, `particles/resonanceRings.js`)
 3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questManager.js`)
 4. **Stillness/Curiosity** — DONE: Jelly drift, deer flee shrink, moth orbit shift, puffling follow (`main.js`)
 5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`core/player.js`)
@@ -50,7 +51,7 @@ Implemented:
 11. **Shooting Star Wishes** — DONE: 5 wish levels gated by orbs, dual perspective (`world/sky.js`)
 12. **Finale/Transform/Free Roam** — DONE: Overlay text + FREE_ROAM endgame state
 
-Remaining (8 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
+Remaining (7 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
 
 ## Critical Rules
 
@@ -128,6 +129,8 @@ These are non-negotiable. Every session must follow them.
 | Day/night + bioGlow | `src/systems/dayNightCycle.js` |
 | Sector dimming | `src/systems/dimming.js` → `getLocalGlow()`, `initDimming()` |
 | Creature attunement | `src/systems/attunement.js` → `updateAttunement()`, `getPlayerFrequency()`, `consumeFrequency()` |
+| Spirit hum system | `src/systems/spiritHum.js` → `startHum()`, `updateHum()`, `isLocked()`, `getLockType()` |
+| Resonance ring particles | `src/particles/resonanceRings.js` → `initResonanceRings()`, `spawnResonanceRing()` |
 | Discovery text + narrative | `src/systems/discoveries.js` → `togglePerspective()`, `getPerspective()`, dual child/adult labels |
 | Intro sequence | `src/systems/intro.js` (title, narration, pixie, mushrooms, puffling) |
 | Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |

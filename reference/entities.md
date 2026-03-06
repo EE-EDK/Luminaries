@@ -25,12 +25,16 @@
 
 ## Fauna (4 types)
 
-| Entity | Count | Cull Distance | File | Builder | States | Audio |
-|--------|-------|---------------|------|---------|--------|-------|
-| Jellies | 35 | 55m | `entities/fauna/jellies.js` | `makeJelly()` | drift, pulse | Glass harmonica (360-420Hz) |
-| Pufflings | 40 | 40m | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander | 3-note chirp arpeggio (500-750Hz) |
-| Deer | 12 | 60m | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee | Distant horn (100-130Hz) |
-| Moths | 35 | 45m | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit) | Whisper-flutter (200-280Hz) |
+| Entity | Count | Cull Distance | File | Builder | States | Audio | Resonance Band |
+|--------|-------|---------------|------|---------|--------|-------|----------------|
+| Jellies | 35 | 55m | `entities/fauna/jellies.js` | `makeJelly()` | drift, pulse | Glass harmonica (360-420Hz) | 390Hz ±40 |
+| Pufflings | 40 | 40m | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander | 3-note chirp arpeggio (500-750Hz) | 550Hz ±45 |
+| Deer | 12 | 60m | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee | Distant horn (100-130Hz) | 120Hz ±30 |
+| Moths | 35 | 45m | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit) | Whisper-flutter (200-280Hz) | 240Hz ±35 |
+
+### Creature Resonance Bands (Spirit Hum)
+
+Each creature type has a pitch band. The player must hold right-click to hum and match the creature's frequency within ±tolerance for 2 seconds to "lock" before behavior-based attunement can begin. Creatures within 20m glow brighter when their band is matched. See `src/systems/spiritHum.js` for the state machine and `src/particles/resonanceRings.js` for visual feedback.
 
 ### Deer AI Detail
 - **Flee radius:** 8m (`DEER_FLEE_R`)
@@ -70,6 +74,7 @@
 | Leaves | — | `particles/leaves.js` | init/spawn/update | Wind-driven |
 | Footprints | — | `particles/footprints.js` | init/spawn/update | Player movement |
 | Rain | — | `particles/rain.js` | init/update | Weather state (LIGHT_RAIN, HEAVY_RAIN, LUMINOUS_STORM) |
+| Resonance Rings | 12 | `particles/resonanceRings.js` | init/spawn/update | Spirit hum pitch within creature band + creature nearby |
 
 ## Tree LOD System
 

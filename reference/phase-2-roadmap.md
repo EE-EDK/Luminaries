@@ -14,7 +14,8 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
 | 1 | **The Dimming** — Sector-based bioGlow suppression | `systems/dimming.js`, `main.js`, `constants.js` | Low | **DONE** |
-| 2 | **Creature Attunement** — Behavior matching + frequency carry | `systems/attunement.js`, `main.js` | Medium | **DONE** — All 4 types: jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look) |
+| 2 | **Creature Attunement** — Behavior matching + frequency carry | `systems/attunement.js`, `main.js` | Medium | **DONE** — All 4 types: jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by Spirit Hum pitch-lock (Phase 1: right-click + match frequency → Phase 2: behavior) |
+| 2b | **Spirit Hum + Resonance Tuning** — Two-phase unlock gate | `systems/spiritHum.js`, `particles/resonanceRings.js`, `input.js`, `audio.js` | Medium | **DONE** — Right-click/mobile slider pitch control (80-700Hz), 4 creature resonance bands (deer 120Hz, moth 240Hz, jelly 390Hz, puffling 550Hz), visual resonance rings, creature glow feedback, pitch-lock chime |
 | 3 | **Orb Activation Gate** — Require carried frequency | `quest/questManager.js` | Low | **DONE** — Frequency check + reject hint + 3s cooldown |
 | 4 | **Stillness/Curiosity** — Creatures approach stationary player | `main.js` | Low | **DONE** — Jelly drift toward idle player, deer flee radius 8→4m, moth orbit shift, puffling follow |
 
@@ -99,7 +100,7 @@ Weather modifiers multiply the base rate. bioGlow multiplies the rate. See `refe
 
 ## Progress Summary
 
-**13 of 21 features implemented.** Tier 1 complete. Core gameplay loop functional. 8 features remaining:
+**14 of 21 features implemented.** Tier 1 complete. Core gameplay loop functional. 7 features remaining:
 
 | Remaining | Priority |
 |-----------|----------|

@@ -90,3 +90,9 @@ Flag in your response if adding:
 - Any new canvas texture > 1024x1024
 - Any new post-processing pass
 - Any `Math.random()` or `new` allocation inside the animation loop
+
+## Spirit Hum & Resonance Performance Notes
+
+- **Resonance rings:** 12-sprite pool (`RingGeometry`, `AdditiveBlending`, `depthWrite: false`). Negligible draw call impact — meshes invisible when inactive.
+- **Spirit hum audio:** 5 audio nodes (3 oscillators + 1 LFO + 1 resonance). All disconnected on `stopSpiritHumAudio()` to prevent accumulation.
+- **Creature resonance glow:** Uses previous-frame state (1-frame lag, imperceptible) to avoid reordering the director loop. No additional allocations.

@@ -279,6 +279,23 @@ if (entity.stateTimer <= 0) {
 - **Module-scoped state** — state lives at module scope, not in closures or globals
 - **No `Math.random()` for placement** — use `sr()` (seeded RNG). `Math.random()` only for runtime variation (particle effects, etc.)
 
+## 11. Spirit Hum Gate Pattern
+
+Used to gate attunement behind a pitch-matching prerequisite:
+
+```js
+// In attunement.js — gate behavior behind pitch-lock:
+import { isLocked, getLockType } from './spiritHum.js';
+
+const _locked = isLocked();
+const _lockTarget = getLockType();
+if (_locked && _lockTarget === 'puff' && jumping && dist2 < threshold) {
+  matchType = 'puff';
+}
+```
+
+Key functions: `startHum()`, `stopHum()`, `updateHum(dt, inputY, nearestCreatures)`, `isLocked()`, `getLockType()`, `getResonance()`, `getResonanceType()`, `resetLock()`.
+
 ## Source Code Lore (4th Wall Layer)
 
 The source code contains an embedded narrative layer for F12 inspectors. This is a deliberate design choice that fits the adult "Chronobiological Archive" narrative from `reference/MANIFESTO.md`.

@@ -215,3 +215,8 @@ export function resetLock() {
   humActive = false;
   _justLocked = false;
 }
+
+// Refresh lock decay timer — called by attunement when actively gaining
+export function refreshLock() {
+  if (pitchLocked) lockDecay = HUM_LOCK_DECAY;
+}

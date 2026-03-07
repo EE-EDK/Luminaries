@@ -18,7 +18,7 @@
 //   They just know.
 
 import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2 } from '../constants.js';
-import { isLocked, getLockType, resetLock } from './spiritHum.js';
+import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
 
 // ================================================================
 // Constants
@@ -152,6 +152,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       attunement = 0;
     }
     attunement += ATTUNE_RATE * dt + _puffJumpChunk;
+    refreshLock(); // keep lock alive while actively building attunement
     if (attunement >= 1.0 && playerFrequency !== matchType) {
       attunement = 1.0;
       playerFrequency = matchType;

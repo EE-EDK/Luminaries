@@ -20,6 +20,7 @@ const _creatureGlowHex = { puff: C.puffGlow, deer: C.deerGlow, jelly: C.jellyGlo
 
 // Dimming state
 let smoothedDimFactor = 0.35;
+export function getSmoothedDimFactor() { return smoothedDimFactor; }
 
 // ================================================================
 // Constellation camera pan state

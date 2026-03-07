@@ -3352,24 +3352,32 @@ function animate() {
   if (_camPanActive) {
     _camPanTimer += dt;
     if (_camPanTimer >= CAM_PAN_TOTAL) {
-      // Done — set player facing the constellation and release
-      setYaw(_camPanTargetYaw);
-      setPitch(_camPanTargetPitch);
+      // Done — return control to player at saved look direction
+      setYaw(_camPanSavedYaw);
+      setPitch(_camPanSavedPitch);
       _camPanActive = false;
-      _finalYaw = _camPanTargetYaw;
-      _finalPitch = _camPanTargetPitch;
+      _finalYaw = _camPanSavedYaw;
+      _finalPitch = _camPanSavedPitch;
     } else {
       let t;
+      const lerpOutStart = CAM_PAN_LERP_IN + CAM_PAN_HOLD;
       if (_camPanTimer < CAM_PAN_LERP_IN) {
-        // Smooth pan toward constellation
+        // Phase 1: Smooth pan toward constellation
         t = _camPanTimer / CAM_PAN_LERP_IN;
+        const ease = t * t * (3 - 2 * t); // smoothstep
+        _finalYaw = _camPanSavedYaw + (_camPanTargetYaw - _camPanSavedYaw) * ease;
+        _finalPitch = _camPanSavedPitch + (_camPanTargetPitch - _camPanSavedPitch) * ease;
+      } else if (_camPanTimer < lerpOutStart) {
+        // Phase 2: Hold on constellation
+        _finalYaw = _camPanTargetYaw;
+        _finalPitch = _camPanTargetPitch;
       } else {
-        // Hold + gentle ease to full lock
-        t = 1.0;
+        // Phase 3: Smooth return to saved look direction
+        t = (_camPanTimer - lerpOutStart) / CAM_PAN_LERP_OUT;
+        const ease = t * t * (3 - 2 * t); // smoothstep
+        _finalYaw = _camPanTargetYaw + (_camPanSavedYaw - _camPanTargetYaw) * ease;
+        _finalPitch = _camPanTargetPitch + (_camPanSavedPitch - _camPanTargetPitch) * ease;
       }
-      const ease = t * t * (3 - 2 * t); // smoothstep
-      _finalYaw = _camPanSavedYaw + (_camPanTargetYaw - _camPanSavedYaw) * ease;
-      _finalPitch = _camPanSavedPitch + (_camPanTargetPitch - _camPanSavedPitch) * ease;
     }
   }
 

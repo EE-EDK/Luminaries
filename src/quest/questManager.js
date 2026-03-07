@@ -414,7 +414,7 @@ export function updateQuest(dt, t) {
     // Fade in over 2 seconds with gentle pulse
     const fadeIn = Math.min(face.revealTimer / 2.0, 1.0);
     const pulse = Math.sin(t * 1.5 + fi * 1.57) * 0.1 + 0.9;
-    face.mat.opacity = fadeIn * 0.6 * pulse;
+    face.mat.opacity = fadeIn * 0.85 * pulse;
   }
 
   // --- Pinnacle orb + rings animation ---

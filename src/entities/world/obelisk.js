@@ -57,13 +57,13 @@ export function makeObelisk() {
     const fAngle = (fi / 4) * 6.28 + Math.PI / 4;
     for (let rl = 0; rl < 3; rl++) {
       const ry = 6 + rl * 4;
-      const rune = new Mesh(new CylinderGeometry(0.015, 0.015, 0.8, 3), faceMat);
-      rune.position.set(Math.cos(fAngle) * 1.6, ry, Math.sin(fAngle) * 1.6);
+      const rune = new Mesh(new CylinderGeometry(0.04, 0.04, 1.0, 4), faceMat);
+      rune.position.set(Math.cos(fAngle) * 1.62, ry, Math.sin(fAngle) * 1.62);
       rune.rotation.z = Math.PI / 2; rune.rotation.y = -fAngle;
       rune.visible = false; g.add(rune); faceMeshes.push(rune);
     }
-    const vRune = new Mesh(new CylinderGeometry(0.012, 0.012, 2.5, 3), faceMat);
-    vRune.position.set(Math.cos(fAngle) * 1.6, 12, Math.sin(fAngle) * 1.6);
+    const vRune = new Mesh(new CylinderGeometry(0.035, 0.035, 3.0, 4), faceMat);
+    vRune.position.set(Math.cos(fAngle) * 1.62, 12, Math.sin(fAngle) * 1.62);
     vRune.visible = false; g.add(vRune); faceMeshes.push(vRune);
     runeFaces.push({ mat: faceMat, meshes: faceMeshes, revealed: false, revealTimer: 0 });
   }

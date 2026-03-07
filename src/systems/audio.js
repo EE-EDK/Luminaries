@@ -838,7 +838,7 @@ export function playPufflingSinging(position, playerPos, sectorRestored, attunem
 // ================================================================
 // Attunement Flash — Triumphant ascending arpeggio at full sync
 // ================================================================
-export function playAttunementFlash(position, playerPos) {
+export function playAttunementFlash(position, playerPos, creatureType) {
   if (!initialized || muted) return;
 
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
@@ -908,6 +908,38 @@ export function playAttunementFlash(position, playerPos) {
   connectWithReverb(panner, masterGain, 0.6);
   lfo.start(now);
   lfo.stop(now + degrees.length * noteDur + 1.5);
+
+  // ================================================================
+  // Enhancement 3: Harmonic Drone Swell — "the forest resonates"
+  // ================================================================
+  // Sustained pad beneath the arpeggio: creature center freq + 5th + octave
+  // 3s attack → 4s decay = 7s total. Outlasts the arpeggio significantly.
+  let droneHz = 300;
+  switch (creatureType) {
+    case 'deer':  droneHz = 120; break;
+    case 'moth':  droneHz = 240; break;
+    case 'jelly': droneHz = 390; break;
+    case 'puff':  droneHz = 550; break;
+  }
+  const droneFreqs = [droneHz, droneHz * 1.5, droneHz * 2]; // root, 5th, octave
+  const dronePanner = ctx.createStereoPanner();
+  dronePanner.pan.value = pan * 0.3; // subtle spatial offset
+  connectWithReverb(dronePanner, masterGain, 0.7);
+
+  for (let di = 0; di < droneFreqs.length; di++) {
+    const dOsc = ctx.createOscillator();
+    dOsc.type = 'triangle';
+    dOsc.frequency.value = droneFreqs[di];
+    const dG = ctx.createGain();
+    // 3s attack → hold briefly → 4s decay
+    dG.gain.setValueAtTime(0, now);
+    dG.gain.linearRampToValueAtTime(0.02, now + 3.0);
+    dG.gain.setValueAtTime(0.02, now + 3.2);
+    dG.gain.exponentialRampToValueAtTime(0.001, now + 7.0);
+    dOsc.connect(dG).connect(dronePanner);
+    dOsc.start(now);
+    dOsc.stop(now + 7.2);
+  }
 }
 
 // ================================================================

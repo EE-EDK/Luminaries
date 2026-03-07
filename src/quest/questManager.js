@@ -8,6 +8,7 @@ import { setGroundTransform } from '../world/ground.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 import { revealConstellation } from '../world/sky.js';
 import { showFinaleText, showTransformText, showFreeRoamText } from '../systems/discoveries.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(0xffffff);
@@ -306,6 +307,10 @@ export function updateQuest(dt, t) {
           if (startResonanceDroneFn) startResonanceDroneFn(orbsFound);
           // Constellation reveal — one creature pattern per orb
           revealConstellation(orbsFound - 1);
+          // Emit event for decoupled systems (audio, dimming, particles, narrative)
+          emit(Events.ORB_COLLECTED, {
+            orbIndex: i, orbsFound, x: o.x, y: o.group.position.y, z: o.z
+          });
           // Progressive rune reveal — one face per orb (up to 4 faces)
           const faceIdx = orbsFound - 1;
           if (faceIdx < runeFaces.length) {
@@ -324,6 +329,7 @@ export function updateQuest(dt, t) {
           // No frequency — orb rejects with dim pulse + hint
           if (playOrbRejectFn) playOrbRejectFn();
           if (showOrbRejectHintFn) showOrbRejectHintFn();
+          emit(Events.ORB_REJECTED, { orbIndex: i });
           orbRejectCooldown = 3; // 3s between rejection hints
         }
       }

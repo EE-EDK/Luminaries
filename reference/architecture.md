@@ -64,20 +64,27 @@ index.html
 constants.js ──→ Entity counts, physics values, colors (C object)
      │              Immutable. Never changes at runtime.
      │
-state.js ──────→ Legacy shared mutable state (arrays, player, quest state)
-     │              Being phased out. main.js owns most state now.
+kernel/ ───────→ Modular infrastructure layer
+     │   eventBus.js   → Typed pub/sub (Events.ORB_COLLECTED, etc.)
+     │   registry.js   → Entity storage (EntityType.JELLIES → live array)
+     │   scheduler.js  → Ordered phase runner (Phase.FAUNA_UPDATE, etc.)
+     │   context.js    → Pre-allocated per-frame snapshot (dt, player, bioGlow...)
      │
-main.js ───────→ Module-scoped arrays: trees_data[], mush_data[], crys_data[],
-     │           jellies[], puffs[], deers[], moths[], flowers[], etc.
-     │           These are the LIVE entity arrays.
+main.js ───────→ Bootstrap + entity arrays (still module-scoped, also in registry)
+     │           director() calls runScheduler() which runs all systems in phase order.
      │
-     ├─→ director(dt, t):
-     │     Per-frame loop over ALL entities.
-     │     Reads: player.pos, bioGlow, windX/Z, weatherState, t
-     │     Writes: entity positions, materials, visibility, particle spawns
+     ├─→ Systems registered with scheduler:
+     │     crystalProximity → particleSpawn → floraGlow → fauna → spiritHum →
+     │     attunement → sky → vegetation → rocks → magical → particles →
+     │     quest → footprints → audio → discoveries
      │
-     └─→ Audio callbacks: passed via config objects to quest/entity systems.
-           audio.js is NEVER imported directly by entity files.
+     ├─→ Event bus: cross-cutting concerns flow through eventBus
+     │     Quest emits ORB_COLLECTED → audio, dimming, discoveries subscribe
+     │     Player emits FOOTSTEP, JUMP, LAND → audio subscribes
+     │
+     └─→ Audio callbacks: BOTH event bus AND legacy callback injection work.
+           audio.js subscribes to events in initAudio().
+           Legacy callbacks remain for backward compatibility during migration.
 ```
 
 ## Spawn Order (Critical for Correct Heights)
@@ -152,13 +159,15 @@ initQuest({
 
 | Directory | Files | Lines | Purpose |
 |-----------|-------|-------|---------|
-| `main.js` | 1 | 2,356 | Orchestration hub |
+| `main.js` | 1 | ~1,100 | Bootstrap + director subsystem functions |
+| `kernel/` | 4 (+tests) | ~300 | Event bus, registry, scheduler, context |
 | `core/` | 6 | ~450 | Engine infrastructure |
 | `world/` | 4 | ~1,200 | World generation |
 | `entities/` | 29 | ~5,500 | Entity builders |
 | `particles/` | 10 | ~1,000 | Particle systems |
-| `systems/` | 8 | ~2,000 | Audio, weather, day/night, AI, spiritHum |
+| `systems/` | 9 | ~2,200 | Audio, weather, day/night, AI, spiritHum, registration |
 | `quest/` | 2 | ~900 | Quest state machine |
+| `updates/` | 5 | ~800 | Extracted fauna/vegetation/magical/spawning |
 | `ui/` | 2 | ~100 | HUD elements |
 | `utils/` | 2 | ~50 | RNG, math helpers |
-| **Total** | **66** | **~13,300** | |
+| **Total** | **~75** | **~13,600** | |

@@ -17,6 +17,7 @@
 //   We still don't know what caused The Dimming in the first place.
 
 import { DIMMING_FACTOR, DIMMING_WAVE_SPEED, ORB_N } from '../constants.js';
+import { on, Events } from '../kernel/eventBus.js';
 
 let orbs = null;
 
@@ -39,6 +40,8 @@ export function initDimming(orbsArray) {
   for (let i = 0; i < orbs.length; i++) {
     waves.push({ active: false, elapsed: 0, radius: 0 });
   }
+  // Subscribe to kernel events (decoupled alternative to callback)
+  on(Events.ORB_COLLECTED, (d) => { notifyOrbCollected(d.orbIndex); });
 }
 
 // ================================================================

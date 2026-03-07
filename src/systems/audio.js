@@ -14,6 +14,7 @@
 //   no names. There shouldn't be names.
 
 import { setupMusic, updateMusic as _updateMusic } from './music.js';
+import { on, Events } from '../kernel/eventBus.js';
 
 let ctx = null;
 let masterGain = null;
@@ -199,6 +200,19 @@ export function initAudio() {
       waterNode = wt.node; waterGain = wt.gain; waterFilter = wt.filter;
 
       initialized = true;
+
+      // Subscribe to kernel events (decoupled from callback injection)
+      on(Events.ORB_COLLECTED, () => { playOrbCollect(); });
+      on(Events.ORB_REJECTED, () => { playOrbReject(); });
+      on(Events.FOOTSTEP, (d) => { playFootstep(d.sprinting, d.nearWater); });
+      on(Events.JUMP, () => { playJumpSound(); });
+      on(Events.LAND, (d) => { playLandSound(d.impactStrength); });
+      on(Events.FAIRY_BOUNCE, () => { playFairyBounce(); });
+      on(Events.BUBBLE_POP, (d) => { playBubblePop(d.x, d.y, d.z); });
+      on(Events.CREATURE_SOUND, (d) => { playCreatureSound(d.type, d.vol); });
+      on(Events.CREATURE_ATTUNED, (d) => { playAttunementFlash(d.pos, d.playerPos, d.type); });
+      on(Events.PITCH_LOCKED, (d) => { playPitchLockSound(d.type); });
+
     } catch (e) {
       console.warn('Audio init failed:', e);
     }

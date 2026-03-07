@@ -5,6 +5,8 @@
 // crystal chains, and ponds. Displays brief atmospheric text.
 // Phase 2: Dual narrative (child / adult perspective).
 
+import { on, Events } from '../kernel/eventBus.js';
+
 const discovered = {
   deer: false,
   puffling: false,
@@ -60,6 +62,9 @@ export function initDiscoveries() {
     'pointer-events:none;opacity:0;transition:opacity 0.6s;z-index:100;' +
     'letter-spacing:3px;text-transform:uppercase;';
   document.body.appendChild(discoveryEl);
+
+  // Subscribe to kernel events (decoupled alternative to callback)
+  on(Events.ORB_COLLECTED, (d) => { showOrbDiscovery(d.orbsFound - 1); });
 }
 
 function showDiscovery(key) {

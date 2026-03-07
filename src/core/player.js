@@ -4,6 +4,7 @@ import { camera } from './renderer.js';
 import { playerLight } from './lighting.js';
 import { getInput, keys, yaw, pitch, touchJump, setTouchJump, touchSprint } from './input.js';
 import { getGroundY } from '../world/terrain.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 // Player state
 // You start at (0, 1.7, 0). Eye height of an average human adult.
@@ -54,6 +55,7 @@ export function updatePlayer(dt) {
   if ((keys['Space'] || touchJump) && player.onGround) {
     player.vel.y = JUMP_IMPULSE; player.onGround = false; setTouchJump(false);
     if (onJumpFn) onJumpFn();
+    emit(Events.JUMP);
   }
   // Track pre-landing velocity for cushion
   if (!player.onGround) landingVelY = player.vel.y;
@@ -69,6 +71,7 @@ export function updatePlayer(dt) {
       landingDip = impactStrength * 0.15;
       if (spawnDustBurstFn) spawnDustBurstFn(player.pos.x, player.pos.z, Math.floor(3 + impactStrength * 5));
       if (onLandFn) onLandFn(impactStrength);
+      emit(Events.LAND, { impactStrength });
     }
     player.onGround = true;
   }
@@ -118,7 +121,10 @@ export function updatePlayer(dt) {
   // Footstep detection: trigger on bob phase crossing downward through zero
   if (moving && onStepFn) {
     const curSign = Math.sin(headBobPhase) >= 0 ? 1 : -1;
-    if (prevBobSign > 0 && curSign < 0) onStepFn(sprinting);
+    if (prevBobSign > 0 && curSign < 0) {
+      onStepFn(sprinting);
+      emit(Events.FOOTSTEP, { sprinting, nearWater: false });
+    }
     prevBobSign = curSign;
   }
 

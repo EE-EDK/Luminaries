@@ -53,7 +53,7 @@ export function triggerCameraPan(orbsFound, yaw, pitch, getConstellationDir) {
       while (yawDiff > Math.PI) yawDiff -= 2 * Math.PI;
       while (yawDiff < -Math.PI) yawDiff += 2 * Math.PI;
       _camPanTargetYaw = _camPanSavedYaw + yawDiff;
-      _camPanTargetPitch = -(Math.PI / 2 - cDir.phi);
+      _camPanTargetPitch = Math.PI / 2 - cDir.phi;
     }
   }
   _camPanOrbsPrev = orbsFound;

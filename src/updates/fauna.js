@@ -255,7 +255,7 @@ export function updatePuffs(puffs, dt, t, ctx) {
     if (_puffLocked && pDist2 < 900 &&
         (p.state === 'idle' || p.state === 'hop' || p.state === 'following')) {
       p.state = 'syncing';
-      p._syncTimer = 0;
+      p._syncTimer = 0.15 * 1.8; // start at hop phase for immediate visual feedback
       if (p.bodyMat) p.bodyMat.emissiveIntensity = 3.0;
       if (p.crownMat) p.crownMat.emissiveIntensity = 2.0;
     }

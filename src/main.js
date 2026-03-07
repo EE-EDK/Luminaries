@@ -184,11 +184,17 @@ let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
 const _playerLightColor = new Color(PLAYER_LIGHT_COLORS[0]);
 const _playerLightTargetColor = new Color(PLAYER_LIGHT_COLORS[0]);
 let _prevOrbsFound = 0; // track orb count changes for player light transitions
+const _flashCreatureColor = new Color(); // pre-allocated for creature color overlay during flash
+
+// Creature glow hex map for flash color effects
+const _creatureGlowHex = { puff: C.puffGlow, deer: C.deerGlow, jelly: C.jellyGlow, moth: C.mothGlow };
 
 // ================================================================
 // Attunement visual state
 // ================================================================
-let _attuneFlashTimer = 0; // decays after full-attunement flash
+let _attuneFlashTimer = 0; // decays after full-attunement flash (2.5s extended window)
+let _attuneFlashType = null; // creature type that triggered flash (for color effects)
+let _echoTimer = 0; // creature echo calls — other creatures respond to unlock
 let _nearestPuffDist2 = Infinity; // updated per frame during puffling loop
 let _nearestPuffPos = { x: 0, z: 0 }; // position of nearest puffling
 let _nearestJellyDist2 = Infinity; // updated per frame during jelly loop
@@ -1271,6 +1277,8 @@ function updateJellies(dt, t) {
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 36) ? (1.0 + getAttunement() * 1.2) : 1.0;
     const jellyResMult = (_humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
     j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult;
+    // Enhancement 7: Creature echo — jellies pulse brighter when another creature type is attuned
+    if (_echoTimer > 0 && _attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += _echoTimer * 0.35;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
     // Tip bulb twinkling — random sparkle effect on tentacle tips
     if (j.tipMat) {
@@ -1642,6 +1650,8 @@ function updatePuffs(dt, t) {
       } else if (p.bodyMat) {
         p.bodyMat.emissiveIntensity = 0.5;
       }
+      // Enhancement 7: Creature echo — pufflings glow brighter when another creature type is attuned
+      if (_echoTimer > 0 && _attuneFlashType !== 'puff' && pDist2 < 900 && p.bodyMat) p.bodyMat.emissiveIntensity += _echoTimer * 0.35;
     }
     // Ground glow disc — visible warm pool beneath each puffling
     if (p.glowMat) {
@@ -1979,6 +1989,8 @@ function updateDeers(dt, t) {
     const deerAttuneMult = (getAttunementTarget() === 'deer' && pDist2 < 144) ? (1.0 + getAttunement() * 0.8) : 1.0;
     const deerResMult = (_humResonanceType === 'deer' && pDist2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
     d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow * deerAttuneMult * deerResMult;
+    // Enhancement 7: Creature echo — deer glow brighter when another creature type is attuned
+    if (_echoTimer > 0 && _attuneFlashType !== 'deer' && pDist2 < 900) d.mat.emissiveIntensity += _echoTimer * 0.35;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -2234,6 +2246,8 @@ function updateMoths(dt, t) {
     const mothAttuneMult = (getAttunementTarget() === 'moth' && _mhd2 < 64) ? (1.0 + getAttunement() * 1.0) : 1.0;
     const mothResMult = (_humResonanceType === 'moth' && _mhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
     m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * mothAttuneMult * mothResMult;
+    // Enhancement 7: Creature echo — moths glow brighter when another creature type is attuned
+    if (_echoTimer > 0 && _attuneFlashType !== 'moth' && _mhd2 < 900) m.wingMat.emissiveIntensity += _echoTimer * 0.35;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 }
@@ -2606,6 +2620,14 @@ let dirState = 'EXPLORE';
 let ffTimer = 0, spTimer = 0;
 
 function director(dt, t) {
+  // Enhancement 8: Slow-mo micro-pause — world holds its breath on attunement flash
+  // First 0.4s at 0.3× speed, then ease back to 1.0× over next 0.6s (1.0s total dilation)
+  if (_attuneFlashTimer > 1.5) { // first 1.0s of the 2.5s window
+    const dilationT = (_attuneFlashTimer - 1.5); // 1.0 → 0.0
+    const timeScale = dilationT > 0.6 ? 0.3 : (0.3 + (1.0 - dilationT / 0.6) * 0.7);
+    dt *= timeScale;
+  }
+
   timeStart('crystalProximity');
   // Crystal proximity check
   let nearCrys = false;
@@ -2673,6 +2695,10 @@ function director(dt, t) {
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
     m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, bioGlow * _orbBoost);
+    // Enhancement 2: Flora glow cascade — mushrooms within 25m pulse during flash
+    if (_attuneFlashTimer > 0 && md2 < 625) { // 25m squared
+      m.capMat.emissiveIntensity += _attuneFlashTimer * 0.6;
+    }
   }
   timeEnd('mushrooms');
 
@@ -2683,6 +2709,13 @@ function director(dt, t) {
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
     const cGlow = getLocalGlow(c.x, c.z, bioGlow * _orbBoost);
     c.mat.emissiveIntensity = (1.0 + p * 1.5) * cGlow;
+    // Enhancement 2: Crystal sympathy glow — crystals within 15m pulse during flash
+    if (_attuneFlashTimer > 0) {
+      const cdx = c.x - player.pos.x, cdz = c.z - player.pos.z;
+      if (cdx * cdx + cdz * cdz < 225) { // 15m squared
+        c.mat.emissiveIntensity += _attuneFlashTimer * 0.35;
+      }
+    }
     c.group.children[0].rotation.y += dt * 0.15;
     if (c.light) c.light.intensity = (0.3 + p * 0.4) * cGlow;
   }
@@ -2877,11 +2910,13 @@ function director(dt, t) {
   });
   // Handle attunement flash (one-time trigger when reaching 1.0)
   if (checkFlash()) {
-    _attuneFlashTimer = 0.5;
-    const flashPos = getFlashCreaturePos() || _nearestPuffPos;
-    playAttunementFlash(flashPos, player.pos);
-    // Attunement completion celebration — creature-specific
+    _attuneFlashTimer = 2.5; // Extended flash window for immersive effects
     const _flashType = getAttunementTarget();
+    _attuneFlashType = _flashType; // persist for per-frame effects
+    _echoTimer = 1.5; // Enhancement 7: other creatures respond
+    const flashPos = getFlashCreaturePos() || _nearestPuffPos;
+    playAttunementFlash(flashPos, player.pos, _flashType);
+    // Attunement completion celebration — creature-specific
     const _attuneTexts = {
       puff: { child: 'They know you now!', adult: 'Full attunement — the boundary between observer and observed dissolves' },
       deer: { child: 'You walk as one.', adult: 'Stride-locked — biosignatures indistinguishable' },
@@ -2910,8 +2945,34 @@ function director(dt, t) {
         spawnResonanceRing(ppx, getGroundY(ppx, ppz), ppz, 'puff', 1.0);
       }
     }
+    // Enhancement 6: Vertical helix ring burst at flash creature position
+    const fgY = getGroundY(flashPos.x, flashPos.z);
+    for (let hi = 0; hi < 3; hi++) {
+      spawnResonanceRing(flashPos.x, fgY + hi * 1.0, flashPos.z, _flashType || 'puff', 1.0);
+    }
   }
+
+  // Enhancement 6: Enhanced ring spawning during flash (10Hz, multi-height column)
+  if (_attuneFlashTimer > 1.0 && _attuneFlashType) {
+    _humRingTimer += dt;
+    if (_humRingTimer > 0.1) { // 10Hz during flash (vs 3Hz normal)
+      _humRingTimer = 0;
+      let rx = 0, rz = 0;
+      switch (_attuneFlashType) {
+        case 'deer':  rx = _nearestDeerPos.x; rz = _nearestDeerPos.z; break;
+        case 'moth':  rx = _nearestMothPos.x; rz = _nearestMothPos.z; break;
+        case 'jelly': rx = _nearestJellyPos.x; rz = _nearestJellyPos.z; break;
+        case 'puff':  rx = _nearestPuffPos.x; rz = _nearestPuffPos.z; break;
+      }
+      const ry = getGroundY(rx, rz);
+      // Spawn at staggered heights for column effect
+      const heightOff = (Math.random() * 2.5);
+      spawnResonanceRing(rx, ry + heightOff, rz, _attuneFlashType, 0.7 + Math.random() * 0.3);
+    }
+  }
+
   if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
+  if (_echoTimer > 0) _echoTimer -= dt;
 
   updateSky(dt, t);
   // Shooting star wishes — narrative fragments when sky-watching
@@ -3086,6 +3147,20 @@ function animate() {
   playerLight.intensity = PLAYER_LIGHT_INTENSITY[orbIdx];
   playerLight.distance = PLAYER_LIGHT_RANGE[orbIdx];
 
+  // Enhancement 4: Player light flare + creature color overlay during attunement flash
+  if (_attuneFlashTimer > 0 && _attuneFlashType) {
+    const flashNorm = _attuneFlashTimer / 2.5; // 1.0 → 0.0 over 2.5s
+    const flareEase = flashNorm * flashNorm; // quadratic ease-out
+    playerLight.intensity *= (1.0 + flareEase * 2.0); // up to 3× at peak
+    playerLight.distance *= (1.0 + flareEase * 0.5); // modest range boost
+    // Tint toward creature glow color
+    const glowHex = _creatureGlowHex[_attuneFlashType];
+    if (glowHex) {
+      _flashCreatureColor.setHex(glowHex);
+      playerLight.color.lerp(_flashCreatureColor, flareEase * 0.6);
+    }
+  }
+
   // Global dimming — blends player's current sector with overall restoration.
   // Fast lerp gives immediate feedback when crossing sector boundaries.
   // Per-entity dimming via getLocalGlow() handles individual entity glow.
@@ -3098,17 +3173,32 @@ function animate() {
 
   // Scale global rendering based on overall restoration
   const dimF = smoothedDimFactor;
-  setSaturation(dimF);
+
+  // Enhancement 1: Bloom pulse + saturation swell during attunement flash
+  // Enhancement 5: Fog density dip ("the forest clears")
+  const flashActive = _attuneFlashTimer > 0;
+  const flashNormDim = flashActive ? (_attuneFlashTimer / 2.5) : 0;
+  const flashEaseDim = flashNormDim * flashNormDim;
+
+  setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0)); // swell to +0.4 at peak
   renderer.toneMappingExposure = 0.7 + 2.1 * dimF;
   if (dimF < 1.0) {
     const desatT = 1.0 - dimF;
-    scene.fog.density *= (1.0 + 1.5 * desatT);
+    // Enhancement 5: reduce fog density during flash (forest clears momentarily)
+    const fogFlashMult = flashActive ? (1.0 - flashEaseDim * 0.3) : 1.0;
+    scene.fog.density *= (1.0 + 1.5 * desatT) * fogFlashMult;
     hemiLight.intensity *= (0.15 + 0.85 * dimF);
     playerLight.intensity *= (0.1 + 0.9 * dimF);
     playerLight.distance *= (0.25 + 0.75 * dimF);
-    if (bloomPass) bloomPass.threshold = 0.85 + desatT * 0.35;
+    // Enhancement 1: bloom threshold drops during flash for luminous wash
+    const bloomBase = 0.85 + desatT * 0.35;
+    if (bloomPass) bloomPass.threshold = bloomBase - (flashActive ? flashEaseDim * 0.55 : 0);
   } else {
-    if (bloomPass) bloomPass.threshold = 0.85;
+    // Enhancement 1 & 5: still apply bloom/fog effects even in fully restored sectors
+    if (flashActive) {
+      scene.fog.density *= (1.0 - flashEaseDim * 0.3);
+    }
+    if (bloomPass) bloomPass.threshold = 0.85 - (flashActive ? flashEaseDim * 0.55 : 0);
   }
 
   // Lightning flash (brief ambient light spike during storms)

@@ -208,8 +208,8 @@ export function initAudio() {
       on(Events.JUMP, () => { playJumpSound(); });
       on(Events.LAND, (d) => { playLandSound(d.impactStrength); });
       on(Events.FAIRY_BOUNCE, () => { playFairyBounce(); });
-      on(Events.BUBBLE_POP, (d) => { playBubblePop(d.x, d.y, d.z); });
-      on(Events.CREATURE_SOUND, (d) => { playCreatureSound(d.type, d.vol); });
+      on(Events.BUBBLE_POP, (d) => { playBubblePop(d.position, d.playerPos); });
+      on(Events.CREATURE_SOUND, (d) => { playCreatureSound(d.type, d.position, d.playerPos); });
       on(Events.CREATURE_ATTUNED, (d) => { playAttunementFlash(d.pos, d.playerPos, d.type); });
       on(Events.PITCH_LOCKED, (d) => { playPitchLockSound(d.type); });
 

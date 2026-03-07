@@ -13,6 +13,7 @@
 
 import { Color } from 'three';
 import { setSkyBrightness } from '../world/sky.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 const CYCLE_DURATION = 600; // seconds for one full cycle (10 minutes)
 
@@ -22,6 +23,7 @@ let worldTime = 0.25; // start at NIGHT — the game's natural state
 export let bioGlow = 1.0;
 export let starBrightness = 0.85;
 export let phase = 'NIGHT';
+let _prevPhase = 'NIGHT';
 
 // Injected references
 let sceneRef = null;
@@ -134,6 +136,10 @@ export function updateDayNight(dt) {
 
   // Determine current phase label
   phase = t < 0.5 ? a.label : b.label;
+  if (phase !== _prevPhase) {
+    emit(Events.DAY_PHASE_CHANGE, { from: _prevPhase, to: phase });
+    _prevPhase = phase;
+  }
 
   const mix = (va, vb) => va + (vb - va) * t;
 

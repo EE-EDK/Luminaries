@@ -10,6 +10,7 @@ import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getAttunement, getAttunementTarget, getPlayerFrequency } from '../systems/attunement.js';
 import { isLocked, getLockType } from '../systems/spiritHum.js';
 import { canSee, canHear } from '../systems/ai/senses.js';
+import { emit, Events } from '../kernel/eventBus.js';
 import { separation, cohesion, worldBounds, avoidObstacles } from '../systems/ai/steering.js';
 
 // ================================================================
@@ -85,6 +86,7 @@ export function updateJellies(jellies, dt, t, ctx) {
     if (isStorming && j._state !== 'display') {
       j._state = 'display'; j._stT = 10;
       playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
+      emit(Events.CREATURE_SOUND, { type: 'jelly', position: { x: jx, z: jz }, playerPos: player.pos });
     }
 
     switch (j._state) {
@@ -141,6 +143,7 @@ export function updateJellies(jellies, dt, t, ctx) {
     // Periodic hum sound
     if (j._state === 'pulse' && Math.random() < 0.003) {
       playCreatureSound('jelly', { x: jx, z: jz }, player.pos);
+      emit(Events.CREATURE_SOUND, { type: 'jelly', position: { x: jx, z: jz }, playerPos: player.pos });
     }
 
     // Visual updates
@@ -228,6 +231,7 @@ export function updatePuffs(puffs, dt, t, ctx) {
         p.state = 'startled'; p._scaredT = 0.6 + Math.random() * 0.5;
         p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
         playCreatureSound('puff', { x: px, z: pz }, player.pos);
+        emit(Events.CREATURE_SOUND, { type: 'puff', position: { x: px, z: pz }, playerPos: player.pos });
       }
     }
 
@@ -597,9 +601,11 @@ export function updateDeers(deers, dt, t, ctx) {
         d.state = 'flee'; d.wanderAng = pAng;
         d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
         playCreatureSound('deer', deerPos, player.pos);
+        emit(Events.CREATURE_SOUND, { type: 'deer', position: deerPos, playerPos: player.pos });
       } else if (pDist2 < alertR2 || canSee(deerPos, d.wanderAng, playerTarget, alertR, Math.PI * 0.5)) {
         d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
         playCreatureSound('deer', deerPos, player.pos);
+        emit(Events.CREATURE_SOUND, { type: 'deer', position: deerPos, playerPos: player.pos });
       }
     }
 
@@ -942,6 +948,7 @@ export function updateMoths(moths, dt, t, ctx) {
           m._stT = 6 + Math.random() * 8;
           m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
           playCreatureSound('moth', { x: mx, z: mz }, player.pos);
+          emit(Events.CREATURE_SOUND, { type: 'moth', position: { x: mx, z: mz }, playerPos: player.pos });
         }
       }
       const restChance = dayPhase === 'DAWN' ? 0.005 : (dayPhase === 'DEEP_NIGHT' ? 0.0003 : 0.001);

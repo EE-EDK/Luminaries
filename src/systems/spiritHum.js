@@ -18,6 +18,7 @@
 //   She walked beside them, humming their note. For 12 seconds,
 //   three species existed as one frequency.
 
+import { emit, Events } from '../kernel/eventBus.js';
 import {
   HUM_FREQ_MIN, HUM_FREQ_MAX, HUM_LOCK_TIME, HUM_LOCK_DECAY,
   HUM_BAND_DEER, HUM_BAND_MOTH, HUM_BAND_JELLY, HUM_BAND_PUFF
@@ -151,6 +152,7 @@ export function updateHum(dt, inputY, nearestCreatures) {
       lockType = resonanceType;
       lockDecay = HUM_LOCK_DECAY;
       _justLocked = true;
+      emit(Events.PITCH_LOCKED, { type: resonanceType });
       // Snap pitch to exact center
       for (let i = 0; i < BANDS.length; i++) {
         if (BANDS[i].type === lockType) {

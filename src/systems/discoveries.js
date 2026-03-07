@@ -5,7 +5,7 @@
 // crystal chains, and ponds. Displays brief atmospheric text.
 // Phase 2: Dual narrative (child / adult perspective).
 
-import { on, Events } from '../kernel/eventBus.js';
+import { on, emit, Events } from '../kernel/eventBus.js';
 
 const discovered = {
   deer: false,
@@ -77,6 +77,7 @@ function showDiscovery(key) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
   }
+  emit(Events.DISCOVERY, { key, text: fadeText, perspective });
 }
 
 export function showOrbDiscovery(orbIndex) {
@@ -99,6 +100,7 @@ export function showNarrativeText(text, duration) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
   }
+  emit(Events.NARRATIVE_TEXT, { text: fadeText, duration: fadeTimer });
 }
 
 // Toggle between child and adult narrative perspective

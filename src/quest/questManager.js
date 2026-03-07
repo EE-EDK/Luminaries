@@ -294,7 +294,10 @@ export function updateQuest(dt, t) {
           const hud = orbHudEl || document.getElementById('orb-hud');
           if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
           // Start rising on first orb
-          if (questPhase === 'SEEK') questPhase = 'RISING';
+          if (questPhase === 'SEEK') {
+            questPhase = 'RISING';
+            emit(Events.QUEST_PHASE, { phase: 'RISING', orbsFound });
+          }
           // Play collection sound
           if (playOrbCollectFn) playOrbCollectFn();
           // Notify dimming system — start restoration wave
@@ -398,6 +401,7 @@ export function updateQuest(dt, t) {
   // Transition to COMPLETE when fully risen
   if (orbsFound >= ORB_N && obeliskY >= -0.01 && questPhase === 'RISING') {
     questPhase = 'COMPLETE';
+    emit(Events.QUEST_PHASE, { phase: 'COMPLETE', orbsFound });
     finaleTimer = 0;
     showFinaleText();
   }
@@ -555,6 +559,7 @@ export function updateQuest(dt, t) {
 
     if (finaleTimer > 12) {
       questPhase = 'FINALE';
+      emit(Events.QUEST_PHASE, { phase: 'FINALE', orbsFound });
       console.log('✦ Quest → FINALE');
     }
   }
@@ -572,6 +577,7 @@ export function updateQuest(dt, t) {
     // After 30s of finale, begin world transformation
     if (finalePhaseTimer > 30) {
       questPhase = 'TRANSFORM';
+      emit(Events.QUEST_PHASE, { phase: 'TRANSFORM', orbsFound });
       transformTimer = 0;
       initFlashOverlay();
       showTransformText();
@@ -691,6 +697,7 @@ export function updateQuest(dt, t) {
     // Transition to FREE_ROAM after transform completes
     if (transformTimer >= 20) {
       questPhase = 'FREE_ROAM';
+      emit(Events.QUEST_PHASE, { phase: 'FREE_ROAM', orbsFound });
       _freeRoamTimer = 0;
       console.log('✦ Quest → FREE_ROAM');
     }

@@ -8,6 +8,7 @@ import { sr } from '../utils/rng.js';
 import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
 import { spawnBubblePop } from '../particles/bubblePops.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 export function updateWisps(wisps, dt, t, ctx) {
   const { player, playerIdleTime, sprinting, questPhase, orbs } = ctx;
@@ -97,6 +98,7 @@ export function updateFairyRings(fairyRings, dt, t, ctx) {
       }
       fr.glowIntensity = 1.5;
       playFairyBounce();
+      emit(Events.FAIRY_BOUNCE, { x: fr.x, z: fr.z, restored: ringRestored });
     }
     const sporeAlpha = 0.08 + fr.glowIntensity * 0.25;
     fr.sporeMat.opacity = sporeAlpha;
@@ -153,6 +155,7 @@ export function updateBubbles(bubbles, dt, t, ctx) {
       b.group.visible = false;
       spawnBubblePop(b.group.position.x, b.group.position.y, b.group.position.z, 6);
       playBubblePop(b.group.position, player.pos);
+      emit(Events.BUBBLE_POP, { position: b.group.position, playerPos: player.pos });
     }
   }
 }

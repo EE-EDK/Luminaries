@@ -7,6 +7,7 @@
 
 import { CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { scene } from '../core/renderer.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 // Live exports (read by main.js and other systems)
 export let windX = 0;
@@ -120,8 +121,10 @@ export function updateWeather(dt, t, playerPos) {
   if (blending) {
     transTimer -= dt;
     if (transTimer <= 0) {
+      const prevState = curState;
       curState = nxtState;
       nxtState = null;
+      emit(Events.WEATHER_CHANGE, { from: prevState, to: curState });
       blending = false;
       const dur = STATES[curState].duration;
       stateTimer = dur[0] + Math.random() * (dur[1] - dur[0]);

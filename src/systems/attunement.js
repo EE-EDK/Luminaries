@@ -18,6 +18,7 @@
 //   They just know.
 
 import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2 } from '../constants.js';
+import { emit, Events } from '../kernel/eventBus.js';
 import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
 
 // ================================================================
@@ -164,6 +165,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
         case 'deer': flashCreaturePos = nearestDeerPos; break;
         case 'moth': flashCreaturePos = nearestMothPos; break;
       }
+      emit(Events.CREATURE_ATTUNED, { type: matchType, pos: flashCreaturePos, playerPos: { x: creatureData.playerX, z: creatureData.playerZ } });
     }
   } else if (attunementTarget && attunement > 0 && !playerFrequency) {
     // Don't decay puff attunement while pitch-locked near pufflings (between jumps)
@@ -237,6 +239,7 @@ export function consumeFrequency() {
 // ================================================================
 export function checkFlash() {
   if (flashPending) {
+    emit(Events.ATTUNEMENT_FLASH, { type: playerFrequency, pos: flashCreaturePos });
     flashPending = false;
     return true;
   }

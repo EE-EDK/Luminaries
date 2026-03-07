@@ -129,7 +129,7 @@ import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDee
 import { updateVegetation as _updateVegetation, updateFloraReactions as _updateFloraReactions } from './updates/vegetation.js';
 import { updateWisps as _updateWisps, updateFairyRings as _updateFairyRings, updateBubbles as _updateBubbles, updatePonds as _updatePonds, updateEchoBloom as _updateEchoBloom } from './updates/magicalEntities.js';
 import { populate as _populate } from './populate.js';
-import { updatePlayerVisuals as _updatePlayerVisuals, triggerCameraPan, updateCameraPan } from './updates/playerVisuals.js';
+import { updatePlayerVisuals as _updatePlayerVisuals, triggerCameraPan, updateCameraPan, getSmoothedDimFactor } from './updates/playerVisuals.js';
 import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
 
 // Discoveries
@@ -275,7 +275,7 @@ function updateVegetation(dt, t) {
 // Shared context for extracted vegetation update functions
 function _vegCtx() {
   return {
-    player, windStrength, windX, windZ, bioGlow, _orbBoost, smoothedDimFactor, camera,
+    player, windStrength, windX, windZ, bioGlow, _orbBoost, smoothedDimFactor: getSmoothedDimFactor(), camera,
     treeMeshes, treeImpostors, ferns, flowers, reeds,
     thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
     orbbushes, lanternpods, veilmosses, groundGlows

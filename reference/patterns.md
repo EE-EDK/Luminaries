@@ -193,6 +193,23 @@ import { initModule } from './entity/module.js';
 initModule({ onSound: playSound });
 ```
 
+## 6b. Event Bus Pattern (Modern Alternative)
+
+Systems can subscribe to kernel events instead of using callback injection:
+
+```js
+// In systems/audio.js initAudio():
+import { on, Events } from '../kernel/eventBus.js';
+on(Events.ORB_COLLECTED, (d) => playOrbCollect());
+on(Events.FOOTSTEP, (d) => playFootstep(d.sprinting, d.nearWater));
+
+// In quest/questManager.js when orb collected:
+import { emit, Events } from '../kernel/eventBus.js';
+emit(Events.ORB_COLLECTED, { orbIndex: i, orbsFound, x: o.x, y: o.group.position.y, z: o.z });
+```
+
+Prefer event bus for new cross-cutting communication. Callback injection remains valid for existing code.
+
 ## 7. Flat Zone Registration Pattern
 
 Large entities (ponds, fairy rings) register flat zones before other entities place:

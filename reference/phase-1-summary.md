@@ -108,9 +108,9 @@ Build a complete, performant, atmospheric 3D bioluminescent forest exploration e
 
 ## Known Technical Debt
 
-1. **`state.js` redundancy** — Legacy shared state module still exists but main.js has migrated most state to module scope. Some dual definitions (quest state in both places).
+1. [RESOLVED] **`state.js` deleted** — All state migrated to main.js module scope and kernel registry.
 2. **`howler` in package.json** — Never used. All audio is Web Audio API.
-3. **main.js size** — 2,356 lines. The `director()` function handles all updates. Could benefit from extraction into per-system update modules.
+3. [RESOLVED] **`main.js` refactored** — Director extracted into scheduler-based subsystem functions registered in `systems/registration.js`.
 4. **No save/load** — Game resets on page refresh.
 5. **No accessibility** — No screen reader support, no colorblind modes, no reduced motion.
 
@@ -118,8 +118,8 @@ Build a complete, performant, atmospheric 3D bioluminescent forest exploration e
 
 | Metric | Value |
 |--------|-------|
-| Source files | 64 |
-| Lines of code | ~13,000 |
+| Source files | ~75 |
+| Lines of code | ~13,600 |
 | Entity types | 29 |
 | Particle systems | 9 |
 | Audio voices | 15+ synthesis types |

@@ -7,7 +7,7 @@
 
 ```
 index.html
-  └── src/main.js (2,356 lines — the orchestrator)
+  └── src/main.js (~1,100 lines — bootstrap + scheduler)
         │
         ├── BOOTSTRAP ─────────────────────────────────────────
         │   ├── core/renderer.js     → renderer, camera, scene, clock

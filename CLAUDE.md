@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~13,000 lines across 64 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
+Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~13,600 lines across ~75 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
 
 **Live:** https://ee-edk.github.io/Luminaries/
 
@@ -12,6 +12,7 @@ Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ 
 npm install          # First time
 npm run dev          # http://localhost:5173
 npm run build        # Production build to dist/
+npm test             # Run unit tests (kernel modules)
 ```
 
 ## Context Loading
@@ -24,7 +25,7 @@ npm run build        # Production build to dist/
 | `reference/entities.md` | Complete registry: all 29 entity types, 9 particle systems, counts, cull distances, builders | Adding/modifying entities |
 | `reference/patterns.md` | 10 canonical code patterns with full examples (entity builder, particle pool, culling, state machine, etc.) | Writing any new code |
 | `reference/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |
-| `reference/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection | Audio work |
+| `reference/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection + event bus | Audio work |
 | `reference/procedural-audio-engine-protocol.md` | Production methodology for zero-asset Web Audio API synthesis (voice pools, scheduling, anti-clicking, spatial audio) | Audio architecture |
 | `reference/phase-1-summary.md` | Everything built in Phase 1, completion checklist, known debt | Understanding current state |
 | `reference/phase-2-roadmap.md` | 21 prioritized implementation items for Phase 2 (from MANIFESTO.md) | Planning Phase 2 work |
@@ -76,7 +77,7 @@ These are non-negotiable. Every session must follow them.
 - **Material sharing:** Lift non-modulated materials to module scope with `_` prefix (e.g., `_rockMat`). Keep per-instance materials only when `emissiveIntensity` or other properties are individually animated at runtime.
 
 ### Audio Rules
-- Entity files **NEVER** import audio.js. Use callback injection through main.js.
+- Entity files **NEVER** import audio.js. Use callback injection through main.js OR subscribe via kernel eventBus (preferred for new code).
 - Guard every audio function: `if (!initialized || muted) return;`
 - Volumes: 0.02-0.08 per voice. Always call `.stop(time)` to prevent node accumulation.
 - Connect through `connectWithReverb(gain, masterGain, wetAmount)`.
@@ -94,19 +95,19 @@ These are non-negotiable. Every session must follow them.
 2. Add colors to `C` object in `constants.js`
 3. Create `src/entities/<category>/newEntity.js` — export `makeNewEntity()` following the builder pattern in `reference/patterns.md`
 4. Import and call in `main.js` `populate()`
-5. Add update logic in `director()` with visibility culling
+5. Register update as a scheduler system via `addSystem()` in `systems/registration.js`, or add to an existing `_director*` function in `main.js`
 6. Check light budget if entity emits light
 
 ### Adding a New Particle System
 1. Create `src/particles/newParticle.js` with `init*()`, `spawn*()`, `update*()` — pattern in `reference/patterns.md`
 2. Import in `main.js`, call `init*()` in init block
-3. Call `update*()` in director, `spawn*()` on trigger conditions
+3. Call `update*()` in a scheduler system or `_director*` function, `spawn*()` on trigger conditions
 
 ### Adding a New Sound
 1. Add function in `audio.js` with `if (!initialized || muted) return` guard
 2. Build oscillator/noise chain → gain envelope → `connectWithReverb()`
 3. Always call `.stop(time)`. Keep volume 0.02-0.08.
-4. Export from audio.js, import in main.js, pass as callback to consuming system
+4. Export from audio.js. Either import in main.js and pass as callback, or subscribe to an eventBus event in `audio.js` `initAudio()`
 
 ### Implementing Remaining Phase 2 Features
 1. Read `reference/phase-2-roadmap.md` for remaining items (8 of 21)
@@ -120,7 +121,7 @@ These are non-negotiable. Every session must follow them.
 | What | Where |
 |------|-------|
 | All constants + colors | `src/constants.js` |
-| Animation loop + director | `src/main.js` (line ~1891 for director) |
+| Animation loop + scheduler | `src/main.js` → `director()` calls `runScheduler()` |
 | Player physics | `src/core/player.js` |
 | Terrain height | `src/world/terrain.js` → `getGroundY()` |
 | Audio system | `src/systems/audio.js` (32KB) |
@@ -136,6 +137,11 @@ These are non-negotiable. Every session must follow them.
 | Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
 | Game guide | `GAME_GUIDE.md` (player-facing, update as features change) |
+| Kernel event bus | `src/kernel/eventBus.js` → `Events`, `on()`, `emit()` |
+| Kernel registry | `src/kernel/registry.js` → `register()`, `get()`, `EntityType` |
+| Kernel scheduler | `src/kernel/scheduler.js` → `addSystem()`, `Phase`, `run()` |
+| Kernel frame context | `src/kernel/context.js` → `update()`, `ctx` |
+| System registration | `src/systems/registration.js` → `registerAllSystems()`, `nearest` |
 
 ## Recent Optimizations
 
@@ -156,8 +162,7 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 
 ## Known Technical Debt
 
-1. **`state.js`** — Legacy shared state. Most state migrated to main.js module scope but some duplication remains (quest state in both places).
-2. **`main.js` size** — ~2,900 lines. The `director()` function is the monolith (now instrumented with perfMonitor). Should extract per-system update modules.
-3. **No save/load** — Game resets on refresh.
-4. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
-5. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).
+1. **`main.js` size** — ~1,100 lines. Director refactored into named `_director*` subsystem functions registered with kernel scheduler. Further extraction into independent system files is possible.
+2. **No save/load** — Game resets on refresh.
+3. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
+4. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).

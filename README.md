@@ -59,6 +59,7 @@ npm run dev       # → http://localhost:5173
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve production build locally |
+| `npm test` | Run unit tests (kernel modules) |
 
 ---
 
@@ -66,8 +67,9 @@ npm run dev       # → http://localhost:5173
 
 ```
 src/
-├── main.js              # Entry point — orchestration hub (2,356 lines)
+├── main.js              # Entry point — bootstrap + scheduler (~1,100 lines)
 ├── constants.js         # All constants + color palette (C object)
+├── kernel/              # Infrastructure: event bus, registry, scheduler, context
 ├── core/                # Engine: renderer, camera, lighting, input, player, bloom
 ├── world/               # World gen: terrain, ground texture, sky dome, aurora
 ├── entities/
@@ -81,9 +83,9 @@ src/
 └── ui/                  # HUD + overlay
 ```
 
-**64 source files. ~13,000 lines of code. Zero external assets.**
+**~75 source files. ~13,600 lines of code. Zero external assets.**
 
-The `director()` function in `main.js` is the central update hub — every entity, particle, system, and UI element updates through it each frame. World generation uses seeded RNG (seed 42) for deterministic placement.
+The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame updates through registered subsystems. Systems communicate via a typed event bus. World generation uses seeded RNG (seed 42) for deterministic placement.
 
 ---
 

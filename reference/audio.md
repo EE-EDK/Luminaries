@@ -87,6 +87,22 @@ initQuest({
 });
 ```
 
+### Event Bus Alternative (Modern)
+
+Audio.js now also subscribes to kernel events in `initAudio()`:
+
+```js
+on(Events.ORB_COLLECTED, () => playOrbCollect());
+on(Events.FOOTSTEP, (d) => playFootstep(d.sprinting, d.nearWater));
+on(Events.JUMP, () => playJumpSound());
+on(Events.LAND, (d) => playLandSound(d.impactStrength));
+on(Events.FAIRY_BOUNCE, () => playFairyBounce());
+on(Events.BUBBLE_POP, (d) => playBubblePop(d.x, d.y, d.z));
+// ... 10 event types total
+```
+
+For new audio triggers, prefer emitting a kernel event over callback injection.
+
 ## Adding New Sounds
 
 Pattern for any new sound in `audio.js`:

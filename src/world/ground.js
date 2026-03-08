@@ -406,6 +406,88 @@ export function createGround() {
       }
       `
     );
+
+    // ================================================================
+    // Micro-grit color detail — sand/soil grain visible up close
+    // ================================================================
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#include <map_fragment>
+
+      // Shared world-space coords + distance fade for all ground detail
+      vec2 gWP = vWorldPos.xz;
+      float detailFade = 1.0 - smoothstep(400.0, 900.0, vPlayerDist2); // ~20-30m fade
+
+      // --- Micro-grit detail (sand/soil grain visible up close) ---
+      float grit1 = gNoise(gWP * 8.0 + 500.0);   // coarse grain
+      float grit2 = gNoise(gWP * 20.0 + 700.0);   // fine grain
+      // Subtle brightness modulation: +/-8% from base color
+      float gritMod = 1.0 + (grit1 - 0.5) * 0.08 + (grit2 - 0.5) * 0.04;
+      gritMod = mix(1.0, gritMod, detailFade);      // fade at distance
+      diffuseColor.rgb *= gritMod;
+      // Slight warm/cool shift (earth tones)
+      float warmShift = (grit1 - 0.5) * 0.02 * detailFade;
+      diffuseColor.r += warmShift;
+      diffuseColor.b -= warmShift * 0.5;
+      `
+    );
+
+    // ================================================================
+    // Roughness variation — wet moss vs dry earth
+    // ================================================================
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <roughnessmap_fragment>',
+      `#include <roughnessmap_fragment>
+
+      // --- Roughness variation (wet moss vs dry earth) ---
+      float rNoise = gFbm(gWP * 0.12 + 50.0);      // large-scale wet/dry zones
+      float rDetail = gNoise(gWP * 0.6 + 150.0);    // medium-scale patches
+      float rFine = gNoise(gWP * 2.5 + 250.0);      // fine variation
+      // Map noise to roughness range: 0.55 (wet/mossy) to 0.95 (dry earth)
+      float wetness = smoothstep(0.35, 0.65, rNoise); // 0=wet, 1=dry
+      float roughVar = mix(0.55, 0.95, wetness);
+      roughVar += (rDetail - 0.5) * 0.1;              // medium patch variation
+      roughVar += (rFine - 0.5) * 0.04;               // fine grain
+      roughnessFactor = clamp(roughVar, 0.45, 1.0);
+      `
+    );
+
+    // ================================================================
+    // Procedural normal perturbation — micro-terrain relief
+    // ================================================================
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_maps>',
+      `#include <normal_fragment_maps>
+
+      // --- Procedural normal perturbation (pebbles, soil clumps, root ridges) ---
+      {
+        float eps = 0.15;
+        float nScale = 0.8;
+        float nStr = 0.35 * detailFade; // fade bump at distance
+
+        // FBM gradient via finite difference
+        float h0 = gFbm(gWP * nScale);
+        float hx = gFbm((gWP + vec2(eps, 0.0)) * nScale);
+        float hz = gFbm((gWP + vec2(0.0, eps)) * nScale);
+
+        // Higher frequency pebble detail
+        float dScale = 3.5;
+        float dStr = 0.15;
+        h0 += gNoise(gWP * dScale) * dStr;
+        hx += gNoise((gWP + vec2(eps, 0.0)) * dScale) * dStr;
+        hz += gNoise((gWP + vec2(0.0, eps)) * dScale) * dStr;
+
+        // Perturb surface normal
+        vec3 bumpN = normalize(normal + vec3(
+          -(hx - h0) / eps * nStr,
+          0.0,
+          -(hz - h0) / eps * nStr
+        ));
+        normal = bumpN;
+      }
+      `
+    );
+
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>

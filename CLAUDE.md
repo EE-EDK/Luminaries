@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~13,600 lines across ~75 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
+Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. ~14,000 lines across ~86 ES module files. Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
 
 **Live:** https://ee-edk.github.io/Luminaries/
 
@@ -22,7 +22,7 @@ npm test             # Run unit tests (kernel modules)
 | File | What It Covers | Read When |
 |------|---------------|-----------|
 | `reference/architecture.md` | System dependency graph, data flow, spawn order, director pattern, module interfaces | **Always read first** |
-| `reference/entities.md` | Complete registry: all 29 entity types, 9 particle systems, counts, cull distances, builders | Adding/modifying entities |
+| `reference/entities.md` | Complete registry: all 29 entity types, 11 particle systems, counts, cull distances, builders | Adding/modifying entities |
 | `reference/patterns.md` | 10 canonical code patterns with full examples (entity builder, particle pool, culling, state machine, etc.) | Writing any new code |
 | `reference/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |
 | `reference/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection + event bus | Audio work |
@@ -33,7 +33,7 @@ npm test             # Run unit tests (kernel modules)
 
 ## Current Phase
 
-**Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 9 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
+**Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 11 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
 **Phase 2 (Symbiotic Attunement): 14/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
 
@@ -52,7 +52,7 @@ Implemented:
 11. **Shooting Star Wishes** — DONE: 5 wish levels gated by orbs, dual perspective (`world/sky.js`)
 12. **Finale/Transform/Free Roam** — DONE: Overlay text + FREE_ROAM endgame state
 
-Remaining (7 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
+Remaining (8 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
 
 ## Critical Rules
 
@@ -151,7 +151,7 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - **Shadow autoUpdate** disabled; throttled to ~1Hz manual updates
 - **Tree frustum culling** — camera-aware per-instance culling in `updateTreeLOD()` with generous sphere radius
 - **Shared materials** — 10 module-scoped materials in mushrooms, 9 in crystals (300+ fewer material instances)
-- **Named imports** — All 54 source files converted from `import * as THREE` to named imports for tree-shaking
+- **Named imports** — All source files converted from `import * as THREE` to named imports for tree-shaking
 - **Terser build** — 2-pass compression, `drop_console`, `toplevel` mangle, `es2020` target
 - **perfMonitor** — Dev-only EMA timing per director subsystem + `renderer.info` monitoring (tree-shaken in production)
 - **Intro overhaul** — Dramatic title with CSS mushrooms and animated puffling, multi-layer noise pixie with dust particles, slower narration pacing (7s per card)

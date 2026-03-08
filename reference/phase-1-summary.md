@@ -65,7 +65,7 @@ Build a complete, performant, atmospheric 3D bioluminescent forest exploration e
 - [x] 5 quest orbs (gold glow, proximity sense/touch)
 - [x] 60 rocks, 1 obelisk, 1 moat, 6 rainbow arcs
 
-### Particles (100% — 9 systems)
+### Particles (100% — 11 systems)
 - [x] Fireflies, spores, dust, seeds, star motes
 - [x] Bubble pops, leaves, footprints, rain
 
@@ -118,10 +118,10 @@ Build a complete, performant, atmospheric 3D bioluminescent forest exploration e
 
 | Metric | Value |
 |--------|-------|
-| Source files | ~75 |
-| Lines of code | ~13,600 |
+| Source files | ~86 |
+| Lines of code | ~14,000 |
 | Entity types | 29 |
-| Particle systems | 9 |
+| Particle systems | 11 |
 | Audio voices | 15+ synthesis types |
 | Draw calls (typical) | 80-120 |
 | FPS (desktop) | 30-60 |

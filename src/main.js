@@ -75,7 +75,7 @@ import { makePond } from './entities/magical/ponds.js';
 import { makeOrb } from './entities/magical/orbs.js';
 
 // Entities — World
-import { makeRock, makeBoulder, initPebbles, addPebble, finalizePebbles } from './entities/world/rocks.js';
+import { initProceduralRocks, placeProceduralRock, finalizeProceduralRocks, updateProceduralRocks, initPebbles, addPebble, finalizePebbles } from './entities/world/rocks.js';
 import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings, getRuneFaces } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
 import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/world/rainbows.js';
@@ -671,43 +671,7 @@ function _directorSkyWish(dt, t) {
 
 function _directorRocks(dt, t) {
   timeStart('rocks');
-  const rpx = player.pos.x, rpy = player.pos.y, rpz = player.pos.z;
-  for (let i = 0; i < rocks_data.length; i++) {
-    const rk = rocks_data[i];
-    const rx = rk.x || rk.group.position.x, rz = rk.z || rk.group.position.z;
-    const rrx = rx - rpx, rry = (rk.group.position.y || 0) - rpy, rrz = rz - rpz;
-    const rd2 = rrx * rrx + rry * rry + rrz * rrz;
-    if (rd2 > 2500) { if (rk.group.visible) rk.group.visible = false; continue; }
-    if (!rk.group.visible) rk.group.visible = true;
-    if (!rk.sparkles) continue;
-    if (rd2 > 400) continue;
-    let crystalBoost = 0;
-    for (let ci = 0; ci < crys_data.length; ci++) {
-      const cdx = crys_data[ci].x - rx, cdz = crys_data[ci].z - rz;
-      const cd2 = cdx * cdx + cdz * cdz;
-      if (cd2 < 100) {
-        crystalBoost = Math.max(crystalBoost, (1 - Math.sqrt(cd2) / 10) * 0.6);
-      }
-    }
-    const prx = rx - player.pos.x, prz = rz - player.pos.z;
-    const pd2 = prx * prx + prz * prz;
-    const playerGlow = pd2 < 25 ? (1 - Math.sqrt(pd2) / 5) * 0.3 : 0;
-    let chainFlash = 0;
-    if (echoBloom.center && echoBloom.radius > 0) {
-      const edx = rx - echoBloom.center.x, edz = rz - echoBloom.center.z;
-      const ed = Math.sqrt(edx * edx + edz * edz);
-      if (Math.abs(ed - echoBloom.radius) < 3) {
-        chainFlash = (1 - Math.abs(ed - echoBloom.radius) / 3) * 0.8;
-      }
-    }
-    for (let si = 0; si < rk.sparkles.length; si++) {
-      const baseSparkle = Math.sin(t * 4 + i * 2.3 + si * 1.7) * 0.35;
-      rk.sparkles[si].material.opacity = 0.15 + baseSparkle + crystalBoost + playerGlow + chainFlash;
-    }
-    if (rk.mossMat && playerGlow > 0) {
-      rk.mossMat.emissiveIntensity = 0.05 + playerGlow * 0.4 * Math.sin(t * 2 + i) * 0.5 + 0.5;
-    }
-  }
+  updateProceduralRocks(player.pos.x, player.pos.y, player.pos.z, camera);
   timeEnd('rocks');
 }
 
@@ -954,7 +918,8 @@ try {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
     makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth,
     makeGrassPatch, makeFern, makeFlower, makeReed,
-    makeRock, makeBoulder, initPebbles, addPebble, finalizePebbles,
+    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
+    initPebbles, addPebble, finalizePebbles,
     makeWisp, makeDandelion, makeFairyRing, makeBubble, makePond, makeOrb,
     makeThornbloom, makeHelixvine, makeSnapthorn, makeSpiralFrond,
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss

@@ -71,7 +71,8 @@ export function populate(arrays, builders, scene) {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
     makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth,
     makeGrassPatch, makeFern, makeFlower, makeReed,
-    makeRock, makeBoulder, initPebbles, addPebble, finalizePebbles,
+    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
+    initPebbles, addPebble, finalizePebbles,
     makeWisp, makeDandelion, makeFairyRing, makeBubble, makePond, makeOrb,
     makeThornbloom, makeHelixvine, makeSnapthorn, makeSpiralFrond,
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss
@@ -286,7 +287,8 @@ export function populate(arrays, builders, scene) {
     grassPatches.push(gp);
     keepOutZones.push({ x: gx, z: gz, r2: rad * rad });
   }
-  // Rocks
+  // Rocks — SDF instanced procedural rocks
+  initProceduralRocks();
   for (let i = 0; i < ROCK_N; i++) {
     let rx, rz, ok4 = false;
     for (let a = 0; a < 10; a++) {
@@ -296,14 +298,13 @@ export function populate(arrays, builders, scene) {
       if (ok4) break;
     }
     if (ok4) {
-      const r = makeRock(rx, rz);
-      r.group.position.y = getGroundY(rx, rz) - 0.08;
-      tiltToSlope(r.group, rx, rz, 0.5);
-      rocks_data.push(r);
+      const gy = getGroundY(rx, rz);
+      const info = placeProceduralRock(rx, rz, gy, false);
+      rocks_data.push({ x: rx, z: rz, colR: info.colR });
       keepOutZones.push({ x: rx, z: rz, r2: 2.25 });
     }
   }
-  // Boulders — large dramatic formations
+  // Boulders — large SDF instanced formations
   for (let i = 0; i < BOULDER_N; i++) {
     let bx, bz, ok5 = false;
     for (let a = 0; a < 10; a++) {
@@ -313,13 +314,13 @@ export function populate(arrays, builders, scene) {
       if (ok5) break;
     }
     if (ok5) {
-      const b = makeBoulder(bx, bz);
-      b.group.position.y = getGroundY(bx, bz) - 0.3;
-      tiltToSlope(b.group, bx, bz, 0.6);
-      rocks_data.push(b);
+      const gy = getGroundY(bx, bz);
+      const info = placeProceduralRock(bx, bz, gy, true);
+      rocks_data.push({ x: bx, z: bz, colR: info.colR });
       keepOutZones.push({ x: bx, z: bz, r2: 9 });
     }
   }
+  finalizeProceduralRocks();
   // Pebbles — scattered tiny stones near rocks and trees
   initPebbles();
   for (let i = 0; i < PEBBLE_N; i++) {

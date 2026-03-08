@@ -27,9 +27,18 @@ export const GRASS_PATCHES = 1200; // GPU vertex shader, zero CPU cost
 export const FERN_N = 160;         // visibility-culled beyond 40m (3x)
 export const FLOWER_N = 140;       // visibility-culled beyond 40m (3x)
 export const REED_N = 40;          // visibility-culled beyond 40m
-export const ROCK_N = 60;          // visibility-culled beyond 50m
-export const BOULDER_N = 12;       // large dramatic rock formations
+export const ROCK_N = 350;         // SDF instanced procedural rocks
+export const BOULDER_N = 50;       // large SDF instanced boulders
 export const PEBBLE_N = 250;       // tiny scattered stones (InstancedMesh)
+
+// SDF Rock Generation
+export const ROCK_SHAPES = 6;                     // unique SDF rock templates
+export const ROCK_LOD_DISTS = [0, 625, 2500];     // squared distances for LOD switching
+export const ROCK_LOD_RES = [16, 8, -1];          // marching cubes res (-1 = impostor)
+export const ROCK_VIEW_DIST2 = 3600;              // 60m squared — cull beyond this
+export const ROCK_SDF_CUTS_MIN = 10;
+export const ROCK_SDF_CUTS_MAX = 18;
+export const ROCK_GROUND_SINK = 0.35;             // sink 35% of height into ground
 export const WISP_N = 6;
 export const DANDELION_N = 25;
 export const FAIRY_RING_N = 8;

@@ -70,7 +70,7 @@ export const DIMMING_FACTOR = 0.18;        // bioGlow multiplier in unrestored s
 export const DIMMING_WAVE_SPEED = 30;      // Restoration wave expansion speed (m/s)
 export const ATTUNE_RATE = 0.15;           // Attunement gain per second when matching
 export const ATTUNE_DECAY = 0.05;          // Attunement loss per second when not matching
-export const ATTUNE_SPRINT_R2 = 64;        // Squared distance for puffling sprint attunement (8m)
+export const ATTUNE_JUMP_R2 = 225;         // Squared distance: must co-jump within 15m
 export const FAIRY_RING_R = 2.5;           // Fairy ring radius
 export const FAIRY_BOUNCE = 6;             // Fairy ring bounce impulse
 // Player light evolution: PLAYER_LIGHT_COLORS, PLAYER_LIGHT_INTENSITY, PLAYER_LIGHT_RANGE (6-level arrays)

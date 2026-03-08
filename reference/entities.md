@@ -61,7 +61,7 @@ Each creature type has a pitch band. The player must hold right-click to hum and
 | Moat | 1 | `entities/world/moat.js` | `makeMoat()` | Ring around obelisk, fades in during finale |
 | Rainbows | 6 arcs | `entities/world/rainbows.js` | `makeRainbows()` | Finale effect, 6 colors + sparkle chains |
 
-## Particles (9 systems)
+## Particles (11 systems)
 
 | System | Pool Size | File | Pattern | Spawn Trigger |
 |--------|-----------|------|---------|---------------|
@@ -75,6 +75,7 @@ Each creature type has a pitch band. The player must hold right-click to hum and
 | Footprints | — | `particles/footprints.js` | init/spawn/update | Player movement |
 | Rain | — | `particles/rain.js` | init/update | Weather state (LIGHT_RAIN, HEAVY_RAIN, LUMINOUS_STORM) |
 | Resonance Rings | 12 | `particles/resonanceRings.js` | init/spawn/update | Spirit hum pitch within creature band + creature nearby |
+| Orb Burst | — | `particles/orbBurst.js` | init/spawn/update | Orb collection golden burst |
 
 ## Tree LOD System
 

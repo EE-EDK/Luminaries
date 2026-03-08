@@ -30,8 +30,8 @@ index.html
         │   └── entities/world/       → 4 types (rocks, obelisk, moat, rainbows)
         │
         ├── PARTICLE INIT ─────────────────────────────────────
-        │   └── particles/            → 10 systems (fireflies, spores, dust, seeds, starMotes,
-        │                               bubblePops, leaves, footprints, rain, resonanceRings)
+        │   └── particles/            → 11 systems (fireflies, spores, dust, seeds, starMotes,
+        │                               bubblePops, leaves, footprints, rain, resonanceRings, orbBurst)
         │
         ├── SYSTEM INIT ───────────────────────────────────────
         │   ├── systems/audio.js      → initAudio() → Web Audio API graph
@@ -120,7 +120,7 @@ main.js ───────→ Bootstrap + entity arrays (still module-scoped,
 14. **Weather update** → state transitions, wind, fog, lightning, rain
 15. **Day/night update** → phase interpolation, bioGlow, sky colors
 16. **Aurora update** → wave animation
-17. **Particle updates** → all 9 systems
+17. **Particle updates** → all 11 systems
 18. **Audio update** → ambient volumes, music, step cooldown
 19. **Sky update** → shooting stars, twinkle
 20. **Discovery checks** → first-encounter triggers
@@ -170,4 +170,4 @@ initQuest({
 | `updates/` | 5 | ~800 | Extracted fauna/vegetation/magical/spawning |
 | `ui/` | 2 | ~100 | HUD elements |
 | `utils/` | 2 | ~50 | RNG, math helpers |
-| **Total** | **~75** | **~13,600** | |
+| **Total** | **~86** | **~14,000** | |

@@ -77,13 +77,13 @@ src/
 │   ├── fauna/           # 4 creature types (jellies, pufflings, deer, moths)
 │   ├── magical/         # 5 types (wisps, fairy rings, bubbles, ponds, orbs)
 │   └── world/           # 4 types (rocks, obelisk, moat, rainbows)
-├── particles/           # 9 pooled systems (fireflies, spores, dust, rain, ...)
+├── particles/           # 11 pooled systems (fireflies, spores, dust, rain, ...)
 ├── systems/             # Audio, music, weather, day/night, discoveries, AI
 ├── quest/               # Quest state machine + laser effects
 └── ui/                  # HUD + overlay
 ```
 
-**~75 source files. ~13,600 lines of code. Zero external assets.**
+**~86 source files. ~14,000 lines of code. Zero external assets.**
 
 The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame updates through registered subsystems. Systems communicate via a typed event bus. World generation uses seeded RNG (seed 42) for deterministic placement.
 
@@ -108,7 +108,7 @@ The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame upd
 - **Visibility culling:** Every entity type culled by squared-distance check (no sqrt in hot path)
 - **Bloom:** UnrealBloomPass capped at 512x512 internal resolution with emissive pipeline
 - **Shared materials:** Non-modulated materials lifted to module scope (300+ fewer instances)
-- **Named imports:** Tree-shaking-friendly named imports from Three.js across all 54 source files
+- **Named imports:** Tree-shaking-friendly named imports from Three.js across all source files
 - **Terser build:** 2-pass compression with console stripping and toplevel mangling
 - **Dev instrumentation:** Per-subsystem EMA timing + renderer.info monitoring (tree-shaken in production)
 
@@ -135,7 +135,7 @@ The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame upd
 
 ## Project Status
 
-**Phase 1: Foundation** — Complete. The core forest experience is fully built: terrain, sky, 29 entity types, 9 particle systems, procedural audio + music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
+**Phase 1: Foundation** — Complete. The core forest experience is fully built: terrain, sky, 29 entity types, 11 particle systems, procedural audio + music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
 **Performance Pass** — Complete. Bloom resolution cap, shadow throttling, tree frustum culling, shared materials, named imports, terser build pipeline, dev-only performance monitoring. Dramatic intro overhaul with animated title, CSS mushrooms, puffling character, and pixie dust particles. Gameplay fixes for puffling movement, rock collision, and terrain tracking.
 

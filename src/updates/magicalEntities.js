@@ -9,9 +9,18 @@ import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
 import { spawnBubblePop } from '../particles/bubblePops.js';
 import { emit, Events } from '../kernel/eventBus.js';
+import { player, playerIdleTime } from '../core/player.js';
+import { keys, touchSprint } from '../core/input.js';
+import { bioGlow } from '../systems/dayNightCycle.js';
+import { orbBoost } from '../state/gameState.js';
+import { getRainRate } from '../systems/weather.js';
+import { questPhase } from '../quest/questManager.js';
+import { wisps, fairyRings, bubbles, ponds, orbs, crys_data, mush_data, flowers } from '../state/entityStore.js';
+import { getEchoBloomRing, echoBloom } from '../entities/world/energyLines.js';
+import { playFairyBounce, playBubblePop } from '../systems/audio.js';
 
-export function updateWisps(wisps, dt, t, ctx) {
-  const { player, playerIdleTime, sprinting, questPhase, orbs } = ctx;
+export function updateWisps(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   const carriedFreq = getPlayerFrequency();
   let guideOrb = null;
   if ((playerIdleTime > 5 || carriedFreq) && (questPhase === 'SEEK' || questPhase === 'RISING')) {
@@ -76,8 +85,7 @@ export function updateWisps(wisps, dt, t, ctx) {
   }
 }
 
-export function updateFairyRings(fairyRings, dt, t, ctx) {
-  const { player, bioGlow, _orbBoost, playFairyBounce } = ctx;
+export function updateFairyRings(dt, t) {
   let featherFallTriggered = false;
   for (let i = 0; i < fairyRings.length; i++) {
     const fr = fairyRings[i];
@@ -87,7 +95,7 @@ export function updateFairyRings(fairyRings, dt, t, ctx) {
     const targetGlow = inRing ? 1.0 : 0.0;
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
     fr.discMat.opacity = fr.glowIntensity * 0.5 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
-    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow * _orbBoost);
+    fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow * orbBoost);
     if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
       const ringRestored = isRestored(fr.x, fr.z);
       if (ringRestored) {
@@ -119,8 +127,7 @@ export function updateFairyRings(fairyRings, dt, t, ctx) {
   return { featherFallTriggered };
 }
 
-export function updateBubbles(bubbles, dt, t, ctx) {
-  const { player, playBubblePop } = ctx;
+export function updateBubbles(dt, t) {
   for (let i = 0; i < bubbles.length; i++) {
     const b = bubbles[i];
     if (b.popped) {
@@ -160,8 +167,7 @@ export function updateBubbles(bubbles, dt, t, ctx) {
   }
 }
 
-export function updatePonds(ponds, dt, t, ctx) {
-  const { bioGlow, _orbBoost, getRainRate } = ctx;
+export function updatePonds(dt, t) {
   const curRain = getRainRate();
   for (let i = 0; i < ponds.length; i++) {
     const po = ponds[i];
@@ -170,7 +176,7 @@ export function updatePonds(ponds, dt, t, ctx) {
       po.pads[j].mesh.position.y = 0.05 + Math.sin(t * (0.8 + curRain * 0.4) + po.pads[j].phase) * padBob;
     }
     const rainGlowBoost = curRain * 0.08;
-    const pondGlow = getLocalGlow(po.x, po.z, bioGlow * _orbBoost);
+    const pondGlow = getLocalGlow(po.x, po.z, bioGlow * orbBoost);
     po.waterMat.emissiveIntensity = (0.15 + rainGlowBoost + Math.sin(t * 1.0 + po.phase) * 0.1) * pondGlow;
     const fp = Math.sin(t * 1.2 + po.phase) * 0.5 + 0.5;
     po.flMat.emissiveIntensity = (0.3 + fp * 0.5) * pondGlow;
@@ -201,8 +207,7 @@ export function updatePonds(ponds, dt, t, ctx) {
   }
 }
 
-export function updateEchoBloom(dt, t, ctx) {
-  const { player, bioGlow, _orbBoost, crys_data, mush_data, flowers, getEchoBloomRing, echoBloom } = ctx;
+export function updateEchoBloom(dt, t) {
 
   echoBloom.timer -= dt;
   if (echoBloom.timer <= 0) {
@@ -240,7 +245,7 @@ export function updateEchoBloom(dt, t, ctx) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * getLocalGlow(m.x, m.z, bioGlow * _orbBoost));
+      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * getLocalGlow(m.x, m.z, bioGlow * orbBoost));
     }
   }
   for (let i = 0; i < flowers.length; i++) {
@@ -250,7 +255,7 @@ export function updateEchoBloom(dt, t, ctx) {
     const d = Math.sqrt(fx * fx + fz * fz);
     if (Math.abs(d - wave) < waveW) {
       const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * _orbBoost));
+      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * orbBoost));
     }
   }
 }

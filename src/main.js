@@ -16,8 +16,6 @@
 //
 // — L
 // ================================================================
-import { AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, DynamicDrawUsage, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
-
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender, bloomPass, setSaturation } from './core/postprocessing.js';
@@ -91,7 +89,7 @@ import { updateDustMotes } from './particles/dust.js';
 import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
 import { initFootprints, spawnFootprint, updateFootprints } from './particles/footprints.js';
 import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurst.js';
-import { initResonanceRings, spawnResonanceRing, updateResonanceRings } from './particles/resonanceRings.js';
+import { initResonanceRings, updateResonanceRings } from './particles/resonanceRings.js';
 
 // Quest
 import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
@@ -103,23 +101,20 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playAttunementFlash, playOrbReject, playPufflingVocal, startResonanceDrone, setAudioOrbCount, startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from './systems/audio.js';
+import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playOrbReject, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
 
 // Puffling Chat (Phase 2)
-import { initPufflingChat, triggerPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
+import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
 
-// AI
-import { canSee, canHear, isNear } from './systems/ai/senses.js';
-import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBounds, avoidObstacles } from './systems/ai/steering.js';
 
 // Dimming (Phase 2)
 import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestored } from './systems/dimming.js';
 
 // Attunement (Phase 2)
-import { updateAttunement, getAttunement, getAttunementTarget, getPlayerFrequency, getFlashCreaturePos, consumeFrequency, checkFlash } from './systems/attunement.js';
+
 
 // Spirit Hum (Phase 2)
-import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked } from './systems/spiritHum.js';
+
 
 // Performance monitoring (dev-only, tree-shaken in production)
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
@@ -133,10 +128,10 @@ import { registerAllSystems, nearest } from './systems/registration.js';
 
 // Extracted update modules
 import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths } from './updates/fauna.js';
-import { updateVegetation as _updateVegetation, updateFloraReactions as _updateFloraReactions } from './updates/vegetation.js';
-import { updateWisps as _updateWisps, updateFairyRings as _updateFairyRings, updateBubbles as _updateBubbles, updatePonds as _updatePonds, updateEchoBloom as _updateEchoBloom } from './updates/magicalEntities.js';
+import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
+import { updateWisps, updateFairyRings as _updateFairyRings, updateBubbles, updatePonds, updateEchoBloom } from './updates/magicalEntities.js';
 import { populate as _populate } from './populate.js';
-import { updatePlayerVisuals as _updatePlayerVisuals, triggerCameraPan, updateCameraPan, getSmoothedDimFactor } from './updates/playerVisuals.js';
+import { updatePlayerVisuals, triggerCameraPan, updateCameraPan } from './updates/playerVisuals.js';
 import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
 
 // Discoveries
@@ -150,229 +145,72 @@ import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 
 // ================================================================
-// Entity arrays
+// Entity arrays (centralized in state/entityStore.js)
 // ================================================================
-const trees_data = []; // { x, z, y, treeH, yRot, scale }
-let treeMeshes = []; // InstancedMesh groups per template
-const treeImpostors = []; // billboard sprites per tree
-const mush_data = [];
-const crys_data = [];
-const jellies = [];
-const puffs = [];
-const deers = [];
-const moths = [];
-const grassPatches = [];
-const ferns = [];
-const flowers = [];
-const reeds = [];
-const rocks_data = [];
-const wisps = [];
-const dandelions = [];
-const fairyRings = [];
-const bubbles = [];
-const ponds = [];
-const orbs = [];
-const thornblooms = [];
-const helixvines = [];
-const snapthorns = [];
-const spiralfronds = [];
-const corpseblooms = [];
-const orbbushes = [];
-const lanternpods = [];
-const veilmosses = [];
-const groundGlows = [];
-const crystalSortBuf = []; // Reused for crystal proximity sorting
-let crystalSortPX = 0, crystalSortPZ = 0; // Last player pos when sort ran
+import {
+  trees_data, treeMeshes, treeImpostors, mush_data, crys_data,
+  jellies, puffs, deers, moths, grassPatches, ferns, flowers, reeds,
+  rocks_data, wisps, dandelions, fairyRings, bubbles, ponds, orbs,
+  thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
+  orbbushes, lanternpods, veilmosses, groundGlows,
+  crystalSortBuf, crystalSortPX, crystalSortPZ,
+  setTreeMeshes, setCrystalSortPos
+} from './state/entityStore.js';
 
 // ================================================================
-// Global dimming state (smoothed for natural transitions)
+// Shared game state (centralized in state/gameState.js)
 // ================================================================
-let _orbBoost = 1.15; // baseline +15%, then +5% per orb (1.15 → 1.40 at 5/5)
+import {
+  orbBoost as _orbBoost, setOrbBoost,
+  attuneFlashTimer as _attuneFlashTimer, attuneFlashType as _attuneFlashType,
+  echoTimer as _echoTimer,
+  humResonanceType as _humResonanceType, humResonanceStr as _humResonanceStr,
+  featherFallTimer as _featherFallTimer,
+  decayAttuneFlash, decayEchoTimer, decayFeatherFall, setFeatherFallTimer
+} from './state/gameState.js';
 
-// ================================================================
-// Attunement visual state
-// ================================================================
-let _attuneFlashTimer = 0; // decays after full-attunement flash (2.5s extended window)
-let _attuneFlashType = null; // creature type that triggered flash (for color effects)
-let _echoTimer = 0; // creature echo calls — other creatures respond to unlock
-let _nearestPuffDist2 = Infinity; // updated per frame during puffling loop
-let _nearestPuffPos = { x: 0, z: 0 }; // position of nearest puffling
-let _nearestJellyDist2 = Infinity; // updated per frame during jelly loop
-let _nearestJellyPos = { x: 0, z: 0 };
-let _nearestDeerDist2 = Infinity; // updated per frame during deer loop
-let _nearestDeerPos = { x: 0, z: 0 };
-let _nearestDeerWanderAng = 0;
-let _nearestMothDist2 = Infinity; // updated per frame during moth loop
-let _nearestMothPos = { x: 0, z: 0 };
-let _puffSingTimer = 0; // per-puffling singing timer for following state
-let _featherFallTimer = 0; // fairy ring super-jump feather fall timer
-
-// ================================================================
-// Spirit hum visual state
-// ================================================================
-let _humWasActive = false;       // edge-detect for start/stop audio
-let _humRingTimer = 0;           // ring spawn timer (~3Hz)
-let _humResonanceType = null;    // which creature band is resonating (prev frame)
-let _humResonanceStr = 0;        // 0–1 resonance strength (prev frame)
-
-// Slider DOM refs for visual feedback
-const _humThumbEl = document.getElementById('hum-thumb');
-const _humBandColors = {
-  deer:  'rgba(136,221,255,',
-  moth:  'rgba(204,255,170,',
-  jelly: 'rgba(170,204,255,',
-  puff:  'rgba(255,170,136,',
-};
-let _humSliderDirty = false; // track whether slider styles need reset
-
-// ================================================================
-// Echo bloom state
-// ================================================================
-const echoBloom = { timer: 0, center: null, radius: 0 };
-
-// Batch 2 Item 6: Crystal resonance energy lines
-const MAX_ENERGY_LINES = 15;
-const energyLines = [];
-let energyLinesInited = false;
-function initEnergyLines() {
-  if (energyLinesInited) return;
-  energyLinesInited = true;
-  const lineMat = new LineBasicMaterial({
-    color: C.crystal, transparent: true, opacity: 0,
-    blending: AdditiveBlending, depthWrite: false
-  });
-  for (let i = 0; i < MAX_ENERGY_LINES; i++) {
-    const geo = new BufferGeometry();
-    const positions = new Float32Array(6); // 2 points x 3 coords
-    geo.setAttribute('position', new BufferAttribute(positions, 3));
-    geo.attributes.position.setUsage(DynamicDrawUsage);
-    const line = new Line(geo, lineMat.clone());
-    line.visible = false;
-    scene.add(line);
-    energyLines.push({ line, geo, opacity: 0, active: false });
-  }
-}
-
-// Batch 2 Item 2: Visible echo bloom wave ring
-let echoBloomRing = null;
-function getEchoBloomRing() {
-  if (echoBloomRing) return echoBloomRing;
-  const ringGeo = new RingGeometry(0.9, 1.0, 48);
-  const ringMat = new MeshBasicMaterial({
-    color: C.echoBloom, transparent: true, opacity: 0.5,
-    side: DoubleSide, depthWrite: false, blending: AdditiveBlending
-  });
-  echoBloomRing = new Mesh(ringGeo, ringMat);
-  echoBloomRing.rotation.x = -Math.PI / 2;
-  echoBloomRing.visible = false;
-  scene.add(echoBloomRing);
-  return echoBloomRing;
-}
+// Visual subsystems (extracted from main.js)
+import { updateSpiritHumVisuals } from './updates/spiritHumVisuals.js';
+import { updateAttunementVisuals } from './updates/attunementVisuals.js';
 
 
 // ================================================================
 // Update functions (vegetation, creatures, entities)
 // ================================================================
 
-function updateVegetation(dt, t) {
-  _updateVegetation(dt, t, _vegCtx());
-}
-
-
-// Shared context for extracted vegetation update functions
-function _vegCtx() {
-  return {
-    player, windStrength, windX, windZ, bioGlow, _orbBoost, smoothedDimFactor: getSmoothedDimFactor(), camera,
-    treeMeshes, treeImpostors, ferns, flowers, reeds,
-    thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
-    orbbushes, lanternpods, veilmosses, groundGlows
-  };
-}
-function _floraCtx() {
-  return {
-    player, bioGlow, _orbBoost, isStorming, weatherState, getRainRate,
-    flowers, mush_data, ferns, crys_data,
-    initEnergyLines, energyLines, MAX_ENERGY_LINES
-  };
-}
-
-// Shared context for extracted fauna update functions
-function _faunaCtx() {
-  const _sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  return {
-    player, dayPhase, isStorming, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashTimer, _attuneFlashType,
-    playerIdleTime, sprinting: _sprinting, trees_data, orbs, deers, ponds, crys_data, fairyRings,
-    playCreatureSound, playPufflingSinging, playPufflingVocal, triggerPufflingChat
-  };
-}
-
 function updateJellies(dt, t) {
-  const result = _updateJellies(jellies, dt, t, _faunaCtx());
-  _nearestJellyDist2 = result.nearestDist2;
-  _nearestJellyPos.x = result.nearestPos.x;
-  _nearestJellyPos.z = result.nearestPos.z;
+  const result = _updateJellies(dt, t);
+  nearest.jellyDist2 = result.nearestDist2;
+  nearest.jellyPos.x = result.nearestPos.x;
+  nearest.jellyPos.z = result.nearestPos.z;
 }
 
 function updatePuffs(dt, t) {
-  const result = _updatePuffs(puffs, dt, t, _faunaCtx());
-  _nearestPuffDist2 = result.nearestDist2;
-  _nearestPuffPos.x = result.nearestPos.x;
-  _nearestPuffPos.z = result.nearestPos.z;
+  const result = _updatePuffs(dt, t);
+  nearest.puffDist2 = result.nearestDist2;
+  nearest.puffPos.x = result.nearestPos.x;
+  nearest.puffPos.z = result.nearestPos.z;
 }
 
 function updateDeers(dt, t) {
-  const result = _updateDeers(deers, dt, t, _faunaCtx());
-  _nearestDeerDist2 = result.nearestDist2;
-  _nearestDeerPos.x = result.nearestPos.x;
-  _nearestDeerPos.z = result.nearestPos.z;
-  _nearestDeerWanderAng = result.nearestWanderAng;
+  const result = _updateDeers(dt, t);
+  nearest.deerDist2 = result.nearestDist2;
+  nearest.deerPos.x = result.nearestPos.x;
+  nearest.deerPos.z = result.nearestPos.z;
+  nearest.deerWanderAng = result.nearestWanderAng;
 }
 
 function updateMoths(dt, t) {
-  const result = _updateMoths(moths, dt, t, _faunaCtx());
-  _nearestMothDist2 = result.nearestDist2;
-  _nearestMothPos.x = result.nearestPos.x;
-  _nearestMothPos.z = result.nearestPos.z;
-}
-
-function _magicalCtx() {
-  const _sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  return {
-    player, bioGlow, _orbBoost, playerIdleTime, sprinting: _sprinting,
-    questPhase, orbs, playFairyBounce, playBubblePop, getRainRate,
-    crys_data, mush_data, flowers, getEchoBloomRing, echoBloom
-  };
-}
-
-function updateWisps(dt, t) {
-  _updateWisps(wisps, dt, t, _magicalCtx());
+  const result = _updateMoths(dt, t);
+  nearest.mothDist2 = result.nearestDist2;
+  nearest.mothPos.x = result.nearestPos.x;
+  nearest.mothPos.z = result.nearestPos.z;
 }
 
 function updateFairyRings(dt, t) {
-  const result = _updateFairyRings(fairyRings, dt, t, _magicalCtx());
-  if (result.featherFallTriggered) _featherFallTimer = 4.0;
+  const result = _updateFairyRings(dt, t);
+  if (result.featherFallTriggered) setFeatherFallTimer(4.0);
 }
-
-function updateBubbles(dt, t) {
-  _updateBubbles(bubbles, dt, t, _magicalCtx());
-}
-
-function updatePonds(dt, t) {
-  _updatePonds(ponds, dt, t, _magicalCtx());
-}
-
-function updateEchoBloom(dt, t) {
-  _updateEchoBloom(dt, t, _magicalCtx());
-}
-
-// ================================================================
-// Reactive Flora (proximity/touch responses)
-// ================================================================
-function updateFloraReactions(dt, t) {
-  return _updateFloraReactions(dt, t, _floraCtx());
-}
-
 
 // ================================================================
 // Director
@@ -391,8 +229,8 @@ function director(dt, t) {
   // Run all registered systems in phase order
   runScheduler(dt, t);
 
-  if (_attuneFlashTimer > 0) _attuneFlashTimer -= dt;
-  if (_echoTimer > 0) _echoTimer -= dt;
+  decayAttuneFlash(dt);
+  decayEchoTimer(dt);
 
   reportTimings(renderer);
 }
@@ -459,7 +297,7 @@ function _directorFloraGlow(dt, t) {
   }
   const csDX = player.pos.x - crystalSortPX, csDZ = player.pos.z - crystalSortPZ;
   if (csDX * csDX + csDZ * csDZ > 1) {
-    crystalSortPX = player.pos.x; crystalSortPZ = player.pos.z;
+    setCrystalSortPos(player.pos.x, player.pos.z);
     for (let i = 0; i < crys_data.length; i++) {
       const c = crys_data[i];
       const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
@@ -496,172 +334,12 @@ function _directorFaunaUpdate(dt, t) {
   timeEnd('fauna');
 }
 
-function _directorSpiritHum(dt, t) {
-  const _humInput = rightMouseDown || touchHum;
-  if (_humInput && !_humWasActive) {
-    startHum();
-    startSpiritHumAudio();
-  } else if (!_humInput && _humWasActive) {
-    stopHum();
-    stopSpiritHumAudio();
-  }
-  _humWasActive = _humInput;
-
-  const _humInputY = touchHum ? touchHumY : (screenH > 0 ? mouseY / screenH : 0.5);
-
-  updateHum(dt, _humInputY, {
-    deerDist2: _nearestDeerDist2,
-    jellyDist2: _nearestJellyDist2,
-    mothDist2: _nearestMothDist2,
-    puffDist2: _nearestPuffDist2
-  });
-
-  if (isHumming()) {
-    updateSpiritHumAudio(getHumPitch(), getResonance(), getResonanceType());
-  }
-
-  if (justLocked()) {
-    playPitchLockSound(getLockType());
-    _attuneFlashTimer = 0.3;
-    if (_humThumbEl) {
-      _humThumbEl.style.background = 'rgba(255,255,255,0.95)';
-      _humThumbEl.style.boxShadow = '0 0 20px 10px rgba(255,255,255,0.8)';
-      _humThumbEl.style.transform = 'scale(1.5)';
-      _humSliderDirty = true;
-    }
-    const _lockT = getLockType();
-    const _lockTexts = {
-      puff: { child: 'The pufflings hear you!', adult: 'Frequency matched — biosignature synchronized' },
-      deer: { child: 'The deer turn to listen...', adult: 'Cervine frequency locked — maintain stride' },
-      jelly: { child: 'The jellies glow brighter!', adult: 'Cnidarian resonance established — pulse in rhythm' },
-      moth: { child: 'The moths circle closer!', adult: 'Lepidoptera wavelength acquired — orbit and observe' }
-    };
-    if (_lockT && _lockTexts[_lockT]) {
-      const _ltxt = _lockTexts[_lockT][getPerspective()] || _lockTexts[_lockT].child;
-      showNarrativeText(_ltxt, 4.0);
-    }
-    if (_lockT === 'puff') {
-      for (let ri = 0; ri < 5; ri++) {
-        spawnResonanceRing(_nearestPuffPos.x, getGroundY(_nearestPuffPos.x, _nearestPuffPos.z), _nearestPuffPos.z, 'puff', 1.0);
-      }
-    }
-  }
-
-  const _humRes = getResonance();
-  const _humResType = getResonanceType();
-  if (_humRes > 0.1 && _humResType && isHumming()) {
-    _humRingTimer += dt;
-    if (_humRingTimer > 0.33) {
-      _humRingTimer = 0;
-      let rx = 0, rz = 0;
-      switch (_humResType) {
-        case 'deer':  rx = _nearestDeerPos.x; rz = _nearestDeerPos.z; break;
-        case 'moth':  rx = _nearestMothPos.x; rz = _nearestMothPos.z; break;
-        case 'jelly': rx = _nearestJellyPos.x; rz = _nearestJellyPos.z; break;
-        case 'puff':  rx = _nearestPuffPos.x; rz = _nearestPuffPos.z; break;
-      }
-      const ry = getGroundY(rx, rz);
-      spawnResonanceRing(rx, ry, rz, _humResType, _humRes);
-    }
-  } else {
-    _humRingTimer = 0;
-  }
-
-  _humResonanceType = _humResType;
-  _humResonanceStr = _humRes;
-
-  if (_humThumbEl) {
-    if (isHumming() && _humRes > 0.1 && _humResType) {
-      const cBase = _humBandColors[_humResType];
-      const alpha = 0.4 + _humRes * 0.6;
-      const lp = getLockProgress();
-      const spread = lp * 8;
-      const glowA = 0.3 + lp * 0.7;
-      const scale = 1.0 + lp * 0.3;
-      _humThumbEl.style.background = cBase + alpha + ')';
-      _humThumbEl.style.borderColor = cBase + '1)';
-      _humThumbEl.style.boxShadow = '0 0 ' + (spread + 4) + 'px ' + spread + 'px ' + cBase + glowA + ')';
-      _humThumbEl.style.transform = 'scale(' + scale + ')';
-      _humSliderDirty = true;
-    } else if (_humSliderDirty) {
-      _humThumbEl.style.background = 'rgba(100,255,180,.35)';
-      _humThumbEl.style.borderColor = 'rgba(100,255,180,.5)';
-      _humThumbEl.style.boxShadow = 'none';
-      _humThumbEl.style.transform = 'scale(1)';
-      _humSliderDirty = false;
-    }
-  }
+function _directorSpiritHum(dt) {
+  updateSpiritHumVisuals(dt);
 }
 
 function _directorAttunement(dt, t) {
-  const _attuneJumping = !player.onGround;
-  const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
-  const _attuneSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  updateAttunement(dt, _attuneJumping, _nearestPuffDist2, {
-    nearestPuffPos: _nearestPuffPos,
-    nearestJellyDist2: _nearestJellyDist2, nearestJellyPos: _nearestJellyPos,
-    nearestDeerDist2: _nearestDeerDist2, nearestDeerPos: _nearestDeerPos, nearestDeerWanderAng: _nearestDeerWanderAng,
-    nearestMothDist2: _nearestMothDist2, nearestMothPos: _nearestMothPos,
-    playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
-    sprinting: _attuneSprinting,
-    playerX: player.pos.x, playerZ: player.pos.z, time: t
-  });
-
-  if (checkFlash()) {
-    _attuneFlashTimer = 2.5;
-    const _flashType = getAttunementTarget();
-    _attuneFlashType = _flashType;
-    _echoTimer = 1.5;
-    const flashPos = getFlashCreaturePos() || _nearestPuffPos;
-    playAttunementFlash(flashPos, player.pos, _flashType);
-    const _attuneTexts = {
-      puff: { child: 'They know you now!', adult: 'Full attunement — the boundary between observer and observed dissolves' },
-      deer: { child: 'You walk as one.', adult: 'Stride-locked — biosignatures indistinguishable' },
-      jelly: { child: 'Your hearts beat together!', adult: 'Pulse synchronization complete — resonance achieved' },
-      moth: { child: 'You are part of the dance!', adult: 'Orbital lock confirmed — mutual observation state' }
-    };
-    if (_flashType && _attuneTexts[_flashType]) {
-      const _atxt = _attuneTexts[_flashType][getPerspective()] || _attuneTexts[_flashType].child;
-      showNarrativeText(_atxt, 5.0);
-    }
-    if (_flashType === 'puff') {
-      for (let pi = 0; pi < puffs.length; pi++) {
-        const pp = puffs[pi];
-        if (pp.state === 'syncing') {
-          pp._syncTimer = 0.27;
-          if (pp.bodyMat) pp.bodyMat.emissiveIntensity = 4.0;
-          if (pp.crownMat) pp.crownMat.emissiveIntensity = 3.0;
-        }
-      }
-      for (let pi = 0; pi < puffs.length; pi++) {
-        const pp = puffs[pi];
-        if (pp.state !== 'syncing') continue;
-        const ppx = pp.group.position.x, ppz = pp.group.position.z;
-        spawnResonanceRing(ppx, getGroundY(ppx, ppz), ppz, 'puff', 1.0);
-      }
-    }
-    const fgY = getGroundY(flashPos.x, flashPos.z);
-    for (let hi = 0; hi < 3; hi++) {
-      spawnResonanceRing(flashPos.x, fgY + hi * 1.0, flashPos.z, _flashType || 'puff', 1.0);
-    }
-  }
-
-  if (_attuneFlashTimer > 1.0 && _attuneFlashType) {
-    _humRingTimer += dt;
-    if (_humRingTimer > 0.1) {
-      _humRingTimer = 0;
-      let rx = 0, rz = 0;
-      switch (_attuneFlashType) {
-        case 'deer':  rx = _nearestDeerPos.x; rz = _nearestDeerPos.z; break;
-        case 'moth':  rx = _nearestMothPos.x; rz = _nearestMothPos.z; break;
-        case 'jelly': rx = _nearestJellyPos.x; rz = _nearestJellyPos.z; break;
-        case 'puff':  rx = _nearestPuffPos.x; rz = _nearestPuffPos.z; break;
-      }
-      const ry = getGroundY(rx, rz);
-      const heightOff = (Math.random() * 2.5);
-      spawnResonanceRing(rx, ry + heightOff, rz, _attuneFlashType, 0.7 + Math.random() * 0.3);
-    }
-  }
+  updateAttunementVisuals(dt, t);
 }
 
 function _directorSkyWish(dt, t) {
@@ -763,16 +441,13 @@ function animate() {
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
   // Progressive glow boost: +5% per orb found
-  _orbBoost = 1.15 + orbsFound * 0.05;
+  setOrbBoost(1.15 + orbsFound * 0.05);
 
   // Constellation camera pan — trigger when a new orb is collected
   triggerCameraPan(orbsFound, yaw, pitch, getConstellationDir);
 
   // Player light evolution + dimming + hum light modulation
-  _updatePlayerVisuals(dt, elapsed, {
-    orbsFound, playerLight, _attuneFlashTimer, _attuneFlashType,
-    player, setSaturation, renderer, bloomPass, hemiLight, scene, lightningFlash
-  });
+  updatePlayerVisuals(dt, elapsed);
 
 
   // Update audio system (Items 1-3)
@@ -854,7 +529,7 @@ function animate() {
   // Active game loop
   // Feather fall — reduced gravity after fairy ring super-jump
   if (_featherFallTimer > 0) {
-    _featherFallTimer -= dt;
+    decayFeatherFall(dt);
     setGravityMult(0.3); // 30% gravity during feather fall
   } else {
     setGravityMult(1.0);
@@ -909,7 +584,7 @@ try {
     scene, moon, moon2, hemiLight, playerLight
   });
 
-  treeMeshes = _populate({
+  setTreeMeshes(_populate({
     trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths,
     grassPatches, ferns, flowers, reeds, rocks_data, wisps, dandelions,
     fairyRings, bubbles, ponds, orbs, thornblooms, helixvines, snapthorns,
@@ -923,7 +598,7 @@ try {
     makeWisp, makeDandelion, makeFairyRing, makeBubble, makePond, makeOrb,
     makeThornbloom, makeHelixvine, makeSnapthorn, makeSpiralFrond,
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss
-  }, scene);
+  }, scene));
 
   // Register all entity arrays with kernel registry
   register(EntityType.TREES, trees_data);

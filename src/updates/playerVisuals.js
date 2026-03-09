@@ -8,6 +8,13 @@ import { C, ORB_N, DIMMING_FACTOR, PLAYER_LIGHT_COLORS, PLAYER_LIGHT_INTENSITY, 
 import { getLocalGlow } from '../systems/dimming.js';
 import { isHumming, isLocked, getResonance, getResonanceType } from '../systems/spiritHum.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
+import { player } from '../core/player.js';
+import { renderer, scene } from '../core/renderer.js';
+import { setSaturation, bloomPass } from '../core/postprocessing.js';
+import { playerLight, hemiLight } from '../core/lighting.js';
+import { orbsFound } from '../quest/questManager.js';
+import { attuneFlashTimer, attuneFlashType } from '../state/gameState.js';
+import { lightningFlash } from '../systems/weather.js';
 
 // Pre-allocated Color objects
 const _playerLightColor = new Color(PLAYER_LIGHT_COLORS[0]);
@@ -101,11 +108,7 @@ export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
  * Update player light color/intensity/range and global dimming.
  * Returns the current dimF for use elsewhere if needed.
  */
-export function updatePlayerVisuals(dt, elapsed, ctx) {
-  const {
-    orbsFound, playerLight, _attuneFlashTimer, _attuneFlashType,
-    player, setSaturation, renderer, bloomPass, hemiLight, scene, lightningFlash
-  } = ctx;
+export function updatePlayerVisuals(dt, elapsed) {
 
   // Player light evolution — color/intensity/range scales with orbs
   const orbIdx = Math.min(orbsFound, ORB_N);
@@ -116,12 +119,12 @@ export function updatePlayerVisuals(dt, elapsed, ctx) {
   playerLight.distance = PLAYER_LIGHT_RANGE[orbIdx];
 
   // Enhancement 4: Player light flare + creature color overlay during attunement flash
-  if (_attuneFlashTimer > 0 && _attuneFlashType) {
-    const flashNorm = _attuneFlashTimer / 2.5;
+  if (attuneFlashTimer > 0 && attuneFlashType) {
+    const flashNorm = attuneFlashTimer / 2.5;
     const flareEase = flashNorm * flashNorm;
     playerLight.intensity *= (1.0 + flareEase * 2.0);
     playerLight.distance *= (1.0 + flareEase * 0.5);
-    const glowHex = _creatureGlowHex[_attuneFlashType];
+    const glowHex = _creatureGlowHex[attuneFlashType];
     if (glowHex) {
       _flashCreatureColor.setHex(glowHex);
       playerLight.color.lerp(_flashCreatureColor, flareEase * 0.6);
@@ -137,8 +140,8 @@ export function updatePlayerVisuals(dt, elapsed, ctx) {
 
   // Enhancement 1: Bloom pulse + saturation swell during attunement flash
   // Enhancement 5: Fog density dip ("the forest clears")
-  const flashActive = _attuneFlashTimer > 0;
-  const flashNormDim = flashActive ? (_attuneFlashTimer / 2.5) : 0;
+  const flashActive = attuneFlashTimer > 0;
+  const flashNormDim = flashActive ? (attuneFlashTimer / 2.5) : 0;
   const flashEaseDim = flashNormDim * flashNormDim;
 
   setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0));

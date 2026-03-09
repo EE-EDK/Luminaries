@@ -7,6 +7,8 @@
 // in human music. Every lullaby, every hymn, every song you half-
 // remember from childhood. The forest chose it. We didn't.
 
+import { whiteBuf } from './audio/core.js';
+
 // ---- Injected dependencies (set via setupMusic) ----
 let ctx = null;
 let musicMasterGain = null;
@@ -148,11 +150,21 @@ function playHarp(degree, delay, vol) {
   gain.gain.exponentialRampToValueAtTime(v * 0.3, now + 0.5);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
 
+  // Sub-octave for warmth
+  const sub = ctx.createOscillator();
+  sub.type = 'triangle';
+  sub.frequency.value = freq * 0.5;
+  const subGain = ctx.createGain();
+  subGain.gain.value = 0.15;
+  sub.connect(subGain).connect(gain);
+
   osc.connect(gain);
   connectReverb(gain, musicMasterGain, 0.6);
 
   osc.start(now);
+  sub.start(now);
   osc.stop(now + 3.5);
+  sub.stop(now + 3.5);
 }
 
 // ================================================================
@@ -185,6 +197,23 @@ function playFlute(degree, duration, delay) {
   vib.connect(vibGain).connect(osc.frequency);
 
   osc.connect(filter).connect(gain);
+
+  // Breathy air layer — bandpass-filtered white noise at note frequency
+  if (whiteBuf) {
+    const noise = ctx.createBufferSource();
+    noise.buffer = whiteBuf;
+    noise.loop = true;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = freq;
+    noiseFilter.Q.value = 5;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.004;
+    noise.connect(noiseFilter).connect(noiseGain).connect(gain);
+    noise.start(now);
+    noise.stop(now + dur + 0.1);
+  }
+
   connectReverb(gain, musicMasterGain, 0.9);
 
   vib.start(now);

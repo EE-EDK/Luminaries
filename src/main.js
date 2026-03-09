@@ -101,14 +101,11 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playCreatureSound, playFootstep, playJumpSound, playLandSound, playBubblePop, playFairyBounce, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playPufflingSinging, playOrbReject, playPufflingVocal, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
+import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playOrbReject, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
 
 // Puffling Chat (Phase 2)
-import { initPufflingChat, triggerPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
+import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
 
-// AI
-import { canSee, canHear, isNear } from './systems/ai/senses.js';
-import { flee as steerFlee, arrive as steerArrive, separation, cohesion, worldBounds, avoidObstacles } from './systems/ai/steering.js';
 
 // Dimming (Phase 2)
 import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestored } from './systems/dimming.js';
@@ -131,10 +128,10 @@ import { registerAllSystems, nearest } from './systems/registration.js';
 
 // Extracted update modules
 import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths } from './updates/fauna.js';
-import { updateVegetation as _updateVegetation, updateFloraReactions as _updateFloraReactions } from './updates/vegetation.js';
-import { updateWisps as _updateWisps, updateFairyRings as _updateFairyRings, updateBubbles as _updateBubbles, updatePonds as _updatePonds, updateEchoBloom as _updateEchoBloom } from './updates/magicalEntities.js';
+import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
+import { updateWisps, updateFairyRings as _updateFairyRings, updateBubbles, updatePonds, updateEchoBloom } from './updates/magicalEntities.js';
 import { populate as _populate } from './populate.js';
-import { updatePlayerVisuals as _updatePlayerVisuals, triggerCameraPan, updateCameraPan, getSmoothedDimFactor } from './updates/playerVisuals.js';
+import { updatePlayerVisuals, triggerCameraPan, updateCameraPan } from './updates/playerVisuals.js';
 import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
 
 // Discoveries
@@ -175,62 +172,28 @@ import {
 // Visual subsystems (extracted from main.js)
 import { updateSpiritHumVisuals } from './updates/spiritHumVisuals.js';
 import { updateAttunementVisuals } from './updates/attunementVisuals.js';
-import { initEnergyLines, energyLines, MAX_ENERGY_LINES, getEchoBloomRing, echoBloom } from './entities/world/energyLines.js';
 
 
 // ================================================================
 // Update functions (vegetation, creatures, entities)
 // ================================================================
 
-function updateVegetation(dt, t) {
-  _updateVegetation(dt, t, _vegCtx());
-}
-
-
-// Shared context for extracted vegetation update functions
-function _vegCtx() {
-  return {
-    player, windStrength, windX, windZ, bioGlow, _orbBoost, smoothedDimFactor: getSmoothedDimFactor(), camera,
-    treeMeshes, treeImpostors, ferns, flowers, reeds,
-    thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
-    orbbushes, lanternpods, veilmosses, groundGlows
-  };
-}
-function _floraCtx() {
-  return {
-    player, bioGlow, _orbBoost, isStorming, weatherState, getRainRate,
-    flowers, mush_data, ferns, crys_data,
-    initEnergyLines, energyLines, MAX_ENERGY_LINES
-  };
-}
-
-// Shared context for extracted fauna update functions
-function _faunaCtx() {
-  const _sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  return {
-    player, dayPhase, isStorming, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashTimer, _attuneFlashType,
-    playerIdleTime, sprinting: _sprinting, trees_data, orbs, deers, ponds, crys_data, fairyRings,
-    playCreatureSound, playPufflingSinging, playPufflingVocal, triggerPufflingChat
-  };
-}
-
 function updateJellies(dt, t) {
-  const result = _updateJellies(jellies, dt, t, _faunaCtx());
+  const result = _updateJellies(dt, t);
   nearest.jellyDist2 = result.nearestDist2;
   nearest.jellyPos.x = result.nearestPos.x;
   nearest.jellyPos.z = result.nearestPos.z;
 }
 
 function updatePuffs(dt, t) {
-  const result = _updatePuffs(puffs, dt, t, _faunaCtx());
+  const result = _updatePuffs(dt, t);
   nearest.puffDist2 = result.nearestDist2;
   nearest.puffPos.x = result.nearestPos.x;
   nearest.puffPos.z = result.nearestPos.z;
 }
 
 function updateDeers(dt, t) {
-  const result = _updateDeers(deers, dt, t, _faunaCtx());
+  const result = _updateDeers(dt, t);
   nearest.deerDist2 = result.nearestDist2;
   nearest.deerPos.x = result.nearestPos.x;
   nearest.deerPos.z = result.nearestPos.z;
@@ -238,49 +201,16 @@ function updateDeers(dt, t) {
 }
 
 function updateMoths(dt, t) {
-  const result = _updateMoths(moths, dt, t, _faunaCtx());
+  const result = _updateMoths(dt, t);
   nearest.mothDist2 = result.nearestDist2;
   nearest.mothPos.x = result.nearestPos.x;
   nearest.mothPos.z = result.nearestPos.z;
 }
 
-function _magicalCtx() {
-  const _sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  return {
-    player, bioGlow, _orbBoost, playerIdleTime, sprinting: _sprinting,
-    questPhase, orbs, playFairyBounce, playBubblePop, getRainRate,
-    crys_data, mush_data, flowers, getEchoBloomRing, echoBloom
-  };
-}
-
-function updateWisps(dt, t) {
-  _updateWisps(wisps, dt, t, _magicalCtx());
-}
-
 function updateFairyRings(dt, t) {
-  const result = _updateFairyRings(fairyRings, dt, t, _magicalCtx());
+  const result = _updateFairyRings(dt, t);
   if (result.featherFallTriggered) setFeatherFallTimer(4.0);
 }
-
-function updateBubbles(dt, t) {
-  _updateBubbles(bubbles, dt, t, _magicalCtx());
-}
-
-function updatePonds(dt, t) {
-  _updatePonds(ponds, dt, t, _magicalCtx());
-}
-
-function updateEchoBloom(dt, t) {
-  _updateEchoBloom(dt, t, _magicalCtx());
-}
-
-// ================================================================
-// Reactive Flora (proximity/touch responses)
-// ================================================================
-function updateFloraReactions(dt, t) {
-  return _updateFloraReactions(dt, t, _floraCtx());
-}
-
 
 // ================================================================
 // Director
@@ -517,10 +447,7 @@ function animate() {
   triggerCameraPan(orbsFound, yaw, pitch, getConstellationDir);
 
   // Player light evolution + dimming + hum light modulation
-  _updatePlayerVisuals(dt, elapsed, {
-    orbsFound, playerLight, _attuneFlashTimer, _attuneFlashType,
-    player, setSaturation, renderer, bloomPass, hemiLight, scene, lightningFlash
-  });
+  updatePlayerVisuals(dt, elapsed);
 
 
   // Update audio system (Items 1-3)

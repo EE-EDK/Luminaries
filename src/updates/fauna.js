@@ -1,8 +1,6 @@
 // ================================================================
 // Fauna update loops — jellies, pufflings, deer, moths
 // ================================================================
-// Extracted from main.js. Each function takes (dt, t, ctx) where ctx
-// is a mutable context object containing shared state from main.js.
 
 import { WORLD_R, DEER_FLEE_R, DEER_FLEE_SPEED_MULT, C } from '../constants.js';
 import { getGroundY } from '../world/terrain.js';
@@ -12,16 +10,19 @@ import { isLocked, getLockType } from '../systems/spiritHum.js';
 import { canSee, canHear } from '../systems/ai/senses.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { separation, cohesion, worldBounds, avoidObstacles } from '../systems/ai/steering.js';
+import { player, playerIdleTime } from '../core/player.js';
+import { keys, touchSprint } from '../core/input.js';
+import { bioGlow, phase as dayPhase } from '../systems/dayNightCycle.js';
+import { isStorming } from '../systems/weather.js';
+import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashTimer, attuneFlashType } from '../state/gameState.js';
+import { jellies, puffs, deers, trees_data, orbs, ponds, crys_data, fairyRings } from '../state/entityStore.js';
+import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../systems/audio.js';
+import { triggerPufflingChat } from '../systems/pufflingChat.js';
 
 // ================================================================
 // Jellies
 // ================================================================
-export function updateJellies(jellies, dt, t, ctx) {
-  const {
-    player, dayPhase, isStorming, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashType,
-    playerIdleTime, playCreatureSound
-  } = ctx;
+export function updateJellies(dt, t) {
 
   // Batch 2 Item 1: Nearby jellies sync glow phase over time
   for (let i = 0; i < jellies.length; i++) {
@@ -163,9 +164,9 @@ export function updateJellies(jellies, dt, t, ctx) {
 
     const jellyAttuneTarget = getAttunementTarget();
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 36) ? (1.0 + getAttunement() * 1.2) : 1.0;
-    const jellyResMult = (_humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult;
-    if (_echoTimer > 0 && _attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += _echoTimer * 0.35;
+    const jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult;
+    if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += echoTimer * 0.35;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
 
     if (j.tipMat) {
@@ -187,13 +188,8 @@ export function updateJellies(jellies, dt, t, ctx) {
 // ================================================================
 // Pufflings
 // ================================================================
-export function updatePuffs(puffs, dt, t, ctx) {
-  const {
-    player, dayPhase, isStorming, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashTimer, _attuneFlashType,
-    playerIdleTime, sprinting, trees_data, orbs, deers,
-    playCreatureSound, playPufflingSinging, playPufflingVocal, triggerPufflingChat
-  } = ctx;
+export function updatePuffs(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
 
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
@@ -440,7 +436,7 @@ export function updatePuffs(puffs, dt, t, ctx) {
           p.bodyMat.emissiveIntensity += (glowTarget - p.bodyMat.emissiveIntensity) * Math.min(dt * 4, 1);
         }
         if (p.crownMat) {
-          p.crownMat.emissiveIntensity = (0.4 + curAttune * 2.0) * getLocalGlow(px, pz, bioGlow * _orbBoost);
+          p.crownMat.emissiveIntensity = (0.4 + curAttune * 2.0) * getLocalGlow(px, pz, bioGlow * orbBoost);
         }
         break;
       }
@@ -501,7 +497,7 @@ export function updatePuffs(puffs, dt, t, ctx) {
 
     // Sparkle motes
     const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0;
-    const puffResMult = (_humResonanceType === 'puff' && pDist2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
+    const puffResMult = (humResonanceType === 'puff' && pDist2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
     const attuneSpeedMult = pDist2 < 64 ? (1.0 + curAttune * 2.0) : 1.0;
     if (p.sparkles) {
       for (let si = 0; si < p.sparkles.length; si++) {
@@ -512,28 +508,28 @@ export function updatePuffs(puffs, dt, t, ctx) {
           0.5 + Math.sin(sa * 1.3) * 0.1,
           Math.sin(sa) * sp.orbitR
         );
-        sp.mat.opacity = (0.4 + Math.sin(t * 4 + sp.phase) * 0.3) * Math.max(getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost), 0.3) * attuneGlowMult;
+        sp.mat.opacity = (0.4 + Math.sin(t * 4 + sp.phase) * 0.3) * Math.max(getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost), 0.3) * attuneGlowMult;
       }
     }
     // Crown glow
     if (p.crownMat && p.state !== 'syncing') {
-      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * attuneGlowMult * puffResMult;
+      p.crownMat.emissiveIntensity = (0.4 + Math.sin(t * 1.5 + p.phase) * 0.3) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * attuneGlowMult * puffResMult;
     }
     // Body emissive
     if (p.state !== 'syncing') {
       if (pDist2 < 64 && curAttune > 0.1 && p.bodyMat) {
-        p.bodyMat.emissiveIntensity = 0.5 + curAttune * 0.4 + (_attuneFlashTimer > 0 ? _attuneFlashTimer * 3.0 : 0);
+        p.bodyMat.emissiveIntensity = 0.5 + curAttune * 0.4 + (attuneFlashTimer > 0 ? attuneFlashTimer * 3.0 : 0);
       } else if (p.bodyMat) {
         p.bodyMat.emissiveIntensity = 0.5;
       }
-      if (_echoTimer > 0 && _attuneFlashType !== 'puff' && pDist2 < 900 && p.bodyMat) p.bodyMat.emissiveIntensity += _echoTimer * 0.35;
+      if (echoTimer > 0 && attuneFlashType !== 'puff' && pDist2 < 900 && p.bodyMat) p.bodyMat.emissiveIntensity += echoTimer * 0.35;
     }
     // Ground glow disc
     if (p.glowMat) {
       const glowBase = 0.15 + Math.sin(t * 2 + p.phase) * 0.06;
       const glowAttune = pDist2 < 64 ? curAttune * 0.2 : 0;
       const syncGlow = p.state === 'syncing' ? curAttune * 0.5 : 0;
-      const localG = getLocalGlow(px, pz, bioGlow * _orbBoost);
+      const localG = getLocalGlow(px, pz, bioGlow * orbBoost);
       p.glowMat.opacity = Math.min(1.0, (glowBase + glowAttune + syncGlow) * Math.max(localG, 0.3));
     }
 
@@ -548,13 +544,8 @@ export function updatePuffs(puffs, dt, t, ctx) {
 // ================================================================
 // Deer
 // ================================================================
-export function updateDeers(deers, dt, t, ctx) {
-  const {
-    player, dayPhase, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashType,
-    playerIdleTime, sprinting, trees_data, ponds,
-    playCreatureSound
-  } = ctx;
+export function updateDeers(dt, t) {
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
 
   let nearestDist2 = Infinity;
   let nearestPos = { x: 0, z: 0 };
@@ -862,11 +853,11 @@ export function updateDeers(deers, dt, t, ctx) {
     }
 
     // Emissive
-    const deerGlow = getLocalGlow(gx, gz, bioGlow * _orbBoost);
+    const deerGlow = getLocalGlow(gx, gz, bioGlow * orbBoost);
     const deerAttuneMult = (getAttunementTarget() === 'deer' && pDist2 < 144) ? (1.0 + getAttunement() * 0.8) : 1.0;
-    const deerResMult = (_humResonanceType === 'deer' && pDist2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
+    const deerResMult = (humResonanceType === 'deer' && pDist2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
     d.mat.emissiveIntensity = (0.6 + Math.sin(t * 0.8 + d.phase) * 0.3) * deerGlow * deerAttuneMult * deerResMult;
-    if (_echoTimer > 0 && _attuneFlashType !== 'deer' && pDist2 < 900) d.mat.emissiveIntensity += _echoTimer * 0.35;
+    if (echoTimer > 0 && attuneFlashType !== 'deer' && pDist2 < 900) d.mat.emissiveIntensity += echoTimer * 0.35;
     d.headLook *= 0.98;
 
     // Mane flutter
@@ -902,13 +893,7 @@ export function updateDeers(deers, dt, t, ctx) {
 // ================================================================
 // Moths
 // ================================================================
-export function updateMoths(moths, dt, t, ctx) {
-  const {
-    player, dayPhase, bioGlow, _orbBoost,
-    _humResonanceType, _humResonanceStr, _echoTimer, _attuneFlashType,
-    playerIdleTime, crys_data, fairyRings, trees_data,
-    playCreatureSound
-  } = ctx;
+export function updateMoths(dt, t) {
 
   let nearestDist2 = Infinity;
   let nearestPos = { x: 0, z: 0 };
@@ -1125,9 +1110,9 @@ export function updateMoths(moths, dt, t, ctx) {
     const pulse = Math.sin(t * 1.5 + m.phase) * 0.5 + 0.5;
     const attractBoost = m._state === 'attracted' ? 0.4 : 0;
     const mothAttuneMult = (getAttunementTarget() === 'moth' && _mhd2 < 64) ? (1.0 + getAttunement() * 1.0) : 1.0;
-    const mothResMult = (_humResonanceType === 'moth' && _mhd2 < 400) ? (1.0 + _humResonanceStr * 1.5) : 1.0;
-    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * _orbBoost) * mothAttuneMult * mothResMult;
-    if (_echoTimer > 0 && _attuneFlashType !== 'moth' && _mhd2 < 900) m.wingMat.emissiveIntensity += _echoTimer * 0.35;
+    const mothResMult = (humResonanceType === 'moth' && _mhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
+    m.wingMat.emissiveIntensity = (0.5 + pulse * 0.6 + attractBoost) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * mothAttuneMult * mothResMult;
+    if (echoTimer > 0 && attuneFlashType !== 'moth' && _mhd2 < 900) m.wingMat.emissiveIntensity += echoTimer * 0.35;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 

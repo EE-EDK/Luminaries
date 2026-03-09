@@ -10,17 +10,24 @@ import { updateTreeLOD } from '../entities/flora/trees.js';
 import { updateGrassGlobals } from '../entities/flora/grass.js';
 import { updateSnapthorns } from '../entities/flora/snapthorn.js';
 import { createGround, updateGroundUniforms } from '../world/ground.js';
+import { player } from '../core/player.js';
+import { camera } from '../core/renderer.js';
+import { windStrength, windX, windZ, isStorming, weatherState, getRainRate } from '../systems/weather.js';
+import { bioGlow } from '../systems/dayNightCycle.js';
+import { orbBoost } from '../state/gameState.js';
+import { getSmoothedDimFactor } from './playerVisuals.js';
+import {
+  treeMeshes, treeImpostors, ferns, flowers, reeds, mush_data, crys_data,
+  thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
+  orbbushes, lanternpods, veilmosses, groundGlows
+} from '../state/entityStore.js';
+import { initEnergyLines, energyLines, MAX_ENERGY_LINES } from '../entities/world/energyLines.js';
 
 // Pre-allocated quaternion for slope sway (replaces _slopeSwayQuat from main.js)
 const _slopeSwayQuat = new Quaternion();
 
-export function updateVegetation(dt, t, ctx) {
-  const {
-    player, windStrength, windX, windZ, bioGlow, _orbBoost, smoothedDimFactor, camera,
-    treeMeshes, treeImpostors, ferns, flowers, reeds,
-    thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
-    orbbushes, lanternpods, veilmosses, groundGlows
-  } = ctx;
+export function updateVegetation(dt, t) {
+  const smoothedDimFactor = getSmoothedDimFactor();
 
   const wAmp = 1.0 + windStrength * 1.5;
   const wLeanX = windX * 0.03;
@@ -29,7 +36,7 @@ export function updateVegetation(dt, t, ctx) {
 
   updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, camera);
 
-  const treeDim = smoothedDimFactor * _orbBoost;
+  const treeDim = smoothedDimFactor * orbBoost;
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const tm = treeMeshes[ti];
     if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 1.2 * treeDim;
@@ -38,7 +45,7 @@ export function updateVegetation(dt, t, ctx) {
     if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.6 * treeDim;
   }
 
-  updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor * _orbBoost);
+  updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor * orbBoost);
   updateGroundUniforms(t, px, pz);
 
   // Ferns
@@ -68,7 +75,7 @@ export function updateVegetation(dt, t, ctx) {
     if (!fl.group.visible) fl.group.visible = true;
     if (fld2 > 900) continue;
     const p = Math.sin(t * 0.8 + fl.phase) * 0.5 + 0.5;
-    fl.petalMat.emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * _orbBoost);
+    fl.petalMat.emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * orbBoost);
     if (fl.slopeQ) {
       fl.group.quaternion.copy(fl.slopeQ);
       _slopeSwayQuat.set(
@@ -107,7 +114,7 @@ export function updateVegetation(dt, t, ctx) {
   for (let i = 0; i < thornblooms.length; i++) {
     const tb = thornblooms[i];
     const p = Math.sin(t * 1.2 + tb.phase) * 0.5 + 0.5;
-    const tbGlow = getLocalGlow(tb.group.position.x, tb.group.position.z, bioGlow * _orbBoost);
+    const tbGlow = getLocalGlow(tb.group.position.x, tb.group.position.z, bioGlow * orbBoost);
     tb.orbMat.emissiveIntensity = (0.6 + p * 0.6) * tbGlow;
     tb.hazeMat.opacity = (0.06 + p * 0.06) * tbGlow;
     if (tb.slopeQ) {
@@ -125,7 +132,7 @@ export function updateVegetation(dt, t, ctx) {
     const hv = helixvines[i];
     for (let j = 0; j < hv.podMats.length; j++) {
       const p = Math.sin(t * 1.5 + hv.phase + j * 1.8) * 0.5 + 0.5;
-      hv.podMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow * _orbBoost);
+      hv.podMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(hv.group.position.x, hv.group.position.z, bioGlow * orbBoost);
     }
     if (hv.slopeQ) {
       hv.group.quaternion.copy(hv.slopeQ);
@@ -137,7 +144,7 @@ export function updateVegetation(dt, t, ctx) {
   }
 
   // Snapthorn
-  updateSnapthorns(snapthorns, dt, t, bioGlow * _orbBoost, getLocalGlow);
+  updateSnapthorns(snapthorns, dt, t, bioGlow * orbBoost, getLocalGlow);
 
   // SpiralFrond
   for (let i = 0; i < spiralfronds.length; i++) {
@@ -149,7 +156,7 @@ export function updateVegetation(dt, t, ctx) {
     if (sd2 < 900) {
       for (let j = 0; j < sf.tipMats.length; j++) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
-        sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(sf.x, sf.z, bioGlow * _orbBoost);
+        sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(sf.x, sf.z, bioGlow * orbBoost);
       }
       if (sf.tipMeshes) {
         for (let ti = 0; ti < sf.tipMeshes.length; ti++) {
@@ -176,7 +183,7 @@ export function updateVegetation(dt, t, ctx) {
     if (cd2 > 1600) { if (cb.group.visible) cb.group.visible = false; continue; }
     if (!cb.group.visible) cb.group.visible = true;
     if (cd2 < 900) {
-      const cbGlow = getLocalGlow(cb.x, cb.z, bioGlow * _orbBoost);
+      const cbGlow = getLocalGlow(cb.x, cb.z, bioGlow * orbBoost);
       cb.columnMat.emissiveIntensity = (0.5 + Math.sin(t * 0.8 + cb.phase) * 0.35) * cbGlow;
       cb.hazeMat.opacity = (0.05 + Math.sin(t * 0.8 + cb.phase) * 0.04) * cbGlow;
       for (let fi = 0; fi < cb.flies.length; fi++) {
@@ -205,7 +212,7 @@ export function updateVegetation(dt, t, ctx) {
     if (od2 < 900) {
       for (let j = 0; j < ob.orbMats.length; j++) {
         const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
-        ob.orbMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(ob.x, ob.z, bioGlow * _orbBoost);
+        ob.orbMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(ob.x, ob.z, bioGlow * orbBoost);
       }
       if (ob.slopeQ) {
         ob.group.quaternion.copy(ob.slopeQ);
@@ -228,7 +235,7 @@ export function updateVegetation(dt, t, ctx) {
     if (ld2 < 900) {
       for (let j = 0; j < lp.podMats.length; j++) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
-        lp.podMats[j].emissiveIntensity = (0.5 + p * 0.6) * getLocalGlow(lp.x, lp.z, bioGlow * _orbBoost);
+        lp.podMats[j].emissiveIntensity = (0.5 + p * 0.6) * getLocalGlow(lp.x, lp.z, bioGlow * orbBoost);
       }
       if (lp.podMeshes) {
         for (let pi = 0; pi < lp.podMeshes.length; pi++) {
@@ -285,17 +292,11 @@ export function updateVegetation(dt, t, ctx) {
     if (gdx * gdx + gdz * gdz > 3600) { gg.mesh.visible = false; continue; }
     gg.mesh.visible = true;
     const pulse = Math.sin(t * gg.speed + gg.phase) * 0.3 + 0.7;
-    gg.mat.opacity = gg.baseOpacity * pulse * getLocalGlow(gg.x, gg.z, bioGlow * _orbBoost);
+    gg.mat.opacity = gg.baseOpacity * pulse * getLocalGlow(gg.x, gg.z, bioGlow * orbBoost);
   }
 }
 
-export function updateFloraReactions(dt, t, ctx) {
-  const {
-    player, bioGlow, _orbBoost, isStorming, weatherState, getRainRate,
-    flowers, mush_data, ferns, crys_data,
-    initEnergyLines, energyLines, MAX_ENERGY_LINES
-  } = ctx;
-
+export function updateFloraReactions(dt, t) {
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
   const curRain = getRainRate();
   const stormDroop = isStorming ? 0.6 : (curRain > 0.3 ? curRain * 0.4 : 0);
@@ -312,7 +313,7 @@ export function updateFloraReactions(dt, t, ctx) {
     const sc = (1.0 + fl._react * 0.15) * (1.0 - stormDroop * 0.12);
     const sy = (1.0 + fl._react * 0.05) * (1.0 - stormDroop * 0.15);
     fl.group.scale.set(sc, sy, sc);
-    fl.petalMat.emissiveIntensity += fl._react * 0.6 * getLocalGlow(fx, fz, bioGlow * _orbBoost) * (1.0 - stormDroop * 0.4);
+    fl.petalMat.emissiveIntensity += fl._react * 0.6 * getLocalGlow(fx, fz, bioGlow * orbBoost) * (1.0 - stormDroop * 0.4);
   }
 
   // Mushrooms: bright pulse on proximity
@@ -324,7 +325,7 @@ export function updateFloraReactions(dt, t, ctx) {
     m._touch = (m._touch || 0);
     m._touch += (touch - m._touch) * dt * (touch > 0 ? 6 : 1.5);
     const rainBoost = curRain * 0.4;
-    m.capMat.emissiveIntensity += (m._touch * 1.5 + rainBoost) * getLocalGlow(m.x, m.z, bioGlow * _orbBoost);
+    m.capMat.emissiveIntensity += (m._touch * 1.5 + rainBoost) * getLocalGlow(m.x, m.z, bioGlow * orbBoost);
     const ms = 1.0 + m._touch * 0.08;
     m.group.scale.set(ms, 1.0 + m._touch * 0.04, ms);
   }
@@ -358,7 +359,7 @@ export function updateFloraReactions(dt, t, ctx) {
         if (cd2 < 400) {
           crystalChainCount++;
           const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
-          c2.mat.emissiveIntensity += chainStr * getLocalGlow(c2.x, c2.z, bioGlow * _orbBoost);
+          c2.mat.emissiveIntensity += chainStr * getLocalGlow(c2.x, c2.z, bioGlow * orbBoost);
           if (lineIdx < MAX_ENERGY_LINES) {
             const el = energyLines[lineIdx];
             const posArr = el.geo.attributes.position.array;
@@ -369,7 +370,7 @@ export function updateFloraReactions(dt, t, ctx) {
             el.geo.computeBoundingSphere();
             el.active = true;
             const pulse = Math.sin(t * 3 + i * 1.5 + j * 0.7) * 0.3 + 0.5;
-            el.opacity = chainStr * pulse * getLocalGlow(c.x, c.z, bioGlow * _orbBoost);
+            el.opacity = chainStr * pulse * getLocalGlow(c.x, c.z, bioGlow * orbBoost);
             el.line.material.opacity = el.opacity;
             el.line.visible = true;
             lineIdx++;

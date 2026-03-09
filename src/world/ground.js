@@ -328,7 +328,7 @@ export function createGround() {
     const b1 = biomes[biomeIdx], b2 = biomes[biome2Idx];
 
     const blend = gsmooth(n2);
-    const brightness = 0.82 + n3 * 0.25;
+    const brightness = 0.90 + n3 * 0.25;
     const r = (b1[0] * (1 - blend) + b2[0] * blend) * brightness;
     const g = (b1[1] * (1 - blend) + b2[1] * blend) * brightness;
     const b = (b1[2] * (1 - blend) + b2[2] * blend) * brightness;
@@ -345,7 +345,7 @@ export function createGround() {
 
   const mat = new MeshStandardMaterial({
     map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
-    emissive: 0x152e18, emissiveIntensity: 0.25
+    emissive: 0x152e18, emissiveIntensity: 0.32
   });
 
   // Inject procedural patterns + player proximity glow via shader
@@ -498,19 +498,19 @@ export function createGround() {
       // --- Mycelium vein glow (noise contour lines) ---
       float vn1 = gFbm(wp * 0.25 + 30.0);
       float vn2 = gFbm(wp * 0.15 + 80.0);
-      float vein1 = smoothstep(0.47, 0.50, vn1) * smoothstep(0.53, 0.50, vn1);
-      float vein2 = smoothstep(0.45, 0.49, vn2) * smoothstep(0.55, 0.49, vn2);
+      float vein1 = smoothstep(0.44, 0.50, vn1) * smoothstep(0.56, 0.50, vn1);
+      float vein2 = smoothstep(0.42, 0.49, vn2) * smoothstep(0.58, 0.49, vn2);
       float veins = max(vein1, vein2 * 0.7);
       float veinPulse = 0.7 + 0.3 * sin(uTime * 0.4 + vn1 * 8.0);
       // Forest: bright green veins | Finale: bright white-cyan veins
-      vec3 veinColForest = vec3(0.10, 0.40, 0.20) * 0.88;
+      vec3 veinColForest = vec3(0.14, 0.50, 0.25) * 1.0;
       vec3 veinColFinale = vec3(0.80, 0.95, 1.00) * 1.32;
       totalEmissiveRadiance += veins * mix(veinColForest, veinColFinale, tF) * veinPulse;
 
       // --- Organic ring patterns (growth rings from noise) ---
       float ringN = gNoise(wp * 0.06 + 10.0);
       float ring = sin(ringN * 25.0) * 0.5 + 0.5;
-      ring = smoothstep(0.88, 1.0, ring) * mix(0.44, 0.66, tF);
+      ring = smoothstep(0.88, 1.0, ring) * mix(0.66, 0.88, tF);
       // Forest: brighter green | Finale: pink-magenta
       vec3 ringColForest = vec3(0.088, 0.308, 0.154);
       vec3 ringColFinale = vec3(0.66, 0.22, 0.55);
@@ -523,23 +523,23 @@ export function createGround() {
       float ringR = 3.0 + gHash(cell + 200.0) * 4.0;
       float fRing = smoothstep(0.4, 0.0, abs(rd - ringR)) * step(0.75, gHash(cell + 300.0));
       // Forest: brighter green | Finale: bright purple
-      vec3 fRingColForest = vec3(0.10, 0.30, 0.16) * 0.88;
+      vec3 fRingColForest = vec3(0.14, 0.38, 0.20) * 1.0;
       vec3 fRingColFinale = vec3(0.50, 0.16, 0.65) * 1.32;
       totalEmissiveRadiance += fRing * mix(fRingColForest, fRingColFinale, tF);
 
       // --- Fine noise for per-pixel detail ---
-      float fineN = gNoise(wp * 1.5) * 0.088;
+      float fineN = gNoise(wp * 1.5) * 0.13;
       vec3 fineForest = vec3(0.066, 0.165, 0.088);
       vec3 fineFinale = vec3(0.198, 0.066, 0.242);
       totalEmissiveRadiance += fineN * mix(fineForest, fineFinale, tF);
 
-      // --- Player proximity ground glow (8m radius) ---
-      if (vPlayerDist2 < 64.0) {
+      // --- Player proximity ground glow (12m radius) ---
+      if (vPlayerDist2 < 144.0) {
         float pDist = sqrt(vPlayerDist2);
-        float pGlow = (1.0 - pDist / 8.0);
+        float pGlow = (1.0 - pDist / 12.0);
         pGlow = pGlow * pGlow * pGlow;
         // Forest: brighter green glow | Finale: bright pink-white glow
-        vec3 pGlowForest = vec3(0.14, 0.40, 0.22) * 0.77;
+        vec3 pGlowForest = vec3(0.18, 0.48, 0.28) * 0.9;
         vec3 pGlowFinale = vec3(0.60, 0.30, 0.65) * 1.1;
         totalEmissiveRadiance += pGlow * mix(pGlowForest, pGlowFinale, tF);
       }

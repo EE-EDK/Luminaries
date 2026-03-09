@@ -312,8 +312,10 @@ const _tempObj = new Object3D();
 // Shared material for all instanced rocks
 const _rockMat = new MeshStandardMaterial({
   vertexColors: true,
-  roughness: 0.90,
+  roughness: 0.80,
   metalness: 0.03,
+  emissive: C.rockEmissive,
+  emissiveIntensity: 0.18,
   fog: false,
 });
 
@@ -397,7 +399,8 @@ export function placeProceduralRock(x, z, groundY, isBoulder) {
   _instanceData[idx + 7] = baseScale * (isBoulder ? 0.65 : 0.55); // collision radius
 
   _instanceCount++;
-  return { colR: baseScale * (isBoulder ? 0.65 : 0.55) };
+  const colR = baseScale * (isBoulder ? 0.65 : 0.55);
+  return { colR, groundY, scale: baseScale, squash, isBoulder };
 }
 
 export function finalizeProceduralRocks() {
@@ -525,7 +528,8 @@ export function initPebbles() {
   const geo = new SphereGeometry(1, 6, 5);
   displaceSmooth(geo, 0.08, 42.7);
   const mat = new MeshStandardMaterial({
-    color: C.rockBase, roughness: 0.90, metalness: 0.03
+    color: C.rockBase, roughness: 0.80, metalness: 0.03,
+    emissive: C.rockEmissive, emissiveIntensity: 0.15,
   });
   pebbleMesh = new InstancedMesh(geo, mat, PEBBLE_N);
   pebbleMesh.instanceMatrix.setUsage(StaticDrawUsage);

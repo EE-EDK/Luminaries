@@ -92,8 +92,13 @@ export function updatePlayer(dt) {
       player.pos.z = td.z + cdz * cdi * tr;
     }
   }
+  const feetY = player.pos.y - EYE_H;
   for (let ci = 0; ci < rocksData.length; ci++) {
     const rd = rocksData[ci];
+    // Skip very small rocks — player walks over them
+    if (rd.scale !== undefined && rd.scale < 0.4) continue;
+    // Skip if player feet are above rock top
+    if (rd.topY !== undefined && feetY > rd.topY - 0.1) continue;
     const cdx = player.pos.x - rd.x, cdz = player.pos.z - rd.z;
     const cd2 = cdx * cdx + cdz * cdz;
     const rr = rd.colR + PLAYER_R;

@@ -11,7 +11,7 @@ import {
   FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N,
   THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N,
   SPIRALFROND_N, CORPSEBLOOM_N, ORBBUSH_N, LANTERNPOD_N, VEILMOSS_N, GROUND_GLOW_N,
-  C
+  ROCK_GROUND_SINK, C
 } from './constants.js';
 
 import { sr } from './utils/rng.js';
@@ -300,7 +300,8 @@ export function populate(arrays, builders, scene) {
     if (ok4) {
       const gy = getGroundY(rx, rz);
       const info = placeProceduralRock(rx, rz, gy, false);
-      rocks_data.push({ x: rx, z: rz, colR: info.colR });
+      const topY = gy + info.scale * info.squash * (1 - ROCK_GROUND_SINK);
+      rocks_data.push({ x: rx, z: rz, colR: info.colR, topY, scale: info.scale });
       keepOutZones.push({ x: rx, z: rz, r2: 2.25 });
     }
   }
@@ -316,7 +317,8 @@ export function populate(arrays, builders, scene) {
     if (ok5) {
       const gy = getGroundY(bx, bz);
       const info = placeProceduralRock(bx, bz, gy, true);
-      rocks_data.push({ x: bx, z: bz, colR: info.colR });
+      const topY = gy + info.scale * info.squash * (1 - ROCK_GROUND_SINK);
+      rocks_data.push({ x: bx, z: bz, colR: info.colR, topY, scale: info.scale });
       keepOutZones.push({ x: bx, z: bz, r2: 9 });
     }
   }

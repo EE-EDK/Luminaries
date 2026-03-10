@@ -51,8 +51,8 @@ function applyVertexColors(geo, pal) {
     const heightT = Math.max(0, Math.min(1, (py / len) * 0.5 + 0.5));
     const grain = Math.sin(px * 11.3 + pz * 7.7) * 0.5 + 0.5;
     _vc.copy(_vcBase);
-    _vc.lerp(_vcHi, heightT * 0.35 + grain * 0.2);
-    _vc.lerp(_vcDark, (1 - heightT) * 0.25);
+    _vc.lerp(_vcHi, heightT * 0.45 + grain * 0.25);
+    _vc.lerp(_vcDark, (1 - heightT) * 0.15);
     colors[i * 3] = _vc.r;
     colors[i * 3 + 1] = _vc.g;
     colors[i * 3 + 2] = _vc.b;
@@ -312,10 +312,10 @@ const _tempObj = new Object3D();
 // Shared material for all instanced rocks
 const _rockMat = new MeshStandardMaterial({
   vertexColors: true,
-  roughness: 0.80,
-  metalness: 0.03,
+  roughness: 0.65,
+  metalness: 0.05,
   emissive: C.rockEmissive,
-  emissiveIntensity: 0.18,
+  emissiveIntensity: 0.45,
   fog: false,
 });
 
@@ -396,10 +396,10 @@ export function placeProceduralRock(x, z, groundY, isBoulder) {
   _instanceData[idx + 4] = sr() * Math.PI * 2; // rotY
   _instanceData[idx + 5] = Math.floor(sr() * ROCK_SHAPES); // shape index
   _instanceData[idx + 6] = squash;
-  _instanceData[idx + 7] = baseScale * (isBoulder ? 0.65 : 0.55); // collision radius
+  _instanceData[idx + 7] = baseScale * (isBoulder ? 0.55 : 0.40); // collision radius
 
   _instanceCount++;
-  const colR = baseScale * (isBoulder ? 0.65 : 0.55);
+  const colR = baseScale * (isBoulder ? 0.55 : 0.40);
   return { colR, groundY, scale: baseScale, squash, isBoulder };
 }
 
@@ -528,8 +528,8 @@ export function initPebbles() {
   const geo = new SphereGeometry(1, 6, 5);
   displaceSmooth(geo, 0.08, 42.7);
   const mat = new MeshStandardMaterial({
-    color: C.rockBase, roughness: 0.80, metalness: 0.03,
-    emissive: C.rockEmissive, emissiveIntensity: 0.15,
+    color: C.rockBase, roughness: 0.65, metalness: 0.05,
+    emissive: C.rockEmissive, emissiveIntensity: 0.35,
   });
   pebbleMesh = new InstancedMesh(geo, mat, PEBBLE_N);
   pebbleMesh.instanceMatrix.setUsage(StaticDrawUsage);

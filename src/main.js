@@ -327,10 +327,10 @@ function _directorFloraGlow(dt, t) {
 
 function _directorFaunaUpdate(dt, t) {
   timeStart('fauna');
-  updateJellies(dt, t);
-  updatePuffs(dt, t);
-  updateDeers(dt, t);
-  updateMoths(dt, t);
+  try { updateJellies(dt, t); } catch (e) { console.warn('jelly update error:', e); }
+  try { updatePuffs(dt, t); } catch (e) { console.warn('puff update error:', e); }
+  try { updateDeers(dt, t); } catch (e) { console.warn('deer update error:', e); }
+  try { updateMoths(dt, t); } catch (e) { console.warn('moth update error:', e); }
   timeEnd('fauna');
 }
 

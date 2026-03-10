@@ -88,8 +88,8 @@ export function updateJellies(dt, t) {
         const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
         const tx = j.homeX + Math.cos(j.driftAng) * radius;
         const tz = j.homeZ + Math.sin(j.driftAng) * radius;
-        g.position.x += (tx - jx) * dt * 0.3;
-        g.position.z += (tz - jz) * dt * 0.3;
+        g.position.x += (tx - g.position.x) * dt * 0.3;
+        g.position.z += (tz - g.position.z) * dt * 0.3;
         g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 1.5;
         break;
       }

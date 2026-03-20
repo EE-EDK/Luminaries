@@ -28,42 +28,42 @@ export function makeDeer(x, z) {
   chest.scale.set(0.8, 0.6, 0.5); chest.position.set(0, 0.78, 0.25); g.add(chest);
 
   // === HEAD/NECK PIVOTS (rotates for look + bob + lag) ===
-  const neckBasePivot = new Group();
-  neckBasePivot.position.set(0, 1.15, 0.3); // pivot at base of neck
-  g.add(neckBasePivot);
+  const neckBase = new Group();
+  neckBase.position.set(0, 1.15, 0.3); // pivot at base of neck
+  g.add(neckBase);
 
-  const neckMidPivot = new Group();
-  neckMidPivot.position.set(0, 0.15, 0.08); 
-  neckBasePivot.add(neckMidPivot);
+  const neckMid = new Group();
+  neckMid.position.set(0, 0.15, 0.08); 
+  neckBase.add(neckMid);
 
-  const headPivot = new Group();
-  headPivot.position.set(0, 0.07, 0.12);
-  neckMidPivot.add(headPivot);
+  const headBase = new Group();
+  headBase.position.set(0, 0.07, 0.12);
+  neckMid.add(headBase);
 
   // Neck
   const neck = new Mesh(new CylinderGeometry(0.08, 0.12, 0.4, 5), bMat);
-  neck.position.set(0, 0.1, 0.08); neck.rotation.x = -0.4; neckBasePivot.add(neck);
+  neck.position.set(0, 0.1, 0.08); neck.rotation.x = -0.4; neckBase.add(neck);
   // Head
   const head = new Mesh(new SphereGeometry(0.14, 6, 5), bMat);
-  head.position.set(0, 0, 0); headPivot.add(head);
+  head.position.set(0, 0, 0); headBase.add(head);
   // Snout
   const snout = new Mesh(new SphereGeometry(0.07, 4, 3), bMat);
-  snout.scale.set(1, 0.7, 1.4); snout.position.set(0, -0.05, 0.15); headPivot.add(snout);
+  snout.scale.set(1, 0.7, 1.4); snout.position.set(0, -0.05, 0.15); headBase.add(snout);
   // Nose tip
   const noseMat = new MeshBasicMaterial({ color: 0x224455 });
   const nose = new Mesh(new SphereGeometry(0.02, 3, 3), noseMat);
-  nose.position.set(0, -0.05, 0.23); headPivot.add(nose);
+  nose.position.set(0, -0.05, 0.23); headBase.add(nose);
   // Eyes
   const eyeM = new MeshBasicMaterial({ color: C.deerEye });
   for (let i = -1; i <= 1; i += 2) {
     const eye = new Mesh(new SphereGeometry(0.025, 4, 3), eyeM);
-    eye.position.set(i * 0.09, 0.03, 0.08); headPivot.add(eye);
+    eye.position.set(i * 0.09, 0.03, 0.08); headBase.add(eye);
     const ehl = new Mesh(new SphereGeometry(0.008, 3, 3),
       new MeshBasicMaterial({ color: 0xffffff }));
-    ehl.position.set(i * 0.085, 0.04, 0.09); headPivot.add(ehl);
+    ehl.position.set(i * 0.085, 0.04, 0.09); headBase.add(ehl);
     const lashMat = new MeshBasicMaterial({ color: C.deerBody, transparent: true, opacity: 0.5 });
     const lash = new Mesh(new CylinderGeometry(0.002, 0.002, 0.03, 3), lashMat);
-    lash.position.set(i * 0.1, 0.05, 0.08); lash.rotation.z = i * 0.6; headPivot.add(lash);
+    lash.position.set(i * 0.1, 0.05, 0.08); lash.rotation.z = i * 0.6; headBase.add(lash);
   }
   // Ears (stored for twitch animation)
   const ears = [];
@@ -81,7 +81,7 @@ export function makeDeer(x, z) {
     innerEar.rotation.z = i * 0.4;
     innerEar.position.set(i * 0.01, 0.01, 0.005);
     earPivot.add(innerEar);
-    headPivot.add(earPivot);
+    headBase.add(earPivot);
     ears.push(earPivot);
   }
   // Antlers
@@ -97,32 +97,32 @@ export function makeDeer(x, z) {
   for (let i = -1; i <= 1; i += 2) {
     // Main beam
     const a1 = new Mesh(new CylinderGeometry(0.015, 0.02, 0.25, 3), antMat);
-    a1.position.set(i * 0.08, 0.20, -0.08); a1.rotation.z = i * 0.5; headPivot.add(a1);
+    a1.position.set(i * 0.08, 0.20, -0.08); a1.rotation.z = i * 0.5; headBase.add(a1);
     // First tine (forward)
     const a2 = new Mesh(new CylinderGeometry(0.01, 0.015, 0.15, 3), antMat);
-    a2.position.set(i * 0.15, 0.33, -0.10); a2.rotation.z = i * 0.8; headPivot.add(a2);
+    a2.position.set(i * 0.15, 0.33, -0.10); a2.rotation.z = i * 0.8; headBase.add(a2);
     // Second tine (backward-angled)
     const a3 = new Mesh(new CylinderGeometry(0.008, 0.012, 0.1, 3), antMat);
-    a3.position.set(i * 0.11, 0.28, -0.04); a3.rotation.z = i * 0.3; a3.rotation.x = -0.5; headPivot.add(a3);
+    a3.position.set(i * 0.11, 0.28, -0.04); a3.rotation.z = i * 0.3; a3.rotation.x = -0.5; headBase.add(a3);
     // Third tine (upper forward fork)
     const a4 = new Mesh(new CylinderGeometry(0.006, 0.01, 0.12, 3), antMat);
-    a4.position.set(i * 0.17, 0.38, -0.06); a4.rotation.z = i * 0.6; a4.rotation.x = -0.3; headPivot.add(a4);
+    a4.position.set(i * 0.17, 0.38, -0.06); a4.rotation.z = i * 0.6; a4.rotation.x = -0.3; headBase.add(a4);
     // Fourth tine (crown point)
     const a5 = new Mesh(new CylinderGeometry(0.005, 0.008, 0.08, 3), antMat);
-    a5.position.set(i * 0.13, 0.36, -0.14); a5.rotation.z = i * 0.2; a5.rotation.x = 0.4; headPivot.add(a5);
+    a5.position.set(i * 0.13, 0.36, -0.14); a5.rotation.z = i * 0.2; a5.rotation.x = 0.4; headBase.add(a5);
     // Tip glows at each tine end
     const tipGlow1 = new Mesh(new SphereGeometry(0.012, 3, 3), tipGlowMat);
-    tipGlow1.position.set(i * 0.18, 0.39, -0.11); headPivot.add(tipGlow1);
+    tipGlow1.position.set(i * 0.18, 0.39, -0.11); headBase.add(tipGlow1);
     const tipGlow2 = new Mesh(new SphereGeometry(0.008, 3, 3), tipGlowMat);
-    tipGlow2.position.set(i * 0.20, 0.43, -0.07); headPivot.add(tipGlow2);
+    tipGlow2.position.set(i * 0.20, 0.43, -0.07); headBase.add(tipGlow2);
     const tipGlow3 = new Mesh(new SphereGeometry(0.007, 3, 3), tipGlowMat);
-    tipGlow3.position.set(i * 0.15, 0.40, -0.15); headPivot.add(tipGlow3);
+    tipGlow3.position.set(i * 0.15, 0.40, -0.15); headBase.add(tipGlow3);
     // Velvet texture bumps along main beam
     for (let vi = 0; vi < 3; vi++) {
       const velvet = new Mesh(new SphereGeometry(0.006, 3, 3), velvetMat);
       velvet.scale.set(1.3, 0.6, 1.0);
       velvet.position.set(i * (0.09 + vi * 0.025), 0.22 + vi * 0.06, -0.08);
-      headPivot.add(velvet);
+      headBase.add(velvet);
     }
   }
   // Jawline
@@ -131,12 +131,12 @@ export function makeDeer(x, z) {
     transparent: true, opacity: 0.5
   });
   const jaw = new Mesh(new CylinderGeometry(0.01, 0.02, 0.1, 3), jawMat);
-  jaw.position.set(0, -0.11, 0.08); jaw.rotation.x = 0.3; headPivot.add(jaw);
+  jaw.position.set(0, -0.11, 0.08); jaw.rotation.x = 0.3; headBase.add(jaw);
   // Nostrils
   const nostrilMat = new MeshBasicMaterial({ color: 0x112222 });
   for (let ni = -1; ni <= 1; ni += 2) {
     const nostril = new Mesh(new SphereGeometry(0.006, 3, 3), nostrilMat);
-    nostril.position.set(ni * 0.02, -0.06, 0.22); headPivot.add(nostril);
+    nostril.position.set(ni * 0.02, -0.06, 0.22); headBase.add(nostril);
   }
 
   // === JOINTED LEGS (4 legs, each with upper pivot + lower pivot) ===
@@ -218,7 +218,7 @@ export function makeDeer(x, z) {
   const throat = new Mesh(new SphereGeometry(0.04, 4, 3), throatMat);
   throat.scale.set(0.8, 1.2, 0.6);
   throat.position.set(0, 0.06, 0.22);
-  neckBasePivot.add(throat);
+  neckBase.add(throat);
   // Dewlap — thin hanging membrane
   const dewlapMat = new MeshStandardMaterial({
     color: C.deerBody, emissive: C.deerGlow, emissiveIntensity: 0.2,
@@ -226,7 +226,7 @@ export function makeDeer(x, z) {
   });
   const dewlap = new Mesh(new PlaneGeometry(0.04, 0.06), dewlapMat);
   dewlap.position.set(0, 0.01, 0.24);
-  neckBasePivot.add(dewlap);
+  neckBase.add(dewlap);
 
   // === BELLY MARKING ===
   const bellyMat = new MeshStandardMaterial({
@@ -274,7 +274,7 @@ export function makeDeer(x, z) {
     mane.position.set(0, 0.1 + mi * 0.055, 0.04 - mi * 0.015);
     mane.rotation.x = -0.2 + sr() * 0.15;
     mane.rotation.z = (sr() - 0.5) * 0.25;
-    neckBasePivot.add(mane);
+    neckBase.add(mane);
     manePlanes.push(mane);
   }
 
@@ -286,11 +286,11 @@ export function makeDeer(x, z) {
   for (let i = -1; i <= 1; i += 2) {
     // At first antler junction
     const orb1 = new Mesh(new SphereGeometry(0.012, 3, 3), branchOrbMat.clone());
-    orb1.position.set(i * 0.1, 0.25, -0.09); headPivot.add(orb1);
+    orb1.position.set(i * 0.1, 0.25, -0.09); headBase.add(orb1);
     branchOrbs.push(orb1);
     // At second junction
     const orb2 = new Mesh(new SphereGeometry(0.01, 3, 3), branchOrbMat.clone());
-    orb2.position.set(i * 0.14, 0.31, -0.08); headPivot.add(orb2);
+    orb2.position.set(i * 0.14, 0.31, -0.08); headBase.add(orb2);
     branchOrbs.push(orb2);
   }
 
@@ -330,7 +330,10 @@ export function makeDeer(x, z) {
     group: g, mat: bMat, manePlanes, branchOrbs, trailSpheres, ears,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.4,
     walkTimer: 0, legCycle: 0, homeX: x, homeZ: z, state: 'walk', pauseTimer: 0,
-    neckBasePivot, neckMidPivot, headPivot, legPivots, tailPivot,
+    neckBasePivot: neckBase, 
+    neckMidPivot: neckMid, 
+    headPivot: headBase, 
+    legPivots, tailPivot,
     fleeTimer: 0, headLook: 0, headBob: 0,
     earTwitchTimer: 0, earTwitchVal: 0,
     _init: true, _stT: 0, _drinkTgt: null, _zigTimer: 0, _zigDir: 1,

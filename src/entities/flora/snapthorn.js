@@ -1,4 +1,4 @@
-import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, SphereGeometry, TorusGeometry } from 'three';
+import { AdditiveBlending, CatmullRomCurve3, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -14,26 +14,43 @@ import { sr } from '../../utils/rng.js';
 //   if tasting the air. One researcher described them as "curious."
 //   We've stopped sending anyone to the eastern cluster alone.
 
+// --- Module-scope shared materials ---
+const _rootMat = new MeshStandardMaterial({
+  color: 0x1a3825, roughness: 0.85,
+  emissive: 0x0a1a10, emissiveIntensity: 0.06
+});
+const _mouthMat = new MeshStandardMaterial({
+  color: 0x1a6644, emissive: C.snapBodyGlow,
+  emissiveIntensity: 0.25,
+  transparent: true, opacity: 0.6
+});
+
 export function makeSnapthorn(x, z) {
   const g = new Group();
   const bodyR = 0.25 + sr() * 0.1;
 
   // --- Base roots (3 short cylinders splaying outward) ---
-  const rootMat = new MeshStandardMaterial({
-    color: 0x1a3825, roughness: 0.85,
-    emissive: 0x0a1a10, emissiveIntensity: 0.06
-  });
   for (let i = 0; i < 3; i++) {
     const ra = (i / 3) * 6.28 + sr() * 0.5;
+    const rootLen = 0.25 + sr() * 0.15;
+    // Curved root using 3-point CatmullRomCurve3
+    const rootPts = [
+      new Vector3(0, 0.06, 0),
+      new Vector3(
+        Math.cos(ra) * bodyR * 0.35,
+        0.04,
+        Math.sin(ra) * bodyR * 0.35
+      ),
+      new Vector3(
+        Math.cos(ra) * bodyR * 0.7,
+        -0.02,
+        Math.sin(ra) * bodyR * 0.7
+      )
+    ];
+    const rootCurve = new CatmullRomCurve3(rootPts);
     const root = new Mesh(
-      new CylinderGeometry(0.01, 0.035, 0.25 + sr() * 0.15, 4), rootMat
+      new TubeGeometry(rootCurve, 4, 0.018, 4, false), _rootMat
     );
-    root.position.set(
-      Math.cos(ra) * bodyR * 0.6, 0.06,
-      Math.sin(ra) * bodyR * 0.6
-    );
-    root.rotation.z = (ra < 3.14 ? 1.0 : -1.0);
-    root.rotation.y = ra;
     g.add(root);
   }
 
@@ -52,20 +69,15 @@ export function makeSnapthorn(x, z) {
   g.add(body);
 
   // --- Mouth/Opening (torus ring on top) ---
-  const mouthMat = new MeshStandardMaterial({
-    color: 0x1a6644, emissive: C.snapBodyGlow,
-    emissiveIntensity: 0.25,
-    transparent: true, opacity: 0.6
-  });
   const mouth = new Mesh(
-    new TorusGeometry(bodyR * 0.45, 0.02, 6, 12), mouthMat
+    new TorusGeometry(bodyR * 0.45, 0.02, 6, 12), _mouthMat
   );
   mouth.position.y = bodyR * 1.7;
   mouth.rotation.x = Math.PI / 2;
   g.add(mouth);
 
   // --- Fronds/Tentacles (5-7 waving arms) ---
-  // Each frond is a chain of 3-4 nested cylinders for cascading rotation
+  // Each frond is a chain of 3-4 nested curved segments for cascading rotation
   const frondN = 5 + Math.floor(sr() * 3);
   const fronds = [];
   const tipMats = [];
@@ -91,6 +103,7 @@ export function makeSnapthorn(x, z) {
     for (let si = 0; si < segCount; si++) {
       const frac = si / segCount;
       const segR = 0.02 * (1 - frac * 0.6); // taper toward tip
+      const outwardBow = 0.015 + sr() * 0.01; // gentle organic bow
 
       const frondMat = new MeshStandardMaterial({
         color: C.snapFrond, emissive: C.snapBodyGlow,
@@ -98,12 +111,19 @@ export function makeSnapthorn(x, z) {
         roughness: 0.6
       });
 
-      // Each segment is a cylinder, nested inside the previous
+      // Each segment: short curved TubeGeometry instead of straight cylinder
+      // 3-point curve from origin upward with outward bow
+      const miniPts = [
+        new Vector3(0, 0, 0),
+        new Vector3(outwardBow, segLen * 0.5, 0),
+        new Vector3(0, segLen, 0)
+      ];
+      const miniCurve = new CatmullRomCurve3(miniPts);
       const seg = new Mesh(
-        new CylinderGeometry(segR * 0.7, segR, segLen, 4), frondMat
+        new TubeGeometry(miniCurve, 4, segR * 0.85, 4, false), frondMat
       );
-      seg.position.y = si === 0 ? 0 : segLen; // first at pivot, rest stacked
-      seg.geometry.translate(0, segLen / 2, 0); // pivot at bottom
+      // Position: first at pivot origin, rest stacked at end of previous segment
+      seg.position.y = si === 0 ? 0 : segLen;
       parent.add(seg);
       segments.push(seg);
       parent = seg;
@@ -141,12 +161,12 @@ export function makeSnapthorn(x, z) {
 
   return {
     group: g,
-    body: body,
-    bodyMat: bodyMat,
-    tipMats: tipMats,
-    fronds: fronds,
+    body,
+    bodyMat,
+    tipMats,
+    fronds,
     phase: sr() * 6.28,
-    x: x, z: z
+    x, z
   };
 }
 

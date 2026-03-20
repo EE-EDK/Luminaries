@@ -265,16 +265,23 @@ export function updateDeers(dt, t) {
       d.headLook += (targetYaw * 0.5 - d.headLook) * dt * 3;
     }
 
-    // Neck pivot
+    // Neck pivots (Refined motion)
     const targetBob = d.headBob || 0;
-    d.neckPivot.rotation.x += (targetBob - d.neckPivot.rotation.x) * dt * 3;
-    d.neckPivot.rotation.y += (d.headLook - d.neckPivot.rotation.y) * dt * 4;
+    const walkBob = isMoving ? Math.sin(d.legCycle * 2) * 0.03 * (moveSpeed / d.speed) : 0;
+
+    // Neck base/mid bobs
+    d.neckBasePivot.rotation.x += (targetBob - 0.2 + walkBob - d.neckBasePivot.rotation.x) * dt * 3;
+    d.neckMidPivot.rotation.x += (targetBob * 0.5 - 0.1 + walkBob * 0.5 - d.neckMidPivot.rotation.x) * dt * 3;
+
+    // Head look/tilt (curiosity)
+    d.headPivot.rotation.y += (d.headLook - d.headPivot.rotation.y) * dt * 4;
+    d.headPivot.rotation.z = Math.sin(t * 0.4 + d.phase) * 0.15; // idle tilt
+
     if (isMoving && d.state !== 'graze' && d.state !== 'drink') {
       const speedFrac = moveSpeed / d.speed;
-      d.neckPivot.rotation.x += Math.sin(d.legCycle * 2) * 0.03 * speedFrac;
-      d.neckPivot.rotation.z = Math.sin(d.legCycle) * 0.018 * speedFrac;
+      d.neckBasePivot.rotation.z = Math.sin(d.legCycle) * 0.018 * speedFrac;
     } else {
-      d.neckPivot.rotation.z *= 0.95;
+      d.neckBasePivot.rotation.z *= 0.95;
     }
 
     // Ear twitch

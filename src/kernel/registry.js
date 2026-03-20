@@ -17,6 +17,7 @@ export const EntityType = {
   PUFFLINGS:    'pufflings',
   DEER:         'deer',
   MOTHS:        'moths',
+  LUMINIDS:     'luminids',
   GRASS:        'grass',
   FERNS:        'ferns',
   FLOWERS:      'flowers',

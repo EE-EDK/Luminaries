@@ -23,6 +23,7 @@ export const JELLY_N = 35;         // visibility-culled beyond 55m (+75%)
 export const PUFF_N = 40;         // visibility-culled beyond 40m (+43%)
 export const DEER_N = 12;         // visibility-culled beyond 60m
 export const MOTH_N = 35;         // visibility-culled beyond 45m (+75%)
+export const LUMINID_N = 5;         // towering stilted giants
 export const GRASS_PATCHES = 1200; // GPU vertex shader, zero CPU cost
 export const FERN_N = 160;         // visibility-culled beyond 40m (3x)
 export const FLOWER_N = 140;       // visibility-culled beyond 40m (3x)
@@ -127,6 +128,7 @@ export const C = {
   puffBody: 0xffddcc, puffGlow: 0xffaa88, puffEye: 0x222222, puffCheek: 0xff8899,
   deerBody: 0xaaeeff, deerGlow: 0x88ddff, deerAntler: 0xccffee, deerEye: 0x113344,
   mothWing: 0xaaff99, mothGlow: 0xccffaa, mothBody: 0x556633, mothSpot: 0xffffff,
+  luminidBody: 0x223344, luminidGlow: 0x4488ff, luminidCore: 0xffffff,
   // Vegetation palette
   grass1: 0x1a4420, grass2: 0x0d3318, grassTip: 0x33aa55,
   // Grass variety palettes: [base1, base2, mid, tip1, tip2, tip3, clover, cloverBr, emissive]

@@ -6,7 +6,7 @@
 import { Vector3, Quaternion, Object3D, CircleGeometry, Mesh, MeshBasicMaterial, AdditiveBlending, DoubleSide } from 'three';
 
 import {
-  WORLD_R, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N,
+  WORLD_R, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N, LUMINID_N,
   GRASS_PATCHES, FERN_N, FLOWER_N, REED_N, ROCK_N, BOULDER_N, PEBBLE_N, WISP_N, DANDELION_N,
   FAIRY_RING_N, BUBBLE_N, POND_N, ORB_N,
   THORNBLOOM_N, HELIXVINE_N, SNAPTHORN_N,
@@ -61,7 +61,7 @@ function inKeepOut(x, z) {
 // ================================================================
 export function populate(arrays, builders, scene) {
   const {
-    trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths,
+    trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths, luminids,
     grassPatches, ferns, flowers, reeds, rocks_data, wisps, dandelions,
     fairyRings, bubbles, ponds, orbs, thornblooms, helixvines, snapthorns,
     spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows
@@ -69,7 +69,7 @@ export function populate(arrays, builders, scene) {
 
   const {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
-    makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth,
+    makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth, makeLuminid,
     makeGrassPatch, makeFern, makeFlower, makeReed,
     initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
     initPebbles, addPebble, finalizePebbles,
@@ -268,6 +268,15 @@ export function populate(arrays, builders, scene) {
     de.group.position.y = deerY;
     de._baseY = deerY;
     deers.push(de);
+  }
+  // Luminids (towering giants)
+  for (let i = 0; i < LUMINID_N; i++) {
+    const ang = sr() * 6.28, d = 15 + sr() * WORLD_R * 0.45;
+    const lx = Math.cos(ang) * d, lz = Math.sin(ang) * d;
+    if (inKeepOut(lx, lz)) continue;
+    const lu = makeLuminid(lx, lz);
+    lu.group.position.y = getGroundY(lx, lz);
+    luminids.push(lu);
   }
   // Moths (fly above ground)
   for (let i = 0; i < MOTH_N; i++) {

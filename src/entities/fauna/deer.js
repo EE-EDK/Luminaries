@@ -321,10 +321,101 @@ export function makeDeer(x, z) {
     group: g, mat: bMat, manePlanes, branchOrbs, trailSpheres, ears,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.4,
     walkTimer: 0, legCycle: 0, homeX: x, homeZ: z, state: 'walk', pauseTimer: 0,
-    neckPivot: neckPivot, legPivots: legPivots, tailPivot: tailPivot,
+    neckBasePivot, neckMidPivot, headPivot, legPivots, tailPivot,
     fleeTimer: 0, headLook: 0, headBob: 0,
     earTwitchTimer: 0, earTwitchVal: 0,
     _init: true, _stT: 0, _drinkTgt: null, _zigTimer: 0, _zigDir: 1,
     _baseY: 0, _lastTX: x, _lastTZ: z
   };
+}
+
+export function updateDeer(d, dt, playerPos) {
+  const g = d.group;
+  d.phase += dt * 1.5;
+
+  // 1. STATE & WANDER LOGIC
+  const distToPlayerSq = g.position.distanceToSquared(playerPos);
+  if (distToPlayerSq < 25) { // Flee!
+    d.state = 'flee';
+    d.fleeTimer = 2.0;
+  }
+
+  if (d.state === 'flee') {
+    const dir = g.position.clone().sub(playerPos).normalize();
+    d.wanderAng = Math.atan2(dir.x, dir.z);
+    g.position.x += Math.sin(d.wanderAng) * d.speed * 2.5 * dt;
+    g.position.z += Math.cos(d.wanderAng) * d.speed * 2.5 * dt;
+    d.walkTimer += dt * 3.0;
+    d.fleeTimer -= dt;
+    if (d.fleeTimer <= 0) d.state = 'walk';
+  } else if (d.state === 'walk') {
+    g.position.x += Math.sin(d.wanderAng) * d.speed * dt;
+    g.position.z += Math.cos(d.wanderAng) * d.speed * dt;
+    d.walkTimer += dt;
+    if (Math.random() < 0.005) { d.state = 'pause'; d.pauseTimer = 1 + Math.random() * 2; }
+    // Subtle wandering
+    d.wanderAng += (Math.random() - 0.5) * 0.5 * dt;
+  } else if (d.state === 'pause') {
+    d.pauseTimer -= dt;
+    if (d.pauseTimer <= 0) d.state = 'walk';
+    // Look around while paused
+    d.headLook = Math.sin(d.phase * 0.5) * 0.4;
+  }
+
+  // 2. REFINED HEAD & NECK MOTION
+  // Neck base bobs with walk, Mid neck adds secondary lag, Head tilts independently
+  const bob = (d.state === 'pause') ? Math.sin(d.phase * 0.8) * 0.05 : Math.sin(d.walkTimer * 8) * 0.1;
+  d.neckBasePivot.rotation.x = -0.2 + bob;
+  d.neckMidPivot.rotation.x = -0.1 + bob * 0.5;
+  
+  // Head look/tilt (curiosity)
+  d.headPivot.rotation.y = d.headLook;
+  d.headPivot.rotation.z = Math.sin(d.phase * 0.4) * 0.15; // idle tilt
+
+  // 3. LEG ANIMATION (Synchronized 4-beat gait)
+  const cyc = d.walkTimer * 8;
+  d.legPivots.forEach((lp, i) => {
+    const offset = [0, Math.PI, Math.PI * 0.5, Math.PI * 1.5][i];
+    const s = Math.sin(cyc + offset);
+    lp.upper.rotation.x = s * 0.4;
+    lp.lower.rotation.x = Math.max(0, -s * 0.6); // fold knee
+  });
+
+  // 4. SECONDARY ANIMATIONS (Tail, Ears, Mane)
+  d.tailPivot.rotation.x = Math.sin(d.phase * 2) * 0.3;
+  d.tailPivot.rotation.z = Math.sin(d.phase * 4) * 0.2;
+
+  // Ear twitching
+  d.earTwitchTimer -= dt;
+  if (d.earTwitchTimer <= 0) {
+    d.earTwitchVal = 1.0;
+    d.earTwitchTimer = 2 + Math.random() * 5;
+  }
+  d.earTwitchVal *= 0.9;
+  d.ears.forEach((e, i) => {
+    e.rotation.x = d.earTwitchVal * (i === 0 ? 1 : -1) * 0.5;
+  });
+
+  // Mane swaying
+  d.manePlanes.forEach((m, i) => {
+    m.rotation.z = Math.sin(d.phase + i) * 0.1;
+  });
+
+  // 5. GHOSTLY TRAIL
+  d.trailSpheres.forEach((ts, i) => {
+    const targetX = d._lastTX;
+    const targetZ = d._lastTZ;
+    ts.mesh.position.lerp({ x: targetX, y: 0.8, z: targetZ }, 0.05);
+    ts.mat.opacity = 0.08 * (1.0 - i / 3);
+  });
+  d._lastTX = g.position.x; d._lastTZ = g.position.z;
+
+  // 6. ANTLER GLOW PULSE
+  if (d.branchOrbs) {
+    d.branchOrbs.forEach(orb => {
+      orb.material.opacity = 0.4 + Math.sin(d.phase * 3) * 0.2;
+    });
+  }
+
+  g.rotation.y = d.wanderAng + Math.PI;
 }

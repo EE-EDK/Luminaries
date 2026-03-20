@@ -139,7 +139,7 @@ The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame upd
 
 **Performance Pass** — Complete. Bloom resolution cap, shadow throttling, tree frustum culling, shared materials, named imports, terser build pipeline, dev-only performance monitoring. Dramatic intro overhaul with animated title, CSS mushrooms, puffling character, and pixie dust particles. Gameplay fixes for puffling movement, rock collision, and terrain tracking.
 
-**Phase 2: Symbiotic Attunement** — In progress. Adding narrative depth: creature attunement mechanics, zone-based restoration (The Dimming), dual-narrative text (child/adult perspectives), player light evolution, audio sync progression. See `MANIFESTO.md` for the full design.
+**Phase 2: Symbiotic Attunement** — In progress. Adding narrative depth: creature attunement mechanics, zone-based restoration (The Dimming), dual-narrative text (child/adult perspectives), player light evolution, audio sync progression. See `reference/MANIFESTO.md` for the full design.
 
 ---
 
@@ -147,7 +147,7 @@ The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame upd
 
 | Document | Purpose |
 |----------|---------|
-| `GAME_GUIDE.md` | Player-facing guide: themes, gameplay, story, controls |
+| `reference/GAME_GUIDE.md` | Player-facing guide: themes, gameplay, story, controls |
 | `CLAUDE.md` | Development instructions for AI-assisted coding |
 | `reference/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
 

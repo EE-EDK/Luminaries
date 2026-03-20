@@ -136,7 +136,7 @@ These are non-negotiable. Every session must follow them.
 | Intro sequence | `src/systems/intro.js` (title, narration, pixie, mushrooms, puffling) |
 | Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
-| Game guide | `GAME_GUIDE.md` (player-facing, update as features change) |
+| Game guide | `reference/GAME_GUIDE.md` (player-facing, update as features change) |
 | Kernel event bus | `src/kernel/eventBus.js` → `Events`, `on()`, `emit()` |
 | Kernel registry | `src/kernel/registry.js` → `register()`, `get()`, `EntityType` |
 | Kernel scheduler | `src/kernel/scheduler.js` → `addSystem()`, `Phase`, `run()` |

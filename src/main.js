@@ -64,6 +64,7 @@ import { makeJelly } from './entities/fauna/jellies.js';
 import { makePuff } from './entities/fauna/pufflings.js';
 import { makeDeer } from './entities/fauna/deer.js';
 import { makeMoth } from './entities/fauna/moths.js';
+import { makeLuminid } from './entities/fauna/luminids.js';
 
 // Entities — Magical
 import { makeWisp } from './entities/magical/wisps.js';
@@ -127,7 +128,7 @@ import { update as updateContext, ctx as frameCtx } from './kernel/context.js';
 import { registerAllSystems, nearest } from './systems/registration.js';
 
 // Extracted update modules
-import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths } from './updates/fauna.js';
+import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths, updateLuminids as _updateLuminids } from './updates/fauna.js';
 import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
 import { updateWisps, updateFairyRings as _updateFairyRings, updateBubbles, updatePonds, updateEchoBloom } from './updates/magicalEntities.js';
 import { populate as _populate } from './populate.js';
@@ -149,7 +150,7 @@ import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 // ================================================================
 import {
   trees_data, treeMeshes, treeImpostors, mush_data, crys_data,
-  jellies, puffs, deers, moths, grassPatches, ferns, flowers, reeds,
+  jellies, puffs, deers, moths, luminids, grassPatches, ferns, flowers, reeds,
   rocks_data, wisps, dandelions, fairyRings, bubbles, ponds, orbs,
   thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
   orbbushes, lanternpods, veilmosses, groundGlows,
@@ -205,6 +206,13 @@ function updateMoths(dt, t) {
   nearest.mothDist2 = result.nearestDist2;
   nearest.mothPos.x = result.nearestPos.x;
   nearest.mothPos.z = result.nearestPos.z;
+}
+
+function updateLuminids(dt, t) {
+  const result = _updateLuminids(dt, t);
+  nearest.luminidDist2 = result.nearestDist2;
+  nearest.luminidPos.x = result.nearestPos.x;
+  nearest.luminidPos.z = result.nearestPos.z;
 }
 
 function updateFairyRings(dt, t) {
@@ -331,6 +339,7 @@ function _directorFaunaUpdate(dt, t) {
   try { updatePuffs(dt, t); } catch (e) { console.warn('puff update error:', e); }
   try { updateDeers(dt, t); } catch (e) { console.warn('deer update error:', e); }
   try { updateMoths(dt, t); } catch (e) { console.warn('moth update error:', e); }
+  try { updateLuminids(dt, t); } catch (e) { console.warn('luminid update error:', e); }
   timeEnd('fauna');
 }
 
@@ -585,13 +594,13 @@ try {
   });
 
   setTreeMeshes(_populate({
-    trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths,
+    trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths, luminids,
     grassPatches, ferns, flowers, reeds, rocks_data, wisps, dandelions,
     fairyRings, bubbles, ponds, orbs, thornblooms, helixvines, snapthorns,
     spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows
   }, {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
-    makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth,
+    makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth, makeLuminid,
     makeGrassPatch, makeFern, makeFlower, makeReed,
     initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
     initPebbles, addPebble, finalizePebbles,
@@ -610,6 +619,7 @@ try {
   register(EntityType.PUFFLINGS, puffs);
   register(EntityType.DEER, deers);
   register(EntityType.MOTHS, moths);
+  register(EntityType.LUMINIDS, luminids);
   register(EntityType.GRASS, grassPatches);
   register(EntityType.FERNS, ferns);
   register(EntityType.FLOWERS, flowers);
@@ -782,7 +792,7 @@ try {
 
   console.log('✓ Init: trees=' + trees_data.length + ' mush=' + mush_data.length +
     ' crystals=' + crys_data.length + ' orbs=' + orbs.length +
-    ' creatures=' + (jellies.length + puffs.length + deers.length + moths.length) +
+    ' creatures=' + (jellies.length + puffs.length + deers.length + moths.length + luminids.length) +
     ' wisps=' + wisps.length + ' dandelions=' + dandelions.length +
     ' fairyRings=' + fairyRings.length + ' bubbles=' + bubbles.length +
     ' ponds=' + ponds.length +

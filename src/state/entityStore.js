@@ -13,6 +13,7 @@ export const jellies = [];
 export const puffs = [];
 export const deers = [];
 export const moths = [];
+export const luminids = [];
 export const grassPatches = [];
 export const ferns = [];
 export const flowers = [];

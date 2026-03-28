@@ -72,3 +72,9 @@ The project currently has zero accessibility support.
 ### 5. Expand Unit Testing
 Tests are currently limited to kernel modules.
 - **Recommendation**: Add Vitest tests for `utils/rng.js` (ensuring determinism) and `systems/attunement.js` (frequency logic), which are critical for Phase 2 gameplay.
+
+## TODO
+- [ ] Every audio function must have a guard: `if (!initialized || muted) return;`.
+- [ ] Keep volumes low (0.02 - 0.08) to avoid clipping when multiple voices overlap.
+- [ ] Use `connectWithReverb()` for spatial depth.
+- [ ] **Recommendation**: Use the DOM-based HUD to provide "Aria-Live" regions for important world events (e.g., "An orb has been found", "A creature is near"). Add a "High Contrast" or "Colorblind" mode that swaps the bioluminescent palette.

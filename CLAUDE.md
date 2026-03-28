@@ -166,3 +166,18 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 2. **No save/load** — Game resets on refresh.
 3. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
 4. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).
+
+## TODO
+
+- [ ] Weather modifiers (Remaining Phase 2 feature)
+- [ ] day/night gating (Remaining Phase 2 feature)
+- [ ] bubble pop rewards (Remaining Phase 2 feature)
+- [ ] crystal resonance chains (Remaining Phase 2 feature)
+- [ ] dandelion wayfinding (Remaining Phase 2 feature)
+- [ ] obelisk runes (Remaining Phase 2 feature)
+- [ ] ground glyphs (Remaining Phase 2 feature)
+- [ ] echo-visions (Remaining Phase 2 feature)
+- [ ] Refactor `main.js` to extract subsystems (Debt)
+- [ ] Implement save/load system (Debt)
+- [ ] Add accessibility support (Debt)
+- [ ] Replace Intro DOM overlays with troika-three-text (Debt)

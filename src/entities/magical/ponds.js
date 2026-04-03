@@ -52,7 +52,8 @@ export function makePond(x, z) {
   // Water surface disc
   const waterMat = new MeshStandardMaterial({
     color: C.pondWater, emissive: C.pondGlow, emissiveIntensity: 0.2,
-    transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.4
+    transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.4,
+    depthWrite: false
   });
   const waterGeo = makeOrganicDiscGeo(pondR, 24, shapeSeed);
   const water = new Mesh(waterGeo, waterMat);
@@ -86,7 +87,8 @@ export function makePond(x, z) {
   }
   // Animated ripple rings (expand outward, cycle)
   const rippleMat = new MeshBasicMaterial({
-    color: 0xaaddee, transparent: true, opacity: 0.08
+    color: 0xaaddee, transparent: true, opacity: 0.08,
+    depthWrite: false
   });
   const ripples = [];
   for (let rri = 0; rri < 3; rri++) {
@@ -108,7 +110,10 @@ export function makePond(x, z) {
     pad.position.set(Math.cos(pa) * pd, 0.05, Math.sin(pa) * pd);
     g.add(pad);
     // Pad vein line (subtle midrib)
-    const veinMat = new MeshBasicMaterial({ color: 0x1a5020, transparent: true, opacity: 0.3 });
+    const veinMat = new MeshBasicMaterial({
+      color: 0x1a5020, transparent: true, opacity: 0.3,
+      depthWrite: false
+    });
     const vein = new Mesh(new CylinderGeometry(0.002, 0.002, padSize * 1.5, 3), veinMat);
     vein.position.set(Math.cos(pa) * pd, 0.052, Math.sin(pa) * pd);
     vein.rotation.x = Math.PI / 2; vein.rotation.z = sr() * 3; g.add(vein);
@@ -117,7 +122,8 @@ export function makePond(x, z) {
   // Lily flower on first pad
   const flMat = new MeshStandardMaterial({
     color: C.lilyFlower, emissive: C.lilyGlow, emissiveIntensity: 0.4,
-    transparent: true, opacity: 0.85, side: DoubleSide
+    transparent: true, opacity: 0.85, side: DoubleSide,
+    depthWrite: false
   });
   const flowerY = 0.08;
   for (let i = 0; i < 6; i++) {
@@ -138,7 +144,7 @@ export function makePond(x, z) {
   if (pads.length > 2) {
     const budMat = new MeshStandardMaterial({
       color: C.lilyFlower, emissive: C.lilyGlow, emissiveIntensity: 0.2,
-      transparent: true, opacity: 0.7
+      transparent: true, opacity: 0.7, depthWrite: false
     });
     const bud = new Mesh(new SphereGeometry(0.03, 5, 4), budMat);
     bud.scale.set(0.8, 1.2, 0.8);
@@ -147,7 +153,10 @@ export function makePond(x, z) {
   }
 
   // Submerged pebbles (visible through water)
-  const pebMat = new MeshStandardMaterial({ color: 0x3a3835, roughness: 0.8, transparent: true, opacity: 0.5 });
+  const pebMat = new MeshStandardMaterial({
+    color: 0x3a3835, roughness: 0.8, transparent: true, opacity: 0.5,
+    depthWrite: false
+  });
   for (let pbi = 0; pbi < 5; pbi++) {
     const pbA = sr() * 6.28, pbD = sr() * pondR * 0.7;
     const peb = new Mesh(new SphereGeometry(0.02 + sr() * 0.025, 4, 3), pebMat);
@@ -156,7 +165,10 @@ export function makePond(x, z) {
   }
 
   // Silt deposits (faint sandy patches on pond floor)
-  const siltMat = new MeshBasicMaterial({ color: 0x2a2418, transparent: true, opacity: 0.12, side: DoubleSide });
+  const siltMat = new MeshBasicMaterial({
+    color: 0x2a2418, transparent: true, opacity: 0.12, side: DoubleSide,
+    depthWrite: false
+  });
   for (let sli = 0; sli < 3; sli++) {
     const slA = sr() * 6.28, slD = sr() * pondR * 0.5;
     const silt = new Mesh(new CircleGeometry(0.08 + sr() * 0.06, 5), siltMat);
@@ -165,7 +177,10 @@ export function makePond(x, z) {
   }
 
   // Tadpole shapes (animated swim paths)
-  const tadMat = new MeshStandardMaterial({ color: 0x112215, roughness: 0.7, transparent: true, opacity: 0.4 });
+  const tadMat = new MeshStandardMaterial({
+    color: 0x112215, roughness: 0.7, transparent: true, opacity: 0.4,
+    depthWrite: false
+  });
   const tadpoles = [];
   for (let tdi = 0; tdi < 2; tdi++) {
     const tdA = sr() * 6.28, tdD = sr() * pondR * 0.4;
@@ -179,7 +194,10 @@ export function makePond(x, z) {
   }
 
   // Algae patches (green film at water edge)
-  const algaeMat = new MeshBasicMaterial({ color: 0x225520, transparent: true, opacity: 0.1, side: DoubleSide });
+  const algaeMat = new MeshBasicMaterial({
+    color: 0x225520, transparent: true, opacity: 0.1, side: DoubleSide,
+    depthWrite: false
+  });
   for (let ali = 0; ali < 3; ali++) {
     const alA = sr() * 6.28, alD = pondR * 0.7 + sr() * pondR * 0.25;
     const algae = new Mesh(new CircleGeometry(0.06 + sr() * 0.04, 5), algaeMat);
@@ -188,7 +206,10 @@ export function makePond(x, z) {
   }
 
   // Surface tension film ring at edge (meniscus) — matches organic shape
-  const menMat = new MeshBasicMaterial({ color: 0xccddee, transparent: true, opacity: 0.06 });
+  const menMat = new MeshBasicMaterial({
+    color: C.white, transparent: true, opacity: 0.06,
+    depthWrite: false
+  });
   const menGeo = makeOrganicDiscGeo(pondR - 0.05, 24, shapeSeed);
   const meniscus = new Mesh(menGeo, menMat);
   meniscus.rotation.x = -Math.PI / 2; meniscus.position.y = 0.065;
@@ -196,7 +217,10 @@ export function makePond(x, z) {
   g.add(meniscus);
 
   // Fallen leaf on water surface
-  const fLeafMat = new MeshStandardMaterial({ color: 0x4a3018, roughness: 0.8, side: DoubleSide, transparent: true, opacity: 0.6 });
+  const fLeafMat = new MeshStandardMaterial({
+    color: 0x4a3018, roughness: 0.8, side: DoubleSide, transparent: true, opacity: 0.6,
+    depthWrite: false
+  });
   const fLeaf = new Mesh(new SphereGeometry(0.03, 5, 3), fLeafMat);
   fLeaf.scale.set(1.3, 0.2, 1.0);
   fLeaf.position.set((sr() - 0.5) * pondR * 0.5, 0.07, (sr() - 0.5) * pondR * 0.5); g.add(fLeaf);

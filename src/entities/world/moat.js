@@ -12,8 +12,9 @@ export function getMoatMat() { return moatMat; }
 
 export function makeMoat() {
   const mat = new MeshStandardMaterial({
-    color: C.moatBlue, emissive: 0x1155aa, emissiveIntensity: 0.3,
-    transparent: true, opacity: 0, roughness: 0.1, metalness: 0.3
+    color: C.moatBlue, emissive: C.moatGlow, emissiveIntensity: 0.3,
+    transparent: true, opacity: 0, roughness: 0.1, metalness: 0.3,
+    depthWrite: false
   });
   moatMat = mat;
   // Ring shape: outer=6m, inner=3m
@@ -32,7 +33,8 @@ export function makeMoat() {
 
   // Submerged glow stones (bright pebbles on moat floor)
   const glowStoneMat = new MeshBasicMaterial({
-    color: 0x4488cc, transparent: true, opacity: 0.0
+    color: C.moatStone, transparent: true, opacity: 0.0,
+    depthWrite: false
   });
   for (let gsi = 0; gsi < 12; gsi++) {
     const gsA = (gsi / 12) * 6.28 + sr() * 0.3;
@@ -45,7 +47,8 @@ export function makeMoat() {
 
   // Water foam patches (white blobs at inner edge)
   const foamMat = new MeshBasicMaterial({
-    color: 0xccddee, transparent: true, opacity: 0.0, side: DoubleSide
+    color: C.white, transparent: true, opacity: 0.0, side: DoubleSide,
+    depthWrite: false
   });
   for (let fmi = 0; fmi < 6; fmi++) {
     const fmA = (fmi / 6) * 6.28 + sr() * 0.5;
@@ -57,7 +60,8 @@ export function makeMoat() {
 
   // Current flow lines (faint arcs showing water direction)
   const currMat = new MeshBasicMaterial({
-    color: 0x88bbdd, transparent: true, opacity: 0.0
+    color: C.skyStarDim, transparent: true, opacity: 0.0,
+    depthWrite: false
   });
   for (let cli = 0; cli < 8; cli++) {
     const clA = (cli / 8) * 6.28;
@@ -70,7 +74,8 @@ export function makeMoat() {
 
   // Depth gradient ring (darker center channel)
   const depthMat = new MeshBasicMaterial({
-    color: 0x040810, transparent: true, opacity: 0.0, side: DoubleSide
+    color: C.skyDeep, transparent: true, opacity: 0.0, side: DoubleSide,
+    depthWrite: false
   });
   const depthShape = new Shape();
   depthShape.absarc(0, 0, 5.2, 0, 6.28, false);

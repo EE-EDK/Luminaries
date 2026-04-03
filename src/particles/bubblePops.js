@@ -12,7 +12,7 @@ const popGeo = new SphereGeometry(0.02, 3, 3);
 
 export function initBubblePops(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1
+    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(popGeo, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

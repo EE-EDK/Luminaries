@@ -12,7 +12,7 @@ import { emit, Events } from '../kernel/eventBus.js';
 import { player, playerIdleTime } from '../core/player.js';
 import { keys, touchSprint } from '../core/input.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
-import { orbBoost } from '../state/gameState.js';
+import { orbBoost, setBubblePulse } from '../state/gameState.js';
 import { getRainRate } from '../systems/weather.js';
 import { questPhase } from '../quest/questManager.js';
 import { wisps, fairyRings, bubbles, ponds, orbs, crys_data, mush_data, flowers } from '../state/entityStore.js';
@@ -157,12 +157,23 @@ export function updateBubbles(dt, t) {
     const bdx = b.group.position.x - player.pos.x;
     const bdy = b.group.position.y - player.pos.y;
     const bdz = b.group.position.z - player.pos.z;
-    if (bdx * bdx + bdy * bdy + bdz * bdz < BUBBLE_POP_R * BUBBLE_POP_R * b.sc * b.sc) {
-      b.popped = true; b.popTimer = 8 + Math.random() * 8;
-      b.group.visible = false;
-      spawnBubblePop(b.group.position.x, b.group.position.y, b.group.position.z, 6);
-      playBubblePop(b.group.position, player.pos);
-      emit(Events.BUBBLE_POP, { position: b.group.position, playerPos: player.pos });
+    const distSq = bdx * bdx + bdy * bdy + bdz * bdz;
+    const bubbleRadius = BUBBLE_POP_R * b.sc;
+    if (distSq < bubbleRadius * bubbleRadius) {
+      if (isRestored(b.group.position.x, b.group.position.z)) {
+        b.popped = true; b.popTimer = 8 + sr() * 8;
+        b.group.visible = false;
+        spawnBubblePop(b.group.position.x, b.group.position.y, b.group.position.z, 6);
+        playBubblePop(b.group.position, player.pos);
+        setBubblePulse(b.group.position.x, b.group.position.z);
+        emit(Events.BUBBLE_POP, { position: b.group.position, playerPos: player.pos });
+      } else {
+        // Dimmed zone: repel bubble away from player instead of popping
+        const dist = Math.sqrt(distSq) || 0.1;
+        b.homeX += (bdx / dist) * dt * 8;
+        b.homeZ += (bdz / dist) * dt * 8;
+        b.driftAng += dt * 2.0; // wobble faster when repelled
+      }
     }
   }
 }

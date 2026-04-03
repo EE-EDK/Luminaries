@@ -7,7 +7,7 @@ import { scene } from './renderer.js';
 // ================================================================
 
 // Hemisphere ambient
-export const hemiLight = new HemisphereLight(C.ambient, C.ground, 0.65);
+export const hemiLight = new HemisphereLight(C.ambient, C.ground, 0.75);
 scene.add(hemiLight);
 
 // Primary moonlight (directional with shadows)
@@ -27,29 +27,15 @@ moon.shadow.needsUpdate = true;
 scene.add(moon);
 
 // Secondary moonlight (opposite angle — fill only, no shadow for performance)
-export const moon2 = new DirectionalLight(0x223355, 0.3);
+export const moon2 = new DirectionalLight(C.moon2, 0.35);
 moon2.position.set(-40, 45, 25);
 scene.add(moon2);
 
-// Secondary fill light (opposite side, warmer, no shadow — simulates ground bounce)
-const fillLight = new DirectionalLight(0x334455, 0.4);
-fillLight.position.set(-25, 15, 30);
-scene.add(fillLight);
-
-// Warm uplight from ground (simulates bioluminescent glow bouncing up)
-const groundGlow = new PointLight(0x336644, 0.7, 100);
-groundGlow.position.set(0, 0.5, 0);
-scene.add(groundGlow);
-
-// Accent lights removed for performance — hemisphere light compensates
-
-// Rim light from behind (backlight silhouette effect on trees)
-const rimLight = new DirectionalLight(0x445577, 0.4);
-rimLight.position.set(-10, 25, 40);
-scene.add(rimLight);
+// Fill, groundGlow, and rim lights removed for light budget compliance (8 max).
+// Hemisphere intensity raised to compensate.
 
 // Player carry light (always illuminates nearby)
-export const playerLight = new PointLight(0x668888, 0.6, 20);
+export const playerLight = new PointLight(C.playerLight, 0.6, 20);
 scene.add(playerLight);
 
 // Crystal proximity lights — pooled, moved to nearest crystals each frame

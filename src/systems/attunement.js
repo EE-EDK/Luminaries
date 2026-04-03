@@ -17,9 +17,11 @@
 //   We've started calling it "attunement." The creatures call it nothing.
 //   They just know.
 
-import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2 } from '../constants.js';
+import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2, WEATHER_ATTUNE_MODS } from '../constants.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
+import { bioGlow } from './dayNightCycle.js';
+import { weatherState } from './weather.js';
 
 // ================================================================
 // Constants
@@ -152,7 +154,10 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       attunementTarget = matchType;
       attunement = 0;
     }
-    attunement += ATTUNE_RATE * dt + _puffJumpChunk;
+    // Wave 1: Weather and day/night modifiers
+    const weatherMod = WEATHER_ATTUNE_MODS[weatherState]?.[matchType] || 1.0;
+    const rate = ATTUNE_RATE * dt * bioGlow * weatherMod;
+    attunement += rate + _puffJumpChunk;
     refreshLock(); // keep lock alive while actively building attunement
     if (attunement >= 1.0 && playerFrequency !== matchType) {
       attunement = 1.0;

@@ -27,7 +27,10 @@ export function makeFairyRing(x, z) {
     const cap = new Mesh(GEO.mushCap, mushMat);
     cap.scale.set(sc, sc * 0.4, sc); cap.position.set(Math.cos(a) * mr, sc * 0.55 + liftY, Math.sin(a) * mr); g.add(cap);
     // Cap dot (white spot on each mini cap)
-    const dotMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+    const dotMat = new MeshBasicMaterial({
+      color: C.white, transparent: true, opacity: 0.7,
+      depthWrite: false
+    });
     const dot = new Mesh(new SphereGeometry(sc * 0.08, 3, 3), dotMat);
     dot.position.set(Math.cos(a) * mr, sc * 0.6 + liftY, Math.sin(a) * mr); g.add(dot);
   }
@@ -61,7 +64,8 @@ export function makeFairyRing(x, z) {
   stone.scale.set(1.2, 0.3, 1.0); stone.position.y = 0.03; g.add(stone);
   // Spore haze motes (floating particles inside ring — animated)
   const sporeMat = new MeshBasicMaterial({
-    color: C.fairyGlow, transparent: true, opacity: 0.2
+    color: C.fairyGlow, transparent: true, opacity: 0.2,
+    depthWrite: false
   });
   const spores = [];
   for (let si = 0; si < 8; si++) {
@@ -73,14 +77,16 @@ export function makeFairyRing(x, z) {
   }
   // Central glow disc (flat ring on ground — raised above terrain)
   const discMat = new MeshBasicMaterial({
-    color: C.fairyRing, transparent: true, opacity: 0.0, side: DoubleSide
+    color: C.fairyRing, transparent: true, opacity: 0.0, side: DoubleSide,
+    depthWrite: false
   });
   const disc = new Mesh(new RingGeometry(0.3, ringR - 0.3, 16), discMat);
   disc.rotation.x = -Math.PI / 2; disc.position.y = 0.12; g.add(disc); // raised from 0.02
 
   // Mycelium web threads on ground (radial connecting lines between mushrooms)
   const webMat = new MeshBasicMaterial({
-    color: C.fairyGlow, transparent: true, opacity: 0.08
+    color: C.fairyGlow, transparent: true, opacity: 0.08,
+    depthWrite: false
   });
   for (let wi = 0; wi < 6; wi++) {
     const wA1 = sr() * 6.28, wA2 = wA1 + 0.5 + sr() * 1.5;
@@ -92,7 +98,8 @@ export function makeFairyRing(x, z) {
 
   // Tiny fallen spore caps (old dried mushroom remnants)
   const oldCapMat = new MeshStandardMaterial({
-    color: 0x4a3a30, roughness: 0.9, transparent: true, opacity: 0.5
+    color: 0x4a3a30, roughness: 0.9, transparent: true, opacity: 0.5,
+    depthWrite: false
   });
   for (let oci = 0; oci < 3; oci++) {
     const oa = sr() * 6.28, od = sr() * ringR * 0.7;
@@ -103,7 +110,8 @@ export function makeFairyRing(x, z) {
 
   // Lichen spots on center stone
   const lichMat = new MeshStandardMaterial({
-    color: 0x778866, roughness: 0.9, transparent: true, opacity: 0.5
+    color: 0x778866, roughness: 0.9, transparent: true, opacity: 0.5,
+    depthWrite: false
   });
   for (let lci = 0; lci < 2; lci++) {
     const lich = new Mesh(new CircleGeometry(0.02 + sr() * 0.02, 4), lichMat);
@@ -115,7 +123,10 @@ export function makeFairyRing(x, z) {
   const glowWorms = [];
   for (let gwi = 0; gwi < 5; gwi++) {
     const gwa = sr() * 6.28, gwd = sr() * ringR * 0.9;
-    const gwm = new MeshBasicMaterial({ color: 0x88ffaa, transparent: true, opacity: 0.25 });
+    const gwm = new MeshBasicMaterial({
+      color: 0x88ffaa, transparent: true, opacity: 0.25,
+      depthWrite: false
+    });
     const gw = new Mesh(new SphereGeometry(0.005, 3, 3), gwm);
     gw.position.set(Math.cos(gwa) * gwd, 0.01, Math.sin(gwa) * gwd); g.add(gw);
     glowWorms.push(gw);
@@ -123,7 +134,8 @@ export function makeFairyRing(x, z) {
 
   // Dew-wet soil ring (dark dampness circle just inside mushroom ring)
   const dampMat = new MeshBasicMaterial({
-    color: 0x0a0a06, transparent: true, opacity: 0.15, side: DoubleSide
+    color: 0x0a0a06, transparent: true, opacity: 0.15, side: DoubleSide,
+    depthWrite: false
   });
   const damp = new Mesh(new RingGeometry(ringR * 0.5, ringR * 0.85, 12), dampMat);
   damp.rotation.x = -Math.PI / 2; damp.position.y = 0.008; g.add(damp);

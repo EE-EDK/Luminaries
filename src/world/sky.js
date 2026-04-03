@@ -1,6 +1,6 @@
 import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry } from 'three';
-import { SKY_R } from '../constants.js';
-import { saveSeed, restoreSeed } from '../utils/rng.js';
+import { SKY_R, C } from '../constants.js';
+import { saveSeed, restoreSeed, sr } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
 
 // ================================================================
@@ -59,7 +59,7 @@ function paintSkyCanvas() {
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  const R = Math.random;
+  const R = sr;
 
   // ---- 1. Deep space base gradient ----
   const base = ctx.createLinearGradient(0, 0, 0, H);
@@ -74,14 +74,14 @@ function paintSkyCanvas() {
 
   // ---- 2. Large nebula base regions (broad color washes) ----
   const nebulae = [
-    { x: 0.12, y: 0.22, rx: 0.18, ry: 0.14, col: 0x1a3366, a: 0.14 },
-    { x: 0.42, y: 0.28, rx: 0.22, ry: 0.10, col: 0x2a1855, a: 0.12 },
-    { x: 0.72, y: 0.18, rx: 0.16, ry: 0.12, col: 0x1a4466, a: 0.13 },
-    { x: 0.88, y: 0.32, rx: 0.20, ry: 0.09, col: 0x331844, a: 0.10 },
-    { x: 0.28, y: 0.12, rx: 0.14, ry: 0.18, col: 0x224488, a: 0.10 },
-    { x: 0.58, y: 0.38, rx: 0.18, ry: 0.07, col: 0x442244, a: 0.08 },
-    { x: 0.05, y: 0.40, rx: 0.15, ry: 0.10, col: 0x183355, a: 0.09 },
-    { x: 0.52, y: 0.15, rx: 0.12, ry: 0.16, col: 0x2a3366, a: 0.07 },
+    { x: 0.12, y: 0.22, rx: 0.18, ry: 0.14, col: C.skyCloud1, a: 0.14 },
+    { x: 0.42, y: 0.28, rx: 0.22, ry: 0.10, col: C.skyCloud2, a: 0.12 },
+    { x: 0.72, y: 0.18, rx: 0.16, ry: 0.12, col: C.skyCloud3, a: 0.13 },
+    { x: 0.88, y: 0.32, rx: 0.20, ry: 0.09, col: C.skyCloud4, a: 0.10 },
+    { x: 0.28, y: 0.12, rx: 0.14, ry: 0.18, col: C.skyCloud5, a: 0.10 },
+    { x: 0.58, y: 0.38, rx: 0.18, ry: 0.07, col: C.skyCloud6, a: 0.08 },
+    { x: 0.05, y: 0.40, rx: 0.15, ry: 0.10, col: C.skyCloud7, a: 0.09 },
+    { x: 0.52, y: 0.15, rx: 0.12, ry: 0.16, col: C.skyCloud8, a: 0.07 },
   ];
 
   for (const n of nebulae) {
@@ -117,21 +117,21 @@ function paintSkyCanvas() {
     const my = (mwCenterY + Math.sin(t * Math.PI) * 0.06 + (R() - 0.5) * 0.02) * H;
     const mrx = W * 0.05 + R() * W * 0.035;
     const mry = H * 0.04 * (0.4 + R() * 0.6);
-    softGlow(ctx, mx, my, mrx, mry, 0x445566, 0.025 + R() * 0.015);
+    softGlow(ctx, mx, my, mrx, mry, C.skyMoonGlow, 0.025 + R() * 0.015);
   }
   // Brighter core regions
   for (let i = 0; i < 25; i++) {
     const t = 0.2 + R() * 0.6;
     const mx = t * W;
     const my = (mwCenterY + Math.sin(t * Math.PI) * 0.04) * H;
-    softGlow(ctx, mx, my, W * 0.03 + R() * W * 0.02, H * 0.02 + R() * H * 0.01, 0x6688aa, 0.015 + R() * 0.012);
+    softGlow(ctx, mx, my, W * 0.03 + R() * W * 0.02, H * 0.02 + R() * H * 0.01, C.skyMoonCore, 0.015 + R() * 0.012);
   }
   // Warm highlights in core
   for (let i = 0; i < 10; i++) {
     const t = 0.35 + R() * 0.3;
     const mx = t * W;
     const my = (mwCenterY + Math.sin(t * Math.PI) * 0.02) * H;
-    softGlow(ctx, mx, my, W * 0.02, H * 0.012, 0x887766, 0.01 + R() * 0.008);
+    softGlow(ctx, mx, my, W * 0.02, H * 0.012, C.skyMoonWarm, 0.01 + R() * 0.008);
   }
   ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
@@ -143,7 +143,7 @@ function paintSkyCanvas() {
     const dy = (mwCenterY + Math.sin(t * Math.PI) * 0.04 + (R() - 0.5) * 0.02) * H;
     const drx = 20 + R() * 60;
     const dry = 8 + R() * 20;
-    softGlow(ctx, dx, dy, drx, dry, 0x020408, 0.15 + R() * 0.1);
+    softGlow(ctx, dx, dy, drx, dry, C.skyMoonShadow, 0.15 + R() * 0.1);
   }
 
   // ---- 6. Dense star field ----

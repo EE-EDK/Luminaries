@@ -18,37 +18,47 @@ export function makeWisp(x, y, z) {
   g.add(core);
   // Inner faceted crystal (icosahedron inside core for sparkle)
   const facetMat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.7, wireframe: true
+    color: C.white, transparent: true, opacity: 0.7, wireframe: true,
+    depthWrite: false
   });
   const facet = new Mesh(new IcosahedronGeometry(0.06, 0), facetMat);
   g.add(facet);
   // Inner glow shell
   const glowMat = new MeshBasicMaterial({
-    color: C.wispGlow, transparent: true, opacity: 0.5
+    color: C.wispGlow, transparent: true, opacity: 0.5,
+    depthWrite: false
   });
   const glow = new Mesh(new SphereGeometry(0.18, 6, 4), glowMat);
   g.add(glow);
   // Halo ring (thin torus around equator)
   const haloMat = new MeshBasicMaterial({
-    color: C.wispGlow, transparent: true, opacity: 0.25
+    color: C.wispGlow, transparent: true, opacity: 0.25,
+    depthWrite: false
   });
   const halo = new Mesh(new TorusGeometry(0.22, 0.008, 4, 12), haloMat);
   halo.rotation.x = Math.PI / 2; g.add(halo);
   // Outer haze
   const hazeMat = new MeshBasicMaterial({
-    color: C.wispTrail, transparent: true, opacity: 0.15
+    color: C.wispTrail, transparent: true, opacity: 0.15,
+    depthWrite: false
   });
   const haze = new Mesh(new SphereGeometry(0.35, 5, 4), hazeMat);
   g.add(haze);
   // Tiny sparkle orbiter
-  const sparkMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+  const sparkMat = new MeshBasicMaterial({
+    color: C.white, transparent: true, opacity: 0.8,
+    depthWrite: false
+  });
   const spark = new Mesh(new SphereGeometry(0.02, 3, 3), sparkMat);
   spark.position.set(0.15, 0, 0);
   g.add(spark);
   // Trailing ember motes (3 tiny dots behind — animated)
   const embers = [];
   for (let ei = 0; ei < 3; ei++) {
-    const eMat = new MeshBasicMaterial({ color: C.wispCore, transparent: true, opacity: 0.35 });
+    const eMat = new MeshBasicMaterial({
+      color: C.wispCore, transparent: true, opacity: 0.35,
+      depthWrite: false
+    });
     const ember = new Mesh(new SphereGeometry(0.01, 3, 3), eMat);
     ember.position.set((sr() - 0.5) * 0.1, -0.1 - ei * 0.08, (sr() - 0.5) * 0.1);
     g.add(ember);
@@ -57,7 +67,8 @@ export function makeWisp(x, y, z) {
 
   // Plasma tendrils (3 curved filament arcs radiating from core — animated)
   const plasmaMat = new MeshBasicMaterial({
-    color: C.wispGlow, transparent: true, opacity: 0.18
+    color: C.wispGlow, transparent: true, opacity: 0.18,
+    depthWrite: false
   });
   const tendrils = [];
   for (let pi = 0; pi < 3; pi++) {
@@ -72,13 +83,17 @@ export function makeWisp(x, y, z) {
 
   // Secondary halo (tilted at different angle)
   const halo2Mat = new MeshBasicMaterial({
-    color: C.wispGlow, transparent: true, opacity: 0.12
+    color: C.wispGlow, transparent: true, opacity: 0.12,
+    depthWrite: false
   });
   const halo2 = new Mesh(new TorusGeometry(0.26, 0.005, 4, 10), halo2Mat);
   halo2.rotation.x = 1.2; halo2.rotation.z = 0.8; g.add(halo2);
 
   // Core surface flicker spots (tiny bright patches)
-  const flickMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+  const flickMat = new MeshBasicMaterial({
+    color: C.white, transparent: true, opacity: 0.5,
+    depthWrite: false
+  });
   for (let fi = 0; fi < 4; fi++) {
     const fa = sr() * 6.28, fel = sr() * 0.8;
     const flick = new Mesh(new SphereGeometry(0.006, 3, 3), flickMat);
@@ -87,7 +102,10 @@ export function makeWisp(x, y, z) {
   }
 
   // Micro-spark chain (tiny connected dots trailing downward)
-  const chainMat = new MeshBasicMaterial({ color: C.wispCore, transparent: true, opacity: 0.2 });
+  const chainMat = new MeshBasicMaterial({
+    color: C.wispCore, transparent: true, opacity: 0.2,
+    depthWrite: false
+  });
   for (let ci = 0; ci < 4; ci++) {
     const chain = new Mesh(new SphereGeometry(0.004, 3, 3), chainMat);
     chain.position.set(0.03 + sr() * 0.04, -0.05 - ci * 0.04, sr() * 0.04);

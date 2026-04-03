@@ -113,3 +113,18 @@ export function playFairyBounce() {
   connectWithReverb(gain, masterGain, 0.4);
   osc.start(); osc.stop(now + 0.6);
 }
+
+export function playCrystalChime(intensity = 1.0) {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1200 + Math.random() * 400, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.4);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.04 * intensity, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  osc.connect(gain);
+  connectWithReverb(gain, masterGain, 0.6);
+  osc.start(); osc.stop(now + 0.6);
+}

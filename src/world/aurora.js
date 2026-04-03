@@ -16,12 +16,12 @@ let auroraGroup = null;
 
 // Muted, desaturated color palette for soft aurora
 const AURORA_COLORS = [
-  new Color(0x1a7755), // muted green
-  new Color(0x2a8877), // muted teal
-  new Color(0x557766), // pale sage
-  new Color(0x665588), // muted purple
-  new Color(0x884466), // muted rose
-  new Color(0x336655), // dark teal
+  new Color(C.auroraMutedGreen),
+  new Color(C.auroraMutedTeal),
+  new Color(C.auroraPaleSage),
+  new Color(C.auroraMutedPurple),
+  new Color(C.auroraMutedRose),
+  new Color(C.auroraDarkTeal),
 ];
 
 export function initAurora() {

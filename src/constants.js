@@ -84,13 +84,22 @@ export const OBELISK_RISE_SPEED = 4;
 export const DIMMING_FACTOR = 0.18;     // bioGlow multiplier in unrestored sectors (near-greyscale)
 export const DIMMING_WAVE_SPEED = 30;   // Restoration wave expansion speed (m/s) — fast radial bloom
 
-// Light budget: 1 hemisphere + 1 directional + 1 playerLight + 5 crystal proximity = 8 max
-export const MAX_CRYSTAL_LIGHTS = 5;
+// Light budget: 1 hemi + 2 dir + 1 player + 3 crystal proximity + 1 orb = 8 max
+export const MAX_CRYSTAL_LIGHTS = 3;
 
 // Creature Attunement (Phase 2)
 export const ATTUNE_RATE = 0.15;       // attunement gain per second while matching
 export const ATTUNE_DECAY = 0.05;      // attunement loss per second when not matching
 export const ATTUNE_JUMP_R2 = 225;     // squared distance: must co-jump within 15m
+
+export const WEATHER_ATTUNE_MODS = {
+  CLEAR:           { puff: 1.0, jelly: 1.0, deer: 1.0, moth: 1.0 },
+  MISTY:           { puff: 0.8, jelly: 1.2, deer: 1.0, moth: 1.3 },
+  LIGHT_RAIN:      { puff: 0.7, jelly: 1.4, deer: 0.8, moth: 0.6 },
+  HEAVY_RAIN:      { puff: 0.5, jelly: 1.6, deer: 0.6, moth: 0.3 },
+  FOG_BANK:        { puff: 0.6, jelly: 1.3, deer: 0.9, moth: 1.5 },
+  LUMINOUS_STORM:  { puff: 1.5, jelly: 1.5, deer: 1.5, moth: 1.5 }
+};
 
 // Spirit Hum — two-phase creature unlock (Phase 2)
 // Right-click (desktop) or HUM button (mobile) to emit a continuous tone.
@@ -122,7 +131,7 @@ export const C = {
   mushCap: 0x8833ee, mushGlow: 0xcc77ff, mushStem: 0x2a1140,
   crystal: 0x33ffdd, crystalCore: 0x88ffee,
   firefly: 0xeeff66, fireflyB: 0x66ffdd, spore: 0xbbff99,
-  ambient: 0x223355, moon: 0xbbccee,
+  ambient: 0x223355, moon: 0xbbccee, moon2: 0x223355, playerLight: 0x668888,
   // Creature palette
   jellyBell: 0x7788ff, jellyGlow: 0xaaccff, jellyTent: 0x6677cc,
   puffBody: 0xffddcc, puffGlow: 0xffaa88, puffEye: 0x222222, puffCheek: 0xff8899,
@@ -142,7 +151,7 @@ export const C = {
   orbGold: 0xffcc33, orbGlow: 0xffeeaa, orbInner: 0xfff8dd,
   laserPink: 0xff66aa, laserGlow: 0xff88cc,
   obeliskBlack: 0x0a0a12, obeliskPink: 0xff44aa,
-  moatBlue: 0x3388cc, rainbow: [0xff3333, 0xff8833, 0xffee33, 0x33ff66, 0x3388ff, 0x8833ff],
+  moatBlue: 0x3388cc, moatGlow: 0x1155aa, moatStone: 0x4488cc, rainbow: [0xff3333, 0xff8833, 0xffee33, 0x33ff66, 0x3388ff, 0x8833ff],
   // New entity palette
   wispCore: 0xaaeeff, wispGlow: 0xddeeff, wispTrail: 0x88ccff,
   dandStem: 0x446633, dandHead: 0xffffee, dandSeed: 0xfff8dd, dandSeedGlow: 0xffffff,
@@ -183,5 +192,23 @@ export const C = {
   // Veil moss palette
   veilSupport: 0x3a3a40, veilMoss: 0x44cc88, veilGlow: 0x66ffaa, veilEdge: 0x88ffcc,
   // Ground glow patch colors
-  groundGlowColors: [0x33ffdd, 0x44ffaa, 0xcc77ff, 0x44aaee, 0x88ffcc]
+  groundGlowColors: [0x33ffdd, 0x44ffaa, 0xcc77ff, 0x44aaee, 0x88ffcc],
+  // Wave 0 Audit Additions
+  white: 0xffffff, black: 0x000000,
+  glitterPurple: 0xaa44ff,
+  obeliskChamber: 0x332244, obeliskScratch: 0x1a1a22, obeliskBase: 0x111118,
+  obeliskInterior: 0x222233, obeliskRubble: 0x0e0e14, obeliskLight: 0x8866cc,
+  transformTrunk: 0x6a4530, transformTrunkGlow: 0xcc8844, transformGroundGlow: 0x5a1a7a,
+  skyCloud1: 0x1a3366, skyCloud2: 0x2a1855, skyCloud3: 0x1a4466, skyCloud4: 0x331844,
+  skyCloud5: 0x224488, skyCloud6: 0x442244, skyCloud7: 0x183355, skyCloud8: 0x2a3366,
+  skyMoonGlow: 0x445566, skyMoonCore: 0x6688aa, skyMoonWarm: 0x887766,
+  skyMoonShadow: 0x020408,
+  auroraMutedGreen: 0x1a7755, auroraMutedTeal: 0x2a8877, auroraPaleSage: 0x557766,
+  auroraMutedPurple: 0x665588, auroraMutedRose: 0x884466, auroraDarkTeal: 0x336655,
+  // Day/Night Keyframes
+  duskSky: 0x0e1825, duskFog: 0x0c1420, duskMoon: 0xddaa88, duskAmbSky: 0x443355, duskAmbGnd: 0x222818,
+  nightSky: 0x050a18, nightFog: 0x081018, nightMoon: 0xbbccee, nightAmbSky: 0x334466, nightAmbGnd: 0x183820,
+  deepSky: 0x030610, deepFog: 0x061014, deepMoon: 0x8899bb, deepAmbSky: 0x1a2244, deepAmbGnd: 0x122418,
+  dawnSky: 0x122030, dawnFog: 0x0e1828, dawnMoon: 0xccbbaa, dawnAmbSky: 0x332e55, dawnAmbGnd: 0x1c2018,
+  mistColor: 0x556677
 };

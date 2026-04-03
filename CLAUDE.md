@@ -35,7 +35,7 @@ npm test             # Run unit tests (kernel modules)
 
 **Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 11 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
-**Phase 2 (Symbiotic Attunement): 14/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
+**Phase 2 (Symbiotic Attunement): 17/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
 
 Implemented:
 1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
@@ -51,8 +51,13 @@ Implemented:
 10. **Sky Constellations** — DONE: 5 patterns revealed per orb (`world/sky.js`)
 11. **Shooting Star Wishes** — DONE: 5 wish levels gated by orbs, dual perspective (`world/sky.js`)
 12. **Finale/Transform/Free Roam** — DONE: Overlay text + FREE_ROAM endgame state
+13. **Weather Attunement Modifiers** — DONE: Multipliers based on creature type/weather state (`constants.js`, `systems/attunement.js`)
+14. **Day/Night Gating** — DONE: Attunement rate scaled by bioGlow; orb proximity scaled by bioGlow (`systems/attunement.js`, `quest/questManager.js`)
+15. **Bubble Pop Rewards** — DONE: Restored zone pulse; dimmed zone repulsion (`updates/magicalEntities.js`)
+16. **Dandelion Wayfinding** — DONE: Gentle bias toward nearest unfound orb (`particles/seeds.js`)
+17. **Obelisk Rune Reveal** — DONE: Colored runes per orb creature type (`quest/questManager.js`)
 
-Remaining (8 features): Weather modifiers, day/night gating, bubble pop rewards, crystal resonance chains, dandelion wayfinding, obelisk runes, ground glyphs, echo-visions. See `reference/phase-2-roadmap.md`.
+Remaining (4 features): Crystal resonance chains, ground glyphs, echo-visions, and deferred optimizations. See `reference/phase-2-roadmap.md`.
 
 ## Critical Rules
 
@@ -162,19 +167,19 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 
 ## Known Technical Debt
 
-1. **`main.js` size** — ~1,100 lines. Director refactored into named `_director*` subsystem functions registered with kernel scheduler. Further extraction into independent system files is possible.
+1. **`main.js` size** — ~700 lines. Director refactored into named `_director*` subsystem functions registered with kernel scheduler. Further extraction into independent system files is possible.
 2. **No save/load** — Game resets on refresh.
 3. **No accessibility** — No screen reader, colorblind, or reduced-motion support.
 4. **Intro DOM overlays** — Uses CSS/DOM rather than troika-three-text (acceptable for pre-gameplay screen).
 
 ## TODO
 
-- [ ] Weather modifiers (Remaining Phase 2 feature)
-- [ ] day/night gating (Remaining Phase 2 feature)
-- [ ] bubble pop rewards (Remaining Phase 2 feature)
+- [x] Weather modifiers (Remaining Phase 2 feature)
+- [x] day/night gating (Remaining Phase 2 feature)
+- [x] bubble pop rewards (Remaining Phase 2 feature)
+- [x] dandelion wayfinding (Remaining Phase 2 feature)
+- [x] obelisk runes (Remaining Phase 2 feature)
 - [ ] crystal resonance chains (Remaining Phase 2 feature)
-- [ ] dandelion wayfinding (Remaining Phase 2 feature)
-- [ ] obelisk runes (Remaining Phase 2 feature)
 - [ ] ground glyphs (Remaining Phase 2 feature)
 - [ ] echo-visions (Remaining Phase 2 feature)
 - [ ] Refactor `main.js` to extract subsystems (Debt)

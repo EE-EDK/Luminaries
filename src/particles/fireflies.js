@@ -12,7 +12,7 @@ const tmpColor = new Color();
 
 export function initFlies(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1
+    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(GEO.fly, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

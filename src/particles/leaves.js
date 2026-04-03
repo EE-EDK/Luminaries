@@ -1,6 +1,7 @@
 import { AdditiveBlending, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, PlaneGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
+import { sr } from '../utils/rng.js';
 
 // Batch 2 Item 5: Leaf fall particle system
 // Glowing leaves detach from tree canopies during wind, drift down with tumble
@@ -11,10 +12,10 @@ const dummy = new Object3D();
 const tmpColor = new Color();
 const leafColors = [
   new Color(C.leafGlow),
-  new Color(0x33cc66),
-  new Color(0x22aa88),
-  new Color(0x55ffcc),
-  new Color(0x44ddee)
+  new Color(C.fernGlow),
+  new Color(C.spiralFrond),
+  new Color(C.echoBloom),
+  new Color(C.jellyGlow)
 ];
 
 // Wind state (set from main.js)
@@ -24,7 +25,7 @@ export function setLeafWind(wx, wz, ws) { _windX = wx; _windZ = wz; _windStr = w
 export function initLeaves(n) {
   const leafGeo = new PlaneGeometry(0.12, 0.08);
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1,
+    color: C.white, transparent: true, opacity: 1,
     side: DoubleSide, depthWrite: false,
     blending: AdditiveBlending
   });
@@ -37,7 +38,7 @@ export function initLeaves(n) {
   dummy.updateMatrix();
   for (let i = 0; i < n; i++) {
     iMesh.setMatrixAt(i, dummy.matrix);
-    tmpColor.setHex(0x000000);
+    tmpColor.setHex(C.black);
     iMesh.setColorAt(i, tmpColor);
     leaves.push({
       x: 0, y: 0, z: 0,
@@ -60,24 +61,24 @@ export function spawnLeaf(px, py, pz) {
     if (!leaves[i].active) { leaf = leaves[i]; break; }
   }
   if (!leaf) return;
-  leaf.x = px + (Math.random() - 0.5) * 2;
-  leaf.y = py + Math.random() * 2;
-  leaf.z = pz + (Math.random() - 0.5) * 2;
-  const a = Math.random() * 6.28;
+  leaf.x = px + (sr() - 0.5) * 2;
+  leaf.y = py + sr() * 2;
+  leaf.z = pz + (sr() - 0.5) * 2;
+  const a = sr() * 6.28;
   leaf.vx = Math.cos(a) * 0.3;
-  leaf.vy = -0.2 - Math.random() * 0.3;
+  leaf.vy = -0.2 - sr() * 0.3;
   leaf.vz = Math.sin(a) * 0.3;
   // Tumble
-  leaf.rvx = (Math.random() - 0.5) * 4;
-  leaf.rvy = (Math.random() - 0.5) * 3;
-  leaf.rvz = (Math.random() - 0.5) * 2;
-  leaf.rx = Math.random() * 6.28;
-  leaf.ry = Math.random() * 6.28;
-  leaf.rz = Math.random() * 6.28;
-  leaf.life = 4 + Math.random() * 4;
+  leaf.rvx = (sr() - 0.5) * 4;
+  leaf.rvy = (sr() - 0.5) * 3;
+  leaf.rvz = (sr() - 0.5) * 2;
+  leaf.rx = sr() * 6.28;
+  leaf.ry = sr() * 6.28;
+  leaf.rz = sr() * 6.28;
+  leaf.life = 4 + sr() * 4;
   leaf.max = leaf.life;
   leaf.active = true;
-  leaf.colorIdx = Math.floor(Math.random() * leafColors.length);
+  leaf.colorIdx = Math.floor(sr() * leafColors.length);
 }
 
 export function updateLeaves(dt, t) {

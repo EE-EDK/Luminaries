@@ -3,7 +3,8 @@
 // ================================================================
 // Extracted from main.js. Runs once at startup.
 
-import { Vector3, Quaternion, Object3D, CircleGeometry, Mesh, MeshBasicMaterial, AdditiveBlending, DoubleSide } from 'three';
+import { Vector3, Quaternion, Object3D, CircleGeometry, Mesh, MeshBasicMaterial, AdditiveBlending, DoubleSide, RingGeometry } from 'three';
+import { scene } from './core/renderer.js';
 
 import {
   WORLD_R, TREE_N, MUSH_N, CRYSTAL_N, JELLY_N, PUFF_N, DEER_N, MOTH_N, LUMINID_N,
@@ -56,6 +57,28 @@ function inKeepOut(x, z) {
   return false;
 }
 
+function makeGlyphs(glyphs_data) {
+  const geo = new RingGeometry(0.8, 1.0, 16);
+  for (let i = 0; i < 12; i++) {
+    let gx, gz;
+    for (let a = 0; a < 20; a++) {
+      const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.8);
+      gx = Math.cos(ang) * d; gz = Math.sin(ang) * d;
+      if (!inKeepOut(gx, gz)) break;
+    }
+    const mat = new MeshBasicMaterial({
+      color: C.obeliskPink, transparent: true, opacity: 0,
+      blending: AdditiveBlending, depthWrite: false
+    });
+    const mesh = new Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    const gy = getGroundY(gx, gz);
+    mesh.position.set(gx, gy + 0.02, gz);
+    scene.add(mesh);
+    glyphs_data.push({ mesh, mat, revealed: false, timer: 0, x: gx, z: gz });
+  }
+}
+
 // ================================================================
 // Populate world
 // ================================================================
@@ -64,7 +87,8 @@ export function populate(arrays, builders, scene) {
     trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths, luminids,
     grassPatches, ferns, flowers, reeds, rocks_data, wisps, dandelions,
     fairyRings, bubbles, ponds, orbs, thornblooms, helixvines, snapthorns,
-    spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows
+    spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows,
+    glyphs_data
   } = arrays;
 
   const {
@@ -569,6 +593,9 @@ export function populate(arrays, builders, scene) {
     scene.add(mesh);
     groundGlows.push({ mesh, mat, phase: sr() * 6.28, baseOpacity: baseOp, speed: 0.3 + sr() * 0.3, x: gx, z: gz });
   }
+
+  // Ground Glyphs (Phase 2)
+  makeGlyphs(glyphs_data);
 
   // Re-sample tree heights after all flat zones are registered
   // (ponds/fairy rings register flat zones that modify getGroundY retroactively)

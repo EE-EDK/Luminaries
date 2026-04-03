@@ -12,7 +12,7 @@ const baseColor = new Color(0x88aa77);
 
 export function initDustMotes(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1
+    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(GEO.dustMote, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

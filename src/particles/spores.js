@@ -12,7 +12,7 @@ const baseColor = new Color(C.spore);
 
 export function initSpores(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1
+    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(GEO.spore, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

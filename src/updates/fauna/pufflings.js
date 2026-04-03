@@ -39,6 +39,7 @@ export function updatePuffs(dt, t) {
     if (pDist2 < nearestDist2) {
       nearestDist2 = pDist2;
       nearestPos.x = px;
+      nearestPos.y = g.position.y;
       nearestPos.z = pz;
     }
 

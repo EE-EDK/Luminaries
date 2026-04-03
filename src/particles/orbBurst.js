@@ -7,6 +7,7 @@
 import { AdditiveBlending, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D, SphereGeometry } from 'three';
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
+import { sr } from '../utils/rng.js';
 
 const ORB_BURST_COUNT = 150;
 let mesh = null;
@@ -37,7 +38,7 @@ export function initOrbBurst() {
       x: 0, y: 0, z: 0,
       vx: 0, vy: 0, vz: 0,
       life: 0, max: 0, active: false,
-      phase: Math.random() * 6.28
+      phase: sr() * 6.28
     });
   }
   mesh.count = ORB_BURST_COUNT;
@@ -54,20 +55,20 @@ export function spawnOrbBurst(cx, cy, cz) {
     const p = particles[i];
     p.x = cx; p.y = cy; p.z = cz;
     // Spherical burst — mostly upward and outward
-    const theta = Math.random() * 6.28;
-    const phi = Math.random() * Math.PI * 0.8; // bias upward
-    const speed = 1.5 + Math.random() * 4;
+    const theta = sr() * 6.28;
+    const phi = sr() * Math.PI * 0.8; // bias upward
+    const speed = 1.5 + sr() * 4;
     p.vx = Math.sin(phi) * Math.cos(theta) * speed;
-    p.vy = Math.cos(phi) * speed * 0.6 + 1.0 + Math.random() * 1.5;
+    p.vy = Math.cos(phi) * speed * 0.6 + 1.0 + sr() * 1.5;
     p.vz = Math.sin(phi) * Math.sin(theta) * speed;
-    p.life = 3 + Math.random() * 4;
+    p.life = 3 + sr() * 4;
     p.max = p.life;
     p.active = true;
     // Color: 70% gold, 30% warm white
-    const c = Math.random() < 0.7 ? goldColor : glowColor;
-    colorArr[i * 3] = c.r * (0.8 + Math.random() * 0.4);
-    colorArr[i * 3 + 1] = c.g * (0.8 + Math.random() * 0.4);
-    colorArr[i * 3 + 2] = c.b * (0.6 + Math.random() * 0.4);
+    const c = sr() < 0.7 ? goldColor : glowColor;
+    colorArr[i * 3] = c.r * (0.8 + sr() * 0.4);
+    colorArr[i * 3 + 1] = c.g * (0.8 + sr() * 0.4);
+    colorArr[i * 3 + 2] = c.b * (0.6 + sr() * 0.4);
   }
   mesh.instanceColor.needsUpdate = true;
 }

@@ -38,7 +38,10 @@ export function makeObelisk() {
   shaft.castShadow = true; g.add(shaft);
 
   // Corner chamfer lines (4 bright edge strips along shaft corners)
-  const chamMat = new MeshBasicMaterial({ color: 0x332244, transparent: true, opacity: 0.2 });
+  const chamMat = new MeshBasicMaterial({
+    color: C.obeliskChamber, transparent: true, opacity: 0.2,
+    depthWrite: false
+  });
   for (let ci = 0; ci < 4; ci++) {
     const ca = (ci / 4) * 6.28 + Math.PI / 4;
     const cham = new Mesh(new CylinderGeometry(0.03, 0.04, OBELISK_H * 0.9, 3), chamMat);
@@ -78,7 +81,10 @@ export function makeObelisk() {
   cap.position.y = OBELISK_H + 1.5; cap.rotation.y = Math.PI / 4; g.add(cap);
 
   // Capstone edge highlights — hidden until quest finale
-  const capEdgeMat = new MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
+  const capEdgeMat = new MeshBasicMaterial({
+    color: C.obeliskPink, transparent: true, opacity: 0.0,
+    depthWrite: false
+  });
   for (let cei = 0; cei < 4; cei++) {
     const ceA = (cei / 4) * 6.28 + Math.PI / 4;
     const capEdge = new Mesh(new CylinderGeometry(0.02, 0.02, 3.2, 3), capEdgeMat);
@@ -90,13 +96,13 @@ export function makeObelisk() {
   // Etched rings
   for (let i = 0; i < 5; i++) {
     const ring = new Mesh(new TorusGeometry(1.85 - i * 0.02, 0.04, 6, 4),
-      new MeshBasicMaterial({ color: 0x222233 }));
+      new MeshBasicMaterial({ color: C.obeliskInterior }));
     ring.position.y = 4 + i * 5; ring.rotation.x = Math.PI / 2; g.add(ring);
   }
 
   // Base plinth (wider foundation step)
   const plinthMat = new MeshStandardMaterial({
-    color: 0x111118, roughness: 0.3, metalness: 0.7
+    color: C.obeliskBase, roughness: 0.3, metalness: 0.7
   });
   const plinth = new Mesh(new CylinderGeometry(2.2, 2.5, 0.6, 4), plinthMat);
   plinth.position.y = 0.3; plinth.rotation.y = Math.PI / 4; g.add(plinth);
@@ -105,7 +111,10 @@ export function makeObelisk() {
   plinth2.position.y = 0.05; plinth2.rotation.y = Math.PI / 4; g.add(plinth2);
 
   // Floating glyph motes (orbit near top, hidden until quest finale)
-  const glyphMat = new MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
+  const glyphMat = new MeshBasicMaterial({
+    color: C.obeliskPink, transparent: true, opacity: 0.0,
+    depthWrite: false
+  });
   for (let gli = 0; gli < 8; gli++) {
     const glA = (gli / 8) * 6.28;
     const glyph = new Mesh(new SphereGeometry(0.06, 4, 3), glyphMat);
@@ -114,7 +123,10 @@ export function makeObelisk() {
   }
 
   // Surface weathering scratches (faint marks on faces)
-  const scratchMat = new MeshBasicMaterial({ color: 0x1a1a22, transparent: true, opacity: 0.08 });
+  const scratchMat = new MeshBasicMaterial({
+    color: C.obeliskScratch, transparent: true, opacity: 0.08,
+    depthWrite: false
+  });
   for (let sci = 0; sci < 6; sci++) {
     const scA = sr() * 6.28, scY = 2 + sr() * OBELISK_H * 0.7;
     const scratch = new Mesh(new CylinderGeometry(0.008, 0.008, 0.5 + sr() * 0.5, 3), scratchMat);
@@ -124,7 +136,7 @@ export function makeObelisk() {
   }
 
   // Base rubble (scattered broken stone fragments around plinth)
-  const rubbleMat = new MeshStandardMaterial({ color: 0x0e0e14, roughness: 0.5, metalness: 0.4 });
+  const rubbleMat = new MeshStandardMaterial({ color: C.obeliskRubble, roughness: 0.5, metalness: 0.4 });
   for (let rbi = 0; rbi < 12; rbi++) {
     const rba = sr() * 6.28, rbd = 3 + sr() * 2;
     const rbSz = 0.15 + sr() * 0.25;
@@ -135,7 +147,10 @@ export function makeObelisk() {
   }
 
   // Ancient inscription dots — hidden until quest finale
-  const inscMat = new MeshBasicMaterial({ color: C.obeliskPink, transparent: true, opacity: 0.0 });
+  const inscMat = new MeshBasicMaterial({
+    color: C.obeliskPink, transparent: true, opacity: 0.0,
+    depthWrite: false
+  });
   for (let fi = 0; fi < 4; fi++) {
     const fAng = (fi / 4) * 6.28 + Math.PI / 4;
     for (let di = 0; di < 5; di++) {
@@ -178,20 +193,21 @@ export function makeObelisk() {
     const rMesh = new Mesh(new TorusGeometry(ringRadii[ri], 0.02, 6, 24), rMat);
     rMesh.position.y = OBELISK_H + 3;
     // Random initial rotation axis
-    rMesh.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
+    rMesh.rotation.set(sr() * 6.28, sr() * 6.28, sr() * 6.28);
     g.add(rMesh);
     pinnacleRings.push({
       mesh: rMesh, mat: rMat,
       // Random rotation speeds per axis
-      rx: (Math.random() - 0.5) * 2,
-      ry: (Math.random() - 0.5) * 2,
-      rz: (Math.random() - 0.5) * 1.5
+      rx: (sr() - 0.5) * 2,
+      ry: (sr() - 0.5) * 2,
+      rz: (sr() - 0.5) * 1.5
     });
   }
 
   // Ground shadow disc (dark circle beneath obelisk)
   const shadowMat = new MeshBasicMaterial({
-    color: 0x000000, transparent: true, opacity: 0.15, side: DoubleSide
+    color: C.black, transparent: true, opacity: 0.15, side: DoubleSide,
+    depthWrite: false
   });
   const shadow = new Mesh(new CircleGeometry(4, 8), shadowMat);
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.005; g.add(shadow);
@@ -200,7 +216,7 @@ export function makeObelisk() {
   scene.add(g);
   obeliskGroup = g;
   // Dramatic obelisk light (rises with obelisk, casts colored glow)
-  const obeliskLight = new PointLight(0x8866cc, 0, 30);
+  const obeliskLight = new PointLight(C.obeliskLight, 0, 30);
   g.add(obeliskLight);
   obeliskLight.position.set(0, OBELISK_H + 1, 0);
 }

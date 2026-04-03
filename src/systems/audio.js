@@ -49,7 +49,7 @@ export { initAudio, setAudioOrbCount, isMuted } from './audio/core.js';
 export { updateAudio } from './audio/ambient.js';
 export { playCreatureSound, playPufflingSinging, playAttunementFlash, playPufflingVocal } from './audio/creatures.js';
 export { playFootstep, playJumpSound, playLandSound, updateStepCooldown } from './audio/player.js';
-export { playBubblePop, playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce } from './audio/quest.js';
+export { playBubblePop, playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playCrystalChime } from './audio/quest.js';
 export { playLaserZap, playLaserHum, updateLaserHums, stopLaserHums } from './audio/laser.js';
 export { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound, startResonanceDrone } from './audio/spiritHum.js';
 export { initAmbientSounds, updateAmbientSounds } from './audio/ambientCreatures.js';

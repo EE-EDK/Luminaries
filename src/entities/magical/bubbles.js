@@ -10,13 +10,13 @@ export function makeBubble(x, y, z) {
   // Main sphere
   const shellMat = new MeshStandardMaterial({
     color: C.bubbleIris, emissive: C.bubbleIris, emissiveIntensity: 0.15,
-    transparent: true, opacity: 0.25, roughness: 0.0, metalness: 0.6
+    transparent: true, opacity: 0.25, depthWrite: false, roughness: 0.0, metalness: 0.6
   });
   const shell = new Mesh(GEO.bubble, shellMat);
   g.add(shell);
   // Surface swirl bands (2 thin torus rings at different angles)
   const swirlMat = new MeshBasicMaterial({
-    color: 0xeeccff, transparent: true, opacity: 0.1
+    color: 0xeeccff, transparent: true, opacity: 0.1, depthWrite: false
   });
   const swirl1 = new Mesh(new TorusGeometry(0.13, 0.003, 4, 10), swirlMat);
   swirl1.rotation.x = 0.5; swirl1.rotation.y = sr() * 3; g.add(swirl1);
@@ -24,25 +24,27 @@ export function makeBubble(x, y, z) {
   swirl2.rotation.x = -0.8; swirl2.rotation.z = 1.2; g.add(swirl2);
   // Highlight spot (fake specular — primary)
   const shineMat = new MeshBasicMaterial({
-    color: C.bubbleShine, transparent: true, opacity: 0.5
+    color: C.bubbleShine, transparent: true, opacity: 0.5, depthWrite: false
   });
   const shine = new Mesh(new SphereGeometry(0.04, 4, 3), shineMat);
   shine.position.set(0.05, 0.07, 0.08); g.add(shine);
   // Secondary highlight (opposite side, dimmer)
   const shine2Mat = new MeshBasicMaterial({
-    color: 0xeeeeff, transparent: true, opacity: 0.2
+    color: 0xeeeeff, transparent: true, opacity: 0.2, depthWrite: false
   });
   const shine2 = new Mesh(new SphereGeometry(0.025, 3, 3), shine2Mat);
   shine2.position.set(-0.06, -0.04, -0.06); g.add(shine2);
   // Inner prismatic core (tiny colored sphere offset from center)
   const prismMat = new MeshBasicMaterial({
-    color: 0xffaaee, transparent: true, opacity: 0.12
+    color: 0xffaaee, transparent: true, opacity: 0.12,
+    depthWrite: false
   });
   const prism = new Mesh(new SphereGeometry(0.06, 4, 3), prismMat);
   prism.position.set(0.02, -0.02, 0.01); g.add(prism);
   // Inner rainbow tint
   const innerMat = new MeshBasicMaterial({
-    color: 0xffeeff, transparent: true, opacity: 0.08
+    color: 0xffeeff, transparent: true, opacity: 0.08,
+    depthWrite: false
   });
   const inner = new Mesh(new SphereGeometry(0.12, 5, 4), innerMat);
   g.add(inner);
@@ -51,14 +53,18 @@ export function makeBubble(x, y, z) {
   const filmColors = [0xffccdd, 0xccddff, 0xddffcc];
   for (let fbi = 0; fbi < 3; fbi++) {
     const filmMat = new MeshBasicMaterial({
-      color: filmColors[fbi], transparent: true, opacity: 0.06
+      color: filmColors[fbi], transparent: true, opacity: 0.06,
+      depthWrite: false
     });
     const film = new Mesh(new TorusGeometry(0.14 - fbi * 0.02, 0.002, 4, 8), filmMat);
     film.position.y = -0.04 + fbi * 0.04; film.rotation.x = Math.PI / 2; g.add(film);
   }
 
   // Micro-reflection dots (3 tiny bright specks scattered on shell)
-  const refMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 });
+  const refMat = new MeshBasicMaterial({
+    color: C.white, transparent: true, opacity: 0.6,
+    depthWrite: false
+  });
   for (let rfi = 0; rfi < 3; rfi++) {
     const rfa = sr() * 6.28, rfe = sr() * Math.PI - Math.PI / 2;
     const ref = new Mesh(new SphereGeometry(0.003, 3, 3), refMat);
@@ -67,13 +73,17 @@ export function makeBubble(x, y, z) {
   }
 
   // Trapped air speck (tiny darker sphere inside)
-  const airMat = new MeshBasicMaterial({ color: 0xaabbcc, transparent: true, opacity: 0.1 });
+  const airMat = new MeshBasicMaterial({
+    color: 0xaabbcc, transparent: true, opacity: 0.1,
+    depthWrite: false
+  });
   const air = new Mesh(new SphereGeometry(0.015, 3, 3), airMat);
   air.position.set((sr() - 0.5) * 0.04, (sr() - 0.5) * 0.04, (sr() - 0.5) * 0.04); g.add(air);
 
   // Bottom gravity drip bulge (slight thickening at base)
   const dripMat = new MeshBasicMaterial({
-    color: C.bubbleIris, transparent: true, opacity: 0.15
+    color: C.bubbleIris, transparent: true, opacity: 0.15,
+    depthWrite: false
   });
   const drip = new Mesh(new SphereGeometry(0.04, 4, 3), dripMat);
   drip.scale.set(1.3, 0.6, 1.3); drip.position.y = -0.12; g.add(drip);

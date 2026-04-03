@@ -15,18 +15,21 @@ const _trunkMat = new MeshStandardMaterial({
 });
 const _lichenMat = new MeshStandardMaterial({
   color: C.veilMoss, emissive: C.veilGlow,
-  emissiveIntensity: 0.08, transparent: true, opacity: 0.3
+  emissiveIntensity: 0.08, transparent: true, opacity: 0.3,
+  depthWrite: false
 });
 const _dripMat = new MeshStandardMaterial({
   color: C.veilEdge, emissive: C.veilGlow, emissiveIntensity: 0.15,
-  transparent: true, opacity: 0.4, roughness: 0.0, metalness: 0.3
+  transparent: true, opacity: 0.4, roughness: 0.0, metalness: 0.3,
+  depthWrite: false
 });
 const _baseMat = new MeshStandardMaterial({
   color: 0x2a3a28, roughness: 0.9,
   emissive: C.veilGlow, emissiveIntensity: 0.03
 });
 const _edgeMat = new MeshBasicMaterial({
-  color: C.veilEdge, transparent: true, opacity: 0.4
+  color: C.veilEdge, transparent: true, opacity: 0.4,
+  depthWrite: false
 });
 
 export function makeVeilMoss(x, z) {
@@ -105,7 +108,8 @@ export function makeVeilMoss(x, z) {
         color: C.veilMoss, emissive: C.veilGlow,
         emissiveIntensity: 0.12 + sr() * 0.08,
         transparent: true, opacity: 0.25 + sr() * 0.15,
-        roughness: 0.6, side: DoubleSide
+        roughness: 0.6, side: DoubleSide,
+        depthWrite: false
       });
 
       const veil = new Mesh(

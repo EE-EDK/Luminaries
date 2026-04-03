@@ -104,7 +104,7 @@ export function makeMoth(x, y, z) {
   const antMat = new MeshStandardMaterial({
     color: 0xddcc88, emissive: C.mothGlow, emissiveIntensity: 0.3, roughness: 0.6
   });
-  const antTipMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.7 });
+  const antTipMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.7, depthWrite: false });
 
   for (let i = -1; i <= 1; i += 2) {
     const antPivot = new Group();
@@ -141,35 +141,35 @@ export function makeMoth(x, y, z) {
   // ---- Wings ----
   const wingMat = new MeshStandardMaterial({
     color: C.mothWing, emissive: C.mothGlow, emissiveIntensity: 0.7,
-    transparent: true, opacity: 0.55, side: DoubleSide, roughness: 0.4
+    transparent: true, opacity: 0.55, depthWrite: false, side: DoubleSide, roughness: 0.4
   });
 
   // Dark leading edge material (characteristic brown/maroon margin)
   const edgeMat = new MeshStandardMaterial({
     color: 0x664433, emissive: C.mothGlow, emissiveIntensity: 0.15,
-    transparent: true, opacity: 0.6, side: DoubleSide, roughness: 0.5
+    transparent: true, opacity: 0.6, depthWrite: false, side: DoubleSide, roughness: 0.5
   });
 
   // Eyespot materials — translucent center + colored ring
   const spotRingMat = new MeshBasicMaterial({
-    color: 0xffee55, transparent: true, opacity: 0.85
+    color: 0xffee55, transparent: true, opacity: 0.85, depthWrite: false
   });
   const spotCenterMat = new MeshBasicMaterial({
-    color: C.mothSpot, transparent: true, opacity: 0.7
+    color: C.mothSpot, transparent: true, opacity: 0.7, depthWrite: false
   });
   const spotDarkMat = new MeshBasicMaterial({
-    color: 0x223344, transparent: true, opacity: 0.5
+    color: 0x223344, transparent: true, opacity: 0.5, depthWrite: false
   });
 
   // Tail streamer material
   const tailMat = new MeshStandardMaterial({
     color: C.mothWing, emissive: C.mothGlow, emissiveIntensity: 0.5,
-    transparent: true, opacity: 0.4, side: DoubleSide
+    transparent: true, opacity: 0.4, depthWrite: false, side: DoubleSide
   });
 
   // Wing vein material
   const veinMat = new MeshBasicMaterial({
-    color: C.mothGlow, transparent: true, opacity: 0.2
+    color: C.mothGlow, transparent: true, opacity: 0.2, depthWrite: false
   });
 
   g._wingPivots = [];
@@ -247,7 +247,7 @@ export function makeMoth(x, y, z) {
     }
 
     // Wing margin scallops — tiny dots along outer edge for texture
-    const scallMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.3 });
+    const scallMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.3, depthWrite: false });
     for (let sci = 0; sci < 6; sci++) {
       const sa = sci / 6 * Math.PI * 0.8 - 0.2;
       const sr2 = 0.25 + Math.sin(sa * 3) * 0.02;
@@ -261,7 +261,7 @@ export function makeMoth(x, y, z) {
   }
 
   // ---- Legs (3 pairs, thin jointed) ----
-  const legMat = new MeshBasicMaterial({ color: 0xccccbb, transparent: true, opacity: 0.35 });
+  const legMat = new MeshBasicMaterial({ color: 0xccccbb, transparent: true, opacity: 0.35, depthWrite: false });
   for (let i = -1; i <= 1; i += 2) {
     for (let lj = 0; lj < 3; lj++) {
       const leg = new Mesh(new CylinderGeometry(0.002, 0.002, 0.05, 3), legMat);
@@ -279,7 +279,7 @@ export function makeMoth(x, y, z) {
   }
 
   // ---- Faint dust trail (wing scale particles) ----
-  const dustMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.2 });
+  const dustMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.2, depthWrite: false });
   const dustMotes = [];
   for (let di = 0; di < 4; di++) {
     const dust = new Mesh(new SphereGeometry(0.006, 3, 3), dustMat);

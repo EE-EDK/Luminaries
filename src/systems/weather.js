@@ -8,6 +8,8 @@
 import { CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { scene } from '../core/renderer.js';
 import { emit, Events } from '../kernel/eventBus.js';
+import { sr } from '../utils/rng.js';
+import { C } from '../constants.js';
 
 // Live exports (read by main.js and other systems)
 export let windX = 0;
@@ -47,7 +49,7 @@ let blending = false;
 let blend = 0; // 0..1
 
 // Wind internals
-let windAngle = Math.random() * Math.PI * 2;
+let windAngle = sr() * Math.PI * 2;
 let gustTimer = 0;
 let gustPower = 0;
 
@@ -70,7 +72,7 @@ function pickNext() {
   const entries = Object.entries(w);
   let total = 0;
   for (const [, v] of entries) total += v;
-  let r = Math.random() * total;
+  let r = sr() * total;
   for (const [s, v] of entries) { r -= v; if (r <= 0) return s; }
   return entries[0][0];
 }
@@ -93,7 +95,7 @@ function buildMistPlanes() {
   const geo = new PlaneGeometry(40, 14);
   for (let i = 0; i < MAX_MIST; i++) {
     const mat = new MeshBasicMaterial({
-      map: fogTex, color: 0x556677, transparent: true, opacity: 0,
+      map: fogTex, color: C.mistColor, transparent: true, opacity: 0,
       side: DoubleSide, depthWrite: false
     });
     const mesh = new Mesh(geo, mat);
@@ -101,10 +103,10 @@ function buildMistPlanes() {
     scene.add(mesh);
     mistPlanes.push({
       mesh, mat, active: false,
-      drift: Math.random() * Math.PI * 2,
-      speed: 0.3 + Math.random() * 0.4,
-      baseY: 0.8 + Math.random() * 2.0,
-      wobble: Math.random() * Math.PI * 2
+      drift: sr() * Math.PI * 2,
+      speed: 0.3 + sr() * 0.4,
+      baseY: 0.8 + sr() * 2.0,
+      wobble: sr() * Math.PI * 2
     });
   }
   mistReady = true;
@@ -113,7 +115,7 @@ function buildMistPlanes() {
 export function initWeather() {
   buildMistPlanes();
   const dur = STATES.CLEAR.duration;
-  stateTimer = dur[0] + Math.random() * (dur[1] - dur[0]);
+  stateTimer = dur[0] + sr() * (dur[1] - dur[0]);
 }
 
 export function updateWeather(dt, t, playerPos) {
@@ -127,7 +129,7 @@ export function updateWeather(dt, t, playerPos) {
       emit(Events.WEATHER_CHANGE, { from: prevState, to: curState });
       blending = false;
       const dur = STATES[curState].duration;
-      stateTimer = dur[0] + Math.random() * (dur[1] - dur[0]);
+      stateTimer = dur[0] + sr() * (dur[1] - dur[0]);
       blend = 0;
     } else {
       blend = 1.0 - transTimer / transDuration;
@@ -137,7 +139,7 @@ export function updateWeather(dt, t, playerPos) {
     if (stateTimer <= 0) {
       nxtState = pickNext();
       blending = true;
-      transDuration = 30 + Math.random() * 60;
+      transDuration = 30 + sr() * 60;
       transTimer = transDuration;
       blend = 0;
     }
@@ -169,7 +171,7 @@ export function updateWeather(dt, t, playerPos) {
   // --- Wind ---
   windAngle += (Math.sin(t * 0.05) * 0.2 + Math.sin(t * 0.13) * 0.1) * dt;
   gustTimer -= dt;
-  if (gustTimer <= 0) { gustTimer = 2 + Math.random() * 6; gustPower = Math.random() * 0.8; }
+  if (gustTimer <= 0) { gustTimer = 2 + sr() * 6; gustPower = sr() * 0.8; }
   gustPower *= Math.pow(0.3, dt);
   const totalWind = windStrength + gustPower;
   windX = Math.cos(windAngle) * totalWind;
@@ -191,7 +193,7 @@ export function updateWeather(dt, t, playerPos) {
     for (let i = 0; i < mistPlanes.length; i++) {
       const mp = mistPlanes[i];
       if (i < target) {
-        if (!mp.active) { mp.active = true; mp.mesh.visible = true; mp.drift = Math.random() * Math.PI * 2; }
+        if (!mp.active) { mp.active = true; mp.mesh.visible = true; mp.drift = sr() * Math.PI * 2; }
         const d = 10 + Math.sin(t * 0.3 + mp.wobble) * 8;
         const a = mp.drift + t * mp.speed * 0.05;
         mp.mesh.position.set(
@@ -213,7 +215,7 @@ export function updateWeather(dt, t, playerPos) {
   // --- Lightning ---
   if (isStorming) {
     ltTimer -= dt;
-    if (ltTimer <= 0) { ltTimer = 1 + Math.random() * 4; lightningFlash = 1.0; }
+    if (ltTimer <= 0) { ltTimer = 1 + sr() * 4; lightningFlash = 1.0; }
   }
   lightningFlash *= Math.pow(0.02, dt);
   if (lightningFlash < 0.01) lightningFlash = 0;

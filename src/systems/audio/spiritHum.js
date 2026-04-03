@@ -51,10 +51,13 @@ export function stopResonanceDrone() {
   const now = ctx.currentTime;
   for (let i = 0; i < droneOscs.length; i++) {
     try { droneOscs[i].osc.stop(now + 0.5); } catch (_) { /* already stopped */ }
+    try { droneOscs[i].osc.disconnect(); } catch (_) { /* */ }
+    try { droneOscs[i].gain.disconnect(); } catch (_) { /* */ }
   }
   droneOscs = [];
   if (droneGain) {
     droneGain.gain.linearRampToValueAtTime(0, now + 0.4);
+    try { droneGain.disconnect(); } catch (_) { /* */ }
     droneGain = null;
   }
 }
@@ -152,6 +155,7 @@ export function stopSpiritHumAudio() {
   _humOsc1 = _humOsc2 = _humOscOct = _humLfo = _humLfoGain = null;
   if (_humGain) { try { _humGain.disconnect(); } catch (_) { /* */ } }
   _humGain = null;
+  if (_humResGain) { try { _humResGain.disconnect(); } catch (_) { /* */ } }
   _humResOsc = _humResGain = null;
 }
 

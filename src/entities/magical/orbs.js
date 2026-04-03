@@ -23,19 +23,22 @@ export function makeOrb(x, z) {
   g.add(seed);
   // Inner star wireframe (icosahedron)
   const starMat = new MeshBasicMaterial({
-    color: 0xffee88, transparent: true, opacity: 0.4, wireframe: true
+    color: C.skyStarWarm, transparent: true, opacity: 0.4, wireframe: true,
+    depthWrite: false
   });
   const star = new Mesh(new IcosahedronGeometry(0.15, 0), starMat);
   g.add(star);
   // Inner glow shell
   const glowMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.5
+    color: C.orbGlow, transparent: true, opacity: 0.5,
+    depthWrite: false
   });
   const glow = new Mesh(new SphereGeometry(0.35, 8, 6), glowMat);
   g.add(glow);
   // Corona ray spikes (8 thin cones radiating outward)
   const rayMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.3
+    color: C.orbGlow, transparent: true, opacity: 0.3,
+    depthWrite: false
   });
   for (let ri = 0; ri < 8; ri++) {
     const ra = (ri / 8) * 6.28;
@@ -46,20 +49,24 @@ export function makeOrb(x, z) {
   }
   // Outer haze shell
   const hazeMat = new MeshBasicMaterial({
-    color: C.orbInner, transparent: true, opacity: 0.15
+    color: C.orbInner, transparent: true, opacity: 0.15,
+    depthWrite: false
   });
   const haze = new Mesh(new SphereGeometry(0.6, 8, 5), hazeMat);
   g.add(haze);
   // Orbiting sparkle ring (small dots)
   for (let i = 0; i < 6; i++) {
     const sp = new Mesh(new SphereGeometry(0.03, 4, 3),
-      new MeshBasicMaterial({ color: 0xffffff }));
+      new MeshBasicMaterial({ color: C.white }));
     const a = (i / 6) * 6.28;
     sp.position.set(Math.cos(a) * 0.4, Math.sin(a * 2) * 0.1, Math.sin(a) * 0.4);
     g.add(sp);
   }
   // Rune dots (4 tiny golden markers on equatorial band)
-  const runeMat = new MeshBasicMaterial({ color: C.orbGold, transparent: true, opacity: 0.7 });
+  const runeMat = new MeshBasicMaterial({
+    color: C.orbGold, transparent: true, opacity: 0.7,
+    depthWrite: false
+  });
   for (let di = 0; di < 4; di++) {
     const da = (di / 4) * 6.28 + 0.4;
     const rune = new Mesh(new SphereGeometry(0.015, 3, 3), runeMat);
@@ -68,24 +75,36 @@ export function makeOrb(x, z) {
   }
 
   // Sacred geometry lines (3 great-circle arcs around orb)
-  const sacredMat = new MeshBasicMaterial({ color: 0xffddaa, transparent: true, opacity: 0.12 });
+  const sacredMat = new MeshBasicMaterial({
+    color: C.skyStarWarm, transparent: true, opacity: 0.12,
+    depthWrite: false
+  });
   for (let sgi = 0; sgi < 3; sgi++) {
     const sgR = new Mesh(new TorusGeometry(0.28, 0.003, 4, 12), sacredMat);
     sgR.rotation.set(sgi * 1.05, sgi * 0.7, 0); g.add(sgR);
   }
 
   // Orbit trail arc (faint ring showing sparkle path)
-  const trailMat = new MeshBasicMaterial({ color: C.orbGlow, transparent: true, opacity: 0.08 });
+  const trailMat = new MeshBasicMaterial({
+    color: C.orbGlow, transparent: true, opacity: 0.08,
+    depthWrite: false
+  });
   const trail = new Mesh(new TorusGeometry(0.4, 0.004, 4, 16), trailMat);
   trail.rotation.x = Math.PI / 2; g.add(trail);
 
   // Energy pulse ring (thicker torus at midpoint)
-  const pulseMat = new MeshBasicMaterial({ color: 0xffeecc, transparent: true, opacity: 0.15 });
+  const pulseMat = new MeshBasicMaterial({
+    color: C.orbInner, transparent: true, opacity: 0.15,
+    depthWrite: false
+  });
   const pulse = new Mesh(new TorusGeometry(0.25, 0.012, 4, 10), pulseMat);
   pulse.rotation.x = Math.PI / 2; g.add(pulse);
 
   // Micro-facet surface sparkles (tiny dots on core surface)
-  const facetMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+  const facetMat = new MeshBasicMaterial({
+    color: C.white, transparent: true, opacity: 0.5,
+    depthWrite: false
+  });
   for (let fci = 0; fci < 6; fci++) {
     const fca = sr() * 6.28, fce = sr() * Math.PI - Math.PI / 2;
     const fc = new Mesh(new SphereGeometry(0.008, 3, 3), facetMat);
@@ -94,7 +113,10 @@ export function makeOrb(x, z) {
   }
 
   // Ground glow disc (projected light circle below orb)
-  const gndMat = new MeshBasicMaterial({ color: C.orbGlow, transparent: true, opacity: 0.1, side: DoubleSide });
+  const gndMat = new MeshBasicMaterial({
+    color: C.orbGlow, transparent: true, opacity: 0.1, side: DoubleSide,
+    depthWrite: false
+  });
   const gndGlow = new Mesh(new CircleGeometry(0.5, 8), gndMat);
   gndGlow.rotation.x = -Math.PI / 2; gndGlow.position.y = -0.95; g.add(gndGlow);
 

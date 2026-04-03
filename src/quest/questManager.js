@@ -6,6 +6,7 @@ import { sr } from '../utils/rng.js';
 import { updateLasers, setLaserFade, cleanupLasers } from './lasers.js';
 import { setGroundTransform } from '../world/ground.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
+import { bioGlow } from '../systems/dayNightCycle.js';
 import { revealConstellation } from '../world/sky.js';
 import { showFinaleText, showTransformText, showFreeRoamText } from '../systems/discoveries.js';
 import { emit, Events } from '../kernel/eventBus.js';
@@ -59,6 +60,8 @@ let showOrbDiscoveryFn = null;
 let spawnOrbBurstFn = null;
 let startResonanceDroneFn = null;
 
+const orbCreatureMap = [];
+
 // Rune face references (from obelisk.js via config)
 let runeFaces = [];
 
@@ -106,18 +109,18 @@ function initGlitter() {
   scene.add(glitterMesh);
 
   const pinkBase = new Color(C.obeliskPink);
-  const purpleBase = new Color(0xaa44ff);
+  const purpleBase = new Color(C.glitterPurple);
   for (let i = 0; i < GLITTER_COUNT; i++) {
-    const c = Math.random() < 0.7 ? pinkBase : purpleBase;
-    colors[i * 3] = c.r * (0.8 + Math.random() * 0.4);
-    colors[i * 3 + 1] = c.g * (0.8 + Math.random() * 0.4);
-    colors[i * 3 + 2] = c.b * (0.8 + Math.random() * 0.4);
-    sizes[i] = 0.15 + Math.random() * 0.25;
+    const c = sr() < 0.7 ? pinkBase : purpleBase;
+    colors[i * 3] = c.r * (0.8 + sr() * 0.4);
+    colors[i * 3 + 1] = c.g * (0.8 + sr() * 0.4);
+    colors[i * 3 + 2] = c.b * (0.8 + sr() * 0.4);
+    sizes[i] = 0.15 + sr() * 0.25;
     glitterParticles.push({
       x: 0, y: 0, z: 0,
       vx: 0, vy: 0, vz: 0,
       life: 0, active: false,
-      sparklePhase: Math.random() * 6.28
+      sparklePhase: sr() * 6.28
     });
   }
   geo.attributes.color.needsUpdate = true;
@@ -131,13 +134,13 @@ function explodeGlitter(cx, cy, cz) {
     const p = glitterParticles[i];
     p.x = cx; p.y = cy; p.z = cz;
     // Burst outward in all directions
-    const theta = Math.random() * 6.28;
-    const phi = Math.random() * Math.PI;
-    const speed = 2 + Math.random() * 5;
+    const theta = sr() * 6.28;
+    const phi = sr() * Math.PI;
+    const speed = 2 + sr() * 5;
     p.vx = Math.sin(phi) * Math.cos(theta) * speed;
-    p.vy = Math.cos(phi) * speed * 0.5 + Math.random() * 2;
+    p.vy = Math.cos(phi) * speed * 0.5 + sr() * 2;
     p.vz = Math.sin(phi) * Math.sin(theta) * speed;
-    p.life = 5 + Math.random() * 6;
+    p.life = 5 + sr() * 6;
     p.active = true;
   }
 }
@@ -230,9 +233,10 @@ export function updateQuest(dt, t) {
   if (nearestOrb && nearestD < ORB_SENSE_R * ORB_SENSE_R) {
     const p = Math.sin(t * 2 + nearestOrb.phase) * 0.5 + 0.5;
     orbLight.position.set(nearestOrb.x, 1.0, nearestOrb.z);
-    orbLight.intensity = 1.0 + p * 2.0;
+    orbLight.intensity = (1.0 + p * 2.0) * bioGlow;
     orbLight.distance = ORB_SENSE_R;
   } else {
+
     orbLight.intensity = 0;
   }
 
@@ -318,6 +322,13 @@ export function updateQuest(dt, t) {
           const faceIdx = orbsFound - 1;
           if (faceIdx < runeFaces.length) {
             const face = runeFaces[faceIdx];
+            // Color rune by creature type (Wave 2C)
+            let col = C.obeliskPink;
+            if (freq === 'jelly') col = C.jellyGlow;
+            if (freq === 'puff')  col = C.puffGlow;
+            if (freq === 'deer')  col = C.deerGlow;
+            if (freq === 'moth')  col = C.mothGlow;
+            face.mat.color.set(col);
             face.revealed = true;
             face.revealTimer = 0;
             for (let m = 0; m < face.meshes.length; m++) {
@@ -779,8 +790,8 @@ function transformTreesAndGround() {
     const shade = pinkShades[i % pinkShades.length];
     // Trunk material — warm golden-amber glow, clearly visible bark
     if (mesh.trunkMat) {
-      mesh.trunkMat.color.set(0x6a4530);
-      mesh.trunkMat.emissive.set(0xcc8844);
+      mesh.trunkMat.color.set(C.transformTrunk);
+      mesh.trunkMat.emissive.set(C.transformTrunkGlow);
       mesh.trunkMat.emissiveIntensity = 1.2;
     }
     // Canopy material — blazing bright pink/purple glow
@@ -806,7 +817,7 @@ function transformTreesAndGround() {
   // Transform ground — shader patterns + vertex colors + emissive
   setGroundTransform(1.0);
   if (groundMesh && groundMesh.material) {
-    groundMesh.material.emissive.set(0x5a1a7a);
+    groundMesh.material.emissive.set(C.transformGroundGlow);
     groundMesh.material.emissiveIntensity = 1.0;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {

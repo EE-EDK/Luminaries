@@ -29,6 +29,7 @@ export function updateMoths(dt, t) {
     if (_mhd2 < nearestDist2) {
       nearestDist2 = _mhd2;
       nearestPos.x = mx;
+      nearestPos.y = g.position.y;
       nearestPos.z = mz;
     }
 

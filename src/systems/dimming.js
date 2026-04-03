@@ -18,6 +18,7 @@
 
 import { DIMMING_FACTOR, DIMMING_WAVE_SPEED, ORB_N } from '../constants.js';
 import { on, Events } from '../kernel/eventBus.js';
+import { bubblePulseTimer, bubblePulsePos, crystalChainTimer, crystalChainPos } from '../state/gameState.js';
 
 let orbs = null;
 
@@ -87,6 +88,22 @@ function getSector(x, z) {
 // Called per visible entity per frame. Must be fast.
 export function getLocalGlow(x, z, globalBio) {
   if (!orbs) return globalBio;
+
+  // Wave 2: Bubble pop micro-pulse (1.5x boost, 3m radius)
+  if (bubblePulseTimer > 0) {
+    const dx = x - bubblePulsePos.x, dz = z - bubblePulsePos.z;
+    if (dx * dx + dz * dz < 9) { // 3m radius
+      return globalBio * 1.5;
+    }
+  }
+
+  // Wave 3: Crystal resonance chain corridor boost (1.3x boost, 6m radius)
+  if (crystalChainTimer > 0) {
+    const dx = x - crystalChainPos.x, dz = z - crystalChainPos.z;
+    if (dx * dx + dz * dz < 36) { // 6m radius
+      return globalBio * 1.3;
+    }
+  }
 
   // Which sector is this position in?
   let angle = Math.atan2(z, x);

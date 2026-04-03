@@ -1,4 +1,4 @@
-import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PointLight, SphereGeometry, TorusGeometry } from 'three';
+import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -111,9 +111,6 @@ export function makeCrystal(x, z) {
   groundGlow.rotation.x = -Math.PI / 2; groundGlow.position.y = 0.01; g.add(groundGlow);
 
   g.position.set(x, 0, z); scene.add(g);
-  // Crystal casts local colored light onto surroundings
-  const crystLight = new PointLight(C.crystal, 0.5, 8);
-  crystLight.position.set(x, 1.2, z);
-  scene.add(crystLight);
-  return { group: g, mat: cMat, phase: phase, x: x, z: z, light: crystLight };
+  // Crystal lighting handled by proximity pool in core/lighting.js (light budget compliance)
+  return { group: g, mat: cMat, phase: phase, x: x, z: z };
 }

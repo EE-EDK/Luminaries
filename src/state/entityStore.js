@@ -34,6 +34,7 @@ export const orbbushes = [];
 export const lanternpods = [];
 export const veilmosses = [];
 export const groundGlows = [];
+export const glyphs_data = [];
 
 // Crystal proximity sort buffer (reused per frame, avoids allocation)
 export const crystalSortBuf = [];

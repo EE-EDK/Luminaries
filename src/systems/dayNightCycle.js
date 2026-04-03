@@ -14,6 +14,7 @@
 import { Color } from 'three';
 import { setSkyBrightness } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
+import { C } from '../constants.js';
 
 const CYCLE_DURATION = 600; // seconds for one full cycle (10 minutes)
 
@@ -37,14 +38,14 @@ let playerLightRef = null;
 const KF = [
   { // DUSK (0.0) — twilight, warm low moon, glow awakening
     label: 'DUSK',
-    sky: new Color(0x0e1825),
-    fog: new Color(0x0c1420),
+    sky: new Color(C.duskSky),
+    fog: new Color(C.duskFog),
     fogDensity: 0.009,
     moonInt: 0.6,
-    moonCol: new Color(0xddaa88),
+    moonCol: new Color(C.duskMoon),
     moonElev: 15,
-    ambSky: new Color(0x443355),
-    ambGnd: new Color(0x222818),
+    ambSky: new Color(C.duskAmbSky),
+    ambGnd: new Color(C.duskAmbGnd),
     ambInt: 0.6,
     stars: 0.4,
     bio: 0.7,
@@ -53,14 +54,14 @@ const KF = [
   },
   { // NIGHT (0.25) — standard night, clear moonlight, forest visible
     label: 'NIGHT',
-    sky: new Color(0x050a18),
-    fog: new Color(0x081018),
+    sky: new Color(C.nightSky),
+    fog: new Color(C.nightFog),
     fogDensity: 0.010,
     moonInt: 1.0,
-    moonCol: new Color(0xbbccee),
+    moonCol: new Color(C.nightMoon),
     moonElev: 55,
-    ambSky: new Color(0x334466),
-    ambGnd: new Color(0x183820),
+    ambSky: new Color(C.nightAmbSky),
+    ambGnd: new Color(C.nightAmbGnd),
     ambInt: 0.7,
     stars: 0.85,
     bio: 1.0,
@@ -69,14 +70,14 @@ const KF = [
   },
   { // DEEP NIGHT (0.5) — darkest phase but still readable, bio peaks
     label: 'DEEP_NIGHT',
-    sky: new Color(0x030610),
-    fog: new Color(0x061014),
+    sky: new Color(C.deepSky),
+    fog: new Color(C.deepFog),
     fogDensity: 0.012,
     moonInt: 0.55,
-    moonCol: new Color(0x8899bb),
+    moonCol: new Color(C.deepMoon),
     moonElev: 75,
-    ambSky: new Color(0x1a2244),
-    ambGnd: new Color(0x122418),
+    ambSky: new Color(C.deepAmbSky),
+    ambGnd: new Color(C.deepAmbGnd),
     ambInt: 0.5,
     stars: 1.0,
     bio: 1.5,
@@ -85,14 +86,14 @@ const KF = [
   },
   { // DAWN (0.75) — misty, fading glow, warm setting moon
     label: 'DAWN',
-    sky: new Color(0x122030),
-    fog: new Color(0x0e1828),
+    sky: new Color(C.dawnSky),
+    fog: new Color(C.dawnFog),
     fogDensity: 0.011,
     moonInt: 0.5,
-    moonCol: new Color(0xccbbaa),
+    moonCol: new Color(C.dawnMoon),
     moonElev: 20,
-    ambSky: new Color(0x332e55),
-    ambGnd: new Color(0x1c2018),
+    ambSky: new Color(C.dawnAmbSky),
+    ambGnd: new Color(C.dawnAmbGnd),
     ambInt: 0.55,
     stars: 0.35,
     bio: 0.65,

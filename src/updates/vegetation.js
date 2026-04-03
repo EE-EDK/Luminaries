@@ -14,7 +14,7 @@ import { player } from '../core/player.js';
 import { camera } from '../core/renderer.js';
 import { windStrength, windX, windZ, isStorming, weatherState, getRainRate } from '../systems/weather.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
-import { orbBoost } from '../state/gameState.js';
+import { orbBoost, addVisitedCrystal, lastVisitedCrystals, setCrystalChainBoost } from '../state/gameState.js';
 import { getSmoothedDimFactor } from './playerVisuals.js';
 import {
   treeMeshes, treeImpostors, ferns, flowers, reeds, mush_data, crys_data,
@@ -22,6 +22,8 @@ import {
   orbbushes, lanternpods, veilmosses, groundGlows
 } from '../state/entityStore.js';
 import { initEnergyLines, energyLines, MAX_ENERGY_LINES } from '../entities/world/energyLines.js';
+import { playCrystalChime } from '../systems/audio.js';
+import { emit, Events } from '../kernel/eventBus.js';
 
 // Pre-allocated quaternion for slope sway (replaces _slopeSwayQuat from main.js)
 const _slopeSwayQuat = new Quaternion();
@@ -342,50 +344,66 @@ export function updateFloraReactions(dt, t) {
     f.group.scale.set(1.0 + (1 - f._curl) * 0.3, f._curl, 1.0 + (1 - f._curl) * 0.3);
   }
 
-  // Crystal resonance chains
+  // Wave 3: Crystal resonance chains (sequential + reward)
   initEnergyLines();
   const fogDampen = weatherState === 'FOG_BANK' ? 0.5 : 1.0;
-  let crystalChainCount = 0;
   let lineIdx = 0;
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
-    const ddx = c.x - px, ddz = c.z - pz;
-    if (ddx * ddx + ddz * ddz < 36) {
-      for (let j = 0; j < crys_data.length; j++) {
-        if (i === j) continue;
-        const c2 = crys_data[j];
-        const cdx = c.x - c2.x, cdz = c.z - c2.z;
-        const cd2 = cdx * cdx + cdz * cdz;
-        if (cd2 < 400) {
-          crystalChainCount++;
-          const chainStr = (1 - Math.sqrt(cd2) / 20) * 0.8 * fogDampen;
-          c2.mat.emissiveIntensity += chainStr * getLocalGlow(c2.x, c2.z, bioGlow * orbBoost);
-          if (lineIdx < MAX_ENERGY_LINES) {
-            const el = energyLines[lineIdx];
-            const posArr = el.geo.attributes.position.array;
-            const cy1 = 1.0, cy2 = 1.0;
-            posArr[0] = c.x; posArr[1] = cy1; posArr[2] = c.z;
-            posArr[3] = c2.x; posArr[4] = cy2; posArr[5] = c2.z;
-            el.geo.attributes.position.needsUpdate = true;
-            el.geo.computeBoundingSphere();
-            el.active = true;
-            const pulse = Math.sin(t * 3 + i * 1.5 + j * 0.7) * 0.3 + 0.5;
-            el.opacity = chainStr * pulse * getLocalGlow(c.x, c.z, bioGlow * orbBoost);
-            el.line.material.opacity = el.opacity;
-            el.line.visible = true;
-            lineIdx++;
+    const dx = c.x - px, dz = c.z - pz;
+    const distSq = dx * dx + dz * dz;
+    
+    // Visit detection (4m radius)
+    if (distSq < 16) {
+      if (addVisitedCrystal(i)) {
+        // Just visited a NEW crystal
+        const len = lastVisitedCrystals.length;
+        if (len >= 2) {
+          const prevIdx = lastVisitedCrystals[len - 2];
+          const prevC = crys_data[prevIdx];
+          const cdx = c.x - prevC.x, cdz = c.z - prevC.z;
+          const cd2 = cdx * cdx + cdz * cdz;
+          
+          if (cd2 < 144) { // Consecutive crystals within 12m
+            playCrystalChime(0.5 + len * 0.2);
+            // Spawn energy line
+            if (lineIdx < MAX_ENERGY_LINES) {
+              const el = energyLines[lineIdx];
+              const posArr = el.geo.attributes.position.array;
+              posArr[0] = prevC.x; posArr[1] = 1.0; posArr[2] = prevC.z;
+              posArr[3] = c.x; posArr[4] = 1.0; posArr[5] = c.z;
+              el.geo.attributes.position.needsUpdate = true;
+              el.geo.computeBoundingSphere();
+              el.active = true;
+              el.opacity = 0.8 * fogDampen * getLocalGlow(c.x, c.z, bioGlow * orbBoost);
+              el.line.material.opacity = el.opacity;
+              el.line.visible = true;
+              lineIdx++;
+            }
+            if (len >= 3) {
+              setCrystalChainBoost(c.x, c.z);
+              emit(Events.CRYSTAL_CHAIN, { count: len, x: c.x, z: c.z });
+            }
           }
         }
       }
     }
+    
+    // Visual feedback for nearby crystals (pulsing)
+    if (distSq < 400) {
+      const p = Math.sin(t * 3 + i * 0.5) * 0.2 + 0.8;
+      c.mat.emissiveIntensity = p * getLocalGlow(c.x, c.z, bioGlow * orbBoost);
+    }
   }
+  
+  // Cleanup/fade unused lines
   for (let i = lineIdx; i < MAX_ENERGY_LINES; i++) {
     const el = energyLines[i];
     if (el.line.visible) {
-      el.opacity *= 0.85;
+      el.opacity *= 0.94;
       el.line.material.opacity = el.opacity;
       if (el.opacity < 0.01) el.line.visible = false;
     }
   }
-  return crystalChainCount;
+  return lastVisitedCrystals.length;
 }

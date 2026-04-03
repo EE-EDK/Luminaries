@@ -2,6 +2,7 @@ import { AdditiveBlending, Color, DoubleSide, DynamicDrawUsage, InstancedBufferA
 import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from '../world/terrain.js';
+import { sr } from '../utils/rng.js';
 
 // ================================================================
 // Bioluminescent Footprint Trails
@@ -16,7 +17,7 @@ let iMesh = null;
 const prints = [];
 const dummy = new Object3D();
 const tmpColor = new Color();
-const baseColor = new Color(0x44ddaa);
+const baseColor = new Color(C.echoBloom);
 
 // Track player position for spawn spacing
 let lastX = 0, lastZ = 0;
@@ -128,7 +129,7 @@ export function spawnFootprint(x, z, angle, sprinting) {
 
   const scale = sprinting ? 1.15 : 1.0;
   dummy.position.set(x + offX, groundY + 0.04, z + offZ);
-  dummy.rotation.set(-Math.PI / 2, 0, -angle + (Math.random() - 0.5) * 0.15);
+  dummy.rotation.set(-Math.PI / 2, 0, -angle + (sr() - 0.5) * 0.15);
   dummy.scale.set(scale, scale, scale);
   dummy.updateMatrix();
   iMesh.setMatrixAt(si, dummy.matrix);

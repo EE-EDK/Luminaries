@@ -116,7 +116,7 @@ export function makeRainbows() {
     // Ground glow pools at endpoints (wider)
     const poolMat = new MeshBasicMaterial({
       color: col, transparent: true, opacity: 0, side: DoubleSide,
-      blending: AdditiveBlending
+      blending: AdditiveBlending, depthWrite: false
     });
     const p0 = arcPts[0], pEnd = arcPts[arcPts.length - 1];
     const pool0 = new Mesh(new CircleGeometry(1.2, 8), poolMat);
@@ -142,7 +142,7 @@ export function makeRainbows() {
     const a = frac * Math.PI;
     secPts.push(new Vector3(Math.cos(a) * secR, Math.sin(frac * Math.PI) * secH, Math.sin(a) * secR));
   }
-  const secColor = new Color(0xeeddff);
+  const secColor = new Color(C.skyMoonWarm); // using warm moon color for secondary arc
   const secGeo = buildRibbonGeo(secPts, 1.5, secSegments, true, secColor);
   const secMat = new MeshBasicMaterial({
     vertexColors: true, transparent: true, opacity: 0,

@@ -35,6 +35,7 @@ export function updateDeers(dt, t) {
     if (d.state !== 'flee' && pDist2 < nearestDist2) {
       nearestDist2 = pDist2;
       nearestPos.x = gx;
+      nearestPos.y = g.position.y;
       nearestPos.z = gz;
       nearestWanderAng = d.wanderAng;
     }

@@ -13,7 +13,7 @@ const baseColor = new Color(C.starMote);
 
 export function initStarMotes(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1
+    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(GEO.starMote, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

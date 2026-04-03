@@ -131,6 +131,8 @@ import { registerAllSystems, nearest } from './systems/registration.js';
 import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths, updateLuminids as _updateLuminids } from './updates/fauna.js';
 import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
 import { updateWisps, updateFairyRings as _updateFairyRings, updateBubbles, updatePonds, updateEchoBloom } from './updates/magicalEntities.js';
+import { updateGlyphs } from './systems/glyphs.js';
+import { initEchoVisions, updateEchoVisions } from './systems/echoVisions.js';
 import { populate as _populate } from './populate.js';
 import { updatePlayerVisuals, triggerCameraPan, updateCameraPan } from './updates/playerVisuals.js';
 import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
@@ -297,7 +299,7 @@ function _directorFloraGlow(dt, t) {
       }
     }
     c.group.children[0].rotation.y += dt * 0.15;
-    if (c.light) c.light.intensity = (0.3 + p * 0.4) * cGlow;
+    // Crystal lighting handled by proximity pool in core/lighting.js
   }
 
   if (!crystalSortBuf.length) {
@@ -369,6 +371,8 @@ function _directorMagical(dt, t) {
   updateFairyRings(dt, t);
   updateBubbles(dt, t);
   updatePonds(dt, t);
+  updateGlyphs(dt, t);
+  updateEchoVisions(dt, t, keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint);
   timeEnd('particles');
 }
 
@@ -684,6 +688,7 @@ try {
   initFootprints();
   initOrbBurst();
   initResonanceRings(scene);
+  initEchoVisions();
 
   // Aurora (sky event)
   initAurora();

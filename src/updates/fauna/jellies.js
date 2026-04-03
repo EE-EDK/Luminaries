@@ -58,6 +58,7 @@ export function updateJellies(dt, t) {
     if (_jhd2 < nearestDist2) {
       nearestDist2 = _jhd2;
       nearestPos.x = jx;
+      nearestPos.y = g.position.y;
       nearestPos.z = jz;
     }
 

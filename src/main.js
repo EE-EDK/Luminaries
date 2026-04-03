@@ -155,7 +155,7 @@ import {
   jellies, puffs, deers, moths, luminids, grassPatches, ferns, flowers, reeds,
   rocks_data, wisps, dandelions, fairyRings, bubbles, ponds, orbs,
   thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
-  orbbushes, lanternpods, veilmosses, groundGlows,
+  orbbushes, lanternpods, veilmosses, groundGlows, glyphs_data,
   crystalSortBuf, crystalSortPX, crystalSortPZ,
   setTreeMeshes, setCrystalSortPos
 } from './state/entityStore.js';
@@ -601,7 +601,8 @@ try {
     trees_data, treeImpostors, mush_data, crys_data, jellies, puffs, deers, moths, luminids,
     grassPatches, ferns, flowers, reeds, rocks_data, wisps, dandelions,
     fairyRings, bubbles, ponds, orbs, thornblooms, helixvines, snapthorns,
-    spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows
+    spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, groundGlows,
+    glyphs_data
   }, {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
     makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth, makeLuminid,

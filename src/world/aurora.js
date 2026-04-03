@@ -1,5 +1,5 @@
 import { AdditiveBlending, BufferAttribute, Color, DoubleSide, DynamicDrawUsage, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
-import { SKY_R } from '../constants.js';
+import { SKY_R, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 
 // ================================================================

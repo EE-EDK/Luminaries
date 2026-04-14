@@ -2,6 +2,7 @@ import { BufferAttribute, CanvasTexture, Mesh, MeshStandardMaterial, PlaneGeomet
 import { WORLD_R, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from './terrain.js';
+import { smoothstep as gsmooth } from '../utils/math.js';
 
 // ================================================================
 // Procedural ground texture — bioluminescent forest floor
@@ -267,7 +268,7 @@ function ghash(x, y) {
   h = ((h ^ (h >> 13)) * 517261) | 0;
   return (h & 0x7fffffff) / 0x7fffffff;
 }
-function gsmooth(t) { return t * t * (3 - 2 * t); }
+// (gsmooth imported at top of file)
 function gnoise(x, y) {
   const ix = Math.floor(x), iy = Math.floor(y);
   const fx = gsmooth(x - ix), fy = gsmooth(y - iy);

@@ -10,6 +10,7 @@ import { isHumming, isLocked, getResonance, getResonanceType } from '../systems/
 import { getPlayerFrequency } from '../systems/attunement.js';
 import { player } from '../core/player.js';
 import { renderer, scene } from '../core/renderer.js';
+import { smoothstep } from '../utils/math.js';
 import { setSaturation, bloomPass } from '../core/postprocessing.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
 import { orbsFound } from '../quest/questManager.js';
@@ -88,7 +89,7 @@ export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
 
   if (_camPanTimer < CAM_PAN_LERP_IN) {
     t = _camPanTimer / CAM_PAN_LERP_IN;
-    const ease = t * t * (3 - 2 * t);
+    const ease = smoothstep(t);
     finalYaw = _camPanSavedYaw + (_camPanTargetYaw - _camPanSavedYaw) * ease;
     finalPitch = _camPanSavedPitch + (_camPanTargetPitch - _camPanSavedPitch) * ease;
   } else if (_camPanTimer < lerpOutStart) {
@@ -96,7 +97,7 @@ export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
     finalPitch = _camPanTargetPitch;
   } else {
     t = (_camPanTimer - lerpOutStart) / CAM_PAN_LERP_OUT;
-    const ease = t * t * (3 - 2 * t);
+    const ease = smoothstep(t);
     finalYaw = _camPanTargetYaw + (_camPanSavedYaw - _camPanTargetYaw) * ease;
     finalPitch = _camPanTargetPitch + (_camPanSavedPitch - _camPanTargetPitch) * ease;
   }

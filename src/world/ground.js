@@ -3,6 +3,7 @@ import { WORLD_R, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from './terrain.js';
 import { smoothstep as gsmooth } from '../utils/math.js';
+import { sr } from '../utils/rng.js';
 
 // ================================================================
 // Procedural ground texture — bioluminescent forest floor
@@ -32,7 +33,7 @@ function makeGroundTexture() {
   const S = 2048;
   const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
   const ctx = cv.getContext('2d');
-  const R = Math.random;
+  const R = sr; // seeded RNG for deterministic texture generation
 
   // ---- 1. Base: dark earthy green ----
   ctx.fillStyle = '#223822'; ctx.fillRect(0, 0, S, S);

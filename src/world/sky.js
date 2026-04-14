@@ -310,7 +310,7 @@ function createTwinkleStars() {
     [1, 1, 1], [0.85, 0.9, 1], [1, 0.94, 0.86],
     [0.78, 0.84, 1], [1, 0.88, 0.78], [0.9, 0.95, 1]
   ];
-  const R = Math.random;
+  const R = sr; // seeded RNG for deterministic star placement
   const r = SKY_R * 0.97;
 
   for (let i = 0; i < TWINKLE_COUNT; i++) {

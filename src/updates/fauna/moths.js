@@ -9,7 +9,8 @@ import { emit, Events } from '../../kernel/eventBus.js';
 import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
-import { moths, trees_data, crys_data, fairyRings } from '../../state/entityStore.js';
+import { moths, crys_data, fairyRings } from '../../state/entityStore.js';
+import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
 export function updateMoths(dt, t) {
@@ -59,10 +60,12 @@ export function updateMoths(dt, t) {
       const restChance = dayPhase === 'DAWN' ? 0.005 : (dayPhase === 'DEEP_NIGHT' ? 0.0003 : 0.001);
       if (Math.random() < restChance) {
         let bestD2 = Infinity, bestTree = null;
-        for (let ti = 0; ti < trees_data.length; ti++) {
-          const tdx = trees_data[ti].x - mx, tdz = trees_data[ti].z - mz;
+        const _restQ = queryNearTrees(mx, mz, 20);
+        for (let ti = 0; ti < _restQ.length; ti++) {
+          const _rt = _restQ.items[ti];
+          const tdx = _rt.x - mx, tdz = _rt.z - mz;
           const td2 = tdx * tdx + tdz * tdz;
-          if (td2 < 400 && td2 < bestD2) { bestD2 = td2; bestTree = trees_data[ti]; }
+          if (td2 < 400 && td2 < bestD2) { bestD2 = td2; bestTree = _rt; }
         }
         if (bestTree) {
           m._state = 'rest'; m._restTree = bestTree;
@@ -182,8 +185,9 @@ export function updateMoths(dt, t) {
     }
 
     // Tree avoidance
-    for (let ti = 0; ti < trees_data.length; ti++) {
-      const tr = trees_data[ti];
+    const _mothTreeQ = queryNearTrees(g.position.x, g.position.z, 4);
+    for (let ti = 0; ti < _mothTreeQ.length; ti++) {
+      const tr = _mothTreeQ.items[ti];
       const tdx = g.position.x - tr.x, tdz = g.position.z - tr.z;
       const td2 = tdx * tdx + tdz * tdz;
       if (td2 > 16) continue;

@@ -91,12 +91,14 @@ export function worldBounds(pos, margin) {
 }
 
 // Obstacle avoidance: steer away from nearest obstacle within look-ahead
-export function avoidObstacles(pos, heading, obstacles, lookAhead, obstacleR) {
+// count: optional — when provided, iterate obstacles[0..count-1] instead of full .length
+export function avoidObstacles(pos, heading, obstacles, lookAhead, obstacleR, count) {
   let fx = 0, fz = 0;
   const hx = Math.cos(heading) * lookAhead;
   const hz = Math.sin(heading) * lookAhead;
   const futX = pos.x + hx, futZ = pos.z + hz;
-  for (let i = 0; i < obstacles.length; i++) {
+  const n = count !== undefined ? count : obstacles.length;
+  for (let i = 0; i < n; i++) {
     const o = obstacles[i];
     const odx = futX - o.x, odz = futZ - o.z;
     const od2 = odx * odx + odz * odz;

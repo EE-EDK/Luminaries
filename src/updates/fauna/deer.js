@@ -13,7 +13,8 @@ import { player, playerIdleTime } from '../../core/player.js';
 import { keys, touchSprint } from '../../core/input.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
-import { deers, trees_data, ponds } from '../../state/entityStore.js';
+import { deers, ponds } from '../../state/entityStore.js';
+import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
 export function updateDeers(dt, t) {
@@ -133,7 +134,8 @@ export function updateDeers(dt, t) {
           const herdAng = Math.atan2(deerCoh.x * 0.15 + deerSep.x * 0.8, deerCoh.z * 0.15 + deerSep.z * 0.8);
           d.wanderAng += (herdAng - d.wanderAng) * dt * 0.3;
         }
-        const walkAvoid = avoidObstacles({ x: gx, z: gz }, d.wanderAng, trees_data, 2.5, 1.2);
+        const _walkNear = queryNearTrees(gx, gz, 5);
+        const walkAvoid = avoidObstacles({ x: gx, z: gz }, d.wanderAng, _walkNear.items, 2.5, 1.2, _walkNear.length);
         if (walkAvoid.x * walkAvoid.x + walkAvoid.z * walkAvoid.z > 0.01) {
           d.wanderAng += Math.atan2(walkAvoid.z, walkAvoid.x) * 0.4;
         }
@@ -199,7 +201,8 @@ export function updateDeers(dt, t) {
         d._zigTimer -= dt;
         if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
         d.wanderAng = pAng + d._zigDir * 0.3;
-        const avoidF = avoidObstacles({ x: gx, z: gz }, d.wanderAng, trees_data, 3, 1.5);
+        const _fleeNear = queryNearTrees(gx, gz, 5);
+        const avoidF = avoidObstacles({ x: gx, z: gz }, d.wanderAng, _fleeNear.items, 3, 1.5, _fleeNear.length);
         if (avoidF.x * avoidF.x + avoidF.z * avoidF.z > 0.01) {
           d.wanderAng += Math.atan2(avoidF.z, avoidF.x) * 0.3;
         }
@@ -220,8 +223,9 @@ export function updateDeers(dt, t) {
       g.position.z += Math.cos(d.wanderAng) * moveSpeed * dt;
       d.legCycle += dt * moveSpeed * 3;
       const _dgx = g.position.x, _dgz = g.position.z;
-      for (let ti = 0; ti < trees_data.length; ti++) {
-        const tr = trees_data[ti];
+      const _deerTreeQ = queryNearTrees(_dgx, _dgz, 4);
+      for (let ti = 0; ti < _deerTreeQ.length; ti++) {
+        const tr = _deerTreeQ.items[ti];
         const tdx = _dgx - tr.x, tdz = _dgz - tr.z;
         const td2 = tdx * tdx + tdz * tdz;
         if (td2 > 16) continue;

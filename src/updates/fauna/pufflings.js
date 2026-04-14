@@ -14,7 +14,8 @@ import { keys, touchSprint } from '../../core/input.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashTimer, attuneFlashType } from '../../state/gameState.js';
-import { puffs, deers, trees_data, orbs } from '../../state/entityStore.js';
+import { puffs, deers, orbs } from '../../state/entityStore.js';
+import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../../systems/audio.js';
 import { triggerPufflingChat } from '../../systems/pufflingChat.js';
 
@@ -149,7 +150,8 @@ export function updatePuffs(dt, t) {
         if (p.idleTimer <= 0) {
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5 + flockAng * 0.3; p.hopTimer = 0;
-          const avF = avoidObstacles({ x: px, z: pz }, p.wanderAng, trees_data, 2, 0.8);
+          const _puffNear = queryNearTrees(px, pz, 4);
+          const avF = avoidObstacles({ x: px, z: pz }, p.wanderAng, _puffNear.items, 2, 0.8, _puffNear.length);
           if (avF.x * avF.x + avF.z * avF.z > 0.01) {
             p.wanderAng += Math.atan2(avF.z, avF.x) * 0.5;
           }
@@ -276,8 +278,9 @@ export function updatePuffs(dt, t) {
     // Tree collision
     if (p.state !== 'idle') {
       const _ppx = g.position.x, _ppz = g.position.z;
-      for (let ti = 0; ti < trees_data.length; ti++) {
-        const tr = trees_data[ti];
+      const _puffTreeQ = queryNearTrees(_ppx, _ppz, 3);
+      for (let ti = 0; ti < _puffTreeQ.length; ti++) {
+        const tr = _puffTreeQ.items[ti];
         const tdx = _ppx - tr.x, tdz = _ppz - tr.z;
         const td2 = tdx * tdx + tdz * tdz;
         if (td2 > 9) continue;

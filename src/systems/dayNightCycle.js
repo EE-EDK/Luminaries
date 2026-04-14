@@ -15,6 +15,7 @@ import { Color } from 'three';
 import { setSkyBrightness } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { C } from '../constants.js';
+import { lerp } from '../utils/math.js';
 
 const CYCLE_DURATION = 600; // seconds for one full cycle (10 minutes)
 
@@ -142,8 +143,6 @@ export function updateDayNight(dt) {
     _prevPhase = phase;
   }
 
-  const mix = (va, vb) => va + (vb - va) * t;
-
   // --- Scene background ---
   _c1.copy(a.sky).lerp(b.sky, t);
   sceneRef.background.copy(_c1);
@@ -151,16 +150,16 @@ export function updateDayNight(dt) {
   // --- Fog ---
   _c1.copy(a.fog).lerp(b.fog, t);
   sceneRef.fog.color.copy(_c1);
-  sceneRef.fog.density = mix(a.fogDensity, b.fogDensity);
+  sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
 
   // --- Primary moon light ---
   if (moonRef) {
     _c1.copy(a.moonCol).lerp(b.moonCol, t);
     moonRef.color.copy(_c1);
-    moonRef.intensity = mix(a.moonInt, b.moonInt);
+    moonRef.intensity = lerp(a.moonInt, b.moonInt, t);
     // Moon traverses sky arc over the cycle
     const azimuth = worldTime * Math.PI * 2;
-    const elev = mix(a.moonElev, b.moonElev) * Math.PI / 180;
+    const elev = lerp(a.moonElev, b.moonElev, t) * Math.PI / 180;
     const dist = 60;
     moonRef.position.set(
       Math.cos(azimuth) * Math.cos(elev) * dist,
@@ -177,7 +176,7 @@ export function updateDayNight(dt) {
 
   // --- Secondary moon (scales proportionally, baseline 0.3 at NIGHT) ---
   if (moon2Ref) {
-    const moonScale = mix(a.moonInt, b.moonInt) / 0.85;
+    const moonScale = lerp(a.moonInt, b.moonInt, t) / 0.85;
     moon2Ref.intensity = 0.3 * moonScale;
   }
 
@@ -187,21 +186,21 @@ export function updateDayNight(dt) {
     _c2.copy(a.ambGnd).lerp(b.ambGnd, t);
     hemiRef.color.copy(_c1);
     hemiRef.groundColor.copy(_c2);
-    hemiRef.intensity = mix(a.ambInt, b.ambInt);
+    hemiRef.intensity = lerp(a.ambInt, b.ambInt, t);
   }
 
   // --- Player light ---
   if (playerLightRef) {
-    playerLightRef.distance = mix(a.plRange, b.plRange);
-    playerLightRef.intensity = mix(a.plInt, b.plInt);
+    playerLightRef.distance = lerp(a.plRange, b.plRange, t);
+    playerLightRef.intensity = lerp(a.plInt, b.plInt, t);
   }
 
   // --- Sky star brightness (via color tint, not opacity) ---
-  starBrightness = mix(a.stars, b.stars);
+  starBrightness = lerp(a.stars, b.stars, t);
   setSkyBrightness(starBrightness);
 
   // --- Bio-glow multiplier (read by main.js via live export binding) ---
-  bioGlow = mix(a.bio, b.bio);
+  bioGlow = lerp(a.bio, b.bio, t);
 }
 
 export function getWorldTime() { return worldTime; }

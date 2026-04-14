@@ -68,6 +68,7 @@ export function setSaturation(value) {
 }
 
 // Handle resize — composer uses full resolution, bloom pass internally uses reduced
+// (NOTE: renderer.js and input.js also listen for 'resize')
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
     composer.setSize(window.innerWidth, window.innerHeight);

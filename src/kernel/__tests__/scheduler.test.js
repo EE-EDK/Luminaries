@@ -76,4 +76,29 @@ describe('scheduler', () => {
     run(0.016, 0);
     expect(order).toEqual(['a', 'b']);
   });
+
+  it('a throwing system does not kill subsequent systems', () => {
+    const order = [];
+    addSystem('ok1', 10, () => order.push('ok1'));
+    addSystem('bad', 20, () => { throw new Error('boom'); });
+    addSystem('ok2', 30, () => order.push('ok2'));
+    run(0.016, 0);
+    expect(order).toEqual(['ok1', 'ok2']);
+  });
+
+  it('duplicate system names are both registered and both run', () => {
+    let count = 0;
+    addSystem('dup', 10, () => { count++; });
+    addSystem('dup', 10, () => { count++; });
+    run(0.016, 0);
+    // Both entries execute — addSystem does not deduplicate by name
+    expect(count).toBe(2);
+    expect(list()).toHaveLength(2);
+  });
+
+  it('removeSystem with nonexistent name is a no-op', () => {
+    addSystem('real', 10, () => {});
+    expect(() => removeSystem('ghost')).not.toThrow();
+    expect(list()).toHaveLength(1);
+  });
 });

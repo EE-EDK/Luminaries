@@ -52,6 +52,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rightMouseDown = false; });
+// NOTE: renderer.js and postprocessing.js also listen for 'resize'
 window.addEventListener('resize', () => { screenH = window.innerHeight; });
 
 // Mouse — left-click = camera look, right-click = spirit hum

@@ -10,6 +10,7 @@ import { scene } from '../core/renderer.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { sr } from '../utils/rng.js';
 import { C } from '../constants.js';
+import { lerp } from '../utils/math.js';
 
 // Live exports (read by main.js and other systems)
 export let windX = 0;
@@ -150,12 +151,11 @@ export function updateWeather(dt, t, playerPos) {
   if (blending && nxtState) {
     const sn = STATES[nxtState];
     const bt = 0.5 - 0.5 * Math.cos(blend * Math.PI);
-    const mix = (a, b) => a + (b - a) * bt;
-    curFogMult = mix(sc.fogMult, sn.fogMult);
-    curRainRate = mix(sc.rainRate, sn.rainRate);
-    curSkyDarken = mix(sc.skyDarken, sn.skyDarken);
-    curMistTarget = mix(sc.mistCount, sn.mistCount);
-    windStrength = mix(sc.windBase, sn.windBase);
+    curFogMult = lerp(sc.fogMult, sn.fogMult, bt);
+    curRainRate = lerp(sc.rainRate, sn.rainRate, bt);
+    curSkyDarken = lerp(sc.skyDarken, sn.skyDarken, bt);
+    curMistTarget = lerp(sc.mistCount, sn.mistCount, bt);
+    windStrength = lerp(sc.windBase, sn.windBase, bt);
     weatherState = bt < 0.5 ? curState : nxtState;
   } else {
     curFogMult = sc.fogMult;

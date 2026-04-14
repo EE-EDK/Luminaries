@@ -45,4 +45,16 @@ describe('context', () => {
     expect(ctx.windX).toBe(0.5);
     expect(ctx.bioGlow).toBe(0.7);
   });
+
+  it('update({}) is a no-op', () => {
+    update({ bioGlow: 0.5 });
+    const before = ctx.bioGlow;
+    update({});
+    expect(ctx.bioGlow).toBe(before);
+  });
+
+  it('update(null) does not throw', () => {
+    // for..in on null is a no-op in JS — verify it stays safe
+    expect(() => update(null)).not.toThrow();
+  });
 });

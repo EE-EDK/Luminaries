@@ -25,7 +25,7 @@ export const scene = new Scene();
 scene.background = new Color(C.skyDeep);
 scene.fog = new FogExp2(C.fog, 0.010);
 
-// Resize handler
+// Resize handler (NOTE: postprocessing.js and input.js also listen for 'resize')
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();

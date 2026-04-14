@@ -50,4 +50,14 @@ describe('registry', () => {
     register(EntityType.FLOWERS, arr2);
     expect(get(EntityType.FLOWERS)).toBe(arr2);
   });
+
+  it('get() for unknown type returns consistent empty array (not same ref)', () => {
+    const a = get('nope');
+    const b = get('nope');
+    expect(a).toEqual([]);
+    expect(b).toEqual([]);
+    // Each call creates a fresh fallback — mutations don't leak
+    a.push('x');
+    expect(get('nope')).toEqual([]);
+  });
 });

@@ -47,7 +47,7 @@ canvas{display:block;cursor:crosshair}
   border:1px solid rgba(255,220,80,.3);text-shadow:0 0 8px rgba(255,200,50,.5);
   font-family:'Courier New',monospace;letter-spacing:1px;display:none}
 </style></head><body>
-<div id="hud">LOADING...</div>
+<div id="hud" role="status" aria-live="polite">LOADING...</div>
 <div id="controls">WASD · SPACE Jump · SHIFT Sprint · Right-Click Hum · Click+Drag Look</div>
 <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
 <div id="btn-jump">JUMP</div>
@@ -66,7 +66,7 @@ canvas{display:block;cursor:crosshair}
 <div class="hum-tick" style="bottom:17px;color:#88ddff">120</div>
 <div id="hum-label">HUM</div>
 </div>
-<div id="orb-hud">✦ 0 / 5</div>
+<div id="orb-hud" role="status" aria-live="polite">✦ 0 / 5</div>
 <div id="overlay" style="display:none">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
 <script type="module" src="/src/main.js"></script>
 </body></html>

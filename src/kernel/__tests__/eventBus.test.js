@@ -72,4 +72,32 @@ describe('eventBus', () => {
     // Reverse iteration order (splice-safe dispatch)
     expect(results).toEqual(['deer!', 'deer']);
   });
+
+  it('unsubscribe during dispatch does not skip listeners (reverse iteration)', () => {
+    const called = [];
+    let unsub2;
+    const fn1 = () => { called.push('fn1'); };
+    const fn2 = () => { called.push('fn2'); unsub2(); };
+    const fn3 = () => { called.push('fn3'); };
+    on(Events.JUMP, fn1);
+    unsub2 = on(Events.JUMP, fn2);
+    on(Events.JUMP, fn3);
+    emit(Events.JUMP);
+    // Reverse order: fn3, fn2 (unsubs itself), fn1 — all three fire
+    expect(called).toContain('fn1');
+    expect(called).toContain('fn2');
+    expect(called).toContain('fn3');
+    expect(called).toHaveLength(3);
+  });
+
+  it('subscribing during dispatch does not fire the new listener in same cycle', () => {
+    let lateCalled = false;
+    on(Events.LAND, () => {
+      on(Events.LAND, () => { lateCalled = true; });
+    });
+    emit(Events.LAND);
+    // The newly added listener sits at a higher index than the current reverse cursor,
+    // so it must NOT be called in the same dispatch cycle.
+    expect(lateCalled).toBe(false);
+  });
 });

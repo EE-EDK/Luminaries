@@ -256,8 +256,8 @@ export function updateQuest(dt, t) {
       const dist2 = dx * dx + dz * dz;
       const senseR2 = ORB_SENSE_R * ORB_SENSE_R;
       if (dist2 < senseR2) {
-        const proximity = 1.0 - Math.sqrt(dist2) / ORB_SENSE_R;
-        const glow = proximity * proximity;
+        const proximity = 1.0 - dist2 / senseR2;
+        const glow = proximity;
         o.glowMat.opacity = Math.min(0.3 + p * 0.4 + glow * 0.5, 1.0);
         o.hazeMat.opacity = Math.min(0.08 + p * 0.12 + glow * 0.25, 0.6);
         // White-hot core when close, gold when far

@@ -85,6 +85,7 @@ export function updatePlayer(dt) {
     const td = treesData[ci];
     const cdx = player.pos.x - td.x, cdz = player.pos.z - td.z;
     const cd2 = cdx * cdx + cdz * cdz;
+    if (cd2 > 4) continue; // skip trees beyond 2m — fast pre-filter
     const tr = 0.6 + PLAYER_R;
     if (cd2 < tr * tr && cd2 > 0.001) {
       const cdi = 1 / Math.sqrt(cd2);
@@ -97,10 +98,11 @@ export function updatePlayer(dt) {
     const rd = rocksData[ci];
     // Skip small rocks — player walks over them
     if (rd.scale !== undefined && rd.scale < 0.55) continue;
-    // Skip if player feet are above rock top
-    if (rd.topY !== undefined && feetY > rd.topY - 0.1) continue;
     const cdx = player.pos.x - rd.x, cdz = player.pos.z - rd.z;
     const cd2 = cdx * cdx + cdz * cdz;
+    if (cd2 > 9) continue; // skip rocks beyond 3m — fast pre-filter
+    // Skip if player feet are above rock top
+    if (rd.topY !== undefined && feetY > rd.topY - 0.1) continue;
     const rr = rd.colR + PLAYER_R;
     if (cd2 < rr * rr && cd2 > 0.001) {
       const cdi = 1 / Math.sqrt(cd2);
@@ -108,16 +110,17 @@ export function updatePlayer(dt) {
       player.pos.z = rd.z + cdz * cdi * rr;
     }
   }
-  const d = Math.sqrt(player.pos.x * player.pos.x + player.pos.z * player.pos.z);
-  if (d > WORLD_R) {
+  const d2 = player.pos.x * player.pos.x + player.pos.z * player.pos.z;
+  if (d2 > WORLD_R * WORLD_R) {
+    const d = Math.sqrt(d2);
     const a = Math.atan2(player.pos.z, player.pos.x);
     player.pos.x = Math.cos(a) * WORLD_R; player.pos.z = Math.sin(a) * WORLD_R;
   }
   playerLight.position.copy(player.pos);
 
   // --- Head Bob ---
-  const speed = Math.sqrt(inp.x * inp.x + inp.z * inp.z);
-  const moving = speed > 0.5 && player.onGround;
+  const speed2 = inp.x * inp.x + inp.z * inp.z;
+  const moving = speed2 > 0.25 && player.onGround;
   if (moving) playerIdleTime = 0; else playerIdleTime += dt;
   const bobTarget = moving ? (sprinting ? 0.06 : 0.035) : 0;
   headBobAmp += (bobTarget - headBobAmp) * dt * 6;
@@ -136,8 +139,10 @@ export function updatePlayer(dt) {
   // --- Sprint FOV ---
   targetFOV = (sprinting && moving) ? 78 : 65;
   currentFOV += (targetFOV - currentFOV) * dt * 4;
-  camera.fov = currentFOV;
-  camera.updateProjectionMatrix();
+  if (Math.abs(camera.fov - currentFOV) > 0.01) {
+    camera.fov = currentFOV;
+    camera.updateProjectionMatrix();
+  }
 
   // --- Landing Cushion ---
   landingDip *= Math.pow(0.04, dt);

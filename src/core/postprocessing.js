@@ -71,6 +71,12 @@ export function setSaturation(value) {
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
     composer.setSize(window.innerWidth, window.innerHeight);
+    // Re-cap bloom resolution after resize (setSize resets to half-viewport)
+    if (bloomPass) {
+      const w = Math.min(512, Math.floor(window.innerWidth / 2));
+      const h = Math.min(512, Math.floor(window.innerHeight / 2));
+      bloomPass.resolution.set(w, h);
+    }
   }
 });
 

@@ -87,9 +87,13 @@ export function updateDandSeeds(dt, t) {
     }
     if (nearestOrbPos) {
       const dx = nearestOrbPos.x - s.x, dz = nearestOrbPos.z - s.z;
-      const dist = Math.sqrt(dx * dx + dz * dz) || 0.1;
-      s.vx += (dx / dist) * 0.02; // apply pull
-      s.vz += (dz / dist) * 0.02;
+      const d2pull = dx * dx + dz * dz;
+      if (d2pull > 0.01) {
+        // Approximate normalized pull without sqrt
+        const invD2 = 0.02 / d2pull;
+        s.vx += dx * invD2;
+        s.vz += dz * invD2;
+      }
     }
 
     s.vy += (0.15 + _windStr * 0.1 - s.vy) * dt * 0.5;

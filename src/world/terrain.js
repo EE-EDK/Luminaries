@@ -141,9 +141,40 @@ export function registerFlatZone(x, z, radius) {
   flatZones.push({ x, z, r: radius });
 }
 
-// Main height function — call from anywhere
-// Returns ground Y at world position (x, z)
-export function getGroundY(x, z) {
+// ================================================================
+// Height cache — bilinear-interpolated lookup replaces ~15 noise
+// layers per call. Built once after all flat zones are registered.
+// ================================================================
+let _cache = null;      // Float32Array
+let _cacheW = 0;        // grid width (cells per side)
+let _cacheOrigin = 0;   // world-space coordinate of grid cell (0,0)
+let _cacheCellInv = 0;  // 1 / cellSize for fast division
+
+export function buildHeightCache() {
+  const cellSize = 1; // 1m resolution
+  const diameter = WORLD_R * 2;
+  const gridW = Math.ceil(diameter / cellSize) + 1; // +1 for fence-post
+  const grid = new Float32Array(gridW * gridW);
+  const origin = -WORLD_R;
+
+  for (let gz = 0; gz < gridW; gz++) {
+    const wz = origin + gz * cellSize;
+    for (let gx = 0; gx < gridW; gx++) {
+      grid[gz * gridW + gx] = _computeGroundY(origin + gx * cellSize, wz);
+    }
+  }
+
+  _cache = grid;
+  _cacheW = gridW;
+  _cacheOrigin = origin;
+  _cacheCellInv = 1 / cellSize;
+}
+
+// Pre-allocated temps for bilinear interpolation (no hot-path allocs)
+let _bx = 0, _bz = 0, _ix = 0, _iz = 0, _fx = 0, _fz = 0;
+
+// Uncached terrain computation — full noise stack
+function _computeGroundY(x, z) {
   // Distance from world center (for edge falloff)
   const dist = Math.sqrt(x * x + z * z);
 
@@ -204,6 +235,34 @@ export function getGroundY(x, z) {
   }
 
   return height;
+}
+
+// Main height function — call from anywhere
+// Returns ground Y at world position (x, z)
+// Uses bilinear-interpolated cache when available, falls back to full computation during init
+export function getGroundY(x, z) {
+  if (!_cache) return _computeGroundY(x, z);
+
+  // Map world coords to grid coords
+  _bx = (x - _cacheOrigin) * _cacheCellInv;
+  _bz = (z - _cacheOrigin) * _cacheCellInv;
+
+  // Clamp to grid bounds
+  _ix = _bx | 0; // fast floor for positive values
+  _iz = _bz | 0;
+  if (_ix < 0) _ix = 0;
+  if (_iz < 0) _iz = 0;
+  if (_ix >= _cacheW - 1) _ix = _cacheW - 2;
+  if (_iz >= _cacheW - 1) _iz = _cacheW - 2;
+
+  _fx = _bx - _ix;
+  _fz = _bz - _iz;
+
+  // Bilinear interpolation of 4 nearest grid points
+  const row0 = _iz * _cacheW + _ix;
+  const row1 = row0 + _cacheW;
+  return (_cache[row0] * (1 - _fx) + _cache[row0 + 1] * _fx) * (1 - _fz)
+       + (_cache[row1] * (1 - _fx) + _cache[row1 + 1] * _fx) * _fz;
 }
 
 // Get terrain normal at a point (for entity alignment)

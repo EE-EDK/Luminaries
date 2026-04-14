@@ -35,7 +35,7 @@ import { sr } from './utils/rng.js';
 // World
 import { createGround, updateGroundUniforms } from './world/ground.js';
 import { createSkyDome, skyGroup, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
-import { getGroundY, registerFlatZone } from './world/terrain.js';
+import { getGroundY, registerFlatZone, buildHeightCache } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
@@ -157,7 +157,7 @@ import {
   thornblooms, helixvines, snapthorns, spiralfronds, corpseblooms,
   orbbushes, lanternpods, veilmosses, groundGlows, glyphs_data,
   crystalSortBuf, crystalSortPX, crystalSortPZ,
-  setTreeMeshes, setCrystalSortPos
+  setTreeMeshes, setCrystalSortPos, initTreeHash
 } from './state/entityStore.js';
 
 // ================================================================
@@ -614,6 +614,9 @@ try {
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss
   }, scene));
 
+  // Build spatial hash for tree collision queries (once, trees don't move)
+  initTreeHash(10);
+
   // Register all entity arrays with kernel registry
   register(EntityType.TREES, trees_data);
   register(EntityType.TREE_MESHES, treeMeshes);
@@ -651,6 +654,10 @@ try {
 
   // Create ground AFTER populate so pond/fairy ring flat zones are registered
   const groundMesh = createGround();
+
+  // Build terrain height cache — replaces ~15 noise layers per getGroundY() call
+  // with bilinear-interpolated Float32Array lookup. Must be after all registerFlatZone() calls.
+  buildHeightCache();
 
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);

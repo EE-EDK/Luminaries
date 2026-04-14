@@ -54,14 +54,21 @@ export function updateEchoVisions(dt, t, sprinting) {
     sampleTimer = 0;
     // Sample nearest creature of each type
     const types = ['jelly', 'puff', 'deer', 'moth'];
-    types.forEach(type => {
+    for (let ti = 0; ti < types.length; ti++) {
+      const type = types[ti];
       const pos = nearest[type + 'Pos'];
       if (pos && nearest[type + 'Dist2'] < 2500) {
-        // pos.y is now available from updated fauna modules
-        paths[type].push(new Vector3(pos.x, pos.y || 1.0, pos.z));
-        if (paths[type].length > PATH_MAX) paths[type].shift();
+        const path = paths[type];
+        if (path.length >= PATH_MAX) {
+          // Reuse oldest entry instead of shift+push (avoids allocation)
+          const recycled = path.shift();
+          recycled.x = pos.x; recycled.y = pos.y || 1.0; recycled.z = pos.z;
+          path.push(recycled);
+        } else {
+          path.push({ x: pos.x, y: pos.y || 1.0, z: pos.z });
+        }
       }
-    });
+    }
   }
 
   const inDimmed = !isRestored(player.pos.x, player.pos.z);

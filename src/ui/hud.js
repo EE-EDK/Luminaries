@@ -4,6 +4,14 @@ import { weatherState } from '../systems/weather.js';
 
 let hudEl = null;
 let fpsS = 60;
+let _questSpan = null;
+let _timeSpan = null;
+let _weatherSpan = null;
+let _fpsSpan = null;
+let _posSpan = null;
+let _prevQuest = '';
+let _prevTime = '';
+let _prevWeather = '';
 
 const PHASE_LABELS = {
   DUSK: 'Dusk',
@@ -23,6 +31,22 @@ const WEATHER_LABELS = {
 
 export function initHUD() {
   hudEl = document.getElementById('hud');
+  if (!hudEl) return;
+  hudEl.innerHTML = '';
+  _questSpan = document.createElement('b');
+  _timeSpan = document.createElement('span');
+  _weatherSpan = document.createElement('span');
+  _fpsSpan = document.createElement('span');
+  _posSpan = document.createElement('span');
+  hudEl.appendChild(_questSpan);
+  hudEl.appendChild(document.createTextNode(' \u00B7 '));
+  hudEl.appendChild(_timeSpan);
+  hudEl.appendChild(document.createTextNode(' \u00B7 '));
+  hudEl.appendChild(_weatherSpan);
+  hudEl.appendChild(document.createTextNode(' \u00B7 '));
+  hudEl.appendChild(_fpsSpan);
+  hudEl.appendChild(document.createElement('br'));
+  hudEl.appendChild(_posSpan);
 }
 
 export function updateHUD(dt, playerPos) {
@@ -34,6 +58,11 @@ export function updateHUD(dt, playerPos) {
     'Luminaries';
   const tLabel = PHASE_LABELS[timePhase] || 'Night';
   const wLabel = WEATHER_LABELS[weatherState] || 'Clear';
-  hudEl.innerHTML = '<b>' + qLabel + '</b> · ' + tLabel + ' · ' + wLabel + ' · FPS:' + Math.round(fpsS) +
-    '<br>Pos:' + playerPos.x.toFixed(0) + ',' + playerPos.z.toFixed(0);
+
+  // Only update DOM when values change
+  if (qLabel !== _prevQuest) { _questSpan.textContent = qLabel; _prevQuest = qLabel; }
+  if (tLabel !== _prevTime) { _timeSpan.textContent = tLabel; _prevTime = tLabel; }
+  if (wLabel !== _prevWeather) { _weatherSpan.textContent = wLabel; _prevWeather = wLabel; }
+  _fpsSpan.textContent = 'FPS:' + Math.round(fpsS);
+  _posSpan.textContent = 'Pos:' + playerPos.x.toFixed(0) + ',' + playerPos.z.toFixed(0);
 }

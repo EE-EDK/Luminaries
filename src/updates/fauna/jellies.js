@@ -14,27 +14,34 @@ import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType
 import { jellies } from '../../state/entityStore.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
+const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
+
 export function updateJellies(dt, t) {
 
-  // Batch 2 Item 1: Nearby jellies sync glow phase over time
-  for (let i = 0; i < jellies.length; i++) {
-    const j = jellies[i], g = j.group;
-    const jx = g.position.x, jz = g.position.z;
-    if (j._syncPhase === undefined) j._syncPhase = j.phase;
+  // Batch 2 Item 1: Nearby jellies sync glow phase over time (throttled to ~5Hz)
+  if (!updateJellies._syncFrame) updateJellies._syncFrame = 0;
+  updateJellies._syncFrame++;
+  if (updateJellies._syncFrame % 12 === 0) {
+    for (let i = 0; i < jellies.length; i++) {
+      const j = jellies[i], g = j.group;
+      const jx = g.position.x, jz = g.position.z;
+      if (j._syncPhase === undefined) j._syncPhase = j.phase;
 
-    let syncSum = 0, syncCount = 0;
-    for (let k = 0; k < jellies.length; k++) {
-      if (k === i) continue;
-      const o = jellies[k];
-      const odx = o.group.position.x - jx, odz = o.group.position.z - jz;
-      if (odx * odx + odz * odz < 225) {
-        syncSum += o._syncPhase || o.phase;
-        syncCount++;
+      let syncSum = 0, syncCount = 0;
+      for (let k = 0; k < jellies.length; k++) {
+        if (k === i) continue;
+        const o = jellies[k];
+        const odx = o.group.position.x - jx, odz = o.group.position.z - jz;
+        if (odx * odx + odz * odz < 225) {
+          syncSum += o._syncPhase || o.phase;
+          syncCount++;
+        }
       }
-    }
-    if (syncCount > 0) {
-      const avgPhase = syncSum / syncCount;
-      j._syncPhase += (avgPhase - j._syncPhase) * dt * 0.4;
+      if (syncCount > 0) {
+        const avgPhase = syncSum / syncCount;
+        // Use larger step to compensate for reduced frequency
+        j._syncPhase += (avgPhase - j._syncPhase) * 0.2 * 4.8;
+      }
     }
   }
 
@@ -42,7 +49,8 @@ export function updateJellies(dt, t) {
   const jellyAltMod = dayPhase === 'DEEP_NIGHT' ? 2.0 : (dayPhase === 'DAWN' ? -1.5 : 0);
 
   let nearestDist2 = Infinity;
-  let nearestPos = { x: 0, z: 0 };
+  const nearestPos = _result.nearestPos;
+  nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
 
   for (let i = 0; i < jellies.length; i++) {
     const _jg = jellies[i].group;
@@ -127,8 +135,13 @@ export function updateJellies(dt, t) {
       g.position.z += (player.pos.z - g.position.z) * driftFrac * dt * 0.3;
     }
 
-    // Terrain floor
-    const jellyGroundY = getGroundY(g.position.x, g.position.z);
+    // Terrain floor (cached — jellies move slowly)
+    const _jtx = g.position.x - (j._lastTX || 0), _jtz = g.position.z - (j._lastTZ || 0);
+    if (_jtx * _jtx + _jtz * _jtz > 0.04 || j._cachedGY === undefined) {
+      j._cachedGY = getGroundY(g.position.x, g.position.z);
+      j._lastTX = g.position.x; j._lastTZ = g.position.z;
+    }
+    const jellyGroundY = j._cachedGY;
     const jellyMinY = jellyGroundY + 3;
     if (g.position.y < jellyMinY) {
       g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 4);
@@ -175,5 +188,6 @@ export function updateJellies(dt, t) {
     }
   }
 
-  return { nearestDist2, nearestPos };
+  _result.nearestDist2 = nearestDist2;
+  return _result;
 }

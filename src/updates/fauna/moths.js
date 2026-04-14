@@ -169,8 +169,13 @@ export function updateMoths(dt, t) {
       m.centerZ += (player.pos.z - m.centerZ) * driftFrac * dt * 0.4;
     }
 
-    // Terrain floor
-    const mothGroundY = getGroundY(g.position.x, g.position.z);
+    // Terrain floor (cached — refresh when moth moves >0.3m)
+    const _mtx = g.position.x - (m._lastTX || 0), _mtz = g.position.z - (m._lastTZ || 0);
+    if (_mtx * _mtx + _mtz * _mtz > 0.09 || m._cachedGY === undefined) {
+      m._cachedGY = getGroundY(g.position.x, g.position.z);
+      m._lastTX = g.position.x; m._lastTZ = g.position.z;
+    }
+    const mothGroundY = m._cachedGY;
     const mothMinY = mothGroundY + 1.5;
     if (g.position.y < mothMinY) {
       g.position.y += (mothMinY - g.position.y) * Math.min(1, dt * 4);

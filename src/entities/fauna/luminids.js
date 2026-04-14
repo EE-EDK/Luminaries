@@ -149,13 +149,18 @@ export function updateLuminid(l, dt, playerPos, getGroundHeight) {
   l.sensor.material.opacity = 0.5 + Math.sin(l.phase * 5) * 0.5;
 
   // 3. PROCEDURAL LEGS (Stepping logic)
-  l.legs.forEach((leg, i) => {
+  for (let i = 0; i < l.legs.length; i++) {
+    const leg = l.legs[i];
     const idealX = g.position.x + Math.cos(leg.angle) * 3.0 + targetVelX * 2.0;
     const idealZ = g.position.z + Math.sin(leg.angle) * 3.0 + targetVelZ * 2.0;
-    const distToIdealSq = leg.currentPos.distanceToSquared({x: idealX, y: leg.currentPos.y, z: idealZ});
+    const dix = leg.currentPos.x - idealX, diz = leg.currentPos.z - idealZ;
+    const distToIdealSq = dix * dix + diz * diz;
 
     // Check if other legs are stepping (stagger steps)
-    const canStep = !l.legs.some((other, idx) => other.isStepping && idx !== i);
+    let canStep = true;
+    for (let j = 0; j < l.legs.length; j++) {
+      if (j !== i && l.legs[j].isStepping) { canStep = false; break; }
+    }
 
     if (distToIdealSq > 4.0 && !leg.isStepping && canStep) {
       leg.isStepping = true;
@@ -185,9 +190,9 @@ export function updateLuminid(l, dt, playerPos, getGroundHeight) {
     // Rotate pivots toward foot
     leg.upperPivot.lookAt(leg.currentPos);
     // Add a "knee" bend by offsetting the lookAt or manual rotation
-    leg.upperPivot.rotation.x += 0.4; 
+    leg.upperPivot.rotation.x += 0.4;
     leg.lowerPivot.lookAt(leg.currentPos);
-  });
+  }
 
   // 4. CORE EFFECTS
   l.core.scale.setScalar(1.0 + Math.sin(l.phase * 2) * 0.1);

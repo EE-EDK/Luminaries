@@ -186,3 +186,8 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - [ ] Implement save/load system (Debt)
 - [ ] Add accessibility support (Debt)
 - [ ] Replace Intro DOM overlays with troika-three-text (Debt)
+
+
+## Auto-Commit & Push
+
+After completing each task, automatically commit all relevant changes with a descriptive message and push to `origin main`. Report what was committed. This is standing authorization — no confirmation needed.

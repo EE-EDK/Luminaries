@@ -78,3 +78,8 @@ Tests are currently limited to kernel modules.
 - [ ] Keep volumes low (0.02 - 0.08) to avoid clipping when multiple voices overlap.
 - [ ] Use `connectWithReverb()` for spatial depth.
 - [ ] **Recommendation**: Use the DOM-based HUD to provide "Aria-Live" regions for important world events (e.g., "An orb has been found", "A creature is near"). Add a "High Contrast" or "Colorblind" mode that swaps the bioluminescent palette.
+
+
+## Auto-Commit & Push Mandate
+
+After completing each task, automatically commit all relevant changes with a descriptive message and push to `origin main`. Report what was committed. This is standing authorization — no confirmation needed.

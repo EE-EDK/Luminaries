@@ -347,7 +347,7 @@ export function createGround() {
 
   const mat = new MeshStandardMaterial({
     map: groundTex, vertexColors: true, roughness: 0.75, metalness: 0.0,
-    emissive: 0x1a3820, emissiveIntensity: 0.40
+    emissive: C.groundEmissive, emissiveIntensity: 0.40
   });
 
   // Inject procedural patterns + player proximity glow via shader

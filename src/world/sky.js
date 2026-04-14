@@ -97,7 +97,7 @@ function paintSkyCanvas() {
   }
 
   // ---- 3. Medium nebula wisps (more saturated detail clouds) ----
-  const wispCols = [0x2244aa, 0x224466, 0x442266, 0x553355, 0x336688, 0x224455, 0x3a2266];
+  const wispCols = [C.skyWisp1, C.skyWisp2, C.skyWisp3, C.skyWisp4, C.skyWisp5, C.skyWisp6, C.skyWisp7];
   for (let i = 0; i < 30; i++) {
     const wx = R() * W;
     const wy = R() * H * 0.55;
@@ -221,7 +221,7 @@ function paintSkyCanvas() {
     const ccy = H * 0.08 + R() * H * 0.42;
     const cr = 50 + R() * 90;
     // Faint cluster glow
-    softGlow(ctx, ccx, ccy, cr, cr * 0.7, 0x334466, 0.03);
+    softGlow(ctx, ccx, ccy, cr, cr * 0.7, C.skyClusterGlow, 0.03);
     for (let si = 0; si < 100; si++) {
       const sa = R() * 6.28;
       const sd = R() * R() * cr; // concentrate toward center
@@ -280,7 +280,7 @@ export function createSkyDome() {
   const capRadius = SKY_R * Math.sin(thetaStart) * 1.05; // slightly oversized to ensure overlap
   const capGeo = new CircleGeometry(capRadius, 32);
   const capMat = new MeshBasicMaterial({
-    color: 0x030610, side: BackSide, fog: false
+    color: C.skyZenithCap, side: BackSide, fog: false
   });
   const cap = new Mesh(capGeo, capMat);
   cap.position.y = SKY_R * Math.cos(thetaStart);
@@ -356,7 +356,7 @@ function createTwinkleStars() {
 
 function createShootingStars() {
   const trailMat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0, fog: false,
+    color: C.white, transparent: true, opacity: 0, fog: false,
     blending: AdditiveBlending, depthWrite: false
   });
   for (let i = 0; i < SHOOTING_STAR_MAX; i++) {
@@ -501,7 +501,6 @@ export function setSkyBrightness(brightness) {
 
 const constellations = [];
 let constellationsCreated = false;
-let _revealedCount = 0;
 
 // Star positions on sky dome (theta, phi in radians) → world coords
 // Each constellation: { stars: [{theta,phi},...], edges: [[i,j],...], color: hex }
@@ -513,7 +512,7 @@ const CONSTELLATION_DEFS = [
       { theta: 1.25, phi: 0.5 }, { theta: 1.45, phi: 0.5 }
     ],
     edges: [[0,1],[1,2],[0,3],[1,4],[2,5],[3,6],[4,6],[4,7],[5,7]],
-    color: 0x66ccff
+    color: C.skyConstJelly
   },
   { // The Hopper (puffling) — Orb 2
     stars: [
@@ -522,7 +521,7 @@ const CONSTELLATION_DEFS = [
       { theta: 2.85, phi: 0.42 }, { theta: 3.15, phi: 0.42 }
     ],
     edges: [[0,1],[0,2],[0,3],[0,4],[3,5],[4,6],[3,4]],
-    color: 0xffaa88
+    color: C.skyConstPuff
   },
   { // The Orbiter (moth) — Orb 3
     stars: [
@@ -532,7 +531,7 @@ const CONSTELLATION_DEFS = [
       { theta: 4.8, phi: 0.38 } // tail
     ],
     edges: [[0,1],[0,2],[0,3],[0,4],[0,5],[1,2],[3,4]],
-    color: 0x88ff66
+    color: C.skyConstMoth
   },
   { // The Strider (deer) — Orb 4
     stars: [
@@ -542,7 +541,7 @@ const CONSTELLATION_DEFS = [
       { theta: 0.15, phi: 0.33 }, { theta: 0.45, phi: 0.33 } // back legs
     ],
     edges: [[0,1],[0,2],[0,3],[3,6],[3,7],[6,4],[7,5]],
-    color: 0x66ffcc
+    color: C.skyConstDeer
   },
   { // The Convergence (pentagon) — Orb 5
     stars: [
@@ -550,7 +549,7 @@ const CONSTELLATION_DEFS = [
       { theta: 5.65, phi: 0.38 }, { theta: 5.55, phi: 0.2 }
     ],
     edges: [[0,1],[1,2],[2,3],[3,4],[4,0]],
-    color: 0xffdd44
+    color: C.skyConstConverge
   }
 ];
 

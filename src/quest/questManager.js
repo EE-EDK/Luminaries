@@ -12,7 +12,7 @@ import { showFinaleText, showTransformText, showFreeRoamText } from '../systems/
 import { emit, Events } from '../kernel/eventBus.js';
 
 const _orbGoldColor = new Color(C.orbGold);
-const _whiteColor = new Color(0xffffff);
+const _whiteColor = new Color(C.white);
 
 // Quest state
 // SEEK → RISING → COMPLETE → FINALE → TRANSFORM
@@ -59,8 +59,6 @@ let orbRejectCooldown = 0; // prevent spam
 let showOrbDiscoveryFn = null;
 let spawnOrbBurstFn = null;
 let startResonanceDroneFn = null;
-
-const orbCreatureMap = [];
 
 // Rune face references (from obelisk.js via config)
 let runeFaces = [];
@@ -398,8 +396,7 @@ export function updateQuest(dt, t) {
   const targetObeliskY = -OBELISK_H + orbsFound * rungHeight;
   const isRising = obeliskY < targetObeliskY - 0.01;
   if (isRising) {
-    // Rise at 8 units/sec (fast, dramatic per-rung)
-    obeliskY += 8 * dt;
+    obeliskY += OBELISK_RISE_SPEED * dt;
     if (obeliskY > targetObeliskY) obeliskY = targetObeliskY;
     if (obeliskGroup) {
       obeliskGroup.position.y = obeliskY;
@@ -780,11 +777,11 @@ function initFlashOverlay() {
 // Transform all tree materials and ground to pink/purple theme
 function transformTreesAndGround() {
   const pinkShades = [
-    { color: 0x662040, glow: 0xff3399, core: 0xff66cc },
-    { color: 0x4a1850, glow: 0xcc44dd, core: 0xee77ff },
-    { color: 0x551a30, glow: 0xff4499, core: 0xff88cc },
-    { color: 0x3a1860, glow: 0xaa44ee, core: 0xcc77ff },
-    { color: 0x502040, glow: 0xee55bb, core: 0xff99dd },
+    { color: C.questPink1, glow: C.questPink1Glow, core: C.questPink1Core },
+    { color: C.questPink2, glow: C.questPink2Glow, core: C.questPink2Core },
+    { color: C.questPink3, glow: C.questPink3Glow, core: C.questPink3Core },
+    { color: C.questPink4, glow: C.questPink4Glow, core: C.questPink4Core },
+    { color: C.questPink5, glow: C.questPink5Glow, core: C.questPink5Core },
   ];
 
   // With instanced trees, modify shared materials per template

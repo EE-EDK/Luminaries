@@ -38,7 +38,7 @@ export function initResonanceRings(scene) {
   _scene = scene;
   for (let i = 0; i < POOL_SIZE; i++) {
     const mat = new MeshBasicMaterial({
-      color: 0xffffff,
+      color: C.white,
       transparent: true,
       opacity: 0,
       side: DoubleSide,
@@ -73,7 +73,7 @@ export function spawnResonanceRing(x, y, z, creatureType, resonanceStrength) {
     r.maxLife = RING_LIFE;
     r.mesh.position.set(x, y + 0.5, z);
     r.mesh.visible = true;
-    r.mat.color.setHex(_creatureColors[creatureType] || 0xffffff);
+    r.mat.color.setHex(_creatureColors[creatureType] || C.white);
     r.startOpacity = resonanceStrength * 0.6;
     r.mat.opacity = r.startOpacity;
     r.mesh.scale.set(RING_START_R, RING_START_R, RING_START_R);

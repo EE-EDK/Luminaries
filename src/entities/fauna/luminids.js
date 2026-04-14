@@ -17,7 +17,7 @@ export function makeLuminid(x, z) {
   g.add(bodyGroup);
 
   const crystalMat = new MeshStandardMaterial({
-    color: 0x88ccff, emissive: 0x2244aa, emissiveIntensity: 0.5,
+    color: C.luminidShell, emissive: C.luminidShellEmissive, emissiveIntensity: 0.5,
     transparent: true, opacity: 0.4, roughness: 0.1, metalness: 0.8
   });
   
@@ -28,14 +28,14 @@ export function makeLuminid(x, z) {
 
   // Inner Core (The "Star")
   const coreMat = new MeshBasicMaterial({ 
-    color: 0xffffff, transparent: true, opacity: 0.9, blending: AdditiveBlending 
+    color: C.luminidCore, transparent: true, opacity: 0.9, blending: AdditiveBlending
   });
   const core = new Mesh(new SphereGeometry(0.25, 8, 8), coreMat);
   bodyGroup.add(core);
 
   // Glow Halo
   const haloMat = new MeshBasicMaterial({ 
-    color: 0x4488ff, transparent: true, opacity: 0.2, side: DoubleSide, blending: AdditiveBlending 
+    color: C.luminidHalo, transparent: true, opacity: 0.2, side: DoubleSide, blending: AdditiveBlending
   });
   const halo = new Mesh(new CircleGeometry(1.2, 16), haloMat);
   halo.rotation.x = Math.PI / 2;
@@ -54,7 +54,7 @@ export function makeLuminid(x, z) {
   // 3. SPINDLY LEGS (6 legs)
   const legs = [];
   const legMat = new MeshStandardMaterial({
-    color: 0x223344, emissive: 0x112233, roughness: 0.9
+    color: C.luminidLeg, emissive: C.luminidLegEmissive, roughness: 0.9
   });
 
   const legAngles = [0.2, 1.0, 2.1, 3.14 + 0.2, 3.14 + 1.0, 3.14 + 2.1];

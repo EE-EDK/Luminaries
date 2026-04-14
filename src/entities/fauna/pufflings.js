@@ -25,7 +25,7 @@ export function makePuff(x, z) {
 
   // Belly patch
   const bellyMat = new MeshStandardMaterial({
-    color: 0xfff0e0, emissive: C.puffGlow, emissiveIntensity: 0.15, roughness: 0.9
+    color: C.puffBelly, emissive: C.puffGlow, emissiveIntensity: 0.15, roughness: 0.9
   });
   const belly = new Mesh(new SphereGeometry(0.18, 6, 4), bellyMat);
   belly.scale.set(0.7, 0.9, 0.3); belly.position.set(0, 0.32, 0.2); shell.add(belly);
@@ -64,7 +64,7 @@ export function makePuff(x, z) {
     eyes.push(eye);
     
     // Brow mesh
-    const brow = new Mesh(new PlaneGeometry(0.06, 0.02), new MeshBasicMaterial({ color: 0x332211 }));
+    const brow = new Mesh(new PlaneGeometry(0.06, 0.02), new MeshBasicMaterial({ color: C.puffBrow }));
     brow.position.set(i * 0.09, 0.74, 0.19);
     brow.rotation.z = i * 0.2;
     shell.add(brow);
@@ -75,11 +75,11 @@ export function makePuff(x, z) {
   const accChance = sr();
   if (accChance < 0.3) {
     // Small mushroom
-    const mushCap = new Mesh(new SphereGeometry(0.06, 5, 4), new MeshStandardMaterial({ color: 0xff4444 }));
+    const mushCap = new Mesh(new SphereGeometry(0.06, 5, 4), new MeshStandardMaterial({ color: C.puffMushroom }));
     mushCap.scale.set(1, 0.5, 1); mushCap.position.set(0.15, 0.85, -0.1); shell.add(mushCap);
   } else if (accChance < 0.6) {
     // Moss patch
-    const moss = new Mesh(new SphereGeometry(0.1, 4, 3), new MeshStandardMaterial({ color: 0x448822 }));
+    const moss = new Mesh(new SphereGeometry(0.1, 4, 3), new MeshStandardMaterial({ color: C.puffMoss }));
     moss.scale.set(1, 0.3, 1.2); moss.position.set(-0.12, 0.55, -0.2); shell.add(moss);
   }
 
@@ -90,7 +90,7 @@ export function makePuff(x, z) {
   }
 
   // Tail pom
-  const tail = new Mesh(new SphereGeometry(0.06, 5, 4), new MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+  const tail = new Mesh(new SphereGeometry(0.06, 5, 4), new MeshStandardMaterial({ color: C.puffTail, roughness: 0.9 }));
   tail.position.set(0, 0.38, -0.28); shell.add(tail);
 
   // --- SPORE TRAIL MOTES ---

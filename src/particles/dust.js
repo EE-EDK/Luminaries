@@ -1,4 +1,5 @@
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, Object3D } from 'three';
+import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { GEO } from '../core/geometries.js';
 import { getGroundY } from '../world/terrain.js';
@@ -8,11 +9,11 @@ let iMesh = null;
 const dustMotes = [];
 const dummy = new Object3D();
 const tmpColor = new Color();
-const baseColor = new Color(0x88aa77);
+const baseColor = new Color(C.dustBase);
 
 export function initDustMotes(n) {
   const mat = new MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 1, depthWrite: false
+    color: C.white, transparent: true, opacity: 1, depthWrite: false
   });
   iMesh = new InstancedMesh(GEO.dustMote, mat, n);
   iMesh.instanceMatrix.setUsage(DynamicDrawUsage);

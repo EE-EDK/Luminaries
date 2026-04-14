@@ -74,7 +74,7 @@ export const ORB_N = 5;
 export const ORB_TOUCH_R = 2.5;
 export const ORB_SENSE_R = 12;
 export const OBELISK_H = 30;
-export const OBELISK_RISE_SPEED = 4;
+export const OBELISK_RISE_SPEED = 8;
 
 // Dimming (Phase 2) — sector-based bioGlow suppression
 // The world splits into 5 angular sectors (pizza slices) from the obelisk.
@@ -193,6 +193,41 @@ export const C = {
   veilSupport: 0x3a3a40, veilMoss: 0x44cc88, veilGlow: 0x66ffaa, veilEdge: 0x88ffcc,
   // Ground glow patch colors
   groundGlowColors: [0x33ffdd, 0x44ffaa, 0xcc77ff, 0x44aaee, 0x88ffcc],
+  // Deer detail palette
+  deerChest: 0xccf0ff, deerNose: 0x224455, deerEyeHighlight: 0xffffff,
+  deerInnerEar: 0xddccee, deerNostril: 0x112222, deerHoof: 0x667788,
+  deerFetlock: 0xddeeff, deerTailTip: 0xffffff, deerThroat: 0xcceeee,
+  deerBelly: 0xddeeee, deerSpot: 0xccffee, deerDew: 0xeeffff, deerDewEmissive: 0xaaddff,
+  deerMane: 0xddeeff,
+  // Puffling detail palette
+  puffBelly: 0xfff0e0, puffBrow: 0x332211, puffMushroom: 0xff4444,
+  puffMoss: 0x448822, puffTail: 0xffffff,
+  // Jelly detail palette
+  jellyOrgan: 0xbbddff, jellySpot: 0xeeffff, jellyTip: 0xddeeff, jellyMucus: 0xddffff,
+  // Moth detail palette
+  mothFur: 0xeeeedd, mothAbdomen: 0xddddcc, mothSegment: 0xddddbb,
+  mothEye: 0x112233, mothEyeEmissive: 0x1a3355, mothAntenna: 0xddcc88,
+  mothEdge: 0x664433, mothSpotRing: 0xffee55, mothSpotDark: 0x223344,
+  mothLeg: 0xccccbb,
+  // Luminid detail palette
+  luminidShell: 0x88ccff, luminidShellEmissive: 0x2244aa, luminidHalo: 0x4488ff,
+  luminidLeg: 0x223344, luminidLegEmissive: 0x112233,
+  // Quest transform palette
+  questPink1: 0x662040, questPink1Glow: 0xff3399, questPink1Core: 0xff66cc,
+  questPink2: 0x4a1850, questPink2Glow: 0xcc44dd, questPink2Core: 0xee77ff,
+  questPink3: 0x551a30, questPink3Glow: 0xff4499, questPink3Core: 0xff88cc,
+  questPink4: 0x3a1860, questPink4Glow: 0xaa44ee, questPink4Core: 0xcc77ff,
+  questPink5: 0x502040, questPink5Glow: 0xee55bb, questPink5Core: 0xff99dd,
+  // Particle palette
+  dustBase: 0x88aa77, rainDrop: 0x8899bb,
+  // Sky detail palette
+  skyWisp1: 0x2244aa, skyWisp2: 0x224466, skyWisp3: 0x442266,
+  skyWisp4: 0x553355, skyWisp5: 0x336688, skyWisp6: 0x224455, skyWisp7: 0x3a2266,
+  skyClusterGlow: 0x334466, skyZenithCap: 0x030610,
+  skyConstJelly: 0x66ccff, skyConstPuff: 0xffaa88, skyConstMoth: 0x88ff66,
+  skyConstDeer: 0x66ffcc, skyConstConverge: 0xffdd44,
+  // Ground palette
+  groundEmissive: 0x1a3820,
   // Wave 0 Audit Additions
   white: 0xffffff, black: 0x000000,
   glitterPurple: 0xaa44ff,

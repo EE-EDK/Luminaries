@@ -60,7 +60,7 @@ export function makeMoth(x, y, z) {
   // ---- Body ----
   // White furry thorax (luna moths have thick white fur)
   const furMat = new MeshStandardMaterial({
-    color: 0xeeeedd, emissive: C.mothGlow, emissiveIntensity: 0.25, roughness: 1.0
+    color: C.mothFur, emissive: C.mothGlow, emissiveIntensity: 0.25, roughness: 1.0
   });
   const thorax = new Mesh(new SphereGeometry(0.05, 6, 5), furMat);
   thorax.scale.set(1, 0.9, 1.4);
@@ -68,7 +68,7 @@ export function makeMoth(x, y, z) {
 
   // Abdomen — tapered, slightly fuzzy, with segment bands
   const abdMat = new MeshStandardMaterial({
-    color: 0xddddcc, emissive: C.mothGlow, emissiveIntensity: 0.2, roughness: 0.8
+    color: C.mothAbdomen, emissive: C.mothGlow, emissiveIntensity: 0.2, roughness: 0.8
   });
   const abdomen = new Mesh(new ConeGeometry(0.04, 0.18, 5), abdMat);
   abdomen.rotation.x = Math.PI / 2 + 0.1; // slight upward curl
@@ -76,7 +76,7 @@ export function makeMoth(x, y, z) {
 
   // Abdomen segment rings (3 subtle bands)
   const segMat = new MeshStandardMaterial({
-    color: 0xddddbb, emissive: C.mothGlow, emissiveIntensity: 0.35, roughness: 0.6
+    color: C.mothSegment, emissive: C.mothGlow, emissiveIntensity: 0.35, roughness: 0.6
   });
   for (let si = 0; si < 3; si++) {
     const seg = new Mesh(new TorusGeometry(0.035, 0.005, 4, 8), segMat);
@@ -85,14 +85,14 @@ export function makeMoth(x, y, z) {
 
   // ---- Head ----
   const headMat = new MeshStandardMaterial({
-    color: 0xeeeedd, emissive: C.mothGlow, emissiveIntensity: 0.3, roughness: 0.9
+    color: C.mothFur, emissive: C.mothGlow, emissiveIntensity: 0.3, roughness: 0.9
   });
   const head = new Mesh(new SphereGeometry(0.04, 5, 4), headMat);
   head.position.z = 0.16; g.add(head);
 
   // Compound eyes (2 large dark iridescent spheres)
   const eyeMat = new MeshStandardMaterial({
-    color: 0x112233, emissive: 0x1a3355, emissiveIntensity: 0.3, roughness: 0.1, metalness: 0.5
+    color: C.mothEye, emissive: C.mothEyeEmissive, emissiveIntensity: 0.3, roughness: 0.1, metalness: 0.5
   });
   for (let i = -1; i <= 1; i += 2) {
     const eye = new Mesh(new SphereGeometry(0.02, 5, 4), eyeMat);
@@ -102,7 +102,7 @@ export function makeMoth(x, y, z) {
   // ---- Feathered Antennae (prominent plume-like, characteristic of luna moths) ----
   const antennae = [];
   const antMat = new MeshStandardMaterial({
-    color: 0xddcc88, emissive: C.mothGlow, emissiveIntensity: 0.3, roughness: 0.6
+    color: C.mothAntenna, emissive: C.mothGlow, emissiveIntensity: 0.3, roughness: 0.6
   });
   const antTipMat = new MeshBasicMaterial({ color: C.mothGlow, transparent: true, opacity: 0.7, depthWrite: false });
 
@@ -146,19 +146,19 @@ export function makeMoth(x, y, z) {
 
   // Dark leading edge material (characteristic brown/maroon margin)
   const edgeMat = new MeshStandardMaterial({
-    color: 0x664433, emissive: C.mothGlow, emissiveIntensity: 0.15,
+    color: C.mothEdge, emissive: C.mothGlow, emissiveIntensity: 0.15,
     transparent: true, opacity: 0.6, depthWrite: false, side: DoubleSide, roughness: 0.5
   });
 
   // Eyespot materials — translucent center + colored ring
   const spotRingMat = new MeshBasicMaterial({
-    color: 0xffee55, transparent: true, opacity: 0.85, depthWrite: false
+    color: C.mothSpotRing, transparent: true, opacity: 0.85, depthWrite: false
   });
   const spotCenterMat = new MeshBasicMaterial({
     color: C.mothSpot, transparent: true, opacity: 0.7, depthWrite: false
   });
   const spotDarkMat = new MeshBasicMaterial({
-    color: 0x223344, transparent: true, opacity: 0.5, depthWrite: false
+    color: C.mothSpotDark, transparent: true, opacity: 0.5, depthWrite: false
   });
 
   // Tail streamer material
@@ -261,7 +261,7 @@ export function makeMoth(x, y, z) {
   }
 
   // ---- Legs (3 pairs, thin jointed) ----
-  const legMat = new MeshBasicMaterial({ color: 0xccccbb, transparent: true, opacity: 0.35, depthWrite: false });
+  const legMat = new MeshBasicMaterial({ color: C.mothLeg, transparent: true, opacity: 0.35, depthWrite: false });
   for (let i = -1; i <= 1; i += 2) {
     for (let lj = 0; lj < 3; lj++) {
       const leg = new Mesh(new CylinderGeometry(0.002, 0.002, 0.05, 3), legMat);

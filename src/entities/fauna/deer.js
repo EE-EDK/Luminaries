@@ -21,7 +21,7 @@ export function makeDeer(x, z) {
   body.scale.set(1, 0.8, 1.5); body.position.y = 0.9; g.add(body);
   // Chest marking
   const chestMat = new MeshStandardMaterial({
-    color: 0xccf0ff, emissive: C.deerGlow, emissiveIntensity: 0.8,
+    color: C.deerChest, emissive: C.deerGlow, emissiveIntensity: 0.8,
     transparent: true, opacity: 0.5, depthWrite: false
   });
   const chest = new Mesh(new SphereGeometry(0.15, 5, 4), chestMat);
@@ -50,7 +50,7 @@ export function makeDeer(x, z) {
   const snout = new Mesh(new SphereGeometry(0.07, 4, 3), bMat);
   snout.scale.set(1, 0.7, 1.4); snout.position.set(0, -0.05, 0.15); headBase.add(snout);
   // Nose tip
-  const noseMat = new MeshBasicMaterial({ color: 0x224455 });
+  const noseMat = new MeshBasicMaterial({ color: C.deerNose });
   const nose = new Mesh(new SphereGeometry(0.02, 3, 3), noseMat);
   nose.position.set(0, -0.05, 0.23); headBase.add(nose);
   // Eyes
@@ -59,7 +59,7 @@ export function makeDeer(x, z) {
     const eye = new Mesh(new SphereGeometry(0.025, 4, 3), eyeM);
     eye.position.set(i * 0.09, 0.03, 0.08); headBase.add(eye);
     const ehl = new Mesh(new SphereGeometry(0.008, 3, 3),
-      new MeshBasicMaterial({ color: 0xffffff }));
+      new MeshBasicMaterial({ color: C.deerEyeHighlight }));
     ehl.position.set(i * 0.085, 0.04, 0.09); headBase.add(ehl);
     const lashMat = new MeshBasicMaterial({ color: C.deerBody, transparent: true, opacity: 0.5, depthWrite: false });
     const lash = new Mesh(new CylinderGeometry(0.002, 0.002, 0.03, 3), lashMat);
@@ -75,7 +75,7 @@ export function makeDeer(x, z) {
     earPivot.add(ear);
     // Inner ear detail — lighter concave surface
     const innerEarMat = new MeshBasicMaterial({
-      color: 0xddccee, transparent: true, opacity: 0.25, depthWrite: false
+      color: C.deerInnerEar, transparent: true, opacity: 0.25, depthWrite: false
     });
     const innerEar = new Mesh(new ConeGeometry(0.025, 0.1, 3), innerEarMat);
     innerEar.rotation.z = i * 0.4;
@@ -133,7 +133,7 @@ export function makeDeer(x, z) {
   const jaw = new Mesh(new CylinderGeometry(0.01, 0.02, 0.1, 3), jawMat);
   jaw.position.set(0, -0.11, 0.08); jaw.rotation.x = 0.3; headBase.add(jaw);
   // Nostrils
-  const nostrilMat = new MeshBasicMaterial({ color: 0x112222 });
+  const nostrilMat = new MeshBasicMaterial({ color: C.deerNostril });
   for (let ni = -1; ni <= 1; ni += 2) {
     const nostril = new Mesh(new SphereGeometry(0.006, 3, 3), nostrilMat);
     nostril.position.set(ni * 0.02, -0.06, 0.22); headBase.add(nostril);
@@ -147,7 +147,7 @@ export function makeDeer(x, z) {
     { x: 0.15, z: -0.3, label: 'BR' }   // back-right
   ];
   const hoofMat = new MeshStandardMaterial({
-    color: 0x667788, emissive: C.deerGlow, emissiveIntensity: 0.2,
+    color: C.deerHoof, emissive: C.deerGlow, emissiveIntensity: 0.2,
     transparent: true, opacity: 0.7, depthWrite: false
   });
   const legPivots = [];
@@ -170,7 +170,7 @@ export function makeDeer(x, z) {
     hoof.position.y = -0.3; lowerPivot.add(hoof);
     // Fetlock tuft
     const fetMat = new MeshStandardMaterial({
-      color: 0xddeeff, emissive: C.deerGlow, emissiveIntensity: 0.3,
+      color: C.deerFetlock, emissive: C.deerGlow, emissiveIntensity: 0.3,
       transparent: true, opacity: 0.5, depthWrite: false
     });
     const fet = new Mesh(new SphereGeometry(0.025, 3, 3), fetMat);
@@ -185,7 +185,7 @@ export function makeDeer(x, z) {
   const tailPivot = new Group();
   tailPivot.position.set(0, 1.1, -0.55);
   const tail = new Mesh(new ConeGeometry(0.05, 0.15, 4), new MeshStandardMaterial({
-    color: 0xffffff, emissive: C.deerGlow, emissiveIntensity: 1.0, transparent: true, opacity: 0.8, depthWrite: false
+    color: C.deerTailTip, emissive: C.deerGlow, emissiveIntensity: 1.0, transparent: true, opacity: 0.8, depthWrite: false
   }));
   tailPivot.add(tail);
   g.add(tailPivot);
@@ -212,7 +212,7 @@ export function makeDeer(x, z) {
 
   // === THROAT / CHIN DETAIL ===
   const throatMat = new MeshStandardMaterial({
-    color: 0xcceeee, emissive: C.deerGlow, emissiveIntensity: 0.3,
+    color: C.deerThroat, emissive: C.deerGlow, emissiveIntensity: 0.3,
     transparent: true, opacity: 0.35, depthWrite: false
   });
   const throat = new Mesh(new SphereGeometry(0.04, 4, 3), throatMat);
@@ -230,7 +230,7 @@ export function makeDeer(x, z) {
 
   // === BELLY MARKING ===
   const bellyMat = new MeshStandardMaterial({
-    color: 0xddeeee, emissive: C.deerGlow, emissiveIntensity: 0.25,
+    color: C.deerBelly, emissive: C.deerGlow, emissiveIntensity: 0.25,
     transparent: true, opacity: 0.25, depthWrite: false, side: DoubleSide
   });
   const belly = new Mesh(new PlaneGeometry(0.18, 0.6), bellyMat);
@@ -239,7 +239,7 @@ export function makeDeer(x, z) {
   g.add(belly);
 
   // Body spots
-  const spotMat = new MeshBasicMaterial({ color: 0xccffee, transparent: true, opacity: 0.3, depthWrite: false });
+  const spotMat = new MeshBasicMaterial({ color: C.deerSpot, transparent: true, opacity: 0.3, depthWrite: false });
   for (let si = 0; si < 4; si++) {
     const sp = new Mesh(new SphereGeometry(0.02, 3, 3), spotMat);
     sp.position.set((sr() - 0.5) * 0.25, 0.8 + sr() * 0.3, (sr() - 0.5) * 0.4);
@@ -254,7 +254,7 @@ export function makeDeer(x, z) {
   }
   // Dew drops on fur
   const dewMat = new MeshStandardMaterial({
-    color: 0xeeffff, emissive: 0xaaddff, emissiveIntensity: 0.15,
+    color: C.deerDew, emissive: C.deerDewEmissive, emissiveIntensity: 0.15,
     transparent: true, opacity: 0.4, depthWrite: false, roughness: 0.0, metalness: 0.5
   });
   for (let dwi = 0; dwi < 3; dwi++) {
@@ -265,7 +265,7 @@ export function makeDeer(x, z) {
 
   // --- Ethereal mane along neck ---
   const maneMat = new MeshStandardMaterial({
-    color: 0xddeeff, emissive: C.deerGlow, emissiveIntensity: 0.4,
+    color: C.deerMane, emissive: C.deerGlow, emissiveIntensity: 0.4,
     transparent: true, opacity: 0.3, depthWrite: false, side: DoubleSide
   });
   const manePlanes = [];

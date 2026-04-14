@@ -35,7 +35,7 @@ export function makeJelly(x, y, z) {
 
   // Internal organ shapes (2 small elongated forms)
   const organMat = new MeshBasicMaterial({
-    color: 0xbbddff, transparent: true, opacity: 0.3, depthWrite: false
+    color: C.jellyOrgan, transparent: true, opacity: 0.3, depthWrite: false
   });
   for (let oi = -1; oi <= 1; oi += 2) {
     const organ = new Mesh(new SphereGeometry(0.06, 4, 3), organMat);
@@ -45,7 +45,7 @@ export function makeJelly(x, y, z) {
 
   // Bioluminescent spots on bell surface (5)
   const spotMat = new MeshBasicMaterial({
-    color: 0xeeffff, transparent: true, opacity: 0.7, depthWrite: false
+    color: C.jellySpot, transparent: true, opacity: 0.7, depthWrite: false
   });
   for (let si = 0; si < 5; si++) {
     const sa = sr() * 6.28, sel = sr() * 0.8;
@@ -88,7 +88,7 @@ export function makeJelly(x, y, z) {
     transparent: true, opacity: 0.4, depthWrite: false
   });
   const tipMat = new MeshBasicMaterial({
-    color: 0xddeeff, transparent: true, opacity: 0.9, depthWrite: false
+    color: C.jellyTip, transparent: true, opacity: 0.9, depthWrite: false
   });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * 6.28;
@@ -112,7 +112,7 @@ export function makeJelly(x, y, z) {
 
   // Mucus drip beads (3 tiny spheres on tentacle tips)
   const mucusMat = new MeshBasicMaterial({
-    color: 0xddffff, transparent: true, opacity: 0.4, depthWrite: false
+    color: C.jellyMucus, transparent: true, opacity: 0.4, depthWrite: false
   });
   for (let mui = 0; mui < 3; mui++) {
     const mua = (mui / 3) * 6.28;

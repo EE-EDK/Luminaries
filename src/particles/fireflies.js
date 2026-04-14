@@ -36,9 +36,9 @@ export function initFlies(n) {
 }
 
 export function spawnFly(px, py, pz, life) {
-  let f = null, fi = -1;
-  for (let i = 0; i < flies.length; i++) { if (!flies[i].active) { f = flies[i]; fi = i; break; } }
-  if (!f) { let best = Infinity; for (let i = 0; i < flies.length; i++) { if (flies[i].life < best) { best = flies[i].life; f = flies[i]; fi = i; } } }
+  let f = null;
+  for (let i = 0; i < flies.length; i++) { if (!flies[i].active) { f = flies[i]; break; } }
+  if (!f) { let best = Infinity; for (let i = 0; i < flies.length; i++) { if (flies[i].life < best) { best = flies[i].life; f = flies[i]; } } }
   f.x = px; f.y = py + 0.5 + Math.random() * 3; f.z = pz;
   f.vx = (Math.random() - .5) * 2; f.vy = (Math.random() - .5); f.vz = (Math.random() - .5) * 2;
   f.life = life; f.max = life; f.active = true; f.wander = Math.random() * 6.28;

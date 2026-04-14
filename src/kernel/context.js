@@ -20,7 +20,6 @@ const _ctx = {
   bioGlow: 0,
   orbBoost: 1.15,
   orbsFound: 0,
-  smoothedDimFactor: 0,
 
   // Weather
   windX: 0,
@@ -68,7 +67,6 @@ export const reset = () => {
   _ctx.bioGlow = 0;
   _ctx.orbBoost = 1.15;
   _ctx.orbsFound = 0;
-  _ctx.smoothedDimFactor = 0;
   _ctx.windX = 0;
   _ctx.windZ = 0;
   _ctx.windStrength = 0;

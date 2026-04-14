@@ -33,9 +33,9 @@ export function initSpores(n) {
 }
 
 export function spawnSpore(px, py, pz) {
-  let s = null, si = -1;
-  for (let i = 0; i < spores.length; i++) { if (!spores[i].active) { s = spores[i]; si = i; break; } }
-  if (!s) { let best = Infinity; for (let i = 0; i < spores.length; i++) { if (spores[i].life < best) { best = spores[i].life; s = spores[i]; si = i; } } }
+  let s = null;
+  for (let i = 0; i < spores.length; i++) { if (!spores[i].active) { s = spores[i]; break; } }
+  if (!s) { let best = Infinity; for (let i = 0; i < spores.length; i++) { if (spores[i].life < best) { best = spores[i].life; s = spores[i]; } } }
   s.x = px; s.y = py; s.z = pz;
   s.vx = (Math.random() - .5) * 0.3; s.vy = 0.4 + Math.random() * 0.4; s.vz = (Math.random() - .5) * 0.3;
   s.life = 3 + Math.random() * 3; s.max = s.life; s.active = true;

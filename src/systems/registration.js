@@ -10,14 +10,6 @@
 // and enable/disable control without requiring a full rewrite.
 
 import { addSystem, Phase } from '../kernel/scheduler.js';
-import { ctx } from '../kernel/context.js';
-import { get, EntityType } from '../kernel/registry.js';
-
-// Import existing update functions
-import { spawnFireflies, spawnSpores, spawnWindParticles } from '../updates/spawning.js';
-import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths } from '../updates/fauna.js';
-import { updateVegetation as _updateVegetation, updateFloraReactions as _updateFloraReactions } from '../updates/vegetation.js';
-import { updateWisps as _updateWisps, updateFairyRings as _updateFairyRings, updateBubbles as _updateBubbles, updatePonds as _updatePonds, updateEchoBloom as _updateEchoBloom } from '../updates/magicalEntities.js';
 
 // ================================================================
 // Nearest-creature tracking (previously in main.js module scope)

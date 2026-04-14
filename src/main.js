@@ -18,23 +18,18 @@
 // ================================================================
 // Core systems
 import { renderer, camera, clock, scene } from './core/renderer.js';
-import { render as postRender, bloomPass, setSaturation } from './core/postprocessing.js';
+import { render as postRender } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, started, setGoCallback, setStarted, touchSprint, touchJump, rightMouseDown, mouseY, screenH, touchHum, touchHumY, setYaw, setPitch } from './core/input.js';
-import { GEO } from './core/geometries.js';
-
+import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setYaw, setPitch } from './core/input.js';
 // Constants
 import {
   WORLD_R, EYE_H, STARMOTE_N,
   C
 } from './constants.js';
 
-// Utils
-import { sr } from './utils/rng.js';
-
 // World
-import { createGround, updateGroundUniforms } from './world/ground.js';
-import { createSkyDome, skyGroup, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
+import { createGround } from './world/ground.js';
+import { createSkyDome, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
 import { getGroundY, registerFlatZone, buildHeightCache } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
@@ -42,10 +37,10 @@ import { initAurora, updateAurora } from './world/aurora.js';
 import { player, updatePlayer, cameraBobY, playerIdleTime, setCollisionData, setDustBurstFn, setAudioCallbacks, setGravityMult } from './core/player.js';
 
 // Entities — Flora
-import { makeTreeImpostor, createTreeTemplates, createTreeInstances, updateTreeLOD } from './entities/flora/trees.js';
+import { makeTreeImpostor, createTreeTemplates, createTreeInstances } from './entities/flora/trees.js';
 import { makeMush } from './entities/flora/mushrooms.js';
 import { makeCrystal } from './entities/flora/crystals.js';
-import { makeGrassPatch, updateGrassGlobals } from './entities/flora/grass.js';
+import { makeGrassPatch } from './entities/flora/grass.js';
 import { makeFern } from './entities/flora/ferns.js';
 import { makeFlower } from './entities/flora/flowers.js';
 import { makeReed } from './entities/flora/reeds.js';
@@ -83,10 +78,9 @@ import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/wor
 import { initFlies, spawnFly, updateFlies } from './particles/fireflies.js';
 import { initSpores, spawnSpore, updateSpores, setSporeWind } from './particles/spores.js';
 import { initStarMotes, updateStarMotes } from './particles/starMotes.js';
-import { initDustMotes, spawnDustBurst } from './particles/dust.js';
+import { initDustMotes, spawnDustBurst, updateDustMotes } from './particles/dust.js';
 import { initDandSeeds, spawnDandSeed, updateDandSeeds, setSeedWind } from './particles/seeds.js';
-import { initBubblePops, spawnBubblePop, updateBubblePops } from './particles/bubblePops.js';
-import { updateDustMotes } from './particles/dust.js';
+import { initBubblePops, updateBubblePops } from './particles/bubblePops.js';
 import { initLeaves, spawnLeaf, updateLeaves, setLeafWind } from './particles/leaves.js';
 import { initFootprints, spawnFootprint, updateFootprints } from './particles/footprints.js';
 import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurst.js';
@@ -109,22 +103,13 @@ import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js'
 
 
 // Dimming (Phase 2)
-import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected, isRestored } from './systems/dimming.js';
-
-// Attunement (Phase 2)
-
-
-// Spirit Hum (Phase 2)
-
+import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected } from './systems/dimming.js';
 
 // Performance monitoring (dev-only, tree-shaken in production)
 import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
 
 // Kernel (modular infrastructure)
-import { register, EntityType } from './kernel/registry.js';
-import { emit, on, Events } from './kernel/eventBus.js';
-import { addSystem, run as runScheduler, Phase } from './kernel/scheduler.js';
-import { update as updateContext, ctx as frameCtx } from './kernel/context.js';
+import { run as runScheduler } from './kernel/scheduler.js';
 import { registerAllSystems, nearest } from './systems/registration.js';
 
 // Extracted update modules
@@ -141,7 +126,7 @@ import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawn
 import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, showOrbListening, togglePerspective, getPerspective, showNarrativeText, checkIdleHints } from './systems/discoveries.js';
 
 // Intro cinematic (Phase 2)
-import { initIntro, startIntro, enableTitleClick, updateIntro, introActive, introDone } from './systems/intro.js';
+import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } from './systems/intro.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -426,11 +411,6 @@ function _directorDiscoveries(dt, t) {
 }
 
 // ================================================================
-// HUD
-// ================================================================
-let fpsS = 60;
-
-// ================================================================
 // Animation loop
 // ================================================================
 let elapsed = 0;
@@ -548,24 +528,6 @@ function animate() {
     setGravityMult(1.0);
   }
   updatePlayer(dt);
-  // Update shared frame context for kernel-based systems
-  updateContext({
-    dt, t: elapsed,
-    player, camera,
-    sprinting: keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint,
-    playerIdleTime,
-    bioGlow, orbBoost: _orbBoost, orbsFound,
-    windX, windZ, windStrength,
-    weatherState, isStorming, rainRate,
-    lightningFlash,
-    dayPhase,
-    attuneFlashTimer: _attuneFlashTimer,
-    attuneFlashType: _attuneFlashType,
-    echoTimer: _echoTimer,
-    humResonanceType: _humResonanceType,
-    humResonanceStr: _humResonanceStr,
-    questPhase,
-  });
   director(dt, elapsed);
   const flyC = updateFlies(dt, elapsed);
   const spC = updateSpores(dt);
@@ -616,38 +578,6 @@ try {
 
   // Build spatial hash for tree collision queries (once, trees don't move)
   initTreeHash(10);
-
-  // Register all entity arrays with kernel registry
-  register(EntityType.TREES, trees_data);
-  register(EntityType.TREE_MESHES, treeMeshes);
-  register(EntityType.TREE_IMPOSTORS, treeImpostors);
-  register(EntityType.MUSHROOMS, mush_data);
-  register(EntityType.CRYSTALS, crys_data);
-  register(EntityType.JELLIES, jellies);
-  register(EntityType.PUFFLINGS, puffs);
-  register(EntityType.DEER, deers);
-  register(EntityType.MOTHS, moths);
-  register(EntityType.LUMINIDS, luminids);
-  register(EntityType.GRASS, grassPatches);
-  register(EntityType.FERNS, ferns);
-  register(EntityType.FLOWERS, flowers);
-  register(EntityType.REEDS, reeds);
-  register(EntityType.ROCKS, rocks_data);
-  register(EntityType.WISPS, wisps);
-  register(EntityType.DANDELIONS, dandelions);
-  register(EntityType.FAIRY_RINGS, fairyRings);
-  register(EntityType.BUBBLES, bubbles);
-  register(EntityType.PONDS, ponds);
-  register(EntityType.ORBS, orbs);
-  register(EntityType.THORNBLOOMS, thornblooms);
-  register(EntityType.HELIXVINES, helixvines);
-  register(EntityType.SNAPTHORNS, snapthorns);
-  register(EntityType.SPIRALFRONDS, spiralfronds);
-  register(EntityType.CORPSEBLOOMS, corpseblooms);
-  register(EntityType.ORBBUSHES, orbbushes);
-  register(EntityType.LANTERNPODS, lanternpods);
-  register(EntityType.VEILMOSSES, veilmosses);
-  register(EntityType.GROUND_GLOWS, groundGlows);
 
   // Force one shadow map render now that all geometry is placed
   moon.shadow.needsUpdate = true;

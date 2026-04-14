@@ -65,7 +65,7 @@ These are non-negotiable. Every session must follow them.
 
 ### Performance Budget
 - **20 FPS minimum** — HARD REQUIREMENT. Flag alternatives before any risky change.
-- **8 real-time lights max** — 1 hemi + 2 directional + 1 player + 1 orb + 5 crystal proximity. To add a light, remove one.
+- **8 real-time lights max** — 1 hemi + 2 directional + 1 player + 1 orb + 3 crystal proximity. To add a light, remove one.
 - **< 200 draw calls** — Use InstancedMesh for anything with > 50 copies.
 - **< 500 particles** per system.
 - **No allocations in the animation loop.** Pre-allocate at module scope.

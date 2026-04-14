@@ -126,7 +126,7 @@ export function updateLuminid(l, dt, playerPos, getGroundHeight) {
   
   g.position.x += targetVelX * dt;
   g.position.z += targetVelZ * dt;
-  l.wanderAng += (sr() - 0.5) * 0.2 * dt;
+  l.wanderAng += (Math.random() - 0.5) * 0.2 * dt;
 
   // Sample ground height at center
   const groundY = getGroundHeight ? getGroundHeight(g.position.x, g.position.z) : 0;
@@ -182,9 +182,6 @@ export function updateLuminid(l, dt, playerPos, getGroundHeight) {
     }
 
     // Solve "Fake" IK (Simple lookAt for leg segments)
-    const localFoot = leg.currentPos.clone().sub(g.position);
-    localFoot.sub(leg.shoulder.position);
-    
     // Rotate pivots toward foot
     leg.upperPivot.lookAt(leg.currentPos);
     // Add a "knee" bend by offsetting the lookAt or manual rotation

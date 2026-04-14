@@ -7,12 +7,14 @@ let _s = 42;
 
 export function sr() {
   _s = (_s * 16807) % 2147483647;
+  if (_s === 0) _s = 42; // guard against absorbing state
   return (_s & 0x7fffffff) / 0x7fffffff;
 }
 
 export function resetSeed(seed) {
-  _s = seed || 42;
+  _s = seed ?? 42;
+  if (_s === 0) _s = 42;
 }
 
 export function saveSeed() { return _s; }
-export function restoreSeed(s) { _s = s; }
+export function restoreSeed(s) { _s = s || 42; }

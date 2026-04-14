@@ -69,6 +69,7 @@ describe('eventBus', () => {
     on(Events.CREATURE_ATTUNED, (d) => results.push(d.type));
     on(Events.CREATURE_ATTUNED, (d) => results.push(d.type + '!'));
     emit(Events.CREATURE_ATTUNED, { type: 'deer' });
-    expect(results).toEqual(['deer', 'deer!']);
+    // Reverse iteration order (splice-safe dispatch)
+    expect(results).toEqual(['deer!', 'deer']);
   });
 });

@@ -19,7 +19,7 @@ export function makePuff(x, z) {
   body.position.y = 0.35; shell.add(body);
 
   // --- INTERNAL CORE GLOW ---
-  const coreMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.8 });
+  const coreMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.8, depthWrite: false });
   const core = new Mesh(new SphereGeometry(0.12, 6, 4), coreMat);
   core.position.y = 0.35; shell.add(core);
 
@@ -94,7 +94,7 @@ export function makePuff(x, z) {
   tail.position.set(0, 0.38, -0.28); shell.add(tail);
 
   // --- SPORE TRAIL MOTES ---
-  const sporeMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.6 });
+  const sporeMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.6, depthWrite: false });
   const spores = [];
   for (let si = 0; si < 4; si++) {
     const spore = new Mesh(new SphereGeometry(0.01, 3, 3), sporeMat);

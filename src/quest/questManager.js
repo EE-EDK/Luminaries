@@ -291,9 +291,8 @@ export function updateQuest(dt, t) {
           o._flashing = true;
           o._flashTimer = 0;
           o.flyY = o.group.position.y;
+          o.creatureType = freq; // store creature type before consuming
           orbsFound++;
-          // Consume the frequency — must re-attune for next orb
-          consumeFrequency();
           // Update HUD
           const hud = orbHudEl || document.getElementById('orb-hud');
           if (hud) hud.innerHTML = '✦ ' + orbsFound + ' / ' + ORB_N;
@@ -316,7 +315,8 @@ export function updateQuest(dt, t) {
           revealConstellation(orbsFound - 1);
           // Emit event for decoupled systems (audio, dimming, particles, narrative)
           emit(Events.ORB_COLLECTED, {
-            orbIndex: i, orbsFound, x: o.x, y: o.group.position.y, z: o.z
+            orbIndex: i, orbsFound, x: o.x, y: o.group.position.y, z: o.z,
+            creatureType: freq
           });
           // Progressive rune reveal — one face per orb (up to 4 faces)
           const faceIdx = orbsFound - 1;
@@ -339,6 +339,9 @@ export function updateQuest(dt, t) {
           if (orbsFound >= ORB_N) {
             revealAllObeliskDetails();
           }
+          // Consume frequency AFTER all frequency-dependent logic
+          consumeFrequency();
+          break; // one collection per frame
         } else if (orbRejectCooldown <= 0) {
           // No frequency — orb rejects with dim pulse + hint
           if (playOrbRejectFn) playOrbRejectFn();

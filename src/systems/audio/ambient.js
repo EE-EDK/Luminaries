@@ -38,7 +38,7 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
     playThunder();
     setThunderTimer(2 + Math.random() * 3);
   }
-  setThunderTimer(thunderTimer - dt);
+  if (thunderTimer > 0) setThunderTimer(thunderTimer - dt);
 
   // Water — proximity to nearest pond
   let waterDist = Infinity;

@@ -305,7 +305,7 @@ export function makeDeer(x, z) {
       new SphereGeometry(0.06 - ti * 0.012, 4, 3), trailMat.clone()
     );
     trail.position.set(0, 0.8, -0.6 - ti * 0.35);
-    scene.add(trail); // added to scene, not group — so they trail in world space
+    g.add(trail); // added to group for proper cleanup
     trailSpheres.push({ mesh: trail, mat: trail.material, prevX: x, prevY: 0, prevZ: z });
   }
 
@@ -423,7 +423,6 @@ export function updateDeer(d, dt, playerPos) {
     ts.mat.opacity = 0.08 * (1 - i * 0.3);
   });
 
-  // 7. GROUND CLAMP & SLOPE (Simplified)
-  // In a full terrain system we'd raycast here.
-  g.position.y = 0; 
+  // 7. GROUND CLAMP — use stored base Y (set by populate/update)
+  g.position.y = d._baseY;
 }

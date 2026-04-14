@@ -60,10 +60,11 @@ export const off = (event, fn) => {
 };
 
 // Dispatch event to all subscribers (synchronous, zero-alloc)
+// Reverse iteration: splice-safe if a listener calls off() during dispatch
 export const emit = (event, data) => {
   const arr = _listeners[event];
   if (!arr) return;
-  for (let i = 0; i < arr.length; i++) arr[i](data);
+  for (let i = arr.length - 1; i >= 0; i--) arr[i](data);
 };
 
 // Clear all listeners (useful for tests)

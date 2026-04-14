@@ -74,7 +74,8 @@ export function spawnResonanceRing(x, y, z, creatureType, resonanceStrength) {
     r.mesh.position.set(x, y + 0.5, z);
     r.mesh.visible = true;
     r.mat.color.setHex(_creatureColors[creatureType] || 0xffffff);
-    r.mat.opacity = resonanceStrength * 0.6;
+    r.startOpacity = resonanceStrength * 0.6;
+    r.mat.opacity = r.startOpacity;
     r.mesh.scale.set(RING_START_R, RING_START_R, RING_START_R);
     return;
   }
@@ -101,8 +102,8 @@ export function updateResonanceRings(dt) {
     const scale = RING_START_R + (RING_END_R - RING_START_R) * t;
     r.mesh.scale.set(scale, scale, scale);
 
-    // Fade out
-    r.mat.opacity *= (1.0 - t);
+    // Fade out (absolute, not compounding)
+    r.mat.opacity = (r.startOpacity || 0.6) * (1.0 - t);
     r.mesh.position.y += dt * 0.3; // gentle rise
   }
 }

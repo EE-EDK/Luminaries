@@ -122,11 +122,23 @@ jzEl.addEventListener('touchend', (e) => {
     }
   }
 }, { passive: false });
+jzEl.addEventListener('touchcancel', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joyTid) {
+      joyTid = null; joyOn = false; joyX = 0; joyY = 0;
+      jkEl.style.left = '40px'; jkEl.style.top = '40px';
+    }
+  }
+}, { passive: false });
 
 bjEl.addEventListener('touchstart', (e) => {
   e.preventDefault(); e.stopPropagation(); triggerGo(); touchJump = true;
 }, { passive: false });
 bjEl.addEventListener('touchend', (e) => {
+  e.preventDefault(); e.stopPropagation(); touchJump = false;
+}, { passive: false });
+bjEl.addEventListener('touchcancel', (e) => {
   e.preventDefault(); e.stopPropagation(); touchJump = false;
 }, { passive: false });
 
@@ -135,6 +147,9 @@ if (bsEl) {
     e.preventDefault(); e.stopPropagation(); triggerGo(); touchSprint = true;
   }, { passive: false });
   bsEl.addEventListener('touchend', (e) => {
+    e.preventDefault(); e.stopPropagation(); touchSprint = false;
+  }, { passive: false });
+  bsEl.addEventListener('touchcancel', (e) => {
     e.preventDefault(); e.stopPropagation(); touchSprint = false;
   }, { passive: false });
 }
@@ -181,6 +196,15 @@ if (slEl && mobile) {
       }
     }
   }, { passive: false });
+  slEl.addEventListener('touchcancel', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === _humTid) {
+        _humTid = null; touchHum = false;
+        if (thumbEl) thumbEl.style.borderColor = 'rgba(100,255,180,.5)';
+      }
+    }
+  }, { passive: false });
 }
 
 // Right-side look
@@ -217,6 +241,7 @@ renderer.domElement.addEventListener('touchcancel', (e) => {
     if (e.changedTouches[i].identifier === lookTid) lookTid = null;
 }, { passive: false });
 
+const _input = { x: 0, z: 0 };
 export function getInput() {
   let fx = 0, fz = 0;
   if (keys['KeyW']) fz -= 1;
@@ -228,5 +253,7 @@ export function getInput() {
   if (len > 1) { fx /= len; fz /= len; }
   const sp = MOVE_SPEED * ((keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint) ? SPRINT_MULT : 1);
   const sn = Math.sin(yaw), cs = Math.cos(yaw);
-  return { x: (fx * cs + fz * sn) * sp, z: (-fx * sn + fz * cs) * sp };
+  _input.x = (fx * cs + fz * sn) * sp;
+  _input.z = (-fx * sn + fz * cs) * sp;
+  return _input;
 }

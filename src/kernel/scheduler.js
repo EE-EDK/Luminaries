@@ -54,7 +54,9 @@ export const run = (dt, t) => {
     _sorted = true;
   }
   for (let i = 0; i < _systems.length; i++) {
-    if (_systems[i].enabled) _systems[i].update(dt, t);
+    if (!_systems[i].enabled) continue;
+    try { _systems[i].update(dt, t); }
+    catch (e) { if (import.meta.env?.DEV) console.error('scheduler: ' + _systems[i].name + ' threw:', e); }
   }
 };
 

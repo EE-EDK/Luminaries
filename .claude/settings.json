@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'input=$(cat); FILE=$(echo \"$input\" | jq -r \".tool_input.file_path // empty\"); if [[ \"$FILE\" =~ luminaries.*\\.(js|ts|jsx|tsx|mjs)$ ]] && [[ ! \"$FILE\" =~ node_modules ]]; then echo \"\"; echo \"Luminaries Performance Budget v5.2 (non-blocking reminder):\"; echo \"  - Target: 20 FPS minimum, <200 draw calls\"; echo \"  - No allocations in animation loops (new Vector3/Material/Geometry inside update() = bad)\"; echo \"  - Share materials/geometries via module-scoped _ prefix variables (const _tempVec = new Vector3())\"; echo \"  - Use seeded RNG for procedural generation\"; echo \"  - Colors from constants objects, never inline hex\"; echo \"  - Functional style: const/let only, named imports\"; echo \"  - Verify FPS in browser DevTools Performance panel after this change\"; echo \"\"; if grep -qE \"new (Vector3|Vector2|Color|Material|Geometry|BufferGeometry)\\s*\\(\" \"$FILE\" 2>/dev/null; then INLOOP=$(grep -cE \"(function update|function animate|requestAnimationFrame)\" \"$FILE\" 2>/dev/null); if [ \"$INLOOP\" -gt 0 ]; then echo \"ANTI-PATTERN CHECK: File contains both an animation loop AND new Vector/Material allocations. Verify allocations are outside the loop.\"; fi; fi; fi'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

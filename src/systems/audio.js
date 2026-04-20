@@ -47,6 +47,7 @@ export function toggleMute() {
 // Re-export everything from sub-modules
 export { initAudio, setAudioOrbCount, isMuted } from './audio/core.js';
 export { updateAudio } from './audio/ambient.js';
+export { initCrystalClusters, updateCrystalResonance } from './audio/crystals.js';
 export { playCreatureSound, playPufflingSinging, playAttunementFlash, playPufflingVocal } from './audio/creatures.js';
 export { playFootstep, playJumpSound, playLandSound, updateStepCooldown } from './audio/player.js';
 export { playBubblePop, playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playCrystalChime } from './audio/quest.js';

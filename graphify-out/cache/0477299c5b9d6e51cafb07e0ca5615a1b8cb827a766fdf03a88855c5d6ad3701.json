@@ -1,0 +1,1 @@
+{"nodes": [{"id": "arch_kernel", "label": "Kernel (Scheduler/EventBus/Registry)", "file_type": "document", "source_file": "reference/architecture.md"}, {"id": "arch_director", "label": "Director Pattern", "file_type": "document", "source_file": "reference/architecture.md"}], "edges": []}

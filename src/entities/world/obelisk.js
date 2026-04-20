@@ -7,7 +7,7 @@
 //   We think it's waiting for something. Or someone.
 import { AdditiveBlending, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PointLight, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
-import { C, OBELISK_H } from '../../constants.js';
+import { C, OBELISK_H, ORB_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 
 let obeliskGroup = null;
@@ -32,18 +32,18 @@ export function makeObelisk() {
     emissive: C.obeliskPink, emissiveIntensity: 0
   });
   obeliskMat = mat;
-  // Use CylinderGeometry with 4 sides for obelisk shape
-  const shaft = new Mesh(new CylinderGeometry(1.2, 1.8, OBELISK_H, 4), mat);
-  shaft.position.y = OBELISK_H / 2; shaft.rotation.y = Math.PI / 4;
+  // Use CylinderGeometry with ORB_N sides for obelisk shape (5-sided pentagonal monolith)
+  const shaft = new Mesh(new CylinderGeometry(1.2, 1.8, OBELISK_H, ORB_N), mat);
+  shaft.position.y = OBELISK_H / 2; shaft.rotation.y = Math.PI / ORB_N;
   shaft.castShadow = true; g.add(shaft);
 
-  // Corner chamfer lines (4 bright edge strips along shaft corners)
+  // Corner chamfer lines (ORB_N bright edge strips along shaft corners)
   const chamMat = new MeshBasicMaterial({
     color: C.obeliskChamber, transparent: true, opacity: 0.2,
     depthWrite: false
   });
-  for (let ci = 0; ci < 4; ci++) {
-    const ca = (ci / 4) * 6.28 + Math.PI / 4;
+  for (let ci = 0; ci < ORB_N; ci++) {
+    const ca = (ci / ORB_N) * 6.28 + Math.PI / ORB_N;
     const cham = new Mesh(new CylinderGeometry(0.03, 0.04, OBELISK_H * 0.9, 3), chamMat);
     cham.position.set(Math.cos(ca) * 1.55, OBELISK_H * 0.45, Math.sin(ca) * 1.55);
     g.add(cham);
@@ -51,13 +51,13 @@ export function makeObelisk() {
 
   // Surface rune carvings (glowing line segments on each face) — revealed per orb
   runeFaces.length = 0;
-  for (let fi = 0; fi < 4; fi++) {
+  for (let fi = 0; fi < ORB_N; fi++) {
     const faceMat = new MeshBasicMaterial({
       color: C.obeliskPink, transparent: true, opacity: 0.0,
       blending: AdditiveBlending, depthWrite: false
     });
     const faceMeshes = [];
-    const fAngle = (fi / 4) * 6.28 + Math.PI / 4;
+    const fAngle = (fi / ORB_N) * 6.28 + Math.PI / ORB_N;
     for (let rl = 0; rl < 3; rl++) {
       const ry = 6 + rl * 4;
       const rune = new Mesh(new CylinderGeometry(0.04, 0.04, 1.0, 4), faceMat);
@@ -77,16 +77,16 @@ export function makeObelisk() {
     emissive: C.obeliskPink, emissiveIntensity: 0
   });
   obeliskGlowMat = capMat;
-  const cap = new Mesh(new ConeGeometry(1.3, 3, 4), capMat);
-  cap.position.y = OBELISK_H + 1.5; cap.rotation.y = Math.PI / 4; g.add(cap);
+  const cap = new Mesh(new ConeGeometry(1.3, 3, ORB_N), capMat);
+  cap.position.y = OBELISK_H + 1.5; cap.rotation.y = Math.PI / ORB_N; g.add(cap);
 
   // Capstone edge highlights — hidden until quest finale
   const capEdgeMat = new MeshBasicMaterial({
     color: C.obeliskPink, transparent: true, opacity: 0.0,
     depthWrite: false
   });
-  for (let cei = 0; cei < 4; cei++) {
-    const ceA = (cei / 4) * 6.28 + Math.PI / 4;
+  for (let cei = 0; cei < ORB_N; cei++) {
+    const ceA = (cei / ORB_N) * 6.28 + Math.PI / ORB_N;
     const capEdge = new Mesh(new CylinderGeometry(0.02, 0.02, 3.2, 3), capEdgeMat);
     capEdge.position.set(Math.cos(ceA) * 0.8, OBELISK_H + 1.5, Math.sin(ceA) * 0.8);
     capEdge.rotation.z = 0.35 * ((ceA < 3.14) ? 1 : -1); capEdge.rotation.y = -ceA;
@@ -95,7 +95,7 @@ export function makeObelisk() {
 
   // Etched rings
   for (let i = 0; i < 5; i++) {
-    const ring = new Mesh(new TorusGeometry(1.85 - i * 0.02, 0.04, 6, 4),
+    const ring = new Mesh(new TorusGeometry(1.85 - i * 0.02, 0.04, 6, ORB_N),
       new MeshBasicMaterial({ color: C.obeliskInterior }));
     ring.position.y = 4 + i * 5; ring.rotation.x = Math.PI / 2; g.add(ring);
   }
@@ -104,11 +104,11 @@ export function makeObelisk() {
   const plinthMat = new MeshStandardMaterial({
     color: C.obeliskBase, roughness: 0.3, metalness: 0.7
   });
-  const plinth = new Mesh(new CylinderGeometry(2.2, 2.5, 0.6, 4), plinthMat);
-  plinth.position.y = 0.3; plinth.rotation.y = Math.PI / 4; g.add(plinth);
+  const plinth = new Mesh(new CylinderGeometry(2.2, 2.5, 0.6, ORB_N), plinthMat);
+  plinth.position.y = 0.3; plinth.rotation.y = Math.PI / ORB_N; g.add(plinth);
   // Second step
-  const plinth2 = new Mesh(new CylinderGeometry(2.8, 3.0, 0.4, 4), plinthMat);
-  plinth2.position.y = 0.05; plinth2.rotation.y = Math.PI / 4; g.add(plinth2);
+  const plinth2 = new Mesh(new CylinderGeometry(2.8, 3.0, 0.4, ORB_N), plinthMat);
+  plinth2.position.y = 0.05; plinth2.rotation.y = Math.PI / ORB_N; g.add(plinth2);
 
   // Floating glyph motes (orbit near top, hidden until quest finale)
   const glyphMat = new MeshBasicMaterial({
@@ -151,8 +151,8 @@ export function makeObelisk() {
     color: C.obeliskPink, transparent: true, opacity: 0.0,
     depthWrite: false
   });
-  for (let fi = 0; fi < 4; fi++) {
-    const fAng = (fi / 4) * 6.28 + Math.PI / 4;
+  for (let fi = 0; fi < ORB_N; fi++) {
+    const fAng = (fi / ORB_N) * 6.28 + Math.PI / ORB_N;
     for (let di = 0; di < 5; di++) {
       const iy = 5 + di * 3.5 + sr() * 0.5;
       const iOff = (sr() - 0.5) * 0.4;

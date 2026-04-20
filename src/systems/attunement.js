@@ -20,8 +20,6 @@
 import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2, WEATHER_ATTUNE_MODS } from '../constants.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
-import { bioGlow } from './dayNightCycle.js';
-import { weatherState } from './weather.js';
 
 // ================================================================
 // Constants
@@ -65,7 +63,7 @@ let _puffWasJumping = false;  // previous frame's jump state
 //   playerYaw: number, playerSpeed: number, spacePressed: bool,
 //   playerX: number, playerZ: number, time: number
 // }
-export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
+export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ctx) {
   // Backward-compatible: if no creatureData, use legacy puffling-only path
   if (!creatureData) {
     return _updatePuffOnly(dt, jumping, nearestPuffDist2);
@@ -154,9 +152,11 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData) {
       attunementTarget = matchType;
       attunement = 0;
     }
-    // Wave 1: Weather and day/night modifiers
-    const weatherMod = WEATHER_ATTUNE_MODS[weatherState]?.[matchType] || 1.0;
-    const rate = ATTUNE_RATE * dt * bioGlow * weatherMod;
+    // Wave 1: Weather and day/night modifiers (respected context snapshots)
+    const _wState = ctx?.weather?.state || 'CLEAR';
+    const _bio = ctx?.env?.bioGlow !== undefined ? ctx.env.bioGlow : 1.0;
+    const weatherMod = WEATHER_ATTUNE_MODS[_wState]?.[matchType] || 1.0;
+    const rate = ATTUNE_RATE * dt * _bio * weatherMod;
     attunement += rate + _puffJumpChunk;
     refreshLock(); // keep lock alive while actively building attunement
     if (attunement >= 1.0 && playerFrequency !== matchType) {

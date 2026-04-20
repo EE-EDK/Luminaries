@@ -20,6 +20,17 @@ let currentFOV = 65, targetFOV = 65;
 let landingDip = 0, wasOnGround = true, landingVelY = 0;
 export let playerIdleTime = 0;
 
+// Temporary Boosts (Bubble rewards)
+let moveSpeedBoost = 1.0;
+let jumpImpulseBoost = 1.0;
+let boostTimer = 0;
+
+export function setPlayerBoost(speed, jump, duration) {
+  moveSpeedBoost = speed;
+  jumpImpulseBoost = jump;
+  boostTimer = duration;
+}
+
 // Gravity multiplier (for feather fall, set from main)
 export let gravityMult = 1.0;
 export function setGravityMult(val) { gravityMult = val; }
@@ -49,13 +60,28 @@ export function setDustBurstFn(fn) {
 export function updatePlayer(dt) {
   const inp = getInput();
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-  player.vel.x = inp.x;
-  player.vel.z = inp.z;
+  
+  // Apply temporary boosts
+  const currentMoveSpeed = MOVE_SPEED * moveSpeedBoost;
+  const currentJumpImpulse = JUMP_IMPULSE * jumpImpulseBoost;
+
+  player.vel.x = inp.x * (currentMoveSpeed / MOVE_SPEED); // Input is pre-scaled by MOVE_SPEED in input.js
+  player.vel.z = inp.z * (currentMoveSpeed / MOVE_SPEED);
+  
   player.vel.y -= GRAVITY * gravityMult * dt;
   if ((keys['Space'] || touchJump) && player.onGround) {
-    player.vel.y = JUMP_IMPULSE; player.onGround = false; setTouchJump(false);
+    player.vel.y = currentJumpImpulse; player.onGround = false; setTouchJump(false);
     if (onJumpFn) onJumpFn();
     emit(Events.JUMP);
+  }
+
+  // Decay boost
+  if (boostTimer > 0) {
+    boostTimer -= dt;
+    if (boostTimer <= 0) {
+      moveSpeedBoost = 1.0;
+      jumpImpulseBoost = 1.0;
+    }
   }
   // Track pre-landing velocity for cushion
   if (!player.onGround) landingVelY = player.vel.y;

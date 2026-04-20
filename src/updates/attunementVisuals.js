@@ -29,10 +29,13 @@ const _attuneTexts = {
 // ================================================================
 // Update — called once per frame from director
 // ================================================================
-export function updateAttunementVisuals(dt, t) {
-  const _attuneJumping = !player.onGround;
-  const _attuneSpeed = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
-  const _attuneSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+export function updateAttunementVisuals(dt, t, ctx) {
+  const _attuneJumping = ctx?.player?.body ? !ctx.player.body.onGround : !player.onGround;
+  const _attuneSpeed = ctx?.player?.body ? Math.sqrt(ctx.player.body.vel.x * ctx.player.body.vel.x + ctx.player.body.vel.z * ctx.player.body.vel.z) : Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
+  const _attuneSprinting = ctx?.player?.sprinting !== undefined ? ctx.player.sprinting : (keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint);
+  const _pX = ctx?.player?.pos?.x !== undefined ? ctx.player.pos.x : player.pos.x;
+  const _pZ = ctx?.player?.pos?.z !== undefined ? ctx.player.pos.z : player.pos.z;
+  
   updateAttunement(dt, _attuneJumping, nearest.puffDist2, {
     nearestPuffPos: nearest.puffPos,
     nearestJellyDist2: nearest.jellyDist2, nearestJellyPos: nearest.jellyPos,
@@ -40,15 +43,15 @@ export function updateAttunementVisuals(dt, t) {
     nearestMothDist2: nearest.mothDist2, nearestMothPos: nearest.mothPos,
     playerYaw: yaw, playerSpeed: _attuneSpeed, spacePressed: !!keys['Space'],
     sprinting: _attuneSprinting,
-    playerX: player.pos.x, playerZ: player.pos.z, time: t
-  });
+    playerX: _pX, playerZ: _pZ, time: t
+  }, ctx);
 
   if (checkFlash()) {
     setAttuneFlash(2.5, getAttunementTarget());
     setEchoTimer(1.5);
     const _flashType = getAttunementTarget();
     const flashPos = getFlashCreaturePos() || nearest.puffPos;
-    playAttunementFlash(flashPos, player.pos, _flashType);
+    playAttunementFlash(flashPos, ctx?.player?.pos || player.pos, _flashType);
     if (_flashType && _attuneTexts[_flashType]) {
       const _atxt = _attuneTexts[_flashType][getPerspective()] || _attuneTexts[_flashType].child;
       showNarrativeText(_atxt, 5.0);

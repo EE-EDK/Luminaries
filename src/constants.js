@@ -96,9 +96,9 @@ export const WEATHER_ATTUNE_MODS = {
   CLEAR:           { puff: 1.0, jelly: 1.0, deer: 1.0, moth: 1.0 },
   MISTY:           { puff: 0.8, jelly: 1.2, deer: 1.0, moth: 1.3 },
   LIGHT_RAIN:      { puff: 0.7, jelly: 1.4, deer: 0.8, moth: 0.6 },
-  HEAVY_RAIN:      { puff: 0.5, jelly: 1.6, deer: 0.6, moth: 0.3 },
+  HEAVY_RAIN:      { puff: 0.5, jelly: 0.5, deer: 0.5, moth: 0.5 },
   FOG_BANK:        { puff: 0.6, jelly: 1.3, deer: 0.9, moth: 1.5 },
-  LUMINOUS_STORM:  { puff: 1.5, jelly: 1.5, deer: 1.5, moth: 1.5 }
+  LUMINOUS_STORM:  { puff: 0.5, jelly: 0.5, deer: 0.5, moth: 0.5 }
 };
 
 // Spirit Hum — two-phase creature unlock (Phase 2)

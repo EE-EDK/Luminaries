@@ -38,17 +38,56 @@ scene.add(moon2);
 export const playerLight = new PointLight(C.playerLight, 0.6, 20);
 scene.add(playerLight);
 
-// Crystal proximity lights — pooled, moved to nearest crystals each frame
-export const crystalLights = [];
+// Priority Light Pooler — manages the limited point light budget
+// Budget: 1 Hemi + 2 Dir + 1 Player + 4 Dynamic Slots = 8 Hardware Lights
+export const dynamicLights = [];
+const lightRequests = [];
 
-export function initCrystalLights() {
-  for (let i = 0; i < MAX_CRYSTAL_LIGHTS; i++) {
-    const pl = new PointLight(C.crystal, 0, 16);
+export function initLightPooler() {
+  for (let i = 0; i < 4; i++) {
+    const pl = new PointLight(0xffffff, 0, 10);
     scene.add(pl);
-    crystalLights.push(pl);
+    dynamicLights.push(pl);
   }
 }
 
-// Orb proximity light (single pooled — light budget +1)
-export const orbLight = new PointLight(C.orbGold, 0, 15);
-scene.add(orbLight);
+/**
+ * Register a light request for the current frame.
+ * @param {number} x, y, z - World position
+ * @param {number} color - Hex color
+ * @param {number} intensity - Target intensity
+ * @param {number} distance - Light range
+ * @param {number} importance - Priority score (higher = more likely to get a slot)
+ */
+export function requestLight(x, y, z, color, intensity, distance, importance) {
+  lightRequests.push({ x, y, z, color, intensity, distance, importance });
+}
+
+export function updateLightPooler() {
+  // Sort requests by importance (descending)
+  lightRequests.sort((a, b) => b.importance - a.importance);
+
+  for (let i = 0; i < dynamicLights.length; i++) {
+    const pl = dynamicLights[i];
+    if (i < lightRequests.length) {
+      const r = lightRequests[i];
+      pl.position.set(r.x, r.y, r.z);
+      pl.color.setHex(r.color);
+      pl.intensity = r.intensity;
+      pl.distance = r.distance;
+    } else {
+      pl.intensity = 0;
+    }
+  }
+  // Clear for next frame
+  lightRequests.length = 0;
+}
+
+// Legacy exports for compatibility (now handled by pooler)
+export const crystalLights = dynamicLights;
+export const orbLight = null; // Should be handled via requestLight now
+
+export function initCrystalLights() {
+  initLightPooler();
+}
+

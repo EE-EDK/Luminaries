@@ -2,38 +2,91 @@ import { WORLD_R } from '../constants.js';
 
 // ================================================================
 // Procedural terrain heightmap — gentle rolling hills
-// Uses layered sine-based noise (no dependencies needed)
+// Uses layered Simplex noise for organic flow
 // ================================================================
-// GEOLOGICAL SURVEY (automated, timestamp corrupted):
-//   Terrain profile does not match any erosion model. The hills are
-//   too gentle, the valleys too deliberate. Flat zones appear exactly
-//   where structures need them. It's as if the ground was shaped
-//   for habitation — but the shaping predates the inhabitants.
 
-// Simple 2D hash-based noise (value noise approximation)
+// 2D Simplex noise (compact implementation)
+const Grad3 = [
+  [1, 1], [-1, 1], [1, -1], [-1, -1],
+  [1, 0], [-1, 0], [1, 0], [-1, 0],
+  [0, 1], [0, -1], [0, 1], [0, -1]
+];
+const P = new Uint8Array(512);
+const _perm = new Uint8Array(256);
+for (let i = 0; i < 256; i++) _perm[i] = i;
+// Simple shuffle for permutation table
+let _seed = 123;
+function _rng() { _seed = (_seed * 16807) % 2147483647; return _seed / 2147483647; }
+for (let i = 255; i > 0; i--) {
+  const j = Math.floor(_rng() * (i + 1));
+  [_perm[i], _perm[j]] = [_perm[j], _perm[i]];
+}
+for (let i = 0; i < 512; i++) P[i] = _perm[i & 255];
+
+const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+
+function simplexNoise(xin, yin) {
+  let n0, n1, n2;
+  const s = (xin + yin) * F2;
+  const i = Math.floor(xin + s);
+  const j = Math.floor(yin + s);
+  const t = (i + j) * G2;
+  const X0 = i - t;
+  const Y0 = j - t;
+  const x0 = xin - X0;
+  const y0 = yin - Y0;
+
+  let i1, j1;
+  if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+
+  const x1 = x0 - i1 + G2;
+  const y1 = y0 - j1 + G2;
+  const x2 = x0 - 1.0 + 2.0 * G2;
+  const y2 = y0 - 1.0 + 2.0 * G2;
+
+  const ii = i & 255;
+  const jj = j & 255;
+
+  let t0 = 0.5 - x0 * x0 - y0 * y0;
+  if (t0 < 0) n0 = 0.0;
+  else {
+    t0 *= t0;
+    const g = Grad3[P[ii + P[jj]] % 12];
+    n0 = t0 * t0 * (g[0] * x0 + g[1] * y0);
+  }
+
+  let t1 = 0.5 - x1 * x1 - y1 * y1;
+  if (t1 < 0) n1 = 0.0;
+  else {
+    t1 *= t1;
+    const g = Grad3[P[ii + i1 + P[jj + j1]] % 12];
+    n1 = t1 * t1 * (g[0] * x1 + g[1] * y1);
+  }
+
+  let t2 = 0.5 - x2 * x2 - y2 * y2;
+  if (t2 < 0) n2 = 0.0;
+  else {
+    t2 *= t2;
+    const g = Grad3[P[ii + 1 + P[jj + 1]] % 12];
+    n2 = t2 * t2 * (g[0] * x2 + g[1] * y2);
+  }
+
+  return 70.0 * (n0 + n1 + n2);
+}
+
+// Simple 2D hash-based noise (fallback for landform features if needed)
 function hash(x, y) {
   let h = (x * 374761393 + y * 668265263 + 1274126177) | 0;
   h = ((h ^ (h >> 13)) * 1274126177) | 0;
   return (h & 0x7fffffff) / 0x7fffffff;
 }
 
-function smoothstep(t) {
-  return t * t * (3 - 2 * t);
-}
-
-function valueNoise(x, y) {
-  const ix = Math.floor(x), iy = Math.floor(y);
-  const fx = smoothstep(x - ix), fy = smoothstep(y - iy);
-  const a = hash(ix, iy), b = hash(ix + 1, iy);
-  const c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
-  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
-}
-
 // Layered noise (fractal brownian motion)
 function fbm(x, y, octaves) {
   let val = 0, amp = 0.5, freq = 1;
   for (let i = 0; i < octaves; i++) {
-    val += valueNoise(x * freq, y * freq) * amp;
+    val += simplexNoise(x * freq, y * freq) * amp;
     amp *= 0.5;
     freq *= 2;
   }
@@ -45,11 +98,11 @@ function fbm(x, y, octaves) {
 // Adds sharper, more dramatic terrain on top of the base noise
 // ================================================================
 
-// Ridge noise — abs(noise - 0.5) creates sharp V-shaped creases
+// Ridge noise — abs(noise) creates sharp V-shaped creases
 function ridgeNoise(x, y, octaves) {
   let val = 0, amp = 1.0, freq = 1, weight = 1.0;
   for (let i = 0; i < octaves; i++) {
-    let n = Math.abs(valueNoise(x * freq, y * freq) - 0.5) * 2; // 0..1 with sharp crease at 0
+    let n = Math.abs(simplexNoise(x * freq, y * freq)); // sharp crease at 0
     n = 1.0 - n; // invert so ridges peak upward
     n = n * n;    // sharpen the peaks
     n *= weight;
@@ -59,6 +112,10 @@ function ridgeNoise(x, y, octaves) {
     freq *= 2.1;
   }
   return val;
+}
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
 }
 
 // Cell noise — returns distance to nearest cell center for isolated dome features
@@ -125,7 +182,7 @@ function landformHeight(x, z) {
   const gullyScale = 0.04;
   const gx = x * 0.5 + z * 0.87;
   const gz = -x * 0.87 + z * 0.5;
-  const gullyN = Math.abs(valueNoise(gx * gullyScale + 150, gz * gullyScale + 250) - 0.5) * 2;
+  const gullyN = Math.abs(simplexNoise(gx * gullyScale + 150, gz * gullyScale + 250));
   // Only carve where gully is narrow (sharp channel)
   const gully = gullyN * gullyN; // squared = sharper channel walls
   lf -= (1.0 - gully) * 1.5; // carve down up to 1.5m
@@ -197,7 +254,7 @@ function _computeGroundY(x, z) {
   const scale = 0.035;
   const n1 = fbm(x * scale, z * scale, 4);           // broad rolling hills
   const n2 = fbm(x * scale * 2.7 + 50, z * scale * 2.7 + 50, 3); // medium bumps
-  const n3 = valueNoise(x * 0.15, z * 0.15);          // micro detail
+  const n3 = simplexNoise(x * 0.15, z * 0.15);          // micro detail
   const n4 = fbm(x * scale * 0.6 - 100, z * scale * 0.6 - 100, 3); // very broad swells
 
   // Height composition:

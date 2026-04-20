@@ -9,7 +9,7 @@ import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
 import { spawnBubblePop } from '../particles/bubblePops.js';
 import { emit, Events } from '../kernel/eventBus.js';
-import { player, playerIdleTime } from '../core/player.js';
+import { player, playerIdleTime, setPlayerBoost } from '../core/player.js';
 import { keys, touchSprint } from '../core/input.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { orbBoost, setBubblePulse } from '../state/gameState.js';
@@ -166,6 +166,7 @@ export function updateBubbles(dt, t) {
         spawnBubblePop(b.group.position.x, b.group.position.y, b.group.position.z, 6);
         playBubblePop(b.group.position, player.pos);
         setBubblePulse(b.group.position.x, b.group.position.z);
+        setPlayerBoost(1.3, 1.2, 5.0);
         emit(Events.BUBBLE_POP, { position: b.group.position, playerPos: player.pos });
       } else {
         // Dimmed zone: repel bubble away from player instead of popping

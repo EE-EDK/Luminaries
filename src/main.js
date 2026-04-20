@@ -87,8 +87,13 @@ import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurs
 import { initResonanceRings, updateResonanceRings } from './particles/resonanceRings.js';
 
 // Quest
-import { initQuest, updateQuest, questPhase, orbsFound } from './quest/questManager.js';
+import { initQuestState, updateQuestState, getQuestState } from './quest/questState.js';
+import { initQuestVisuals, updateQuestVisuals } from './quest/questVisuals.js';
 import { makeLaser } from './quest/lasers.js';
+
+// Narrative
+import { togglePerspective, getPerspective } from './state/narrativeState.js';
+import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
 // Systems
 import { initDayNight, updateDayNight, bioGlow, phase as dayPhase } from './systems/dayNightCycle.js';
@@ -96,34 +101,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playOrbReject, startResonanceDrone, setAudioOrbCount } from './systems/audio.js';
-
-// Puffling Chat (Phase 2)
-import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
-
-
-// Dimming (Phase 2)
-import { initDimming, getLocalGlow, updateDimming, notifyOrbCollected } from './systems/dimming.js';
-
-// Performance monitoring (dev-only, tree-shaken in production)
-import { timeStart, timeEnd, reportTimings } from './systems/perfMonitor.js';
-
-// Kernel (modular infrastructure)
-import { run as runScheduler } from './kernel/scheduler.js';
-import { registerAllSystems, nearest } from './systems/registration.js';
-
-// Extracted update modules
-import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths, updateLuminids as _updateLuminids } from './updates/fauna.js';
-import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
-import { updateWisps, updateFairyRings as _updateFairyRings, updateBubbles, updatePonds, updateEchoBloom } from './updates/magicalEntities.js';
-import { updateGlyphs } from './systems/glyphs.js';
-import { initEchoVisions, updateEchoVisions } from './systems/echoVisions.js';
-import { populate as _populate } from './populate.js';
-import { updatePlayerVisuals, triggerCameraPan, updateCameraPan } from './updates/playerVisuals.js';
-import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
-
-// Discoveries
-import { initDiscoveries, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbDiscovery, showOrbListening, togglePerspective, getPerspective, showNarrativeText, checkIdleHints } from './systems/discoveries.js';
+import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playOrbReject, startResonanceDrone, setAudioOrbCount, initCrystalClusters, updateCrystalResonance } from './systems/audio.js';
 
 // Intro cinematic (Phase 2)
 import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } from './systems/intro.js';
@@ -160,6 +138,7 @@ import {
 // Visual subsystems (extracted from main.js)
 import { updateSpiritHumVisuals } from './updates/spiritHumVisuals.js';
 import { updateAttunementVisuals } from './updates/attunementVisuals.js';
+import { initCrystalVisuals, updateCrystalVisuals } from './updates/crystalVisuals.js';
 
 
 // ================================================================
@@ -208,11 +187,33 @@ function updateFairyRings(dt, t) {
 }
 
 // ================================================================
+// Sync Context — updates the kernel context with current frame values
+// ================================================================
+function syncContext(dt, t) {
+  const q = getQuestState();
+  updateContext({
+    dt, t,
+    player, camera,
+    sprinting: keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint,
+    playerIdleTime,
+    bioGlow, orbBoost: _orbBoost, orbsFound: q.orbsFound,
+    windX, windZ, windStrength, weatherState, lightningFlash, isStorming, rainRate: getRainRate(),
+    dayPhase,
+    attuneFlashTimer: _attuneFlashTimer, attuneFlashType: _attuneFlashType, echoTimer: _echoTimer,
+    humResonanceType: _humResonanceType, humResonanceStr: _humResonanceStr,
+    questPhase: q.questPhase
+  });
+}
+
+// ================================================================
 // Director
 // ================================================================
 let dirState = 'EXPLORE';
 
 function director(dt, t) {
+  // Sync frame values to kernel context slices
+  syncContext(dt, t);
+
   // Enhancement 8: Slow-mo micro-pause — world holds its breath on attunement flash
   // First 0.4s at 0.3× speed, then ease back to 1.0× over next 0.6s (1.0s total dilation)
   if (_attuneFlashTimer > 1.5) { // first 1.0s of the 2.5s window
@@ -234,39 +235,45 @@ function director(dt, t) {
 // Director subsystem functions (registered with kernel scheduler)
 // ================================================================
 
-function _directorCrystalProximity(dt, t) {
+function _directorCrystalProximity(dt, t, ctx) {
   timeStart('crystalProximity');
   let nearCrys = false;
+  const pPos = ctx.player.pos;
   for (let i = 0; i < crys_data.length; i++) {
-    const dx = crys_data[i].x - player.pos.x, dz = crys_data[i].z - player.pos.z;
+    const dx = crys_data[i].x - pPos.x, dz = crys_data[i].z - pPos.z;
     if (dx * dx + dz * dz < 64) { nearCrys = true; break; }
   }
   dirState = nearCrys ? 'NEAR_CRYSTAL' : 'EXPLORE';
   timeEnd('crystalProximity');
 }
 
-function _directorParticleSpawn(dt, t) {
+function _directorParticleSpawn(dt, t, ctx) {
   timeStart('fireflySpawn');
-  const curRain = getRainRate();
-  spawnFireflies(dt, t, { dirState, player, crys_data, flowers, curRain, spawnFly, updateFlies });
+  const w = ctx.weather;
+  const p = ctx.player;
+  spawnFireflies(dt, t, { dirState, player: p.body, crys_data, flowers, curRain: w.rainRate, spawnFly, updateFlies });
   timeEnd('fireflySpawn');
   timeStart('spores');
-  spawnSpores(dt, { player, mush_data, spawnSpore });
+  spawnSpores(dt, { player: p.body, mush_data, spawnSpore });
   timeEnd('spores');
 }
 
-function _directorFloraGlow(dt, t) {
+function _directorFloraGlow(dt, t, ctx) {
+  const e = ctx.env;
+  const a = ctx.attune;
+  const pPos = ctx.player.pos;
+
   timeStart('mushrooms');
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
-    const mdx = m.x - player.pos.x, mdy = (m.group.position.y || 0) - player.pos.y, mdz = m.z - player.pos.z;
+    const mdx = m.x - pPos.x, mdy = (m.group.position.y || 0) - pPos.y, mdz = m.z - pPos.z;
     const md2 = mdx * mdx + mdy * mdy + mdz * mdz;
     if (md2 > 2500) { if (m.group.visible) m.group.visible = false; continue; }
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
-    m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, bioGlow * _orbBoost);
-    if (_attuneFlashTimer > 0 && md2 < 625) {
-      m.capMat.emissiveIntensity += _attuneFlashTimer * 0.6;
+    m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, e.bioGlow * e.orbBoost);
+    if (a.flashTimer > 0 && md2 < 625) {
+      m.capMat.emissiveIntensity += a.flashTimer * 0.6;
     }
   }
   timeEnd('mushrooms');
@@ -275,27 +282,26 @@ function _directorFloraGlow(dt, t) {
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
     const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    const cGlow = getLocalGlow(c.x, c.z, bioGlow * _orbBoost);
+    const cGlow = getLocalGlow(c.x, c.z, e.bioGlow * e.orbBoost);
     c.mat.emissiveIntensity = (1.0 + p * 1.5) * cGlow;
-    if (_attuneFlashTimer > 0) {
-      const cdx = c.x - player.pos.x, cdz = c.z - player.pos.z;
+    if (a.flashTimer > 0) {
+      const cdx = c.x - pPos.x, cdz = c.z - pPos.z;
       if (cdx * cdx + cdz * cdz < 225) {
-        c.mat.emissiveIntensity += _attuneFlashTimer * 0.35;
+        c.mat.emissiveIntensity += a.flashTimer * 0.35;
       }
     }
     c.group.children[0].rotation.y += dt * 0.15;
-    // Crystal lighting handled by proximity pool in core/lighting.js
   }
 
   if (!crystalSortBuf.length) {
     for (let i = 0; i < crys_data.length; i++) crystalSortBuf.push({ idx: i, dist: 0 });
   }
-  const csDX = player.pos.x - crystalSortPX, csDZ = player.pos.z - crystalSortPZ;
+  const csDX = pPos.x - crystalSortPX, csDZ = pPos.z - crystalSortPZ;
   if (csDX * csDX + csDZ * csDZ > 1) {
-    setCrystalSortPos(player.pos.x, player.pos.z);
+    setCrystalSortPos(pPos.x, pPos.z);
     for (let i = 0; i < crys_data.length; i++) {
       const c = crys_data[i];
-      const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
+      const dx = c.x - pPos.x, dz = c.z - pPos.z;
       crystalSortBuf[i].idx = i;
       crystalSortBuf[i].dist = dx * dx + dz * dz;
     }
@@ -306,7 +312,7 @@ function _directorFloraGlow(dt, t) {
       const c = crys_data[crystalSortBuf[i].idx];
       const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
       crystalLights[i].position.set(c.x, 1.5, c.z);
-      crystalLights[i].intensity = (1.5 + p * 2.0) * getLocalGlow(c.x, c.z, bioGlow * _orbBoost);
+      crystalLights[i].intensity = (1.5 + p * 2.0) * getLocalGlow(c.x, c.z, e.bioGlow * e.orbBoost);
       crystalLights[i].distance = 16;
       crystalLights[i].color.setHex(C.crystal);
     } else {
@@ -316,11 +322,12 @@ function _directorFloraGlow(dt, t) {
   timeEnd('crystals');
 
   timeStart('vegetation');
-  spawnWindParticles(dt, t, { player, dandelions, trees_data, windStrength, isStorming, spawnDandSeed, spawnLeaf });
+  const w = ctx.weather;
+  spawnWindParticles(dt, t, { player: ctx.player.body, dandelions, trees_data, windStrength: w.windStrength, isStorming: w.isStorming, spawnDandSeed, spawnLeaf });
   timeEnd('vegetation');
 }
 
-function _directorFaunaUpdate(dt, t) {
+function _directorFaunaUpdate(dt, t, ctx) {
   timeStart('fauna');
   try { updateJellies(dt, t); } catch (e) { console.warn('jelly update error:', e); }
   try { updatePuffs(dt, t); } catch (e) { console.warn('puff update error:', e); }
@@ -330,40 +337,46 @@ function _directorFaunaUpdate(dt, t) {
   timeEnd('fauna');
 }
 
-function _directorSpiritHum(dt) {
+function _directorSpiritHum(dt, t, ctx) {
   updateSpiritHumVisuals(dt);
 }
 
-function _directorAttunement(dt, t) {
-  updateAttunementVisuals(dt, t);
+function _directorCrystalVisuals(dt, t, ctx) {
+  updateCrystalVisuals(dt, t);
 }
 
-function _directorSkyWish(dt, t) {
-  const _wishText = checkShootingStarWish(pitch, orbsFound, getPerspective());
+function _directorAttunement(dt, t, ctx) {
+  updateAttunementVisuals(dt, t, ctx);
+}
+
+function _directorSkyWish(dt, t, ctx) {
+  const _wishText = checkShootingStarWish(pitch, ctx.env.orbsFound, getPerspective());
   if (_wishText) showNarrativeText(_wishText, 5.0);
 }
 
-function _directorRocks(dt, t) {
+function _directorRocks(dt, t, ctx) {
   timeStart('rocks');
-  updateProceduralRocks(player.pos.x, player.pos.y, player.pos.z, camera);
+  const p = ctx.player;
+  updateProceduralRocks(p.pos.x, p.pos.y, p.pos.z, p.camera);
   timeEnd('rocks');
 }
 
-function _directorMagical(dt, t) {
+function _directorMagical(dt, t, ctx) {
   timeStart('particles');
+  const p = ctx.player;
   updateWisps(dt, t);
-  updateDandelions(dandelions, dt, t, player.pos);
+  updateDandelions(dandelions, dt, t, p.pos);
   updateFairyRings(dt, t);
   updateBubbles(dt, t);
   updatePonds(dt, t);
-  updateGlyphs(dt, t);
-  updateEchoVisions(dt, t, keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint);
+  updateEchoVisions(dt, t, p.sprinting);
   timeEnd('particles');
 }
 
-function _directorParticles(dt, t) {
-  updateStarMotes(dt, t, player.pos);
-  updateDandSeeds(dt, t);
+function _directorParticles(dt, t, ctx) {
+  const pPos = ctx.player.pos;
+  updateStarMotes(dt, t, pPos);
+  updateDandSeeds(dt, t, ctx);
   updateLeaves(dt, t);
   updateDustMotes(dt);
   updateBubblePops(dt);
@@ -372,40 +385,42 @@ function _directorParticles(dt, t) {
   updateResonanceRings(dt);
 }
 
-function _directorQuest(dt, t) {
+function _directorQuest(dt, t, ctx) {
   timeStart('quest');
-  const chainCount = updateFloraReactions(dt, t);
-  updateQuest(dt, t);
+  updateFloraReactions(dt, t);
+  updateQuestState(dt);
+  updateQuestVisuals(dt, t);
   updateRainbowSparkles(t);
   timeEnd('quest');
 }
 
-function _directorFootprints(dt, t) {
+function _directorFootprints(dt, t, ctx) {
   timeStart('footprints');
-  if (player.onGround) {
-    const speed2 = player.vel.x * player.vel.x + player.vel.z * player.vel.z;
+  const p = ctx.player;
+  if (p.body && p.body.onGround) {
+    const speed2 = p.body.vel.x * p.body.vel.x + p.body.vel.z * p.body.vel.z;
     if (speed2 > 0.5) {
-      const moveAngle = Math.atan2(player.vel.x, player.vel.z);
-      const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
-      spawnFootprint(player.pos.x, player.pos.z, moveAngle, sprinting);
+      const moveAngle = Math.atan2(p.body.vel.x, p.body.vel.z);
+      spawnFootprint(p.pos.x, p.pos.z, moveAngle, p.sprinting);
     }
   }
-  updateFootprints(dt, getRainRate());
+  updateFootprints(dt, ctx.weather.rainRate);
   timeEnd('footprints');
 }
 
-function _directorAudio(dt, t) {
+function _directorAudio(dt, t, ctx) {
   timeStart('audio');
-  updateAmbientSounds(dt, player.pos, ponds, grassPatches, dayPhase, getRainRate());
+  updateAmbientSounds(dt, ctx.player.pos, ponds, grassPatches, ctx.env.dayPhase, ctx.weather.rainRate);
   updateStepCooldown(dt);
   timeEnd('audio');
 }
 
-function _directorDiscoveries(dt, t) {
+function _directorDiscoveries(dt, t, ctx) {
   timeStart('discoveries');
-  checkDiscoveries(player.pos, deers, puffs, jellies, moths, fairyRings, ponds, 0);
-  checkIdleHints(playerIdleTime);
-  updateDiscoveryUI(dt);
+  const p = ctx.player;
+  checkDiscoveries(p.pos, deers, puffs, jellies, moths, fairyRings, ponds, 0);
+  checkIdleHints(p.idleTime);
+  updateDiscoveries(dt, t);
   updatePufflingChat(dt, renderer.domElement);
   timeEnd('discoveries');
 }
@@ -425,6 +440,8 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
   elapsed += dt;
+
+  const { orbsFound } = getQuestState();
 
   updateDayNight(dt);
   const rainRate = updateWeather(dt, elapsed, player.pos);
@@ -446,6 +463,7 @@ function animate() {
   // Update audio system (Items 1-3)
   setAudioOrbCount(orbsFound);
   updateAudio(dt, windStrength, rainRate, isStorming, lightningFlash, dayPhase, player.pos, ponds);
+  updateCrystalResonance(dt, player.pos);
   updateLaserHums(player.pos);
 
   // Background music — dynamic/reactive
@@ -638,6 +656,7 @@ try {
 
   // Init audio system (Items 1-3)
   initAudio();
+  initCrystalClusters(crys_data);
 
   // Init discoveries (Item 10)
   initDiscoveries();
@@ -660,7 +679,8 @@ try {
   initDimming(orbs);
 
   // Init quest system
-  initQuest({
+  initQuestState(orbs);
+  initQuestVisuals({
     orbs: orbs,
     obeliskGroup: getObeliskGroup(),
     obeliskMat: getObeliskMat(),
@@ -685,11 +705,9 @@ try {
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
-    notifyOrbCollected: notifyOrbCollected,
     playOrbReject: playOrbReject,
     showOrbRejectHint: () => showOrbRejectHint(),
     showOrbListening: () => showOrbListening(),
-    showOrbDiscovery: showOrbDiscovery,
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,
     runeFaces: getRuneFaces()
@@ -708,22 +726,22 @@ try {
   // Systems can be independently disabled via scheduler.setEnabled(name, false)
   // or replaced by removing + re-adding with the same phase.
   registerAllSystems({
-    crystalProximity: (dt, t) => _directorCrystalProximity(dt, t),
-    particleSpawn: (dt, t) => _directorParticleSpawn(dt, t),
-    floraGlow: (dt, t) => _directorFloraGlow(dt, t),
-    faunaUpdate: (dt, t) => _directorFaunaUpdate(dt, t),
-    spiritHumUpdate: (dt, t) => _directorSpiritHum(dt, t),
-    attunementUpdate: (dt, t) => _directorAttunement(dt, t),
-    skyUpdate: (dt, t) => { updateSky(dt, t); _directorSkyWish(dt, t); },
-    vegetationUpdate: (dt, t) => updateVegetation(dt, t),
-    rocksUpdate: (dt, t) => _directorRocks(dt, t),
-    magicalUpdate: (dt, t) => _directorMagical(dt, t),
-    particleUpdate: (dt, t) => _directorParticles(dt, t),
-    questUpdate: (dt, t) => _directorQuest(dt, t),
-    footprintUpdate: (dt, t) => _directorFootprints(dt, t),
-    audioUpdate: (dt, t) => _directorAudio(dt, t),
-    discoveriesUpdate: (dt, t) => _directorDiscoveries(dt, t),
-    hudUpdate: (dt, t) => reportTimings(renderer),
+    crystalProximity: (dt, t, ctx) => _directorCrystalProximity(dt, t, ctx),
+    particleSpawn: (dt, t, ctx) => _directorParticleSpawn(dt, t, ctx),
+    floraGlow: (dt, t, ctx) => _directorFloraGlow(dt, t, ctx),
+    faunaUpdate: (dt, t, ctx) => _directorFaunaUpdate(dt, t, ctx),
+    spiritHumUpdate: (dt, t, ctx) => _directorSpiritHum(dt, t, ctx),
+    attunementUpdate: (dt, t, ctx) => _directorAttunement(dt, t, ctx),
+    skyUpdate: (dt, t, ctx) => { updateSky(dt, t); _directorSkyWish(dt, t, ctx); },
+    vegetationUpdate: (dt, t, ctx) => updateVegetation(dt, t),
+    rocksUpdate: (dt, t, ctx) => _directorRocks(dt, t, ctx),
+    magicalUpdate: (dt, t, ctx) => _directorMagical(dt, t, ctx),
+    particleUpdate: (dt, t, ctx) => _directorParticles(dt, t, ctx),
+    questUpdate: (dt, t, ctx) => _directorQuest(dt, t, ctx),
+    footprintUpdate: (dt, t, ctx) => _directorFootprints(dt, t, ctx),
+    audioUpdate: (dt, t, ctx) => _directorAudio(dt, t, ctx),
+    discoveriesUpdate: (dt, t, ctx) => _directorDiscoveries(dt, t, ctx),
+    hudUpdate: (dt, t, ctx) => reportTimings(renderer),
   });
 
   // Seed initial fireflies

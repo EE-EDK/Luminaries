@@ -1,0 +1,1515 @@
+{
+  "communities": {
+    "0": [
+      "index_ctg4wacl",
+      "index_ctg4wacl_ag",
+      "index_ctg4wacl_al",
+      "index_ctg4wacl_ar",
+      "index_ctg4wacl_av",
+      "index_ctg4wacl_bl",
+      "index_ctg4wacl_cl",
+      "index_ctg4wacl_cp",
+      "index_ctg4wacl_ct",
+      "index_ctg4wacl_cu",
+      "index_ctg4wacl_dv",
+      "index_ctg4wacl_e",
+      "index_ctg4wacl_er",
+      "index_ctg4wacl_eu",
+      "index_ctg4wacl_ev",
+      "index_ctg4wacl_ew",
+      "index_ctg4wacl_fc",
+      "index_ctg4wacl_fi",
+      "index_ctg4wacl_fl",
+      "index_ctg4wacl_fo",
+      "index_ctg4wacl_fv",
+      "index_ctg4wacl_gl",
+      "index_ctg4wacl_ic",
+      "index_ctg4wacl_il",
+      "index_ctg4wacl_iv",
+      "index_ctg4wacl_j",
+      "index_ctg4wacl_jl",
+      "index_ctg4wacl_jo",
+      "index_ctg4wacl_jr",
+      "index_ctg4wacl_jv",
+      "index_ctg4wacl_jw",
+      "index_ctg4wacl_k",
+      "index_ctg4wacl_kl",
+      "index_ctg4wacl_ko",
+      "index_ctg4wacl_kp",
+      "index_ctg4wacl_kr",
+      "index_ctg4wacl_kw",
+      "index_ctg4wacl_lc",
+      "index_ctg4wacl_ll",
+      "index_ctg4wacl_lu",
+      "index_ctg4wacl_ml",
+      "index_ctg4wacl_nc",
+      "index_ctg4wacl_nf",
+      "index_ctg4wacl_nk",
+      "index_ctg4wacl_nl",
+      "index_ctg4wacl_ns",
+      "index_ctg4wacl_nu",
+      "index_ctg4wacl_oa",
+      "index_ctg4wacl_oc",
+      "index_ctg4wacl_ol",
+      "index_ctg4wacl_or",
+      "index_ctg4wacl_pl",
+      "index_ctg4wacl_q",
+      "index_ctg4wacl_ql",
+      "index_ctg4wacl_qx",
+      "index_ctg4wacl_rk",
+      "index_ctg4wacl_rl",
+      "index_ctg4wacl_sl",
+      "index_ctg4wacl_td",
+      "index_ctg4wacl_tk",
+      "index_ctg4wacl_tr",
+      "index_ctg4wacl_tu",
+      "index_ctg4wacl_tv",
+      "index_ctg4wacl_ul",
+      "index_ctg4wacl_vd",
+      "index_ctg4wacl_vl",
+      "index_ctg4wacl_vu",
+      "index_ctg4wacl_wl",
+      "index_ctg4wacl_xl",
+      "index_ctg4wacl_xp",
+      "index_ctg4wacl_xs",
+      "index_ctg4wacl_xx",
+      "index_ctg4wacl_yi",
+      "index_ctg4wacl_yl",
+      "index_ctg4wacl_yo",
+      "index_ctg4wacl_yu",
+      "index_ctg4wacl_zb",
+      "index_ctg4wacl_zh",
+      "index_ctg4wacl_zi",
+      "index_ctg4wacl_zk",
+      "index_ctg4wacl_zl",
+      "index_ctg4wacl_zn",
+      "index_ctg4wacl_zo",
+      "index_ctg4wacl_zp",
+      "index_ctg4wacl_zv"
+    ],
+    "1": [
+      "index_ctg4wacl_ao",
+      "index_ctg4wacl_ap",
+      "index_ctg4wacl_au",
+      "index_ctg4wacl_ba",
+      "index_ctg4wacl_bf",
+      "index_ctg4wacl_bk",
+      "index_ctg4wacl_bv",
+      "index_ctg4wacl_bx",
+      "index_ctg4wacl_by",
+      "index_ctg4wacl_cd",
+      "index_ctg4wacl_ce",
+      "index_ctg4wacl_cv",
+      "index_ctg4wacl_ea",
+      "index_ctg4wacl_es",
+      "index_ctg4wacl_et",
+      "index_ctg4wacl_fa",
+      "index_ctg4wacl_fb",
+      "index_ctg4wacl_fd",
+      "index_ctg4wacl_fx",
+      "index_ctg4wacl_ga",
+      "index_ctg4wacl_gd",
+      "index_ctg4wacl_ge",
+      "index_ctg4wacl_gh",
+      "index_ctg4wacl_ha",
+      "index_ctg4wacl_hb",
+      "index_ctg4wacl_hd",
+      "index_ctg4wacl_ia",
+      "index_ctg4wacl_io",
+      "index_ctg4wacl_ix",
+      "index_ctg4wacl_iy",
+      "index_ctg4wacl_je",
+      "index_ctg4wacl_jx",
+      "index_ctg4wacl_kf",
+      "index_ctg4wacl_ld",
+      "index_ctg4wacl_lo",
+      "index_ctg4wacl_lt",
+      "index_ctg4wacl_ma",
+      "index_ctg4wacl_mb",
+      "index_ctg4wacl_md",
+      "index_ctg4wacl_na",
+      "index_ctg4wacl_no",
+      "index_ctg4wacl_nx",
+      "index_ctg4wacl_oo",
+      "index_ctg4wacl_op",
+      "index_ctg4wacl_pa",
+      "index_ctg4wacl_pd",
+      "index_ctg4wacl_pv",
+      "index_ctg4wacl_qa",
+      "index_ctg4wacl_qk",
+      "index_ctg4wacl_ra",
+      "index_ctg4wacl_rd",
+      "index_ctg4wacl_rf",
+      "index_ctg4wacl_ro",
+      "index_ctg4wacl_rx",
+      "index_ctg4wacl_sa",
+      "index_ctg4wacl_sb",
+      "index_ctg4wacl_se",
+      "index_ctg4wacl_so",
+      "index_ctg4wacl_ua",
+      "index_ctg4wacl_uw",
+      "index_ctg4wacl_vp",
+      "index_ctg4wacl_wa",
+      "index_ctg4wacl_we",
+      "index_ctg4wacl_wv",
+      "index_ctg4wacl_xa",
+      "index_ctg4wacl_xo",
+      "index_ctg4wacl_xy",
+      "index_ctg4wacl_y",
+      "index_ctg4wacl_ya",
+      "index_ctg4wacl_yw",
+      "index_ctg4wacl_yx",
+      "index_ctg4wacl_za",
+      "index_ctg4wacl_zd",
+      "index_ctg4wacl_zf",
+      "index_ctg4wacl_zm",
+      "index_ctg4wacl_zy"
+    ],
+    "2": [
+      "index_ctg4wacl_ac",
+      "index_ctg4wacl_bc",
+      "index_ctg4wacl_c",
+      "index_ctg4wacl_cc",
+      "index_ctg4wacl_dc",
+      "index_ctg4wacl_ds",
+      "index_ctg4wacl_ec",
+      "index_ctg4wacl_el",
+      "index_ctg4wacl_gc",
+      "index_ctg4wacl_gs",
+      "index_ctg4wacl_hc",
+      "index_ctg4wacl_hs",
+      "index_ctg4wacl_jc",
+      "index_ctg4wacl_js",
+      "index_ctg4wacl_kc",
+      "index_ctg4wacl_ks",
+      "index_ctg4wacl_ky",
+      "index_ctg4wacl_mc",
+      "index_ctg4wacl_pc",
+      "index_ctg4wacl_qc",
+      "index_ctg4wacl_qs",
+      "index_ctg4wacl_qy",
+      "index_ctg4wacl_rc",
+      "index_ctg4wacl_sc",
+      "index_ctg4wacl_tc",
+      "index_ctg4wacl_tl",
+      "index_ctg4wacl_uc",
+      "index_ctg4wacl_us",
+      "index_ctg4wacl_vc",
+      "index_ctg4wacl_vs",
+      "index_ctg4wacl_wc",
+      "index_ctg4wacl_ws",
+      "index_ctg4wacl_xc",
+      "index_ctg4wacl_yc",
+      "index_ctg4wacl_ys",
+      "index_ctg4wacl_zc"
+    ],
+    "3": [
+      "index_ctg4wacl_ay",
+      "index_ctg4wacl_bg",
+      "index_ctg4wacl_eg",
+      "index_ctg4wacl_fg",
+      "index_ctg4wacl_gg",
+      "index_ctg4wacl_gx",
+      "index_ctg4wacl_hg",
+      "index_ctg4wacl_hx",
+      "index_ctg4wacl_jg",
+      "index_ctg4wacl_jm",
+      "index_ctg4wacl_kg",
+      "index_ctg4wacl_lh",
+      "index_ctg4wacl_mg",
+      "index_ctg4wacl_mx",
+      "index_ctg4wacl_ng",
+      "index_ctg4wacl_oy",
+      "index_ctg4wacl_px",
+      "index_ctg4wacl_qg",
+      "index_ctg4wacl_qm",
+      "index_ctg4wacl_rm",
+      "index_ctg4wacl_ug",
+      "index_ctg4wacl_vg",
+      "index_ctg4wacl_wg",
+      "index_ctg4wacl_x",
+      "index_ctg4wacl_xg",
+      "index_ctg4wacl_yg",
+      "index_ctg4wacl_z",
+      "index_ctg4wacl_zg"
+    ],
+    "4": [
+      "main",
+      "main_animate",
+      "main_director",
+      "main_directorattunement",
+      "main_directoraudio",
+      "main_directorcrystalproximity",
+      "main_directordiscoveries",
+      "main_directorfaunaupdate",
+      "main_directorfloraglow",
+      "main_directorfootprints",
+      "main_directormagical",
+      "main_directorparticles",
+      "main_directorparticlespawn",
+      "main_directorquest",
+      "main_directorrocks",
+      "main_directorskywish",
+      "main_directorspirithum",
+      "main_go",
+      "main_updatedeers",
+      "main_updatefairyrings",
+      "main_updatejellies",
+      "main_updateluminids",
+      "main_updatemoths",
+      "main_updatepuffs"
+    ],
+    "5": [
+      "index_ctg4wacl_b",
+      "index_ctg4wacl_bd",
+      "index_ctg4wacl_ca",
+      "index_ctg4wacl_co",
+      "index_ctg4wacl_da",
+      "index_ctg4wacl_db",
+      "index_ctg4wacl_dd",
+      "index_ctg4wacl_gb",
+      "index_ctg4wacl_iw",
+      "index_ctg4wacl_la",
+      "index_ctg4wacl_lp",
+      "index_ctg4wacl_lw",
+      "index_ctg4wacl_pb",
+      "index_ctg4wacl_qh",
+      "index_ctg4wacl_ss",
+      "index_ctg4wacl_ub",
+      "index_ctg4wacl_vb",
+      "index_ctg4wacl_xb",
+      "index_ctg4wacl_yb",
+      "index_ctg4wacl_zx"
+    ],
+    "6": [
+      "spirithum",
+      "spirithum_gethumpitch",
+      "spirithum_getlockprogress",
+      "spirithum_getlocktype",
+      "spirithum_getresonance",
+      "spirithum_getresonancetype",
+      "spirithum_ishumming",
+      "spirithum_islocked",
+      "spirithum_justlocked",
+      "spirithum_playpitchlocksound",
+      "spirithum_refreshlock",
+      "spirithum_resetlock",
+      "spirithum_starthum",
+      "spirithum_startresonancedrone",
+      "spirithum_startspirithumaudio",
+      "spirithum_stophum",
+      "spirithum_stopresonancedrone",
+      "spirithum_stopspirithumaudio",
+      "spirithum_updatehum",
+      "spirithum_updatespirithumaudio"
+    ],
+    "7": [
+      "index_ctg4wacl_ae",
+      "index_ctg4wacl_be",
+      "index_ctg4wacl_de",
+      "index_ctg4wacl_df",
+      "index_ctg4wacl_fe",
+      "index_ctg4wacl_he",
+      "index_ctg4wacl_ie",
+      "index_ctg4wacl_le",
+      "index_ctg4wacl_me",
+      "index_ctg4wacl_mo",
+      "index_ctg4wacl_pe",
+      "index_ctg4wacl_po",
+      "index_ctg4wacl_qe",
+      "index_ctg4wacl_su",
+      "index_ctg4wacl_vo",
+      "index_ctg4wacl_xe",
+      "index_ctg4wacl_ye",
+      "index_ctg4wacl_ze"
+    ],
+    "8": [
+      "index_ctg4wacl_a",
+      "index_ctg4wacl_eo",
+      "index_ctg4wacl_go",
+      "index_ctg4wacl_ka",
+      "index_ctg4wacl_ke",
+      "index_ctg4wacl_lx",
+      "index_ctg4wacl_ne",
+      "index_ctg4wacl_og",
+      "index_ctg4wacl_pg",
+      "index_ctg4wacl_pk",
+      "index_ctg4wacl_qd",
+      "index_ctg4wacl_to",
+      "index_ctg4wacl_va",
+      "index_ctg4wacl_wo",
+      "index_ctg4wacl_xd",
+      "index_ctg4wacl_yv",
+      "index_ctg4wacl_zw"
+    ],
+    "9": [
+      "index_ctg4wacl_am",
+      "index_ctg4wacl_bb",
+      "index_ctg4wacl_cm",
+      "index_ctg4wacl_ed",
+      "index_ctg4wacl_em",
+      "index_ctg4wacl_i",
+      "index_ctg4wacl_if",
+      "index_ctg4wacl_jd",
+      "index_ctg4wacl_nm",
+      "index_ctg4wacl_of",
+      "index_ctg4wacl_pf",
+      "index_ctg4wacl_sm",
+      "index_ctg4wacl_ta",
+      "index_ctg4wacl_tg",
+      "index_ctg4wacl_tm",
+      "index_ctg4wacl_up",
+      "index_ctg4wacl_xm"
+    ],
+    "10": [
+      "index_ctg4wacl_bt",
+      "index_ctg4wacl_gt",
+      "index_ctg4wacl_ht",
+      "index_ctg4wacl_jt",
+      "index_ctg4wacl_kt",
+      "index_ctg4wacl_n",
+      "index_ctg4wacl_pt",
+      "index_ctg4wacl_qt",
+      "index_ctg4wacl_st",
+      "index_ctg4wacl_t",
+      "index_ctg4wacl_tt",
+      "index_ctg4wacl_ut",
+      "index_ctg4wacl_vt",
+      "index_ctg4wacl_wt",
+      "index_ctg4wacl_xt",
+      "index_ctg4wacl_yt",
+      "index_ctg4wacl_zs"
+    ],
+    "11": [
+      "sky",
+      "sky_checkshootingstarwish",
+      "sky_createconstellations",
+      "sky_createshootingstars",
+      "sky_createskydome",
+      "sky_createtwinklestars",
+      "sky_getconstellationdir",
+      "sky_paintskycanvas",
+      "sky_revealconstellation",
+      "sky_rgba",
+      "sky_setskybrightness",
+      "sky_softglow",
+      "sky_softglowwrap",
+      "sky_spawnshootingstar",
+      "sky_updateconstellations",
+      "sky_updatesky"
+    ],
+    "12": [
+      "index_ctg4wacl_bw",
+      "index_ctg4wacl_fw",
+      "index_ctg4wacl_hw",
+      "index_ctg4wacl_ja",
+      "index_ctg4wacl_nt",
+      "index_ctg4wacl_ov",
+      "index_ctg4wacl_qw",
+      "index_ctg4wacl_re",
+      "index_ctg4wacl_rt",
+      "index_ctg4wacl_rw",
+      "index_ctg4wacl_tw",
+      "index_ctg4wacl_ud",
+      "index_ctg4wacl_vw",
+      "index_ctg4wacl_ww",
+      "index_ctg4wacl_yd"
+    ],
+    "13": [
+      "effects",
+      "effects_animatemushrooms",
+      "effects_animatepixie",
+      "effects_animatepufflings",
+      "effects_animatetitle",
+      "effects_animatetitleglow",
+      "effects_animatetree",
+      "effects_cleanupeffects",
+      "effects_initeffects",
+      "effects_noise1d",
+      "effects_pixiepos",
+      "effects_rendermatrix",
+      "effects_smoothnoise",
+      "effects_spawndust",
+      "effects_updatedust"
+    ],
+    "14": [
+      "discoveries",
+      "discoveries_checkdiscoveries",
+      "discoveries_checkidlehints",
+      "discoveries_getperspective",
+      "discoveries_initdiscoveries",
+      "discoveries_showdiscovery",
+      "discoveries_showfinaletext",
+      "discoveries_showfreeroamtext",
+      "discoveries_shownarrativetext",
+      "discoveries_showorbdiscovery",
+      "discoveries_showorblistening",
+      "discoveries_showorbrejecthint",
+      "discoveries_showtransformtext",
+      "discoveries_toggleperspective",
+      "discoveries_updatediscoveryui"
+    ],
+    "15": [
+      "gamestate",
+      "gamestate_addvisitedcrystal",
+      "gamestate_decayattuneflash",
+      "gamestate_decaybubblepulse",
+      "gamestate_decaycrystalchain",
+      "gamestate_decayechotimer",
+      "gamestate_decayfeatherfall",
+      "gamestate_setattuneflash",
+      "gamestate_setbubblepulse",
+      "gamestate_setcrystalchainboost",
+      "gamestate_setechotimer",
+      "gamestate_setfeatherfalltimer",
+      "gamestate_sethumresonance",
+      "gamestate_setorbboost"
+    ],
+    "16": [
+      "rocks",
+      "rocks_addpebble",
+      "rocks_applyvertexcolors",
+      "rocks_createimpostor",
+      "rocks_createrocksdf",
+      "rocks_displacesmooth",
+      "rocks_finalizepebbles",
+      "rocks_finalizeproceduralrocks",
+      "rocks_initpebbles",
+      "rocks_initproceduralrocks",
+      "rocks_marchingcubes",
+      "rocks_measuregeometry",
+      "rocks_placeproceduralrock",
+      "rocks_updateproceduralrocks"
+    ],
+    "17": [
+      "trees",
+      "trees_applyslopetilt",
+      "trees_baketemplate",
+      "trees_canopyonbeforecompile",
+      "trees_createtreeinstances",
+      "trees_createtreetemplates",
+      "trees_generatetemplatetree",
+      "trees_getbarktexture",
+      "trees_getcanopyalphamap",
+      "trees_getglowtexture",
+      "trees_maketreeimpostor",
+      "trees_transformtreematerials",
+      "trees_updatetreelod"
+    ],
+    "18": [
+      "music",
+      "music_generatechimecluster",
+      "music_generateflutephrase",
+      "music_generateharparpeggio",
+      "music_initmusic",
+      "music_notefreq",
+      "music_playbasspulse",
+      "music_playchime",
+      "music_playdrone",
+      "music_playflute",
+      "music_playharp",
+      "music_setupmusic",
+      "music_updatemusic"
+    ],
+    "19": [
+      "terrain",
+      "terrain_buildheightcache",
+      "terrain_celldist",
+      "terrain_computegroundy",
+      "terrain_fbm",
+      "terrain_getgroundnormal",
+      "terrain_getgroundy",
+      "terrain_hash",
+      "terrain_landformheight",
+      "terrain_registerflatzone",
+      "terrain_ridgenoise",
+      "terrain_smoothstep",
+      "terrain_valuenoise"
+    ],
+    "20": [
+      "index_ctg4wacl_d",
+      "index_ctg4wacl_ek",
+      "index_ctg4wacl_ep",
+      "index_ctg4wacl_f",
+      "index_ctg4wacl_ik",
+      "index_ctg4wacl_lk",
+      "index_ctg4wacl_o",
+      "index_ctg4wacl_qf",
+      "index_ctg4wacl_qo",
+      "index_ctg4wacl_s",
+      "index_ctg4wacl_tp",
+      "index_ctg4wacl_ts"
+    ],
+    "21": [
+      "core",
+      "core_connectwithreverb",
+      "core_cooldownmult",
+      "core_createnoisebuffer",
+      "core_createreverb",
+      "core_initaudio",
+      "core_ismuted",
+      "core_loopnoise",
+      "core_setaudioorbcount",
+      "core_seteventsubscriber",
+      "core_setthundertimer",
+      "core_togglemute"
+    ],
+    "22": [
+      "index_ctg4wacl_g",
+      "index_ctg4wacl_h",
+      "index_ctg4wacl_hh",
+      "index_ctg4wacl_hl",
+      "index_ctg4wacl_l",
+      "index_ctg4wacl_lm",
+      "index_ctg4wacl_m",
+      "index_ctg4wacl_os",
+      "index_ctg4wacl_p",
+      "index_ctg4wacl_u",
+      "index_ctg4wacl_v"
+    ],
+    "23": [
+      "arch_director",
+      "arch_kernel",
+      "arch_procedural_gen",
+      "core_mandate_fps",
+      "core_mandate_procedural",
+      "luminaries_project",
+      "protocol_audio",
+      "protocol_webgl",
+      "tech_threejs",
+      "tech_vite",
+      "tech_webaudio"
+    ],
+    "24": [
+      "index_ctg4wacl_aa",
+      "index_ctg4wacl_dg",
+      "index_ctg4wacl_jy",
+      "index_ctg4wacl_mv",
+      "index_ctg4wacl_nv",
+      "index_ctg4wacl_sy",
+      "index_ctg4wacl_vv",
+      "index_ctg4wacl_vy",
+      "index_ctg4wacl_xv",
+      "index_ctg4wacl_yy"
+    ],
+    "25": [
+      "questmanager",
+      "questmanager_explodeglitter",
+      "questmanager_getobelisktipy",
+      "questmanager_initflashoverlay",
+      "questmanager_initglitter",
+      "questmanager_initquest",
+      "questmanager_revealallobeliskdetails",
+      "questmanager_transformtreesandground",
+      "questmanager_updateglitter",
+      "questmanager_updatequest"
+    ],
+    "26": [
+      "steering",
+      "steering_alignment",
+      "steering_arrive",
+      "steering_avoidobstacles",
+      "steering_cohesion",
+      "steering_flee",
+      "steering_seek",
+      "steering_separation",
+      "steering_wander",
+      "steering_worldbounds"
+    ],
+    "27": [
+      "player",
+      "player_playfootstep",
+      "player_playjumpsound",
+      "player_playlandsound",
+      "player_setaudiocallbacks",
+      "player_setcollisiondata",
+      "player_setdustburstfn",
+      "player_setgravitymult",
+      "player_updateplayer",
+      "player_updatestepcooldown"
+    ],
+    "28": [
+      "input",
+      "input_getinput",
+      "input_setgocallback",
+      "input_setpitch",
+      "input_setstarted",
+      "input_settouchjump",
+      "input_setyaw",
+      "input_triggergo",
+      "input_updatesliderfromtouch",
+      "input_updjoy"
+    ],
+    "29": [
+      "attunement",
+      "attunement_checkflash",
+      "attunement_consumefrequency",
+      "attunement_getattunement",
+      "attunement_getattunementtarget",
+      "attunement_getflashcreaturepos",
+      "attunement_getplayerfrequency",
+      "attunement_updateattunement",
+      "attunement_updatepuffonly"
+    ],
+    "30": [
+      "index_ctg4wacl_ip",
+      "index_ctg4wacl_jf",
+      "index_ctg4wacl_mf",
+      "index_ctg4wacl_np",
+      "index_ctg4wacl_r",
+      "index_ctg4wacl_rp",
+      "index_ctg4wacl_um",
+      "index_ctg4wacl_wm"
+    ],
+    "31": [
+      "index",
+      "index_enabletitleclick",
+      "index_initintro",
+      "index_introactive",
+      "index_introdone",
+      "index_ontitleclick",
+      "index_startintro",
+      "index_updateintro"
+    ],
+    "32": [
+      "obelisk",
+      "obelisk_getobeliskglowmat",
+      "obelisk_getobeliskgroup",
+      "obelisk_getobeliskmat",
+      "obelisk_getpinnacleorb",
+      "obelisk_getpinnaclerings",
+      "obelisk_getrunefaces",
+      "obelisk_makeobelisk"
+    ],
+    "33": [
+      "ground",
+      "ground_createground",
+      "ground_gfbm",
+      "ground_ghash",
+      "ground_gnoise",
+      "ground_makegroundtexture",
+      "ground_setgroundtransform",
+      "ground_updategrounduniforms"
+    ],
+    "34": [
+      "quest",
+      "quest_playbubblepop",
+      "quest_playcrystalchime",
+      "quest_playfairybounce",
+      "quest_playorbcollect",
+      "quest_playorbreject",
+      "quest_playorbwarble"
+    ],
+    "35": [
+      "dimming",
+      "dimming_getlocalglow",
+      "dimming_getsector",
+      "dimming_initdimming",
+      "dimming_isrestored",
+      "dimming_notifyorbcollected",
+      "dimming_updatedimming"
+    ],
+    "36": [
+      "scheduler",
+      "scheduler_addsystem",
+      "scheduler_list",
+      "scheduler_removesystem",
+      "scheduler_reset",
+      "scheduler_run",
+      "scheduler_setenabled"
+    ],
+    "37": [
+      "index_ctg4wacl_cf",
+      "index_ctg4wacl_ef",
+      "index_ctg4wacl_ff",
+      "index_ctg4wacl_lf",
+      "index_ctg4wacl_sf",
+      "index_ctg4wacl_uf",
+      "index_ctg4wacl_yf"
+    ],
+    "38": [
+      "lasers",
+      "lasers_buildbendgeo",
+      "lasers_cleanuplasers",
+      "lasers_makelaser",
+      "lasers_rebuildbends",
+      "lasers_setlaserfade",
+      "lasers_updatelasers"
+    ],
+    "39": [
+      "math",
+      "math_clamp",
+      "math_dist2",
+      "math_dist2obj",
+      "math_lerp",
+      "math_pick",
+      "math_smoothstep"
+    ],
+    "40": [
+      "index_ctg4wacl_af",
+      "index_ctg4wacl_gp",
+      "index_ctg4wacl_hp",
+      "index_ctg4wacl_mp",
+      "index_ctg4wacl_qp",
+      "index_ctg4wacl_wd"
+    ],
+    "41": [
+      "index_ctg4wacl_at",
+      "index_ctg4wacl_dt",
+      "index_ctg4wacl_ft",
+      "index_ctg4wacl_it",
+      "index_ctg4wacl_ot",
+      "index_ctg4wacl_xw"
+    ],
+    "42": [
+      "populate",
+      "populate_computeslopequat",
+      "populate_inkeepout",
+      "populate_makeglyphs",
+      "populate_populate",
+      "populate_tilttoslope"
+    ],
+    "43": [
+      "weather",
+      "weather_buildmistplanes",
+      "weather_getrainrate",
+      "weather_initweather",
+      "weather_picknext",
+      "weather_updateweather"
+    ],
+    "44": [
+      "magicalentities",
+      "magicalentities_updatebubbles",
+      "magicalentities_updateechobloom",
+      "magicalentities_updatefairyrings",
+      "magicalentities_updateponds",
+      "magicalentities_updatewisps"
+    ],
+    "45": [
+      "creatures",
+      "creatures_playattunementflash",
+      "creatures_playcreaturesound",
+      "creatures_playpufflingsinging",
+      "creatures_playpufflingvocal",
+      "creatures_singnotefreq"
+    ],
+    "46": [
+      "senses",
+      "senses_canhear",
+      "senses_cansee",
+      "senses_dist",
+      "senses_dist2",
+      "senses_isnear"
+    ],
+    "47": [
+      "registry",
+      "registry_get",
+      "registry_has",
+      "registry_register",
+      "registry_reset",
+      "registry_types"
+    ],
+    "48": [
+      "entity_fauna",
+      "mechanic_attunement",
+      "mechanic_dimming",
+      "mechanic_dual_narrative",
+      "mechanic_spirit_hum",
+      "phase_2"
+    ],
+    "49": [
+      "footprints",
+      "footprints_createfootshape",
+      "footprints_initfootprints",
+      "footprints_spawnfootprint",
+      "footprints_updatefootprints"
+    ],
+    "50": [
+      "rng",
+      "rng_resetseed",
+      "rng_restoreseed",
+      "rng_saveseed",
+      "rng_sr"
+    ],
+    "51": [
+      "leaves",
+      "leaves_initleaves",
+      "leaves_setleafwind",
+      "leaves_spawnleaf",
+      "leaves_updateleaves"
+    ],
+    "52": [
+      "spores",
+      "spores_initspores",
+      "spores_setsporewind",
+      "spores_spawnspore",
+      "spores_updatespores"
+    ],
+    "53": [
+      "seeds",
+      "seeds_initdandseeds",
+      "seeds_setseedwind",
+      "seeds_spawndandseed",
+      "seeds_updatedandseeds"
+    ],
+    "54": [
+      "playervisuals",
+      "playervisuals_getsmootheddimfactor",
+      "playervisuals_triggercamerapan",
+      "playervisuals_updatecamerapan",
+      "playervisuals_updateplayervisuals"
+    ],
+    "55": [
+      "pufflingchat",
+      "pufflingchat_initpufflingchat",
+      "pufflingchat_pickmessage",
+      "pufflingchat_triggerpufflingchat",
+      "pufflingchat_updatepufflingchat"
+    ],
+    "56": [
+      "eventbus_test",
+      "eventbus_test_fn",
+      "eventbus_test_fn1",
+      "eventbus_test_fn2",
+      "eventbus_test_fn3"
+    ],
+    "57": [
+      "moths",
+      "moths_makeforewingshape",
+      "moths_makehindwingshape",
+      "moths_makemoth",
+      "moths_updatemoths"
+    ],
+    "58": [
+      "eventbus",
+      "eventbus_emit",
+      "eventbus_off",
+      "eventbus_on",
+      "eventbus_reset"
+    ],
+    "59": [
+      "daynightcycle",
+      "daynightcycle_getphase",
+      "daynightcycle_getworldtime",
+      "daynightcycle_initdaynight",
+      "daynightcycle_updatedaynight"
+    ],
+    "60": [
+      "ambientcreatures",
+      "ambientcreatures_ensureambient",
+      "ambientcreatures_initambientsounds",
+      "ambientcreatures_spawncricketping",
+      "ambientcreatures_updateambientsounds"
+    ],
+    "61": [
+      "laser",
+      "laser_playlaserhum",
+      "laser_playlaserzap",
+      "laser_stoplaserhums",
+      "laser_updatelaserhums"
+    ],
+    "62": [
+      "orbburst",
+      "orbburst_initorbburst",
+      "orbburst_spawnorbburst",
+      "orbburst_updateorbburst"
+    ],
+    "63": [
+      "luminids",
+      "luminids_makeluminid",
+      "luminids_updateluminid",
+      "luminids_updateluminids"
+    ],
+    "64": [
+      "moat",
+      "moat_getmoatmat",
+      "moat_getmoatmesh",
+      "moat_makemoat"
+    ],
+    "65": [
+      "dust",
+      "dust_initdustmotes",
+      "dust_spawndustburst",
+      "dust_updatedustmotes"
+    ],
+    "66": [
+      "resonancerings",
+      "resonancerings_initresonancerings",
+      "resonancerings_spawnresonancering",
+      "resonancerings_updateresonancerings"
+    ],
+    "67": [
+      "elements",
+      "elements_buildmushrooms",
+      "elements_buildpufflings",
+      "elements_buildtree"
+    ],
+    "68": [
+      "pufflings",
+      "pufflings_makepuff",
+      "pufflings_updatepuff",
+      "pufflings_updatepuffs"
+    ],
+    "69": [
+      "starmotes",
+      "starmotes_initstarmotes",
+      "starmotes_spawnstarmote",
+      "starmotes_updatestarmotes"
+    ],
+    "70": [
+      "spawning",
+      "spawning_spawnfireflies",
+      "spawning_spawnspores",
+      "spawning_spawnwindparticles"
+    ],
+    "71": [
+      "deer",
+      "deer_makedeer",
+      "deer_updatedeer",
+      "deer_updatedeers"
+    ],
+    "72": [
+      "entitystore",
+      "entitystore_inittreehash",
+      "entitystore_setcrystalsortpos",
+      "entitystore_settreemeshes"
+    ],
+    "73": [
+      "rainbows",
+      "rainbows_buildribbongeo",
+      "rainbows_makerainbows",
+      "rainbows_updaterainbowsparkles"
+    ],
+    "74": [
+      "rain",
+      "rain_hidedropverts",
+      "rain_initrain",
+      "rain_updaterain"
+    ],
+    "75": [
+      "perfmonitor",
+      "perfmonitor_reporttimings",
+      "perfmonitor_timeend",
+      "perfmonitor_timestart"
+    ],
+    "76": [
+      "bubblepops",
+      "bubblepops_initbubblepops",
+      "bubblepops_spawnbubblepop",
+      "bubblepops_updatebubblepops"
+    ],
+    "77": [
+      "fireflies",
+      "fireflies_initflies",
+      "fireflies_spawnfly",
+      "fireflies_updateflies"
+    ],
+    "78": [
+      "overlay",
+      "overlay_getorbhudel",
+      "overlay_initoverlay",
+      "overlay_showgame"
+    ],
+    "79": [
+      "dandelions",
+      "dandelions_makedandelion",
+      "dandelions_updatedandelions"
+    ],
+    "80": [
+      "ambient",
+      "ambient_playthunder",
+      "ambient_updateaudio"
+    ],
+    "81": [
+      "spatialhash",
+      "spatialhash_buildtreehash",
+      "spatialhash_queryneartrees"
+    ],
+    "82": [
+      "aurora",
+      "aurora_initaurora",
+      "aurora_updateaurora"
+    ],
+    "83": [
+      "vegetation",
+      "vegetation_updateflorareactions",
+      "vegetation_updatevegetation"
+    ],
+    "84": [
+      "echovisions",
+      "echovisions_initechovisions",
+      "echovisions_updateechovisions"
+    ],
+    "85": [
+      "context",
+      "context_reset",
+      "context_update"
+    ],
+    "86": [
+      "ponds",
+      "ponds_makeorganicdiscgeo",
+      "ponds_makepond"
+    ],
+    "87": [
+      "jellies",
+      "jellies_makejelly",
+      "jellies_updatejellies"
+    ],
+    "88": [
+      "energylines",
+      "energylines_getechobloomring",
+      "energylines_initenergylines"
+    ],
+    "89": [
+      "postprocessing",
+      "postprocessing_render",
+      "postprocessing_setsaturation"
+    ],
+    "90": [
+      "grass",
+      "grass_makegrasspatch",
+      "grass_updategrassglobals"
+    ],
+    "91": [
+      "hud",
+      "hud_inithud",
+      "hud_updatehud"
+    ],
+    "92": [
+      "snapthorn",
+      "snapthorn_makesnapthorn",
+      "snapthorn_updatesnapthorns"
+    ],
+    "93": [
+      "wisps",
+      "wisps_makewisp"
+    ],
+    "94": [
+      "reeds",
+      "reeds_makereed"
+    ],
+    "95": [
+      "lanternpod",
+      "lanternpod_makelanternpod"
+    ],
+    "96": [
+      "fairyrings",
+      "fairyrings_makefairyring"
+    ],
+    "97": [
+      "flowers",
+      "flowers_makeflower"
+    ],
+    "98": [
+      "glyphs",
+      "glyphs_updateglyphs"
+    ],
+    "99": [
+      "attunementvisuals",
+      "attunementvisuals_updateattunementvisuals"
+    ],
+    "100": [
+      "ferns",
+      "ferns_makefern"
+    ],
+    "101": [
+      "thornbloom",
+      "thornbloom_makethornbloom"
+    ],
+    "102": [
+      "veilmoss",
+      "veilmoss_makeveilmoss"
+    ],
+    "103": [
+      "spirithumvisuals",
+      "spirithumvisuals_updatespirithumvisuals"
+    ],
+    "104": [
+      "spiralfrond",
+      "spiralfrond_makespiralfrond"
+    ],
+    "105": [
+      "corpsebloom",
+      "corpsebloom_makecorpsebloom"
+    ],
+    "106": [
+      "helixvine",
+      "helixvine_makehelixvine"
+    ],
+    "107": [
+      "registration",
+      "registration_registerallsystems"
+    ],
+    "108": [
+      "lighting",
+      "lighting_initcrystallights"
+    ],
+    "109": [
+      "mushrooms",
+      "mushrooms_makemush"
+    ],
+    "110": [
+      "orbs",
+      "orbs_makeorb"
+    ],
+    "111": [
+      "bubbles",
+      "bubbles_makebubble"
+    ],
+    "112": [
+      "orbbush",
+      "orbbush_makeorbbush"
+    ],
+    "113": [
+      "audio",
+      "audio_togglemute"
+    ],
+    "114": [
+      "crystals",
+      "crystals_makecrystal"
+    ],
+    "115": [
+      "vite_config"
+    ],
+    "116": [
+      "vitest_config"
+    ],
+    "117": [
+      "constants"
+    ],
+    "118": [
+      "geometries"
+    ],
+    "119": [
+      "renderer"
+    ],
+    "120": [
+      "context_test"
+    ],
+    "121": [
+      "registry_test"
+    ],
+    "122": [
+      "scheduler_test"
+    ],
+    "123": [
+      "intro"
+    ],
+    "124": [
+      "fauna"
+    ],
+    "125": [
+      "math_test"
+    ],
+    "126": [
+      "rng_test"
+    ],
+    "127": [
+      "core_mandate_lights"
+    ],
+    "128": [
+      "core_mandate_drawcalls"
+    ],
+    "129": [
+      "core_mandate_allocations"
+    ],
+    "130": [
+      "mechanic_fairy_ring_boost"
+    ],
+    "131": [
+      "protocol_tep"
+    ],
+    "132": [
+      "phase_1"
+    ],
+    "133": [
+      "entity_flora"
+    ],
+    "134": [
+      "entity_magical"
+    ]
+  },
+  "cohesion": {
+    "0": 0.03,
+    "1": 0.05,
+    "2": 0.11,
+    "3": 0.08,
+    "4": 0.12,
+    "5": 0.12,
+    "6": 0.11,
+    "7": 0.16,
+    "8": 0.12,
+    "9": 0.12,
+    "10": 0.24,
+    "11": 0.23,
+    "12": 0.13,
+    "13": 0.23,
+    "14": 0.15,
+    "15": 0.14,
+    "16": 0.21,
+    "17": 0.24,
+    "18": 0.33,
+    "19": 0.36,
+    "20": 0.17,
+    "21": 0.17,
+    "22": 0.27,
+    "23": 0.2,
+    "24": 0.22,
+    "25": 0.36,
+    "26": 0.2,
+    "27": 0.2,
+    "28": 0.2,
+    "29": 0.25,
+    "30": 0.29,
+    "31": 0.29,
+    "32": 0.25,
+    "33": 0.43,
+    "34": 0.29,
+    "35": 0.33,
+    "36": 0.29,
+    "37": 0.52,
+    "38": 0.43,
+    "39": 0.29,
+    "40": 0.33,
+    "41": 0.4,
+    "42": 0.67,
+    "43": 0.47,
+    "44": 0.33,
+    "45": 0.47,
+    "46": 0.4,
+    "47": 0.33,
+    "48": 0.33,
+    "49": 0.5,
+    "50": 0.4,
+    "51": 0.4,
+    "52": 0.4,
+    "53": 0.4,
+    "54": 0.4,
+    "55": 0.5,
+    "56": 0.4,
+    "57": 0.6,
+    "58": 0.4,
+    "59": 0.4,
+    "60": 0.6,
+    "61": 0.4,
+    "62": 0.5,
+    "63": 0.5,
+    "64": 0.5,
+    "65": 0.5,
+    "66": 0.5,
+    "67": 0.5,
+    "68": 0.5,
+    "69": 0.67,
+    "70": 0.5,
+    "71": 0.5,
+    "72": 0.5,
+    "73": 0.67,
+    "74": 0.83,
+    "75": 0.5,
+    "76": 0.5,
+    "77": 0.5,
+    "78": 0.5,
+    "79": 0.67,
+    "80": 1.0,
+    "81": 0.67,
+    "82": 0.67,
+    "83": 0.67,
+    "84": 0.67,
+    "85": 0.67,
+    "86": 1.0,
+    "87": 0.67,
+    "88": 0.67,
+    "89": 0.67,
+    "90": 0.67,
+    "91": 0.67,
+    "92": 0.67,
+    "93": 1.0,
+    "94": 1.0,
+    "95": 1.0,
+    "96": 1.0,
+    "97": 1.0,
+    "98": 1.0,
+    "99": 1.0,
+    "100": 1.0,
+    "101": 1.0,
+    "102": 1.0,
+    "103": 1.0,
+    "104": 1.0,
+    "105": 1.0,
+    "106": 1.0,
+    "107": 1.0,
+    "108": 1.0,
+    "109": 1.0,
+    "110": 1.0,
+    "111": 1.0,
+    "112": 1.0,
+    "113": 1.0,
+    "114": 1.0,
+    "115": 1.0,
+    "116": 1.0,
+    "117": 1.0,
+    "118": 1.0,
+    "119": 1.0,
+    "120": 1.0,
+    "121": 1.0,
+    "122": 1.0,
+    "123": 1.0,
+    "124": 1.0,
+    "125": 1.0,
+    "126": 1.0,
+    "127": 1.0,
+    "128": 1.0,
+    "129": 1.0,
+    "130": 1.0,
+    "131": 1.0,
+    "132": 1.0,
+    "133": 1.0,
+    "134": 1.0
+  },
+  "gods": [
+    {
+      "id": "index_ctg4wacl_x",
+      "label": "X()",
+      "edges": 43
+    },
+    {
+      "id": "index_ctg4wacl_ra",
+      "label": "Ra()",
+      "edges": 36
+    },
+    {
+      "id": "index_ctg4wacl_vo",
+      "label": "vO()",
+      "edges": 31
+    },
+    {
+      "id": "index_ctg4wacl_la",
+      "label": "la()",
+      "edges": 27
+    },
+    {
+      "id": "index_ctg4wacl_cc",
+      "label": "Cc()",
+      "edges": 27
+    },
+    {
+      "id": "index_ctg4wacl_y",
+      "label": "Y()",
+      "edges": 21
+    },
+    {
+      "id": "index_ctg4wacl_ap",
+      "label": "ap()",
+      "edges": 20
+    },
+    {
+      "id": "index_ctg4wacl_fa",
+      "label": "fa()",
+      "edges": 19
+    },
+    {
+      "id": "index_ctg4wacl_fd",
+      "label": "fd()",
+      "edges": 19
+    },
+    {
+      "id": "index_ctg4wacl_hc",
+      "label": "hc()",
+      "edges": 18
+    }
+  ],
+  "surprises": [
+    {
+      "source": "updateMusic()",
+      "target": "playDrone()",
+      "source_files": [
+        "src\\systems\\audio\\music.js",
+        "src\\systems\\music.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "updateMusic()",
+      "target": "playBassPulse()",
+      "source_files": [
+        "src\\systems\\audio\\music.js",
+        "src\\systems\\music.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "updateMusic()",
+      "target": "generateHarpArpeggio()",
+      "source_files": [
+        "src\\systems\\audio\\music.js",
+        "src\\systems\\music.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "updateMusic()",
+      "target": "generateFlutePhrase()",
+      "source_files": [
+        "src\\systems\\audio\\music.js",
+        "src\\systems\\music.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "updateMusic()",
+      "target": "generateChimeCluster()",
+      "source_files": [
+        "src\\systems\\audio\\music.js",
+        "src\\systems\\music.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `X()` connect `Community 3` to `Community 0`, `Community 1`, `Community 2`, `Community 7`, `Community 8`, `Community 20`, `Community 22`, `Community 24`?",
+      "why": "High betweenness centrality (0.001) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Ra()` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 8`, `Community 9`, `Community 41`, `Community 40`, `Community 20`, `Community 24`?",
+      "why": "High betweenness centrality (0.001) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `vO()` connect `Community 7` to `Community 0`, `Community 1`, `Community 3`, `Community 8`, `Community 10`, `Community 12`, `Community 22`, `Community 30`?",
+      "why": "High betweenness centrality (0.000) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 42 inferred relationships involving `X()` (e.g. with `au()` and `lm()`) actually correct?",
+      "why": "`X()` has 42 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 35 inferred relationships involving `Ra()` (e.g. with `fa()` and `qa()`) actually correct?",
+      "why": "`Ra()` has 35 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 30 inferred relationships involving `vO()` (e.g. with `X()` and `Y()`) actually correct?",
+      "why": "`vO()` has 30 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 26 inferred relationships involving `la()` (e.g. with `da()` and `fa()`) actually correct?",
+      "why": "`la()` has 26 INFERRED edges - model-reasoned connections that need verification."
+    }
+  ]
+}

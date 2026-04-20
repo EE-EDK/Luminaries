@@ -15,6 +15,8 @@ export const Events = {
   CREATURE_ATTUNED:   'creature:attuned',
   ATTUNEMENT_FLASH:   'attunement:flash',
   PITCH_LOCKED:       'hum:locked',
+  ENTITY_MOOD_CHANGE: 'entity:mood',
+  SYMBIOSIS_COUPLED:  'symbiosis:coupled',
 
   // Player actions
   FOOTSTEP:           'player:footstep',
@@ -34,6 +36,7 @@ export const Events = {
   // Discovery / narrative
   DISCOVERY:          'discovery:trigger',
   NARRATIVE_TEXT:      'narrative:text',
+  PERSPECTIVE_CHANGED: 'narrative:perspectiveChanged',
 };
 
 // Pre-allocated listener arrays per event type

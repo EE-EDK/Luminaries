@@ -11,6 +11,9 @@ let reverbDelay = null;
 export let initialized = false;
 export let muted = false;
 
+// Environmental muffling filter
+export let muffleFilter = null;
+
 // Noise buffers (generated once)
 export let brownBuf = null;
 export let brownBuf2 = null;
@@ -135,6 +138,11 @@ export function initAudio() {
       masterGain = ctx.createGain();
       masterGain.gain.value = 0.42;
       masterGain.connect(ctx.destination);
+
+      muffleFilter = ctx.createBiquadFilter();
+      muffleFilter.type = 'lowpass';
+      muffleFilter.frequency.value = 20000;
+      muffleFilter.connect(masterGain);
 
       brownBuf = createNoiseBuffer('brown', 16);
       brownBuf2 = createNoiseBuffer('brown', 11);

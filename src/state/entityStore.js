@@ -4,7 +4,7 @@
 // Previously scattered across main.js module scope. Now importable
 // by any system that needs entity data, eliminating context bags.
 
-import { buildTreeHash } from '../utils/spatialHash.js';
+import { buildTreeHash, buildDynamicHash } from '../utils/spatialHash.js';
 
 export const trees_data = [];    // { x, z, y, treeH, yRot, scale }
 export let treeMeshes = [];      // InstancedMesh groups per template
@@ -49,3 +49,11 @@ export function setCrystalSortPos(px, pz) { crystalSortPX = px; crystalSortPZ = 
 
 // Build spatial hash for tree collision — call once after populate()
 export function initTreeHash(cellSize = 10) { buildTreeHash(trees_data, cellSize); }
+
+/**
+ * Rebuild dynamic spatial hash for all moving fauna.
+ * Call every frame before fauna updates.
+ */
+export function updateDynamicEntityHash() {
+  buildDynamicHash([jellies, puffs, deers, moths, luminids]);
+}

@@ -3,6 +3,9 @@ import { C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { GEO } from '../core/geometries.js';
 import { orbs } from '../state/entityStore.js';
+import { playerIdleTime } from '../core/player.js';
+import { getPlayerFrequency } from '../systems/attunement.js';
+import { getQuestState } from '../quest/questState.js';
 
 // InstancedMesh for dandelion seeds — single draw call
 // Uses Math.random() intentionally for continuous, unique runtime flutter/variation
@@ -50,8 +53,10 @@ export function spawnDandSeed(px, py, pz) {
 let _windX = 0, _windZ = 0, _windStr = 0;
 export function setSeedWind(wx, wz, ws) { _windX = wx; _windZ = wz; _windStr = ws; }
 
-export function updateDandSeeds(dt, t) {
+export function updateDandSeeds(dt, t, ctx) {
   let needsColorUpdate = false;
+  const _idle = ctx?.player?.idleTime !== undefined ? ctx.player.idleTime : playerIdleTime;
+  
   for (let i = 0; i < dandSeeds.length; i++) {
     const s = dandSeeds[i];
     if (!s.active) {
@@ -78,21 +83,25 @@ export function updateDandSeeds(dt, t) {
     s.vz += _windZ * 0.5 * dt;
 
     // Wave 2: Dandelion Seed Wayfinding — gentle bias toward nearest unfound orb
-    let nearestOrbPos = null, nearestD2 = Infinity;
-    for (let oi = 0; oi < orbs.length; oi++) {
-      const o = orbs[oi]; if (o.found) continue;
-      const dx = o.x - s.x, dz = o.z - s.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < nearestD2) { nearestD2 = d2; nearestOrbPos = o; }
-    }
-    if (nearestOrbPos) {
-      const dx = nearestOrbPos.x - s.x, dz = nearestOrbPos.z - s.z;
-      const d2pull = dx * dx + dz * dz;
-      if (d2pull > 0.01) {
-        // Approximate normalized pull without sqrt
-        const invD2 = 0.02 / d2pull;
-        s.vx += dx * invD2;
-        s.vz += dz * invD2;
+    // Only active when player is idle (>2s) or carrying a frequency (Item 5)
+    if (_idle > 2.0 || getPlayerFrequency() !== null) {
+      const qOrbs = getQuestState().orbs;
+      let nearestOrbPos = null, nearestD2 = Infinity;
+      for (let oi = 0; oi < qOrbs.length; oi++) {
+        const o = qOrbs[oi]; if (o.found) continue;
+        const dx = o.x - s.x, dz = o.z - s.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < nearestD2) { nearestD2 = d2; nearestOrbPos = o; }
+      }
+      if (nearestOrbPos) {
+        const dx = nearestOrbPos.x - s.x, dz = nearestOrbPos.z - s.z;
+        const d2pull = dx * dx + dz * dz;
+        if (d2pull > 0.01) {
+          // Approximate normalized pull without sqrt
+          const invD2 = 0.02 / d2pull;
+          s.vx += dx * invD2;
+          s.vz += dz * invD2;
+        }
       }
     }
 

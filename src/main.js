@@ -95,6 +95,9 @@ import { makeLaser } from './quest/lasers.js';
 import { togglePerspective, getPerspective } from './state/narrativeState.js';
 import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
+// Population
+import { populate as _populate } from './populate.js';
+
 // Systems
 import { initDayNight, updateDayNight, bioGlow, phase as dayPhase } from './systems/dayNightCycle.js';
 import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, lightningFlash, isStorming, getRainRate } from './systems/weather.js';
@@ -135,10 +138,34 @@ import {
   decayAttuneFlash, decayEchoTimer, decayFeatherFall, setFeatherFallTimer
 } from './state/gameState.js';
 
+// Kernel
+import { update as updateContext } from './kernel/context.js';
+import { run as runScheduler } from './kernel/scheduler.js';
+
+// Registration
+import { registerAllSystems, nearest } from './systems/registration.js';
+
+// Dimming
+import { initDimming, updateDimming, getLocalGlow } from './systems/dimming.js';
+
+// Echo Visions
+import { initEchoVisions, updateEchoVisions } from './systems/echoVisions.js';
+
+// Puffling Chat
+import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
+
+// Performance Monitor
+import { reportTimings, timeStart, timeEnd } from './systems/perfMonitor.js';
+
 // Visual subsystems (extracted from main.js)
 import { updateSpiritHumVisuals } from './updates/spiritHumVisuals.js';
 import { updateAttunementVisuals } from './updates/attunementVisuals.js';
 import { initCrystalVisuals, updateCrystalVisuals } from './updates/crystalVisuals.js';
+import { updateVegetation, updateFloraReactions } from './updates/vegetation.js';
+import { updatePlayerVisuals, updateCameraPan, triggerCameraPan } from './updates/playerVisuals.js';
+import { updateBubbles, updatePonds, updateWisps, updateEchoBloom, updateFairyRings as _updateFairyRings } from './updates/magicalEntities.js';
+import { spawnFireflies, spawnSpores, spawnWindParticles } from './updates/spawning.js';
+import { updateJellies as _updateJellies, updatePuffs as _updatePuffs, updateDeers as _updateDeers, updateMoths as _updateMoths, updateLuminids as _updateLuminids } from './updates/fauna.js';
 
 
 // ================================================================

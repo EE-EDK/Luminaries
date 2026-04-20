@@ -10,6 +10,9 @@ export const Events = {
   ORB_COLLECTED:      'orb:collected',
   ORB_REJECTED:       'orb:rejected',
   QUEST_PHASE:        'quest:phase',
+  ORB_FLY_START:      'quest:orbFlyStart',
+  ORB_LASER_START:    'quest:orbLaserStart',
+  WORLD_TRANSFORMED:  'quest:worldTransformed',
 
   // Creature interaction
   CREATURE_ATTUNED:   'creature:attuned',

@@ -193,9 +193,9 @@ export function initQuestVisuals(config) {
   // Listen to state events
   on(Events.ORB_COLLECTED, onOrbCollected);
   on(Events.ORB_REJECTED, onOrbRejected);
-  on('quest:orbFlyStart', (d) => { if (playOrbWarbleFn) playOrbWarbleFn(); });
-  on('quest:orbLaserStart', onOrbLaserStart);
-  on('quest:worldTransformed', transformTreesAndGround);
+  on(Events.ORB_FLY_START, (d) => { if (playOrbWarbleFn) playOrbWarbleFn(); });
+  on(Events.ORB_LASER_START, onOrbLaserStart);
+  on(Events.WORLD_TRANSFORMED, transformTreesAndGround);
 }
 
 function onOrbCollected(d) {

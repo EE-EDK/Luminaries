@@ -88,7 +88,7 @@ export function updateQuestState(dt) {
     _transformTimer += dt;
     if (_transformTimer >= 6 && !_transformDone) {
       _transformDone = true;
-      emit('quest:worldTransformed');
+      emit(Events.WORLD_TRANSFORMED);
     }
     if (_transformTimer >= 20) {
       _questPhase = 'FREE_ROAM';
@@ -110,7 +110,7 @@ export function updateQuestState(dt) {
         if (o.flashTimer > 1.5) {
           o.flashing = false;
           o.flyUp = true;
-          emit('quest:orbFlyStart', { index: i });
+          emit(Events.ORB_FLY_START, { index: i });
         }
       }
       if (o.flyUp) {
@@ -119,7 +119,7 @@ export function updateQuestState(dt) {
         if (o.flyY > targetY - 1) {
           o.flyUp = false;
           o.laserActive = true;
-          emit('quest:orbLaserStart', { index: i });
+          emit(Events.ORB_LASER_START, { index: i });
         }
       }
     }

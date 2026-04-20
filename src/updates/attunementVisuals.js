@@ -10,7 +10,8 @@ import { updateAttunement, getAttunementTarget, getFlashCreaturePos, checkFlash 
 import { playAttunementFlash } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
-import { getPerspective, showNarrativeText } from '../systems/discoveries.js';
+import { getPerspective } from '../state/narrativeState.js';
+import { showNarrativeText } from '../systems/discoveries.js';
 import { puffs } from '../state/entityStore.js';
 import { attuneFlashTimer, attuneFlashType, setAttuneFlash, setEchoTimer } from '../state/gameState.js';
 import { nearest } from '../systems/registration.js';

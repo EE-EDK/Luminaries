@@ -121,3 +121,78 @@ export function showFreeRoamText() {
   const text = perspective === 'child' ? 'A New Dawn for the Forest' : 'Stable Equilibrium Achieved';
   showNarrativeText(text, 12.0);
 }
+
+// ================================================================
+// Proximity-Based First Encounter Discoveries
+// ================================================================
+const DISCOVERY_RANGE_SQ = 64; // 8m squared
+
+export function checkDiscoveries(pos, deers, puffs, jellies, moths, fairyRings, ponds) {
+  const px = pos.x, pz = pos.z;
+  checkEntityGroup(px, pz, deers, 'deer');
+  checkEntityGroup(px, pz, puffs, 'puffling');
+  checkEntityGroup(px, pz, jellies, 'jelly');
+  checkEntityGroup(px, pz, moths, 'moth');
+  checkEntityGroup(px, pz, fairyRings, 'fairyRing');
+  checkEntityGroup(px, pz, ponds, 'pond');
+}
+
+function checkEntityGroup(px, pz, entities, key) {
+  if (isDiscovered(key) || !entities || entities.length === 0) return;
+  for (let i = 0; i < entities.length; i++) {
+    const e = entities[i];
+    const ep = e.position || e;
+    const dx = (ep.x || 0) - px, dz = (ep.z || 0) - pz;
+    if (dx * dx + dz * dz < DISCOVERY_RANGE_SQ) {
+      showDiscovery(key);
+      return;
+    }
+  }
+}
+
+// ================================================================
+// Idle Hints
+// ================================================================
+const IDLE_HINTS_CHILD = [
+  'Try walking toward the glowing things...',
+  'Hold RIGHT-CLICK to hum and wake the creatures',
+  'Find 5 orbs hidden in the forest',
+  'Some mushroom circles let you super-jump!'
+];
+const IDLE_HINTS_ADULT = [
+  'Navigate toward bioluminescent signatures...',
+  'Engage resonance tuning (RIGHT-CLICK) for fauna interface',
+  'Locate 5 frequency nodes distributed across the biome',
+  'Mycelial relay nodes amplify vertical displacement'
+];
+let lastHintIndex = -1;
+let hintCooldown = 0;
+
+export function checkIdleHints(idleTime) {
+  if (hintCooldown > 0) { hintCooldown -= 0.016; return; }
+  if (idleTime < 15) return;
+  const perspective = getPerspective();
+  const hints = perspective === 'child' ? IDLE_HINTS_CHILD : IDLE_HINTS_ADULT;
+  lastHintIndex = (lastHintIndex + 1) % hints.length;
+  showNarrativeText(hints[lastHintIndex], 4.0);
+  hintCooldown = 30;
+}
+
+// ================================================================
+// Orb Interaction Hints
+// ================================================================
+export function showOrbRejectHint() {
+  const perspective = getPerspective();
+  const text = perspective === 'child'
+    ? 'The orb doesn\'t like that sound...'
+    : 'Frequency mismatch — recalibrate resonance';
+  showNarrativeText(text, 3.0);
+}
+
+export function showOrbListening() {
+  const perspective = getPerspective();
+  const text = perspective === 'child'
+    ? 'The orb is listening...'
+    : 'Node entering receptive state...';
+  showNarrativeText(text, 2.5);
+}

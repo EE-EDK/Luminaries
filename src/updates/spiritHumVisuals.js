@@ -9,7 +9,8 @@ import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumP
 import { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
-import { getPerspective, showNarrativeText } from '../systems/discoveries.js';
+import { getPerspective } from '../state/narrativeState.js';
+import { showNarrativeText } from '../systems/discoveries.js';
 import { setAttuneFlash, setHumResonance } from '../state/gameState.js';
 import { nearest } from '../systems/registration.js';
 

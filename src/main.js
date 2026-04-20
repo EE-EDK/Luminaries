@@ -93,7 +93,7 @@ import { makeLaser } from './quest/lasers.js';
 
 // Narrative
 import { togglePerspective, getPerspective } from './state/narrativeState.js';
-import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, updateDiscoveryUI, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
+import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
 // Systems
 import { initDayNight, updateDayNight, bioGlow, phase as dayPhase } from './systems/dayNightCycle.js';

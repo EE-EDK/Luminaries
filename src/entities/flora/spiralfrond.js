@@ -8,30 +8,52 @@ import { sr } from '../../utils/rng.js';
 // bioluminescent tips, and a central stem
 // ================================================================
 
+const _stemMat = new MeshStandardMaterial({
+  color: C.spiralStem, roughness: 0.7,
+  emissive: C.spiralFrond, emissiveIntensity: 0.06
+});
+
+const _leafMat = new MeshStandardMaterial({
+  color: 0x1a4430, emissive: 0x0a1a10, emissiveIntensity: 0.05,
+  side: DoubleSide
+});
+
+const _frondMat = new MeshStandardMaterial({
+  color: C.spiralFrond, emissive: C.spiralGlow,
+  emissiveIntensity: 0.12, roughness: 0.5
+});
+
+const _leafletMat = new MeshStandardMaterial({
+  color: C.spiralFrond, emissive: C.spiralGlow,
+  emissiveIntensity: 0.08, side: DoubleSide
+});
+
+const _hazeMat = new MeshBasicMaterial({
+  color: C.spiralGlow, transparent: true, opacity: 0.04,
+  blending: AdditiveBlending, depthWrite: false
+});
+
+const _rootMat = new MeshStandardMaterial({
+  color: 0x1a2830, roughness: 0.85,
+  emissive: 0x0a1510, emissiveIntensity: 0.04
+});
+
 export function makeSpiralFrond(x, z) {
   const g = new Group();
   const h = 1.2 + sr() * 0.8; // 1.2-2.0m
   const frondN = 3 + Math.floor(sr() * 3); // 3-5 fronds
 
   // --- Central stem ---
-  const stemMat = new MeshStandardMaterial({
-    color: C.spiralStem, roughness: 0.7,
-    emissive: C.spiralFrond, emissiveIntensity: 0.06
-  });
   const stem = new Mesh(
-    new CylinderGeometry(0.02, 0.05, h, 5), stemMat
+    new CylinderGeometry(0.02, 0.05, h, 5), _stemMat
   );
   stem.position.y = h / 2;
   g.add(stem);
 
   // --- Base rosette leaves ---
-  const leafMat = new MeshStandardMaterial({
-    color: 0x1a4430, emissive: 0x0a1a10, emissiveIntensity: 0.05,
-    side: DoubleSide
-  });
   for (let i = 0; i < 3; i++) {
     const la = sr() * 6.28;
-    const leaf = new Mesh(new PlaneGeometry(0.12, 0.2), leafMat);
+    const leaf = new Mesh(new PlaneGeometry(0.12, 0.2), _leafMat);
     leaf.position.set(Math.cos(la) * 0.1, h * 0.12, Math.sin(la) * 0.1);
     leaf.rotation.y = -la;
     leaf.rotation.x = -0.7;
@@ -64,12 +86,8 @@ export function makeSpiralFrond(x, z) {
     const curve = new CatmullRomCurve3(points);
 
     // Frond tube
-    const frondMat = new MeshStandardMaterial({
-      color: C.spiralFrond, emissive: C.spiralGlow,
-      emissiveIntensity: 0.12, roughness: 0.5
-    });
     const tube = new Mesh(
-      new TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), frondMat
+      new TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), _frondMat
     );
     g.add(tube);
 
@@ -79,11 +97,7 @@ export function makeSpiralFrond(x, z) {
       const lt = 0.2 + (li / leafletN) * 0.6;
       const lPt = curve.getPoint(lt);
       const leaflet = new Mesh(
-        new PlaneGeometry(0.04, 0.06),
-        new MeshStandardMaterial({
-          color: C.spiralFrond, emissive: C.spiralGlow,
-          emissiveIntensity: 0.08, side: DoubleSide
-        })
+        new PlaneGeometry(0.04, 0.06), _leafletMat
       );
       leaflet.position.copy(lPt);
       leaflet.rotation.set(sr() * 1.5, sr() * 3, sr() * 1.5);
@@ -105,25 +119,17 @@ export function makeSpiralFrond(x, z) {
 
     // Tip haze
     const haze = new Mesh(
-      new SphereGeometry(0.07, 4, 3),
-      new MeshBasicMaterial({
-        color: C.spiralGlow, transparent: true, opacity: 0.04,
-        blending: AdditiveBlending, depthWrite: false
-      })
+      new SphereGeometry(0.07, 4, 3), _hazeMat
     );
     haze.position.copy(tipPt);
     g.add(haze);
   }
 
   // --- Root tendrils at base ---
-  const rootMat = new MeshStandardMaterial({
-    color: 0x1a2830, roughness: 0.85,
-    emissive: 0x0a1510, emissiveIntensity: 0.04
-  });
   for (let i = 0; i < 3; i++) {
     const ra = (i / 3) * 6.28 + sr() * 0.5;
     const root = new Mesh(
-      new CylinderGeometry(0.006, 0.018, 0.15 + sr() * 0.1, 3), rootMat
+      new CylinderGeometry(0.006, 0.018, 0.15 + sr() * 0.1, 3), _rootMat
     );
     root.position.set(Math.cos(ra) * 0.06, 0.04, Math.sin(ra) * 0.06);
     root.rotation.z = (ra < 3.14 ? 0.8 : -0.8);

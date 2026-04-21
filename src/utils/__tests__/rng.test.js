@@ -46,4 +46,19 @@ describe('rng', () => {
     const unique = new Set(vals);
     expect(unique.size).toBeGreaterThan(1);
   });
+
+  it('distribution is roughly uniform', () => {
+    const bins = new Array(10).fill(0);
+    const iterations = 10000;
+    for (let i = 0; i < iterations; i++) {
+      const v = sr();
+      const bin = Math.floor(v * 10);
+      if (bin === 10) bins[9]++;
+      else bins[bin]++;
+    }
+    for (const count of bins) {
+      expect(count).toBeGreaterThan(700);
+      expect(count).toBeLessThan(1300);
+    }
+  });
 });

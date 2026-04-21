@@ -90,6 +90,26 @@ describe('eventBus', () => {
     expect(called).toHaveLength(3);
   });
 
+  it('one listener removing a different listener during dispatch', () => {
+    const called = [];
+    const fn1 = () => { called.push('fn1'); };
+    const fn2 = () => { called.push('fn2'); };
+    const fn3 = () => {
+      called.push('fn3');
+      off(Events.JUMP, fn2);
+    };
+
+    on(Events.JUMP, fn1);
+    on(Events.JUMP, fn2);
+    on(Events.JUMP, fn3);
+
+    emit(Events.JUMP);
+
+    // Reverse iteration: fn3 runs first (removes fn2), fn3 runs again (shifted index), fn1 runs.
+    // Documents known limitation of reverse-iteration dispatch.
+    expect(called).toEqual(['fn3', 'fn3', 'fn1']);
+  });
+
   it('subscribing during dispatch does not fire the new listener in same cycle', () => {
     let lateCalled = false;
     on(Events.LAND, () => {

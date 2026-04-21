@@ -96,6 +96,22 @@ describe('scheduler', () => {
     expect(list()).toHaveLength(2);
   });
 
+  it('removeSystem during run takes effect immediately for subsequent systems', () => {
+    let callCount = 0;
+    addSystem('killer', 10, () => {
+      removeSystem('target');
+    });
+    addSystem('target', 20, () => {
+      callCount++;
+    });
+
+    run(0.016, 0);
+    expect(callCount).toBe(0);
+
+    run(0.016, 0);
+    expect(callCount).toBe(0);
+  });
+
   it('removeSystem with nonexistent name is a no-op', () => {
     addSystem('real', 10, () => {});
     expect(() => removeSystem('ghost')).not.toThrow();

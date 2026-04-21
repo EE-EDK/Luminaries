@@ -44,7 +44,7 @@ export const dynamicLights = [];
 const lightRequests = [];
 
 export function initLightPooler() {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < MAX_CRYSTAL_LIGHTS; i++) {
     const pl = new PointLight(0xffffff, 0, 10);
     scene.add(pl);
     dynamicLights.push(pl);
@@ -85,7 +85,8 @@ export function updateLightPooler() {
 
 // Legacy exports for compatibility (now handled by pooler)
 export const crystalLights = dynamicLights;
-export const orbLight = null; // Should be handled via requestLight now
+export const orbLight = new PointLight(C.orbGold, 0, 20);
+scene.add(orbLight);
 
 export function initCrystalLights() {
   initLightPooler();

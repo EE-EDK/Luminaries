@@ -5,8 +5,9 @@ import { makePuff } from '../entities/fauna/pufflings.js';
 
 /** Cumulative time moving (not wall-clock) before spawn — ~1 min of walking */
 const TRIGGER_WANDER_SECONDS = 50;
-const APPROACH_MIN_SEC = 5;
-const APPROACH_MAX_SEC = 10;
+const APPROACH_MIN_SEC = 4;
+/** Must cover hop-throttled run from ~16–24 m spawn; 10s was often timing out mid-approach */
+const APPROACH_MAX_SEC = 14;
 /** Minimum horizontal distance (m) wizard ↔ player — avoids overlap + unstable look-at yaw */
 const WIZARD_STANDOFF = 1.75;
 /** Acceptable error (m) from ideal standoff point before approach can end */
@@ -104,7 +105,7 @@ function clearCameraForce() {
 
 function spawnWizardNearPlayer(playerPos, yaw) {
   const spawnAng = yaw + (Math.random() < 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.5);
-  const spawnDist = 18 + Math.random() * 8;
+  const spawnDist = 16 + Math.random() * 8;
   const sx = playerPos.x + Math.sin(spawnAng) * spawnDist;
   const sz = playerPos.z + Math.cos(spawnAng) * spawnDist;
   _wizard = makePuff(sx, sz, {
@@ -244,8 +245,9 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     }
     _wizard.wanderAng = Math.atan2(ux, uz);
     const hop = Math.abs(Math.sin(t * 14 + _wizard.phase));
-    const move = hop > 0.12 ? 1 : 0.28;
-    const runSpeed = _wizard.speed * (0.75 + hop * 0.5);
+    // Keep meaningful ground speed between hops (0.28 stalled too many approaches before MAX timeout)
+    const move = hop > 0.12 ? 1 : 0.58;
+    const runSpeed = _wizard.speed * (0.78 + hop * 0.48);
 
     const slotX = px + ux * WIZARD_STANDOFF;
     const slotZ = pz + uz * WIZARD_STANDOFF;
@@ -303,7 +305,10 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 8.5) * 0.08;
     enforceWizardStandoff(g, ctx.player.pos);
-    g.rotation.y += Math.sin(t * 16) * dt * 0.8;
+    const px = ctx.player.pos.x;
+    const pz = ctx.player.pos.z;
+    const facePlayer = Math.atan2(px - g.position.x, pz - g.position.z);
+    g.rotation.y = facePlayer + Math.sin(t * 12 + _wizard.phase) * 0.14;
     if (_wizard.mouth) {
       _wizard._talkTimer = Math.max(0, (_wizard._talkTimer || 0) - dt);
       if (_wizard._talkTimer > 0) {

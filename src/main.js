@@ -576,6 +576,9 @@ function animate() {
     setGravityMult(1.0);
   }
   updatePlayer(dt);
+  // Sync camera to player *before* wizard event so look-at physics match current player (not T-1 frame).
+  camera.position.copy(player.pos);
+  camera.position.y += cameraBobY;
   const wizardCam = updateWizardPufflingEvent(dt, elapsed, {
     player,
     cameraPos: camera.position,
@@ -586,8 +589,6 @@ function animate() {
   const flyC = updateFlies(dt, elapsed);
   const spC = updateSpores(dt);
 
-  camera.position.copy(player.pos);
-  camera.position.y += cameraBobY;
   camera.rotation.order = 'YXZ';
 
   // Constellation camera pan — smoothly override yaw/pitch

@@ -23,16 +23,16 @@ import { initEffects, animateTitle, cleanupEffects } from './effects.js';
 // ================================================================
 const NARRATION = [
   {
-    fantasy: 'Once, this forest sang.',
-    terminal: '// BIOSENSOR ARRAY v4.2 — Historical luminance baseline detected'
+    fantasy: 'The Archive woke before you did.',
+    terminal: '// BOOT LOG v5.1 — Observer handshake accepted // Luminance memory stream online'
   },
   {
-    fantasy: 'Every root hummed with light. Every canopy blazed. Then the glow began to dim. The songs grew quiet. Five anchors of light remain, buried beneath the dark.',
-    terminal: '// Bioluminescent network coverage: 100% — Symbiotic frequency: NOMINAL. // WARNING: Sector luminance decay — 73% loss over 2,400 cycles. // 5 restoration nodes offline — Awaiting frequency carrier activation'
+    fantasy: 'Once, every root carried dawn. Then a quiet fracture spread through the canopy. Five anchors still burn beneath the dark, waiting for a living frequency to find them.',
+    terminal: '// Network integrity degraded: 73% // Anchor nodes online: 0/5 // Recovery path: restore field resonance via fauna-linked carrier'
   },
   {
-    fantasy: 'The creatures still remember the old harmony. Listen to them. Move with them. Carry their voice to the light.',
-    terminal: '// Native fauna vocalizations contain encoded frequency patterns. // PROTOCOL: Attune to carrier organisms → Transport frequency → Restore nodes'
+    fantasy: 'The creatures remember what the trees forgot. Match their rhythm. Carry their chorus. Return their signal to the sleeping gold.',
+    terminal: '// Fauna channels contain synchronized key frequencies // Protocol: attune -> carry -> uplink -> rekindle'
   }
 ];
 

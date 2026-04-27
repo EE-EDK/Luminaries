@@ -19,6 +19,7 @@ import { debugForcePitchLock, resetLock } from '../systems/spiritHum.js';
 import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
 import { debugGrantOrbs } from '../quest/questState.js';
 import { unlockTruthControlHint } from '../core/input.js';
+import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -94,6 +95,7 @@ function buildHelpText() {
   unlockSequence(delayMs?, ['jelly','deer',…])   — chained demo (default ${1800}ms)
   unlockAllCreatures()                           — fire all four (stagger 400ms); last = puff carrier
   grantOrbs(n)                                  — quest orbs 0–5 (no walking; fires ORB_COLLECTED)
+  spawnWizard()                                  — start wizard encounter immediately (camera tracks him)
   unlockTruth()                                 — TAB discovery hint in control bar
   resetAttune()                                  — consumeFrequency + resetLock
   stopSequence()                                 — cancel pending unlockSequence`;
@@ -142,6 +144,10 @@ export function attachLumiDebugApi() {
 
     grantOrbs(n) {
       debugGrantOrbs(n);
+    },
+
+    spawnWizard() {
+      return debugSpawnWizardEncounter();
     },
 
     unlockTruth() {

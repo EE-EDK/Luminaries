@@ -3,10 +3,20 @@ import { scene } from '../core/renderer.js';
 import { C } from '../constants.js';
 import { makePuff } from '../entities/fauna/pufflings.js';
 import { playWizardApproachLaLa } from './audio/creatures.js';
-import { humFreqArmed } from '../core/input.js';
+import { humFreqArmed, yaw } from '../core/input.js';
+import { player } from '../core/player.js';
+
+/**
+ * When true: short wander trigger, approach ends at 'halt' (no confront/beam/smite),
+ * camera stays on player during approach (easy to lose sight of wizard).
+ * When false: full cinematic — camera locks onto wizard; TAB / hum / smite flow.
+ */
+export const WIZARD_APPROACH_DEBUG_ONLY = false;
 
 /** Cumulative time moving (not wall-clock) before spawn — ~1 min of walking */
 const TRIGGER_WANDER_SECONDS = 50;
+/** Fast trigger when WIZARD_APPROACH_DEBUG_ONLY */
+const TRIGGER_WANDER_SECONDS_DEBUG = 6;
 const APPROACH_MIN_SEC = 4;
 /** Must cover hop-throttled run from ~16–24 m spawn; 10s was often timing out mid-approach */
 const APPROACH_MAX_SEC = 14;
@@ -121,8 +131,10 @@ function clearCameraForce() {
   _cameraForced = false;
 }
 
-function spawnWizardNearPlayer(playerPos, yaw) {
-  const spawnAng = yaw + (Math.random() < 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.5);
+function spawnWizardNearPlayer(playerPos, yawRad) {
+  /** Wide side angles (±~50–80°) kept the spawn outside the forward view cone — felt “invisible”. */
+  const spawnSpread = (Math.random() - 0.5) * 1.05;
+  const spawnAng = yawRad + spawnSpread;
   const spawnDist = 16 + Math.random() * 8;
   const sx = playerPos.x + Math.sin(spawnAng) * spawnDist;
   const sz = playerPos.z + Math.cos(spawnAng) * spawnDist;
@@ -157,6 +169,25 @@ function spawnWizardNearPlayer(playerPos, yaw) {
       mat.opacity = Math.max(mat.opacity, 0.92);
     }
   });
+  /** Strong read in moonlight / fog — applies to all builds (not only debug-only mode). */
+  if (_wizard.bodyMat) {
+    _wizard.bodyMat.emissive.setHex(0xffaa66);
+    _wizard.bodyMat.emissiveIntensity = 2.4;
+    _wizard.bodyMat.color.setHex(0xffeee6);
+    if (_wizard.bellyMat) {
+      _wizard.bellyMat.emissiveIntensity = 1.2;
+      _wizard.bellyMat.emissive.setHex(0xffcc99);
+    }
+    if (_wizard.crownMat) {
+      _wizard.crownMat.emissive.setHex(0xaa77ff);
+      _wizard.crownMat.emissiveIntensity = 2.2;
+    }
+    if (_wizard.core && _wizard.core.material) {
+      _wizard.core.material.opacity = 1;
+      _wizard.core.material.color.setHex(0xffddaa);
+    }
+  }
+  _wizard.group.updateMatrixWorld(true);
   /** First “la-la” phrase triggers on the next approach tick (timer starts above threshold). */
   _laLaTimer = 3;
   _deadSoulShown = false;
@@ -256,9 +287,12 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
   if (_state === 'done') return null;
 
   const speed2 = ctx.player.vel.x * ctx.player.vel.x + ctx.player.vel.z * ctx.player.vel.z;
+  const wanderTh = WIZARD_APPROACH_DEBUG_ONLY
+    ? TRIGGER_WANDER_SECONDS_DEBUG
+    : TRIGGER_WANDER_SECONDS;
   if (_state === 'idle') {
     if (speed2 > 0.06) _movingTimer += dt;
-    if (_movingTimer >= TRIGGER_WANDER_SECONDS) {
+    if (_movingTimer >= wanderTh) {
       spawnWizardNearPlayer(ctx.player.pos, ctx.yaw);
       _state = 'approach';
       _phaseTimer = 0;
@@ -271,17 +305,19 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
   const focusVec = { x: 0, y: 0, z: 0 };
 
   if (_state === 'approach' && _wizard) {
-    if (!_approachHintShown) {
+    if (!WIZARD_APPROACH_DEBUG_ONLY && !_approachHintShown) {
       _approachHintShown = true;
       if (_showNarrativeText) _showNarrativeText(APPROACH_HINT_TEXT, APPROACH_HINT_SEC);
     }
     _phaseTimer += dt;
     const g = _wizard.group;
     const so = _wizard._standoffR;
-    _laLaTimer += dt;
-    if (_laLaTimer >= 2.35) {
-      _laLaTimer = 0;
-      playWizardApproachLaLa({ x: g.position.x, z: g.position.z }, ctx.player.pos);
+    if (!WIZARD_APPROACH_DEBUG_ONLY) {
+      _laLaTimer += dt;
+      if (_laLaTimer >= 2.35) {
+        _laLaTimer = 0;
+        playWizardApproachLaLa({ x: g.position.x, z: g.position.z }, ctx.player.pos);
+      }
     }
     const px = ctx.player.pos.x;
     const pz = ctx.player.pos.z;
@@ -341,17 +377,40 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _phaseTimer >= APPROACH_MIN_SEC &&
       (err < STANDOFF_ARRIVE_TOL || _phaseTimer >= APPROACH_MAX_SEC);
     if (canEndApproach) {
-      _state = 'confront';
-      _phaseTimer = 0;
-      _confrontT = 0;
       _wizard.shell.rotation.x = 0;
       _wizard.shell.rotation.z = 0;
       _wizard.shell.scale.set(1, 1, 1);
+      if (WIZARD_APPROACH_DEBUG_ONLY) {
+        clearCameraForce();
+        _state = 'halt';
+        _phaseTimer = 0;
+      } else {
+        _state = 'confront';
+        _phaseTimer = 0;
+        _confrontT = 0;
+      }
     }
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
     focusVec.z = g.position.z;
+    if (WIZARD_APPROACH_DEBUG_ONLY) return null;
     return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
+  }
+
+  /** Debug milestone: stand at standoff facing player; no TAB/beam/hum flow. */
+  if (_state === 'halt' && _wizard) {
+    const g = _wizard.group;
+    const so = _wizard._standoffR;
+    const px = ctx.player.pos.x;
+    const pz = ctx.player.pos.z;
+    const hop = Math.abs(Math.sin(t * 11 + _wizard.phase));
+    const baseY = _getGroundY(g.position.x, g.position.z);
+    g.position.y = baseY + hop * 0.14;
+    enforceWizardStandoff(g, ctx.player.pos, so);
+    g.rotation.y = Math.atan2(px - g.position.x, pz - g.position.z);
+    _wizard.shell.rotation.x *= 0.92;
+    _wizard.shell.rotation.z *= 0.92;
+    return null;
   }
 
   if (_state === 'confront' && _wizard) {
@@ -545,4 +604,34 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
   }
 
   return null;
+}
+
+/**
+ * Jump straight into an active approach encounter (for LumiDebug). Resets a finished encounter.
+ * @returns {boolean}
+ */
+export function debugSpawnWizardEncounter() {
+  if (!_getGroundY) return false;
+  cleanupLaser();
+  if (_smoke) {
+    for (let i = 0; i < _smoke.particles.length; i++) {
+      const p = _smoke.particles[i];
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+    }
+    _smoke = null;
+  }
+  removeWizard();
+  clearCameraForce();
+  _movingTimer = 0;
+  _phaseTimer = 0;
+  _approachHintShown = false;
+  _deadSoulShown = false;
+  _confrontT = 0;
+  _waitHumT = 0;
+  _laLaTimer = 3;
+  spawnWizardNearPlayer(player.pos, yaw);
+  _state = 'approach';
+  return true;
 }

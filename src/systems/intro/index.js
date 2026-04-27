@@ -133,12 +133,12 @@ const SWEEP_DURATION = 8.0;
 const NARRATION_FADE = 2.0; // fade in/out duration (fantasy + terminal)
 /** Delay before terminal typing starts after card becomes visible. */
 const NARRATION_TYPING_DELAY = 0.55;
-/** Terminal typing speed (shared with estimateTypingDuration). */
-const NARRATION_CHARS_PER_SEC = 22;
+/** Terminal typing speed (shared with estimateTypingDuration). Slower = easier to follow. */
+const NARRATION_CHARS_PER_SEC = 18;
 /** Minimum time after last typed character before card can end (read beat). */
-const NARRATION_HOLD_AFTER_TYPING = 1.0;
+const NARRATION_HOLD_AFTER_TYPING = 1.5;
 /** Longer hold for 2nd / 3rd cards (more text — extra time to read). */
-const NARRATION_HOLD_AFTER_TYPING_LONG = 4.25;
+const NARRATION_HOLD_AFTER_TYPING_LONG = 6.4;
 /** Minimum visible window so fantasy layer can fade in / hold / fade out. */
 const NARRATION_MIN_VIS = 2 * NARRATION_FADE + 1.5;
 
@@ -297,12 +297,12 @@ export function initIntro(completeFn) {
   // ================================================================
   fantasyEl = document.createElement('div');
   fantasyEl.style.cssText =
-    'position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:clamp(20px,6vh,72px);left:50%;transform:translate(-50%,0);' +
     'width:min(82vw,860px);' +
     'font-family:Georgia,serif;font-size:clamp(19px,2.45vw,31px);color:#d8fff1;letter-spacing:1.2px;' +
     'text-shadow:0 0 14px rgba(100,255,200,.6),0 0 30px rgba(50,200,150,.3);' +
-    'text-align:center;line-height:1.5;opacity:0;' +
-    'padding:16px 22px;border-radius:14px;' +
+    'text-align:center;line-height:1.58;opacity:0;' +
+    'padding:18px 22px 22px 22px;border-radius:14px;' +
     'background:linear-gradient(180deg,rgba(20,42,36,0.48) 0%,rgba(9,24,20,0.38) 100%);' +
     'border:1px solid rgba(110,255,195,0.2);' +
     'box-shadow:0 8px 28px rgba(0,0,0,0.35), inset 0 0 24px rgba(90,255,200,0.08);' +
@@ -312,12 +312,12 @@ export function initIntro(completeFn) {
   // Terminal text layer (lower center, monospace, green)
   terminalEl = document.createElement('div');
   terminalEl.style.cssText =
-    'position:absolute;top:60%;left:50%;transform:translate(-50%,-50%);' +
+    'position:absolute;top:auto;left:50%;transform:translate(-50%,0);' +
     'width:min(82vw,860px);' +
     'font-family:\'Courier New\',monospace;font-size:clamp(12px,1.25vw,14px);color:#9ccc85;letter-spacing:.6px;' +
     'text-shadow:0 0 6px rgba(100,180,60,.4),0 0 15px rgba(60,120,30,.2);' +
-    'text-align:left;line-height:1.45;opacity:0;' +
-    'padding:14px 18px;border-radius:12px;' +
+    'text-align:left;line-height:1.52;opacity:0;' +
+    'padding:16px 18px 18px 18px;border-radius:12px;' +
     'background:linear-gradient(180deg,rgba(16,27,12,0.62) 0%,rgba(8,16,6,0.5) 100%);' +
     'border:1px solid rgba(136,204,102,0.24);' +
     'box-shadow:0 8px 22px rgba(0,0,0,0.34), inset 0 0 16px rgba(120,200,90,0.08);' +
@@ -450,7 +450,7 @@ export function updateIntro(dt, camera) {
     case 'NARRATION': {
       narrationCardTime += dt;
 
-      const DARK_GAP = 1.5;
+      const DARK_GAP = 2.25;
       const typingDelay = NARRATION_TYPING_DELAY;
       const card = NARRATION[narrationIndex];
       const terminalText = card.terminalLines.join('\n');
@@ -471,24 +471,13 @@ export function updateIntro(dt, camera) {
         fantasyEl.style.opacity = '0';
         terminalEl.style.opacity = '0';
       } else {
-        // Card 0: fixed comfortable split. Cards 2–3: top-anchored fantasy + terminal placed
-        // below measured fantasy box so multi-line prose + growing // terminal never overlap.
-        if (narrationIndex === 0) {
-          fantasyEl.style.top = '34%';
-          fantasyEl.style.transform = 'translate(-50%, -50%)';
-          terminalEl.style.top = '60%';
-          terminalEl.style.bottom = 'auto';
-          terminalEl.style.left = '50%';
-          terminalEl.style.transform = 'translate(-50%, -50%)';
-          terminalEl.style.maxHeight = '';
-          terminalEl.style.overflowY = '';
-        } else {
-          // Top-anchored fantasy — terminal Y is derived from offsetHeight (same offsetParent as terminal)
-          // so we never overlap; getBoundingClientRect was fragile on 2nd/3rd tall cards.
-          fantasyEl.style.top = 'clamp(20px, 6vh, 72px)';
-          fantasyEl.style.transform = 'translate(-50%, 0)';
-          fantasyEl.style.marginBottom = '0';
-        }
+        // Top-anchored fantasy for every card; terminal Y = below measured fantasy box.
+        // (Old card-0 used % + translate(-50%,-50%) so growing typed / multiline fantasy + terminal
+        // expanded from their centers and collided.)
+        fantasyEl.style.top =
+          narrationIndex === 0 ? 'clamp(22px, 7vh, 88px)' : 'clamp(18px, 5.5vh, 68px)';
+        fantasyEl.style.transform = 'translate(-50%, 0)';
+        fantasyEl.style.marginBottom = '0';
         if (visTime < NARRATION_FADE) {
           fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
         } else if (visTime > visDuration - NARRATION_FADE) {
@@ -515,9 +504,9 @@ export function updateIntro(dt, camera) {
         }
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
-        if (narrationIndex >= 1) {
-          const gapPx = Math.max(48, Math.min(88, window.innerHeight * 0.06));
-          const bottomPad = Math.max(20, window.innerHeight * 0.05);
+        {
+          const gapPx = Math.max(80, Math.min(160, window.innerHeight * 0.1));
+          const bottomPad = Math.max(32, window.innerHeight * 0.065);
           void fantasyEl.offsetHeight;
           const stackTop = fantasyEl.offsetTop + fantasyEl.offsetHeight + gapPx;
           const maxH = window.innerHeight - stackTop - bottomPad;
@@ -525,8 +514,8 @@ export function updateIntro(dt, camera) {
           terminalEl.style.bottom = 'auto';
           terminalEl.style.left = '50%';
           terminalEl.style.transform = 'translate(-50%, 0)';
-          terminalEl.style.maxHeight = `${Math.max(120, maxH)}px`;
-          terminalEl.style.overflowY = maxH < 220 ? 'auto' : 'visible';
+          terminalEl.style.maxHeight = `${Math.max(140, maxH)}px`;
+          terminalEl.style.overflowY = maxH < 260 ? 'auto' : 'visible';
         }
 
         const typingDelay2 = typingDelay;

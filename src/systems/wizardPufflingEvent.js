@@ -3,8 +3,23 @@ import { scene } from '../core/renderer.js';
 import { C } from '../constants.js';
 import { makePuff } from '../entities/fauna/pufflings.js';
 
-const TRIGGER_WANDER_SECONDS = 120;
-const APPROACH_STOP_DIST = 1.8;
+/** Cumulative time moving (not wall-clock) before spawn — ~1 min of walking */
+const TRIGGER_WANDER_SECONDS = 50;
+const APPROACH_MIN_SEC = 5;
+const APPROACH_MAX_SEC = 10;
+const APPROACH_STOP_DIST = 2.0;
+/** TAB line + mouth */
+const PROCLAIM_SEC = 3.5;
+/** Pause after TAB before sky beam */
+const PREBEAM_SEC = 2.5;
+/** ~2 ft diameter ≈ 0.61 m → cylinder radius (meters) */
+const BEAM_RADIUS = 0.31;
+const BEAM_GLOW_RADIUS = 0.42;
+const SMITE_BEAM_FADE_IN = 1.25;
+const SMITE_GLOW_BUILD_END = 4.2;
+const SMITE_SMOKE_AT = 4.45;
+const SMITE_BEAM_FADE_OUT = 2.1;
+const SMITE_TOTAL = SMITE_SMOKE_AT + SMITE_BEAM_FADE_OUT;
 
 let _showNarrativeText = null;
 let _playPufflingVocal = null;
@@ -20,6 +35,8 @@ let _camYaw = 0;
 let _camPitch = 0;
 let _laser = null;
 let _smoke = null;
+/** World focus for camera after wizard despawns (beam site) */
+let _smiteFocus = { x: 0, y: 0, z: 0 };
 
 function wrapPi(a) {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -60,7 +77,7 @@ function clearCameraForce() {
 
 function spawnWizardNearPlayer(playerPos, yaw) {
   const spawnAng = yaw + (Math.random() < 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.5);
-  const spawnDist = 10 + Math.random() * 4;
+  const spawnDist = 18 + Math.random() * 8;
   const sx = playerPos.x + Math.sin(spawnAng) * spawnDist;
   const sz = playerPos.z + Math.cos(spawnAng) * spawnDist;
   _wizard = makePuff(sx, sz, {
@@ -71,7 +88,8 @@ function spawnWizardNearPlayer(playerPos, yaw) {
   _wizard.group.position.y = _getGroundY(sx, sz);
   _wizard._baseY = _wizard.group.position.y;
   _wizard.phase = Math.random() * 6.28;
-  _wizard.speed = 5.4;
+  /* Tuned so hop-run covers ~18–26 m in ~5–10 s */
+  _wizard.speed = 3.1;
 }
 
 function removeWizard() {
@@ -81,17 +99,17 @@ function removeWizard() {
 }
 
 function spawnSkyLaser(x, y, z) {
-  const h = 36;
+  const h = 42;
   const centerY = y + h * 0.5;
   const mat = new MeshBasicMaterial({
-    color: C.laserPink, transparent: true, opacity: 0.95, depthWrite: false, blending: AdditiveBlending
+    color: C.laserPink, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending
   });
   const glowMat = new MeshBasicMaterial({
-    color: C.laserGlow, transparent: true, opacity: 0.28, depthWrite: false, blending: AdditiveBlending
+    color: C.laserGlow, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending
   });
-  const beam = new Mesh(new CylinderGeometry(0.085, 0.11, h, 8), mat);
+  const beam = new Mesh(new CylinderGeometry(BEAM_RADIUS * 0.92, BEAM_RADIUS, h, 12), mat);
   beam.position.set(x, centerY, z);
-  const glow = new Mesh(new CylinderGeometry(0.22, 0.26, h, 8), glowMat);
+  const glow = new Mesh(new CylinderGeometry(BEAM_GLOW_RADIUS * 0.95, BEAM_GLOW_RADIUS, h, 12), glowMat);
   glow.position.set(x, centerY, z);
   scene.add(beam);
   scene.add(glow);
@@ -167,7 +185,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
 
   const speed2 = ctx.player.vel.x * ctx.player.vel.x + ctx.player.vel.z * ctx.player.vel.z;
   if (_state === 'idle') {
-    if (speed2 > 0.08) _movingTimer += dt;
+    if (speed2 > 0.06) _movingTimer += dt;
     if (_movingTimer >= TRIGGER_WANDER_SECONDS) {
       spawnWizardNearPlayer(ctx.player.pos, ctx.yaw);
       _state = 'approach';
@@ -176,35 +194,55 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     return null;
   }
 
+  const focusVec = { x: 0, y: 0, z: 0 };
+
   if (_state === 'approach' && _wizard) {
     _phaseTimer += dt;
     const g = _wizard.group;
-    const px = g.position.x;
-    const pz = g.position.z;
-    const dx = ctx.player.pos.x - px;
-    const dz = ctx.player.pos.z - pz;
-    const d = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    const dx = ctx.player.pos.x - g.position.x;
+    const dz = ctx.player.pos.z - g.position.z;
+    let d = Math.sqrt(dx * dx + dz * dz) || 0.001;
     const dirX = dx / d;
     const dirZ = dz / d;
     _wizard.wanderAng = Math.atan2(dirX, dirZ);
-    const hop = Math.abs(Math.sin(t * 15.5 + _wizard.phase));
-    const move = hop > 0.15 ? 1 : 0.15;
-    const runSpeed = _wizard.speed * (0.8 + hop * 0.45);
-    g.position.x += dirX * runSpeed * move * dt;
-    g.position.z += dirZ * runSpeed * move * dt;
+    const hop = Math.abs(Math.sin(t * 14 + _wizard.phase));
+    const move = hop > 0.12 ? 1 : 0.28;
+    const runSpeed = _wizard.speed * (0.75 + hop * 0.5);
+
+    if (d < APPROACH_STOP_DIST + 0.45 && _phaseTimer < APPROACH_MIN_SEC) {
+      const ang = t * 2.1 + _wizard.phase;
+      const orbitR = 3.1;
+      const tx = ctx.player.pos.x + Math.sin(ang) * orbitR;
+      const tz = ctx.player.pos.z + Math.cos(ang) * orbitR;
+      g.position.x += (tx - g.position.x) * Math.min(1, dt * 3.2);
+      g.position.z += (tz - g.position.z) * Math.min(1, dt * 3.2);
+    } else {
+      g.position.x += dirX * runSpeed * move * dt;
+      g.position.z += dirZ * runSpeed * move * dt;
+    }
+
     const baseY = _getGroundY(g.position.x, g.position.z);
-    g.position.y = baseY + hop * 0.35;
+    g.position.y = baseY + hop * 0.36;
     _wizard.shell.scale.set(1.08 - hop * 0.16, 0.95 + hop * 0.26, 1.08 - hop * 0.16);
     g.rotation.y = _wizard.wanderAng;
 
-    if (d < APPROACH_STOP_DIST || _phaseTimer > 6.0) {
+    const dxEnd = ctx.player.pos.x - g.position.x;
+    const dzEnd = ctx.player.pos.z - g.position.z;
+    const dEnd = Math.sqrt(dxEnd * dxEnd + dzEnd * dzEnd) || 0.001;
+    const canEndApproach =
+      _phaseTimer >= APPROACH_MIN_SEC &&
+      (dEnd < APPROACH_STOP_DIST || _phaseTimer >= APPROACH_MAX_SEC);
+    if (canEndApproach) {
       _state = 'proclaim';
       _phaseTimer = 0;
-      if (_showNarrativeText) _showNarrativeText('PRESS TAB to know the TRUTH!', 3.6);
-      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 2.0);
+      if (_showNarrativeText) _showNarrativeText('PRESS TAB to know the TRUTH!', PROCLAIM_SEC + 0.8);
+      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, PROCLAIM_SEC);
       if (_playPufflingVocal) _playPufflingVocal('PRESS TAB to know the TRUTH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
     }
-    return forceLookAt(dt, ctx.cameraPos, g.position, ctx.yaw, ctx.pitch);
+    focusVec.x = g.position.x;
+    focusVec.y = baseY + 0.38;
+    focusVec.z = g.position.z;
+    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
   }
 
   if (_state === 'proclaim' && _wizard) {
@@ -224,37 +262,92 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
         _wizard.mouth.position.y += (0.595 - _wizard.mouth.position.y) * Math.min(1, dt * 14);
       }
     }
-    if (_phaseTimer > 2.25) {
+    if (_phaseTimer >= PROCLAIM_SEC) {
+      _state = 'prebeam';
+      _phaseTimer = 0;
+    }
+    focusVec.x = g.position.x;
+    focusVec.y = baseY + 0.38;
+    focusVec.z = g.position.z;
+    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
+  }
+
+  if (_state === 'prebeam' && _wizard) {
+    _phaseTimer += dt;
+    const g = _wizard.group;
+    const baseY = _getGroundY(g.position.x, g.position.z);
+    g.position.y = baseY + Math.sin(t * 7) * 0.06;
+    if (_phaseTimer >= PREBEAM_SEC) {
       _state = 'smite';
       _phaseTimer = 0;
       spawnSkyLaser(g.position.x, baseY, g.position.z);
-      if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 1.4);
-      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.0);
+      _smiteFocus.x = g.position.x;
+      _smiteFocus.y = baseY + 0.38;
+      _smiteFocus.z = g.position.z;
+      if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 2.2);
+      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.6);
       if (_playPufflingVocal) _playPufflingVocal('AhhhhHHHH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
     }
-    return forceLookAt(dt, ctx.cameraPos, g.position, ctx.yaw, ctx.pitch);
+    focusVec.x = g.position.x;
+    focusVec.y = baseY + 0.38;
+    focusVec.z = g.position.z;
+    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
   }
 
   if (_state === 'smite') {
     _phaseTimer += dt;
+    const pt = _phaseTimer;
+
     if (_laser) {
-      _laser.timer += dt;
-      const p = Math.sin(t * 36) * 0.5 + 0.5;
-      _laser.mat.opacity = Math.max(0, 0.95 - _laser.timer * 1.4) + p * 0.12;
-      _laser.glowMat.opacity = Math.max(0, 0.28 - _laser.timer * 0.5) + p * 0.08;
+      const flick = Math.sin(t * 28) * 0.5 + 0.5;
+      if (pt < SMITE_BEAM_FADE_IN) {
+        const u = pt / SMITE_BEAM_FADE_IN;
+        _laser.mat.opacity = u * 0.96 + flick * 0.06;
+        _laser.glowMat.opacity = u * 0.38 + flick * 0.08;
+      } else if (pt < SMITE_SMOKE_AT) {
+        _laser.mat.opacity = 0.96 + flick * 0.08;
+        _laser.glowMat.opacity = 0.38 + flick * 0.1;
+      } else {
+        const fo = Math.min(1, (pt - SMITE_SMOKE_AT) / SMITE_BEAM_FADE_OUT);
+        _laser.mat.opacity = Math.max(0, 0.96 * (1 - fo));
+        _laser.glowMat.opacity = Math.max(0, 0.38 * (1 - fo));
+      }
     }
-    if (_wizard && _phaseTimer > 0.16) {
-      const g = _wizard.group.position;
-      spawnSmokePuff(g.x, _getGroundY(g.x, g.z), g.z);
-      removeWizard();
+
+    if (_wizard) {
+      const g = _wizard.group;
+      const baseY = _getGroundY(g.position.x, g.position.z);
+      g.position.y = baseY + Math.sin(t * 22) * 0.04;
+      let glowT = 0;
+      if (pt < SMITE_BEAM_FADE_IN) glowT = pt / SMITE_BEAM_FADE_IN;
+      else if (pt < SMITE_GLOW_BUILD_END) glowT = 0.55 + (pt - SMITE_BEAM_FADE_IN) / (SMITE_GLOW_BUILD_END - SMITE_BEAM_FADE_IN) * 0.45;
+      else glowT = 1;
+      const glowMul = 0.5 + glowT * 3.8;
+      if (_wizard.bodyMat) _wizard.bodyMat.emissiveIntensity = glowMul;
+      if (_wizard.bellyMat) _wizard.bellyMat.emissiveIntensity = 0.15 + glowT * 2.2;
+      if (_wizard.crownMat) _wizard.crownMat.emissiveIntensity = 0.35 + glowT * 2.8;
+      if (_wizard.core && _wizard.core.material) _wizard.core.material.opacity = 0.55 + glowT * 0.45;
+      if (pt >= SMITE_SMOKE_AT) {
+        spawnSmokePuff(g.position.x, baseY, g.position.z);
+        removeWizard();
+      }
     }
-    if (_phaseTimer > 0.7) cleanupLaser();
-    if (_phaseTimer > 1.4) {
+
+    if (pt >= SMITE_TOTAL - 0.05) cleanupLaser();
+
+    if (pt >= SMITE_TOTAL) {
       _state = 'done';
       clearCameraForce();
       if (_onTruthUnlocked) _onTruthUnlocked();
+      return null;
     }
-    return null;
+
+    focusVec.x = _wizard ? _wizard.group.position.x : _smiteFocus.x;
+    focusVec.y = _wizard
+      ? _getGroundY(_wizard.group.position.x, _wizard.group.position.z) + 0.38
+      : _smiteFocus.y;
+    focusVec.z = _wizard ? _wizard.group.position.z : _smiteFocus.z;
+    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
   }
 
   return null;

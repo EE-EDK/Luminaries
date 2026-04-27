@@ -111,7 +111,8 @@ export function makePuff(x, z, opts = {}) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, shell, body, head, ears, eyes, brows, nose, mouth, spores, core, bodyMat, crownMat,
+    group: g, shell, body, head, ears, eyes, brows, nose, mouth, spores, core,
+    bodyMat, bellyMat, crownMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _baseY: 0, _lastTX: x, _lastTZ: z,

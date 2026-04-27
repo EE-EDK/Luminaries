@@ -570,6 +570,7 @@ function bakeTemplate(palIdx, seedOffset) {
 // Returns array of { trunk, canopy, glow, detail, instances: [] } per template
 // ================================================================
 const _dummy = new Object3D();
+const _impColor = new Color();
 const _slopeUp = new Vector3(0, 1, 0);
 const _slopeNorm = new Vector3();
 const _slopeQ = new Quaternion();
@@ -758,10 +759,47 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
 }
 
 // ================================================================
+// Canopy "living" pulse — 3D instanced canopy + distant billboard impostors
+// ================================================================
+/**
+ * @brief Slow emissive/opacity breathing per tree palette template (shared materials + per-sprite impostors).
+ * @param templateIndex Instanced template index (0..templates-1), must match GLOW_PALETTES row.
+ * @param time World time (s).
+ * @param treeDim Sector dim factor × orb boost (same as vegetation treeDim).
+ */
+export function treeCanopyLivingPulse(templateIndex, time, treeDim) {
+  if (treeDim <= 0.06) {
+    return { em: 1, op: 1 };
+  }
+  const seed = templateIndex * 2.399963229 + templateIndex * templateIndex * 0.00217;
+  const s1 = Math.sin(time * 0.31 + seed);
+  const s2 = Math.sin(time * 0.19 + seed * 1.6847);
+  const s3 = Math.sin(time * 0.11 + seed * 0.413);
+  const mix = (s1 * 0.5 + 0.5) * 0.38 + (s2 * 0.5 + 0.5) * 0.35 + (s3 * 0.5 + 0.5) * 0.27;
+  const em = 0.62 + 0.62 * mix;
+  const op = 0.72 + 0.32 * mix;
+  return { em, op };
+}
+
+function _applyImpostorCanopyPulse(impostor, posIdx, time, treeDim, bioGlow, lodOpacity) {
+  const ti = impostor.userData?.treeTemplateIndex != null
+    ? impostor.userData.treeTemplateIndex
+    : (posIdx % GLOW_PALETTES.length);
+  const pulse = treeCanopyLivingPulse(ti, time, treeDim);
+  const pal = GLOW_PALETTES[ti % GLOW_PALETTES.length];
+  const dim = Math.max(0.1, treeDim);
+  const bio = 0.4 + 0.6 * bioGlow;
+  _impColor.setHex(pal.glow).multiplyScalar(dim * bio * pulse.em);
+  impostor.material.color.copy(_impColor);
+  const pulseOp = treeDim <= 0.06 ? 1 : (0.72 + 0.28 * pulse.op);
+  impostor.material.opacity = Math.min(0.95, lodOpacity * pulseOp * bio);
+}
+
+// ================================================================
 // LOD update for instanced trees
 // Rebuilds instance matrices each frame based on distance
 // ================================================================
-export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, cam) {
+export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, cam, treeDim = 1, bioGlow = 1) {
   // Update camera frustum once per frame (if camera provided)
   if (cam) {
     _projScreenMatrix.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
@@ -805,7 +843,8 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
         if (impostor) {
           const d = Math.sqrt(d2);
           impostor.visible = true;
-          impostor.material.opacity = lerp(0.65, 0, (d - 105) / 10);
+          const lodOp = lerp(0.65, 0, (d - 105) / 10);
+          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, lodOp);
         }
         continue;
       }
@@ -814,7 +853,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       if (d2 > 5625) {
         if (impostor) {
           impostor.visible = true;
-          impostor.material.opacity = 0.65;
+          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, 0.65);
         }
         continue;
       }
@@ -825,7 +864,8 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
         const fadeFrac = (d - 63) / 12; // 0 at 63m, 1 at 75m
         if (impostor) {
           impostor.visible = true;
-          impostor.material.opacity = lerp(0, 0.65, fadeFrac);
+          const lodOp = lerp(0, 0.65, fadeFrac);
+          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, lodOp);
         }
         // Also render the 3D mesh during cross-fade
         _dummy.position.set(inst.x, inst.y, inst.z);

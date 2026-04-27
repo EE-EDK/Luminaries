@@ -168,6 +168,7 @@ export function populate(arrays, builders, scene) {
       const yRot = sr() * Math.PI * 2;
       const scale = 0.8 + sr() * 0.4;
       const impostor = makeTreeImpostor(treeH, gy);
+      impostor.userData.treeTemplateIndex = trees_data.length % 10;
       impostor.position.x = x;
       impostor.position.z = z;
       treeImpostors.push(impostor);

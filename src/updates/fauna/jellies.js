@@ -6,7 +6,7 @@ import { WORLD_R } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
 import { getAttunement, getAttunementTarget, getPlayerFrequency, getJellySyncFlash } from '../../systems/attunement.js';
-import { emit, Events } from '../../kernel/eventBus.js';
+import { emit, Events, on } from '../../kernel/eventBus.js';
 import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';

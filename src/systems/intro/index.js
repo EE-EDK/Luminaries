@@ -27,24 +27,12 @@ const NARRATION = [
     terminal: '// BIOSENSOR ARRAY v4.2 — Historical luminance baseline detected'
   },
   {
-    fantasy: 'Every root hummed with light. Every canopy blazed.',
-    terminal: '// Bioluminescent network coverage: 100% — Symbiotic frequency: NOMINAL'
+    fantasy: 'Every root hummed with light. Every canopy blazed. Then the glow began to dim. The songs grew quiet. Five anchors of light remain, buried beneath the dark.',
+    terminal: '// Bioluminescent network coverage: 100% — Symbiotic frequency: NOMINAL. // WARNING: Sector luminance decay — 73% loss over 2,400 cycles. // 5 restoration nodes offline — Awaiting frequency carrier activation'
   },
   {
-    fantasy: 'Then the glow began to dim. The songs grew quiet.',
-    terminal: '// WARNING: Sector luminance decay — 73% loss over 2,400 cycles'
-  },
-  {
-    fantasy: 'Five anchors of light remain, buried beneath the dark.',
-    terminal: '// 5 restoration nodes offline — Awaiting frequency carrier activation'
-  },
-  {
-    fantasy: 'The creatures still remember the old harmony.',
-    terminal: '// Native fauna vocalizations contain encoded frequency patterns'
-  },
-  {
-    fantasy: 'Listen to them. Move with them. Carry their voice to the light.',
-    terminal: '// PROTOCOL: Attune to carrier organisms → Transport frequency → Restore nodes'
+    fantasy: 'The creatures still remember the old harmony. Listen to them. Move with them. Carry their voice to the light.',
+    terminal: '// Native fauna vocalizations contain encoded frequency patterns. // PROTOCOL: Attune to carrier organisms → Transport frequency → Restore nodes'
   }
 ];
 

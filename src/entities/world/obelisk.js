@@ -52,21 +52,48 @@ export function makeObelisk() {
   // Surface rune carvings (glowing line segments on each face) — revealed per orb
   runeFaces.length = 0;
   for (let fi = 0; fi < ORB_N; fi++) {
-    const faceMat = new MeshBasicMaterial({
-      color: C.obeliskPink, transparent: true, opacity: 0.0,
-      blending: AdditiveBlending, depthWrite: false
+    const faceMat = new MeshStandardMaterial({
+      color: C.obeliskPink,
+      emissive: C.obeliskPink,
+      emissiveIntensity: 0.0,
+      roughness: 0.15,
+      metalness: 0.25,
+      transparent: true,
+      opacity: 0.0,
+      blending: AdditiveBlending,
+      depthWrite: false
+    });
+    const grooveMat = new MeshBasicMaterial({
+      color: 0x2b1120, transparent: true, opacity: 0.38, depthWrite: false
     });
     const faceMeshes = [];
     const fAngle = (fi / ORB_N) * 6.28 + Math.PI / ORB_N;
+    // Phase progression visibility: each face occupies a top-to-bottom vertical band.
+    const topY = OBELISK_H * 0.84;
+    const bottomY = OBELISK_H * 0.28;
+    const stepY = ORB_N > 1 ? (topY - bottomY) / (ORB_N - 1) : 0;
+    const faceCenterY = topY - fi * stepY;
+    const insetR = 1.5; // slightly inset from outer shaft radius for carved-in look
+    const grooveR = 1.47; // groove sits just behind glow rune
+
     for (let rl = 0; rl < 3; rl++) {
-      const ry = 6 + rl * 4;
-      const rune = new Mesh(new CylinderGeometry(0.04, 0.04, 1.0, 4), faceMat);
-      rune.position.set(Math.cos(fAngle) * 1.62, ry, Math.sin(fAngle) * 1.62);
+      const ry = faceCenterY - 1.05 + rl * 1.05;
+      const groove = new Mesh(new CylinderGeometry(0.05, 0.05, 0.95, 4), grooveMat);
+      groove.position.set(Math.cos(fAngle) * grooveR, ry, Math.sin(fAngle) * grooveR);
+      groove.rotation.z = Math.PI / 2; groove.rotation.y = -fAngle;
+      g.add(groove);
+
+      const rune = new Mesh(new CylinderGeometry(0.03, 0.03, 0.9, 4), faceMat);
+      rune.position.set(Math.cos(fAngle) * insetR, ry, Math.sin(fAngle) * insetR);
       rune.rotation.z = Math.PI / 2; rune.rotation.y = -fAngle;
       rune.visible = false; g.add(rune); faceMeshes.push(rune);
     }
-    const vRune = new Mesh(new CylinderGeometry(0.035, 0.035, 3.0, 4), faceMat);
-    vRune.position.set(Math.cos(fAngle) * 1.62, 12, Math.sin(fAngle) * 1.62);
+    const vGroove = new Mesh(new CylinderGeometry(0.04, 0.04, 2.45, 4), grooveMat);
+    vGroove.position.set(Math.cos(fAngle) * grooveR, faceCenterY, Math.sin(fAngle) * grooveR);
+    g.add(vGroove);
+
+    const vRune = new Mesh(new CylinderGeometry(0.025, 0.025, 2.35, 4), faceMat);
+    vRune.position.set(Math.cos(fAngle) * insetR, faceCenterY, Math.sin(fAngle) * insetR);
     vRune.visible = false; g.add(vRune); faceMeshes.push(vRune);
     runeFaces.push({ mat: faceMat, meshes: faceMeshes, revealed: false, revealTimer: 0 });
   }

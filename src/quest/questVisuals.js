@@ -342,7 +342,10 @@ export function updateQuestVisuals(dt, t, ctx) {
     face.revealTimer += dt;
     const fadeIn = Math.min(face.revealTimer / 2.0, 1.0);
     const pulse = Math.sin(t * 1.5 + fi * 1.57) * 0.1 + 0.9;
-    face.mat.opacity = fadeIn * 0.85 * pulse;
+    face.mat.opacity = fadeIn * 0.9 * pulse;
+    if (face.mat.emissiveIntensity !== undefined) {
+      face.mat.emissiveIntensity = fadeIn * (1.6 + pulse * 1.2);
+    }
   }
 
   // Pinnacle

@@ -53,12 +53,13 @@ let _doorMesh = null;
 
 let _themeListenerRegistered = false;
 
+/** Night-readable biolum — previous values were effectively black under moon + ACES tone map. */
 const THEME_BIO = {
-  stalk: 0x2a3840,
-  cap: 0x003333,
-  capEmissive: 0x002222,
-  capEmissiveInt: 0.22,
-  door: 0x2a1a15
+  stalk: 0x3a5060,
+  cap: 0x0c4548,
+  capEmissive: 0x082830,
+  capEmissiveInt: 0.48,
+  door: 0x342218
 };
 
 const THEME_COTTAGE = {
@@ -191,11 +192,20 @@ export function placePufflingHomeClusters(ctx) {
     ci++;
   }
 
-  const nInst = placements.length;
+  let nInst = placements.length;
   if (nInst === 0) {
-    registerThemeListener();
-    syncThemeFromQuest();
-    return;
+    // Fallback: dense keep-out RNG can rarely yield zero placements — anchor one trio so art is never missing.
+    const fx = WORLD_R * 0.42;
+    const fz = -WORLD_R * 0.28;
+    const fb = housesInCluster(fx, fz, 3, () => false, () => 'clear', sr);
+    for (let hi = 0; hi < fb.length; hi++) placements.push(fb[hi]);
+    if (keepOutZones) keepOutZones.push({ x: fx, z: fz, r2: 100 });
+    nInst = placements.length;
+    if (nInst === 0) {
+      registerThemeListener();
+      syncThemeFromQuest();
+      return;
+    }
   }
 
   _stalkMesh = new InstancedMesh(geoStalk, _stalkMat, nInst);

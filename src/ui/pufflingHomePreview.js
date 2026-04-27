@@ -17,10 +17,13 @@ function postTheme(iframe, key) {
 }
 
 /**
- * Picture-in-picture mushroom home: bioluminescent until all orbs found, then cottagecore.
+ * Dev-only Picture-in-picture mushroom home (HTML embed) — theme matches quest.
+ * Omit from production so the shipped game only shows world-space mushroom homes.
  * Asset: public/assets/mushroom-house-puffling-home.html
  */
 export function initPufflingHomePreview() {
+  if (!import.meta.env.DEV) return;
+
   const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
   const wrap = document.createElement('div');
   wrap.id = 'puffling-home-preview';

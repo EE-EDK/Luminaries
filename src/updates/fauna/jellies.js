@@ -20,8 +20,23 @@ import { queryNearTrees } from '../../utils/spatialHash.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 const _jellyNearColor = new Color(0xff4fd2);
-const _jellyAttuneRed = new Color(0xff3a3a);
+const _jellyAttuneRed = new Color(0xff2a28);
 const _jellyFarColor = new Color(C.jellyBell);
+/** Emissive lerp targets — jellyGlow reads cyan on lit emissive even when color is red */
+const _jelEmitBlue = new Color(C.jellyGlow);
+const _jelEmitRed = new Color(0xff1018);
+const _jelInnerBlue = new Color(C.jellyGlow);
+const _jelInnerRed = new Color(0xff3528);
+const _jelTipBlue = new Color(C.jellyTip);
+const _jelTipRed = new Color(0xff6058);
+const _jellyTentBase = new Color(C.jellyTent);
+/**
+ * Mushroom cap ≈ base * (0.7..1.7) * glow; base ≤ ~1.3 → peak factor 1.3*1.7.
+ * Target jelly red glow ≈ 80% of that peak (same getLocalGlow chain).
+ */
+const _MUSHROOM_REF_PEAK = 1.3 * 1.7;
+const _JELLY_EMISSIVE_MAX = 0.4 + 0.8;
+const _JELLY_RED_LUMA_MUL = (0.8 * _MUSHROOM_REF_PEAK) / _JELLY_EMISSIVE_MAX;
 
 const jellyRitual = {
   active: false,
@@ -269,17 +284,49 @@ export function updateJellies(dt, t) {
     const syncBoost = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
       ? (1.0 + redSyncPulse * 1.2 + jellySyncFlash * 2.2)
       : 1.0;
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
-    if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += echoTimer * 0.35;
+    const redBlendRaw = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+      ? (0.42 + redSyncPulse * 0.53 + jellySyncFlash * 0.55)
+      : 0;
+    const redBlend = Math.min(1, redBlendRaw);
+
+    let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
+    if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) bellEm += echoTimer * 0.35;
+    if (redBlend > 0) bellEm *= 1 + redBlend * (_JELLY_RED_LUMA_MUL - 1);
+
+    j.bellMat.emissiveIntensity = bellEm;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;
     const ritualBlend = nearRitual ? (0.45 + rhythmPulse * 0.55) : 0;
-    const redBlend = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
-      ? (0.35 + redSyncPulse * 0.55 + jellySyncFlash * 0.5)
-      : 0;
     j.bellMat.color.copy(_jellyFarColor).lerp(_jellyNearColor, ritualBlend);
-    if (redBlend > 0) j.bellMat.color.lerp(_jellyAttuneRed, Math.min(1, redBlend));
+    if (redBlend > 0) j.bellMat.color.lerp(_jellyAttuneRed, redBlend);
+
+    const emitMix = redBlend;
+    j.bellMat.emissive.copy(_jelEmitBlue).lerp(_jelEmitRed, emitMix);
+    if (j.rimMat) {
+      j.rimMat.emissive.copy(_jelEmitBlue).lerp(_jelEmitRed, emitMix);
+      j.rimMat.emissiveIntensity = bellEm * 1.25;
+      j.rimMat.color.copy(j.bellMat.color);
+    }
+    if (j.lappetMat) {
+      j.lappetMat.emissive.copy(_jelEmitBlue).lerp(_jelEmitRed, emitMix);
+      j.lappetMat.emissiveIntensity = bellEm * 0.75;
+      j.lappetMat.color.copy(j.bellMat.color);
+    }
+    if (j.tentMat) {
+      j.tentMat.emissive.copy(_jelEmitBlue).lerp(_jelEmitRed, emitMix);
+      j.tentMat.emissiveIntensity = bellEm * 0.5;
+      j.tentMat.color.copy(_jellyTentBase).lerp(_jellyAttuneRed, emitMix * 0.85);
+    }
+    if (j.oralMat) {
+      j.oralMat.emissive.copy(_jelEmitBlue).lerp(_jelEmitRed, emitMix);
+      j.oralMat.emissiveIntensity = bellEm * 0.625;
+      j.oralMat.color.copy(_jellyTentBase).lerp(_jellyAttuneRed, emitMix * 0.85);
+    }
+    if (j.innerMat) {
+      j.innerMat.color.copy(_jelInnerBlue).lerp(_jelInnerRed, emitMix);
+    }
 
     if (j.tipMat) {
+      j.tipMat.color.copy(_jelTipBlue).lerp(_jelTipRed, emitMix);
       const twinkle = Math.sin(t * 5.3 + j.phase * 7.1) * Math.sin(t * 3.7 + j.phase * 4.3);
       j.tipMat.opacity = 0.3 + 0.7 * (twinkle * 0.5 + 0.5);
     }

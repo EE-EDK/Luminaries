@@ -125,7 +125,10 @@ export function makeJelly(x, y, z) {
   // Keep jelly transparent layers rendering in a stable order near the camera.
   g.traverse((obj) => { obj.renderOrder = 5; });
   return {
-    group: g, bell, tentGroup, bellMat: bellMat, tipMat: tipMat, phase: sr() * 6.28, driftAng: sr() * 6.28,
+    group: g, bell, tentGroup,
+    bellMat, rimMat, lappetMat, tentMat, oralMat,
+    tipMat, innerMat: inner.material,
+    phase: sr() * 6.28, driftAng: sr() * 6.28,
     homeX: x, homeZ: z, floatY: y, wobble: 0.5 + sr() * 0.5,
     _init: true, _state: 'drift', _stT: 20 + Math.random() * 30,
     _migrateAng: 0, _pulseSync: 0

@@ -24,7 +24,7 @@ import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
 // ================================================================
 // Constants
 // ================================================================
-const JELLY_R2 = 36;        // 6m squared — must be within 6m
+const JELLY_R2 = 100;       // 10m squared — must be within 10m
 const DEER_R2_MIN = 64;     // 8m squared — must be 8-12m away
 const DEER_R2_MAX = 144;    // 12m squared
 const MOTH_R2 = 64;         // 8m squared — must be within 8m

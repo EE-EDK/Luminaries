@@ -3,7 +3,8 @@
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
 import { getPerspective, isDiscovered, markDiscovered } from '../state/narrativeState.js';
-import { DISCOVERY_LABELS, ORB_NARRATIVE } from '../quest/config.js';
+import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS } from '../quest/config.js';
+import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
 
@@ -23,7 +24,15 @@ export function initDiscoveries() {
   document.body.appendChild(discoveryEl);
 
   // Subscribe to kernel events
-  on(Events.ORB_COLLECTED, (d) => { showOrbDiscovery(d.orbsFound - 1); });
+  on(Events.ORB_COLLECTED, (d) => {
+    showOrbDiscovery(d.orbsFound - 1);
+    const perspective = getPerspective();
+    const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
+    const nextHint = stageHints[Math.min(d.orbsFound, stageHints.length - 1)];
+    if (nextHint && d.orbsFound < 5) {
+      setTimeout(() => { showNarrativeText(nextHint, 5.5); }, 900);
+    }
+  });
 }
 
 export function updateDiscoveries(dt, t) {
@@ -167,8 +176,27 @@ const IDLE_HINTS_ADULT = [
 ];
 let lastHintIndex = -1;
 let hintCooldown = 0;
+let stageHintTimer = 0;
+let lastStageHintOrbCount = -1;
 
 export function checkIdleHints(idleTime) {
+  const orbCount = getOrbsFound();
+  if (orbCount !== lastStageHintOrbCount) {
+    stageHintTimer = 0;
+    lastStageHintOrbCount = orbCount;
+  }
+  if (orbCount < 5) {
+    stageHintTimer += 0.016;
+    if (stageHintTimer >= 300) {
+      const perspective = getPerspective();
+      const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
+      const nextHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
+      if (nextHint) showNarrativeText(nextHint, 5.0);
+      stageHintTimer = 0;
+      hintCooldown = Math.max(hintCooldown, 45);
+      return;
+    }
+  }
   if (hintCooldown > 0) { hintCooldown -= 0.016; return; }
   if (idleTime < 15) return;
   const perspective = getPerspective();
@@ -183,10 +211,13 @@ export function checkIdleHints(idleTime) {
 // ================================================================
 export function showOrbRejectHint() {
   const perspective = getPerspective();
+  const orbCount = getOrbsFound();
+  const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
+  const stageHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
   const text = perspective === 'child'
     ? 'The orb doesn\'t like that sound...'
     : 'Frequency mismatch — recalibrate resonance';
-  showNarrativeText(text, 3.0);
+  showNarrativeText(stageHint ? `${text} ${stageHint}` : text, 4.2);
 }
 
 export function showOrbListening() {

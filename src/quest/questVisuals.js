@@ -16,6 +16,7 @@ import { getQuestState, getTimers, attemptCollectOrb } from './questState.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(C.white);
+const _orbActivatedPink = new Color(0xff4fd2);
 
 // References
 let orbs = [];
@@ -31,13 +32,11 @@ let player = null;
 let makeLaserFn = null;
 let orbHudEl = null;
 
-// Audio callbacks
-let playOrbCollectFn = null;
+// Audio callbacks (orb collect/reject SFX: event bus → systems/audio.js only)
 let playOrbWarbleFn = null;
 let playLaserZapFn = null;
 let playLaserHumFn = null;
 let stopLaserHumsFn = null;
-let playOrbRejectFn = null;
 let showOrbRejectHintFn = null;
 let showOrbListeningFn = null;
 
@@ -177,12 +176,10 @@ export function initQuestVisuals(config) {
   trees = config.trees || [];
   treeMeshesRef = config.treeMeshes || [];
   groundMesh = config.groundMesh || null;
-  playOrbCollectFn = config.playOrbCollect || null;
   playOrbWarbleFn = config.playOrbWarble || null;
   playLaserZapFn = config.playLaserZap || null;
   playLaserHumFn = config.playLaserHum || null;
   stopLaserHumsFn = config.stopLaserHums || null;
-  playOrbRejectFn = config.playOrbReject || null;
   showOrbRejectHintFn = config.showOrbRejectHint || null;
   showOrbListeningFn = config.showOrbListening || null;
   spawnOrbBurstFn = config.spawnOrbBurst || null;
@@ -199,7 +196,6 @@ export function initQuestVisuals(config) {
 }
 
 function onOrbCollected(d) {
-  if (playOrbCollectFn) playOrbCollectFn();
   if (spawnOrbBurstFn) spawnOrbBurstFn(d.x, orbs[d.orbIndex].group.position.y, d.z);
   if (startResonanceDroneFn) startResonanceDroneFn(d.orbsFound);
   revealConstellation(d.orbsFound - 1);
@@ -226,7 +222,6 @@ function onOrbCollected(d) {
 }
 
 function onOrbRejected(d) {
-  if (playOrbRejectFn) playOrbRejectFn();
   if (showOrbRejectHintFn) showOrbRejectHintFn();
 }
 
@@ -307,6 +302,7 @@ export function updateQuestVisuals(dt, t, ctx) {
       const flashInt = flashFrac < 0.3 ? flashFrac / 0.3 : (1.0 - (flashFrac - 0.3) / 0.7);
       o.glowMat.opacity = 0.5 + flashInt * 0.5;
       o.hazeMat.opacity = 0.3 + flashInt * 0.5;
+      o.coreMat.color.copy(_orbActivatedPink);
       o.group.scale.setScalar(1.0 + flashInt * 0.6);
       o.group.position.x = o.x + Math.sin(t * 30) * flashInt * 0.05;
       o.group.position.z = o.z + Math.cos(t * 25) * flashInt * 0.05;

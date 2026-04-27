@@ -13,10 +13,57 @@ import { isStorming } from '../../systems/weather.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
 import { jellies } from '../../state/entityStore.js';
 import { playCreatureSound } from '../../systems/audio.js';
+import { scene } from '../../core/renderer.js';
+import { C } from '../../constants.js';
+import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
+const _jellyNearColor = new Color(0xff4fd2);
+const _jellyFarColor = new Color(C.jellyBell);
+
+const jellyRitual = {
+  active: false,
+  centerX: 0,
+  centerZ: 0,
+  progress: 0,
+  lastAttune: 0,
+  flash: 0,
+  orbMesh: null
+};
+
+function ensureJellyRitualOrb() {
+  if (jellyRitual.orbMesh) return;
+  const mat = new MeshBasicMaterial({
+    color: 0xff4fd2,
+    transparent: true,
+    opacity: 0.65,
+    blending: AdditiveBlending,
+    depthWrite: false
+  });
+  jellyRitual.orbMesh = new Mesh(new SphereGeometry(0.5, 12, 10), mat);
+  jellyRitual.orbMesh.visible = false;
+  scene.add(jellyRitual.orbMesh);
+}
 
 export function updateJellies(dt, t) {
+  ensureJellyRitualOrb();
+  const ritualActive = getAttunementTarget() === 'jelly';
+  const attune = getAttunement();
+  if (ritualActive && !jellyRitual.active && attune > 0.01) {
+    jellyRitual.active = true;
+    jellyRitual.centerX = player.pos.x;
+    jellyRitual.centerZ = player.pos.z;
+    jellyRitual.progress = 0;
+    jellyRitual.flash = 0;
+  } else if (!ritualActive) {
+    jellyRitual.active = false;
+    jellyRitual.progress = 0;
+    jellyRitual.flash = 0;
+    if (jellyRitual.orbMesh) jellyRitual.orbMesh.visible = false;
+  }
+  if (attune > jellyRitual.lastAttune + 0.03) jellyRitual.flash = 0.28;
+  jellyRitual.lastAttune = attune;
+  jellyRitual.flash = Math.max(0, jellyRitual.flash - dt);
 
   // Batch 2 Item 1: Nearby jellies sync glow phase over time (throttled to ~5Hz)
   if (!updateJellies._syncFrame) updateJellies._syncFrame = 0;
@@ -128,6 +175,25 @@ export function updateJellies(dt, t) {
       }
     }
 
+    if (jellyRitual.active) {
+      // Once ritual starts, jellies gather around player and form a synchronized overhead ring.
+      jellyRitual.centerX += (player.pos.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
+      jellyRitual.centerZ += (player.pos.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
+      const ringR = 2.5;
+      const ang = (i / Math.max(1, jellies.length)) * Math.PI * 2 + t * 0.6;
+      const tx = jellyRitual.centerX + Math.cos(ang) * ringR;
+      const tz = jellyRitual.centerZ + Math.sin(ang) * ringR;
+      const ty = player.pos.y + 4.0 + Math.sin(t * 2.2 + i * 0.6) * 0.5;
+      g.position.x += (tx - g.position.x) * Math.min(1, dt * 2.8);
+      g.position.z += (tz - g.position.z) * Math.min(1, dt * 2.8);
+      g.position.y += (ty - g.position.y) * Math.min(1, dt * 2.8);
+      const cdx = g.position.x - tx;
+      const cdz = g.position.z - tz;
+      if (cdx * cdx + cdz * cdz < 0.4) {
+        jellyRitual.progress += dt * (1 / Math.max(1, jellies.length));
+      }
+    }
+
     // Curiosity: jelly drifts toward idle player
     if (playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display') {
       const driftFrac = Math.min((playerIdleTime - 5) / 5, 0.4);
@@ -169,11 +235,16 @@ export function updateJellies(dt, t) {
     }
 
     const jellyAttuneTarget = getAttunementTarget();
-    const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 36) ? (1.0 + getAttunement() * 1.2) : 1.0;
+    const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 100) ? (1.0 + getAttunement() * 1.2) : 1.0;
     const jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult;
+    const nearRitual = _jhd2 < 100;
+    const rhythmPulse = nearRitual ? (Math.sin(t * Math.PI + i * 0.7) * 0.5 + 0.5) : 0;
+    const ritualBoost = jellyRitual.active ? (1.0 + Math.min(1.0, jellyRitual.progress) * 2.2) : 1.0;
+    const flashBoost = jellyRitual.flash > 0 ? (1.0 + jellyRitual.flash * 4.5) : 1.0;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost;
     if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += echoTimer * 0.35;
-    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost;
+    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25;
+    j.bellMat.color.copy(_jellyFarColor).lerp(_jellyNearColor, nearRitual ? (0.45 + rhythmPulse * 0.55) : 0);
 
     if (j.tipMat) {
       const twinkle = Math.sin(t * 5.3 + j.phase * 7.1) * Math.sin(t * 3.7 + j.phase * 4.3);
@@ -185,6 +256,19 @@ export function updateJellies(dt, t) {
     for (let ti = 0; ti < j.tentGroup.children.length; ti++) {
       j.tentGroup.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
       j.tentGroup.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
+    }
+  }
+
+  if (jellyRitual.orbMesh) {
+    if (jellyRitual.active) {
+      const ritualProg = Math.min(1, jellyRitual.progress);
+      const glowScale = 0.35 + ritualProg * 1.5 + (jellyRitual.flash > 0 ? jellyRitual.flash * 1.8 : 0);
+      jellyRitual.orbMesh.visible = true;
+      jellyRitual.orbMesh.position.set(jellyRitual.centerX, player.pos.y + 3.0, jellyRitual.centerZ);
+      jellyRitual.orbMesh.scale.setScalar(glowScale);
+      jellyRitual.orbMesh.material.opacity = 0.35 + ritualProg * 0.5 + jellyRitual.flash * 0.4;
+    } else {
+      jellyRitual.orbMesh.visible = false;
     }
   }
 

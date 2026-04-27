@@ -155,6 +155,16 @@ const MESSAGES_GENERAL = {
     'every spore knows the way',
     'tavi kel ori lumis',
     'listen with your feet',
+    'we sleep near warm stones',
+    'this grove used to sing all night',
+    'the little pond remembers faces',
+    'roots tickle when rain is coming',
+    'we hide from thunder under fern roofs',
+    'those blue flowers open for moon songs',
+    'deer paths are safe if you walk softly',
+    'jellies drift where the old currents hum',
+    'moths guard the high air roads',
+    'when crystals ring, the ground feels happy',
   ],
   adult: [
     'Background scan active',
@@ -167,6 +177,16 @@ const MESSAGES_GENERAL = {
     'Micro-climate tracking',
     'System status: IDLE',
     'Environmental sync: 45%',
+    'Micro-fauna shelter map: STONE CLUSTERS',
+    'Hydrology note: pond retains long-term memory signatures',
+    'Weather protocol: fern canopy mitigates storm stress',
+    'Flora cycle: nocturnal bloom synchronized to lunar phase',
+    'Transit advisory: deer corridors show low predator risk',
+    'Aerial drift lanes align with jelly migration bands',
+    'Upper-canopy pollination dominated by moth vectors',
+    'Crystal resonance correlates with soil vitality',
+    'Biolight density peaks near old root lattices',
+    'Local history cache indicates prior high-coherence era',
   ]
 };
 

@@ -17,6 +17,27 @@ export const QUEST_CONFIG = {
   TRANSFORM_DURATION: 10.0,
 };
 
+// Required carried creature frequency per orb index (0-based).
+// Orb 1 stays puff-friendly onboarding. Orb 5 accepts any carried frequency.
+export const ORB_CREATURE_SEQUENCE = ['puff', 'jelly', 'deer', 'moth', 'any'];
+
+export const ORB_STAGE_HINTS = {
+  child: [
+    'The pufflings can teach your first song.',
+    'Now follow the jelly rhythm — stand still and tap in time.',
+    'Walk with the deer, gently and in their direction.',
+    'Dance with the moths while keeping them in view.',
+    'One last anchor — carry any creature song to finish.'
+  ],
+  adult: [
+    'Stage 1: Puffling frequency required for node bootstrap.',
+    'Stage 2: Jelly resonance required; maintain stillness + rhythm input.',
+    'Stage 3: Deer gait-lock required; align heading and pace.',
+    'Stage 4: Moth orbital lock required; maintain visual tracking while moving.',
+    'Stage 5: Final node accepts any valid carried frequency.'
+  ]
+};
+
 // Dual-narrative labels for discoveries
 export const DISCOVERY_LABELS = {
   deer:         { child: 'A Glowing Deer!',         adult: 'Biological Metronome Detected' },

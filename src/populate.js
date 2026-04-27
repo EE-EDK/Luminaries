@@ -16,7 +16,7 @@ import {
 } from './constants.js';
 
 import { sr } from './utils/rng.js';
-import { getGroundY, getGroundNormal, registerFlatZone } from './world/terrain.js';
+import { getGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -214,6 +214,9 @@ export function populate(arrays, builders, scene) {
       keepOutZones.push({ x: px, z: pz, r2: 81 }); // 9m radius — matches larger flat zone
     }
   }
+  // Obelisk zone is registered in main before populate; fairy rings and ponds above finish
+  // all flat-zone registration. From here through createGround(), getGroundY uses the cache.
+  buildHeightCache();
   // Precompute tree density weights for biome-aware flora placement
   const treeDensity = new Float32Array(trees_data.length);
   let totalDensity = 0;
@@ -237,6 +240,14 @@ export function populate(arrays, builders, scene) {
     }
     return count;
   }
+  // Helper: classify broad biome from local tree density.
+  // open: clearings / meadows, edge: transitional, dense: groves.
+  function classifyBiome(x, z) {
+    const n = countNearTrees(x, z);
+    if (n <= 1) return 'open';
+    if (n <= 3) return 'edge';
+    return 'dense';
+  }
   // Mushrooms near trees — weighted toward dense groves
   for (let i = 0; i < MUSH_N; i++) {
     let r = sr() * totalDensity, refIdx = 0;
@@ -248,6 +259,8 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 1 + sr() * 4;
     const mx = ref.x + Math.cos(ang) * d, mz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(mx, mz)) continue;
+    // Avoid oversaturating very dense clusters after mixed-plant increase.
+    if (classifyBiome(mx, mz) === 'dense' && sr() < 0.45) continue;
     const m = makeMush(mx, mz);
     m.group.position.y = getGroundY(mx, mz);
     tiltToSlope(m.group, mx, mz, 0.3);
@@ -386,6 +399,10 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 1 + sr() * 5;
     const fx = ref.x + Math.cos(ang) * d, fz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(fx, fz)) continue;
+    // Bias ferns toward edge/open so groves don't turn into solid fern carpets.
+    const fernBiome = classifyBiome(fx, fz);
+    if (fernBiome === 'dense' && sr() < 0.55) continue;
+    if (fernBiome === 'open' && sr() < 0.15) continue;
     const f = makeFern(fx, fz);
     f.group.position.y = getGroundY(fx, fz);
     f.slopeQ = computeSlopeQuat(fx, fz, 0.4);
@@ -397,7 +414,9 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7);
     const flx = Math.cos(ang) * d, flz = Math.sin(ang) * d;
     if (inKeepOut(flx, flz)) continue;
-    if (countNearTrees(flx, flz) > 1 && sr() < 0.8) continue;
+    const flowerBiome = classifyBiome(flx, flz);
+    if (flowerBiome === 'dense' && sr() < 0.92) continue;
+    if (flowerBiome === 'edge' && sr() < 0.55) continue;
     const fl = makeFlower(flx, flz);
     fl.group.position.y = getGroundY(flx, flz);
     fl.slopeQ = computeSlopeQuat(flx, flz, 0.35);
@@ -409,7 +428,9 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8);
     const rdx = Math.cos(ang) * d, rdz = Math.sin(ang) * d;
     if (inKeepOut(rdx, rdz)) continue;
-    if (countNearTrees(rdx, rdz) > 1 && sr() < 0.8) continue;
+    const reedBiome = classifyBiome(rdx, rdz);
+    if (reedBiome === 'dense' && sr() < 0.9) continue;
+    if (reedBiome === 'edge' && sr() < 0.5) continue;
     const rd = makeReed(rdx, rdz);
     rd.group.position.y = getGroundY(rdx, rdz);
     rd.slopeQ = computeSlopeQuat(rdx, rdz, 0.15);
@@ -458,7 +479,9 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7);
     const dnx = Math.cos(ang) * d, dnz = Math.sin(ang) * d;
     if (inKeepOut(dnx, dnz)) continue;
-    if (countNearTrees(dnx, dnz) > 1 && sr() < 0.8) continue;
+    const dandBiome = classifyBiome(dnx, dnz);
+    if (dandBiome === 'dense' && sr() < 0.92) continue;
+    if (dandBiome === 'edge' && sr() < 0.55) continue;
     const dn = makeDandelion(dnx, dnz);
     dn.group.position.y = getGroundY(dnx, dnz);
     tiltToSlope(dn.group, dnx, dnz, 0.35);
@@ -488,6 +511,8 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 2 + sr() * 4;
     const hx = ref.x + Math.cos(ang) * d, hz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(hx, hz)) continue;
+    // Keep some in groves but shift excess into less-crowded transitions.
+    if (classifyBiome(hx, hz) === 'dense' && sr() < 0.35) continue;
     const hv = makeHelixvine(hx, hz);
     hv.group.position.y = getGroundY(hx, hz);
     hv.slopeQ = computeSlopeQuat(hx, hz, 0.25);
@@ -545,6 +570,7 @@ export function populate(arrays, builders, scene) {
     const ang = sr() * 6.28, d = 2 + sr() * 4;
     const lpx = ref.x + Math.cos(ang) * d, lpz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(lpx, lpz)) continue;
+    if (classifyBiome(lpx, lpz) === 'dense' && sr() < 0.4) continue;
     const lp = makeLanternPod(lpx, lpz);
     lp.group.position.y = getGroundY(lpx, lpz);
     lp.slopeQ = computeSlopeQuat(lpx, lpz, 0.3);

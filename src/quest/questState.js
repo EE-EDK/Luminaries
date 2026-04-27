@@ -2,7 +2,7 @@
 // Quest State — Logic & Progression
 // ================================================================
 import { emit, Events } from '../kernel/eventBus.js';
-import { QuestPhases, QUEST_CONFIG } from './config.js';
+import { QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 
 // State variables
@@ -48,6 +48,14 @@ export function getQuestState() {
     transformDone: _transformDone,
     orbs: _orbs
   };
+}
+
+export function getOrbsFound() {
+  return _orbsFound;
+}
+
+export function getQuestPhase() {
+  return _questPhase;
 }
 
 export function updateQuestState(dt) {
@@ -137,7 +145,12 @@ export function attemptCollectOrb(index, playerPos) {
 
   if (distSq < touchR * touchR) {
     const freq = getPlayerFrequency();
+    const required = ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
     if (freq) {
+      if (required !== 'any' && freq !== required) {
+        emit(Events.ORB_REJECTED, { orbIndex: index, required, got: freq, orbsFound: _orbsFound });
+        return false;
+      }
       o.found = true;
       o.flashing = true;
       o.flashTimer = 0;
@@ -164,7 +177,7 @@ export function attemptCollectOrb(index, playerPos) {
       consumeFrequency();
       return true;
     } else {
-      emit(Events.ORB_REJECTED, { orbIndex: index });
+      emit(Events.ORB_REJECTED, { orbIndex: index, required, got: null, orbsFound: _orbsFound });
       return false;
     }
   }

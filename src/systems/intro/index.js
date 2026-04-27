@@ -232,20 +232,31 @@ export function initIntro(completeFn) {
   // ================================================================
   fantasyEl = document.createElement('div');
   fantasyEl.style.cssText =
-    'position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:Georgia,serif;font-size:clamp(20px,3vw,28px);color:#ccffee;letter-spacing:3px;' +
+    'position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);' +
+    'width:min(82vw,860px);' +
+    'font-family:Georgia,serif;font-size:clamp(19px,2.45vw,31px);color:#d8fff1;letter-spacing:1.2px;' +
     'text-shadow:0 0 14px rgba(100,255,200,.6),0 0 30px rgba(50,200,150,.3);' +
-    'text-align:center;max-width:650px;line-height:1.6;opacity:0;' +
+    'text-align:center;line-height:1.5;opacity:0;' +
+    'padding:16px 22px;border-radius:14px;' +
+    'background:linear-gradient(180deg,rgba(20,42,36,0.48) 0%,rgba(9,24,20,0.38) 100%);' +
+    'border:1px solid rgba(110,255,195,0.2);' +
+    'box-shadow:0 8px 28px rgba(0,0,0,0.35), inset 0 0 24px rgba(90,255,200,0.08);' +
     'transition:opacity 1.2s ease;pointer-events:none;';
   container.appendChild(fantasyEl);
 
   // Terminal text layer (lower center, monospace, green)
   terminalEl = document.createElement('div');
   terminalEl.style.cssText =
-    'position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);' +
-    'font-family:\'Courier New\',monospace;font-size:13px;color:#88aa66;letter-spacing:1px;' +
+    'position:absolute;top:60%;left:50%;transform:translate(-50%,-50%);' +
+    'width:min(82vw,860px);' +
+    'font-family:\'Courier New\',monospace;font-size:clamp(12px,1.25vw,14px);color:#9ccc85;letter-spacing:.6px;' +
     'text-shadow:0 0 6px rgba(100,180,60,.4),0 0 15px rgba(60,120,30,.2);' +
-    'text-align:center;max-width:650px;line-height:1.4;opacity:0;' +
+    'text-align:left;line-height:1.45;opacity:0;' +
+    'padding:14px 18px;border-radius:12px;' +
+    'background:linear-gradient(180deg,rgba(16,27,12,0.62) 0%,rgba(8,16,6,0.5) 100%);' +
+    'border:1px solid rgba(136,204,102,0.24);' +
+    'box-shadow:0 8px 22px rgba(0,0,0,0.34), inset 0 0 16px rgba(120,200,90,0.08);' +
+    'white-space:pre-wrap;' +
     'transition:opacity 1.2s ease;pointer-events:none;';
   container.appendChild(terminalEl);
 

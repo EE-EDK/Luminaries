@@ -99,6 +99,8 @@ let narrationIndex = 0;
 let narrationCharIndex = 0; // for terminal typing effect
 /** Seconds elapsed in the current narration card (includes dark gap). */
 let narrationCardTime = 0;
+/** Invalidate fantasy innerHTML only when this differs from narrationIndex. */
+let _narrationFantasyCardIndex = -1;
 let sweepProgress = 0;
 let onComplete = null; // callback when cinematic ends
 
@@ -440,6 +442,7 @@ export function updateIntro(dt, camera) {
         narrationIndex = 0;
         narrationCharIndex = 0;
         narrationCardTime = 0;
+        _narrationFantasyCardIndex = -1;
       }
       break;
     }
@@ -468,13 +471,20 @@ export function updateIntro(dt, camera) {
         fantasyEl.style.opacity = '0';
         terminalEl.style.opacity = '0';
       } else {
-        // Tighter default layout for card 1; more vertical gap for 2nd / 3rd (dense text + typing).
+        // Card 0: fixed comfortable split. Cards 2–3: top-anchored fantasy + terminal placed
+        // below measured fantasy box so multi-line prose + growing // terminal never overlap.
         if (narrationIndex === 0) {
           fantasyEl.style.top = '34%';
+          fantasyEl.style.transform = 'translate(-50%, -50%)';
           terminalEl.style.top = '60%';
+          terminalEl.style.bottom = 'auto';
+          terminalEl.style.left = '50%';
+          terminalEl.style.transform = 'translate(-50%, -50%)';
+          terminalEl.style.maxHeight = '';
+          terminalEl.style.overflowY = '';
         } else {
-          fantasyEl.style.top = '25%';
-          terminalEl.style.top = '74%';
+          fantasyEl.style.top = 'clamp(10px, 3.5vh, 40px)';
+          fantasyEl.style.transform = 'translate(-50%, 0)';
         }
         if (visTime < NARRATION_FADE) {
           fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
@@ -483,7 +493,10 @@ export function updateIntro(dt, camera) {
         } else {
           fantasyEl.style.opacity = '1';
         }
-        fantasyEl.innerHTML = card.fantasyLines.map(formatFantasyLine).join('<br>');
+        if (narrationIndex !== _narrationFantasyCardIndex) {
+          _narrationFantasyCardIndex = narrationIndex;
+          fantasyEl.innerHTML = card.fantasyLines.map(formatFantasyLine).join('<br>');
+        }
 
         if (visTime > typingDelay) {
           const elapsed = visTime - typingDelay;
@@ -498,6 +511,21 @@ export function updateIntro(dt, camera) {
           narrationCharIndex = Math.min(charCount, text.length);
         }
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
+
+        if (narrationIndex >= 1) {
+          const gap = Math.max(14, Math.min(32, window.innerHeight * 0.024));
+          const bottomPad = Math.max(16, window.innerHeight * 0.04);
+          fantasyEl.offsetHeight;
+          const fr = fantasyEl.getBoundingClientRect();
+          const termTop = fr.bottom + gap;
+          const maxH = window.innerHeight - termTop - bottomPad;
+          terminalEl.style.top = `${termTop}px`;
+          terminalEl.style.bottom = 'auto';
+          terminalEl.style.left = '50%';
+          terminalEl.style.transform = 'translate(-50%, 0)';
+          terminalEl.style.maxHeight = `${Math.max(96, maxH)}px`;
+          terminalEl.style.overflowY = maxH < 200 ? 'auto' : 'visible';
+        }
 
         const typingDelay2 = typingDelay;
         if (visTime < NARRATION_FADE + typingDelay2) {

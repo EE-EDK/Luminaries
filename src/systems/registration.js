@@ -45,14 +45,14 @@ export function registerAllSystems(deps) {
     if (deps.floraGlow) deps.floraGlow(dt, t, ctx);
   });
 
+  // --- Spirit Hum (phase before fauna — lock state matches jelly ritual same frame) ---
+  addSystem('spiritHum', Phase.SPIRIT_HUM, (dt, t, ctx) => {
+    if (deps.spiritHumUpdate) deps.spiritHumUpdate(dt, t, ctx);
+  });
+
   // --- Fauna Update ---
   addSystem('fauna', Phase.FAUNA_UPDATE, (dt, t, ctx) => {
     if (deps.faunaUpdate) deps.faunaUpdate(dt, t, ctx);
-  });
-
-  // --- Spirit Hum ---
-  addSystem('spiritHum', Phase.SPIRIT_HUM, (dt, t, ctx) => {
-    if (deps.spiritHumUpdate) deps.spiritHumUpdate(dt, t, ctx);
   });
 
   // --- Attunement ---

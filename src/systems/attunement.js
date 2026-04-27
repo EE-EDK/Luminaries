@@ -29,7 +29,8 @@ const DEER_R2_MIN = 64;     // 8m squared — must be 8-12m away
 const DEER_R2_MAX = 144;    // 12m squared
 const MOTH_R2 = 64;         // 8m squared — must be within 8m
 const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
-const JELLY_TOLERANCE = 0.3; // ±0.3s tolerance for rhythm match
+const JELLY_TOLERANCE = 0.42; // ± tolerance (s) — rhythm clicks are forgiving on keyboard/mouse
+const JELLY_PRIME_CAP = 0.34; // slow build while locked+near so ritual/gather can start before full cadence
 const JELLY_POST_ATTUNE_WINDOW = 2.0; // must pulse every 2s once jelly-attuned
 const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
 
@@ -126,8 +127,8 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   }
   _puffWasJumping = jumping;
 
-  // --- Jelly: Stand still within 6m + tap LEFT-CLICK in rhythm (requires pitch-lock to jelly) ---
-  if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
+  // --- Jelly: Near + mostly still + LEFT-CLICK rhythm (requires pitch-lock to jelly) ---
+  if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 1.05) {
     // Track rhythm taps (rising edge)
     if (pulseEdge) {
       _jellyTapTimes.push(time);
@@ -176,6 +177,24 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     }
   }
 
+  // --- Jelly priming: slow build while pitch-locked + in range (drives red glow + ring gather before full 2s cadence) ---
+  if (!matchType && (!attunementTarget || attunementTarget === 'jelly')) {
+    const _jp = _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 1.1;
+    if (_jp) {
+      if (attunementTarget !== 'jelly') {
+        attunementTarget = 'jelly';
+        attunement = 0;
+      }
+      const _bio = ctx?.env?.bioGlow !== undefined ? ctx.env.bioGlow : 1.0;
+      attunement = Math.min(JELLY_PRIME_CAP, attunement + ATTUNE_RATE * 0.65 * dt * _bio);
+      if (pulseEdge) {
+        attunement = Math.min(JELLY_PRIME_CAP, attunement + 0.072);
+        _jellySyncFlash = Math.max(_jellySyncFlash, 0.26);
+      }
+      refreshLock();
+    }
+  }
+
   // --- Apply attunement gain/decay ---
   if (matchType) {
     if (attunementTarget !== matchType) {
@@ -211,6 +230,8 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     // Don't decay puff attunement while pitch-locked near pufflings (between jumps)
     if (attunementTarget === 'puff' && _puffNear) {
       // Hold — no decay while linked
+    } else if (attunementTarget === 'jelly' && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 1.25) {
+      // Hold jelly progress between clicks / brief movement so rhythm + ritual aren't erased
     } else {
       attunement = Math.max(0, attunement - ATTUNE_DECAY * dt);
       if (attunement === 0) attunementTarget = null;

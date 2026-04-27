@@ -21,9 +21,10 @@ export const Phase = {
   PARTICLE_SPAWN:     20,
   FLORA_GLOW:         30,
   SPATIAL_HASH_UPDATE: 35,
+  // Spirit hum before fauna so pitch-lock is current when jellies/attunement read isLocked().
+  SPIRIT_HUM:         38,
   FAUNA_UPDATE:       40,
   NEAREST_CREATURES:  45,
-  SPIRIT_HUM:         50,
   ATTUNEMENT:         60,
   SKY:                70,
   VEGETATION:         80,

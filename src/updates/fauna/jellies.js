@@ -18,6 +18,7 @@ import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
 import { queryNearTrees } from '../../utils/spatialHash.js';
+import { nearest } from '../../systems/registration.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 const _jellyNearColor = new Color(0xff4fd2);
@@ -25,7 +26,7 @@ const _jellyAttuneRed = new Color(0xff2a28);
 const _jellyFarColor = new Color(C.jellyBell);
 /** Emissive lerp targets — jellyGlow reads cyan on lit emissive even when color is red */
 const _jelEmitBlue = new Color(C.jellyGlow);
-const _jelEmitRed = new Color(0xff1018);
+const _jelEmitRed = new Color(0xff0a14);
 const _jelInnerBlue = new Color(C.jellyGlow);
 const _jelInnerRed = new Color(0xff3528);
 const _jelTipBlue = new Color(C.jellyTip);
@@ -45,7 +46,8 @@ const _jellyTentBase = new Color(C.jellyTent);
  */
 const _MUSHROOM_REF_PEAK = 1.3 * 1.7;
 const _JELLY_EMISSIVE_MAX = 0.4 + 0.8;
-const _JELLY_RED_LUMA_MUL = (0.8 * _MUSHROOM_REF_PEAK) / _JELLY_EMISSIVE_MAX;
+/** Match mushroom cap peak radiance on red path (was 0.8× — too dim vs pink mush). */
+const _JELLY_RED_LUMA_MUL = (1.05 * _MUSHROOM_REF_PEAK) / _JELLY_EMISSIVE_MAX;
 
 const jellyRitual = {
   active: false,
@@ -73,15 +75,17 @@ function ensureJellyRitualOrb() {
 
 export function updateJellies(dt, t) {
   ensureJellyRitualOrb();
-  const ritualActive = getAttunementTarget() === 'jelly';
+  const pitchLockedJellyPre = isLocked() && getLockType() === 'jelly';
+  const nearJellyRitual = nearest.jellyDist2 < 100;
+  const wantsJellyRitual = getAttunementTarget() === 'jelly' || (pitchLockedJellyPre && nearJellyRitual);
   const attune = getAttunement();
-  if (ritualActive && !jellyRitual.active && attune > 0.01) {
+  if (wantsJellyRitual && !jellyRitual.active && (attune > 0.01 || pitchLockedJellyPre)) {
     jellyRitual.active = true;
     jellyRitual.centerX = player.pos.x;
     jellyRitual.centerZ = player.pos.z;
     jellyRitual.progress = 0;
-    jellyRitual.flash = 0;
-  } else if (!ritualActive) {
+    jellyRitual.flash = 0.18;
+  } else if (!wantsJellyRitual) {
     jellyRitual.active = false;
     jellyRitual.progress = 0;
     jellyRitual.flash = 0;
@@ -154,7 +158,7 @@ export function updateJellies(dt, t) {
 
   const jellyAttuneTarget = getAttunementTarget();
   const jellyFreq = getPlayerFrequency();
-  const pitchLockedJelly = isLocked() && getLockType() === 'jelly';
+  const pitchLockedJelly = pitchLockedJellyPre;
   const hummingJelly = humResonanceType === 'jelly' && humResonanceStr > 0.08;
   const jellyRedActive = jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly' || pitchLockedJelly || hummingJelly;
 
@@ -322,23 +326,24 @@ export function updateJellies(dt, t) {
     const ritualBoost = jellyRitual.active ? (1.0 + Math.min(1.0, jellyRitual.progress) * 2.2) : 1.0;
     const flashBoost = jellyRitual.flash > 0 ? (1.0 + jellyRitual.flash * 4.5) : 1.0;
     const syncBoost = jellyRedActive
-      ? (1.0 + redSyncPulse * 1.2 + jellySyncFlash * 2.2)
+      ? (1.0 + redSyncPulse * 1.45 + jellySyncFlash * 2.65)
       : 1.0;
     let redBlendRaw = 0;
     if (jellyRedActive) {
-      redBlendRaw = 0.42 + redSyncPulse * 0.53 + jellySyncFlash * 0.55;
+      redBlendRaw = 0.58 + redSyncPulse * 0.58 + jellySyncFlash * 0.62;
       if (hummingJelly && !pitchLockedJelly && jellyFreq !== 'jelly' && jellyAttuneTarget !== 'jelly') {
         redBlendRaw *= 0.35 + humResonanceStr * 0.55;
       }
     }
     let redBlend = Math.min(1, redBlendRaw);
     if (pitchLockedJelly) {
-      redBlend = Math.max(redBlend, 0.68);
+      redBlend = Math.max(redBlend, 0.9);
     }
 
     let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
     if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) bellEm += echoTimer * 0.35;
     if (redBlend > 0) bellEm *= 1 + redBlend * (_JELLY_RED_LUMA_MUL - 1);
+    if (redBlend > 0.12) bellEm *= 1.0 + redBlend * 0.42;
 
     j.bellMat.emissiveIntensity = bellEm;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;

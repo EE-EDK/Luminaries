@@ -331,7 +331,10 @@ export function updateJellies(dt, t) {
         redBlendRaw *= 0.35 + humResonanceStr * 0.55;
       }
     }
-    const redBlend = Math.min(1, redBlendRaw);
+    let redBlend = Math.min(1, redBlendRaw);
+    if (pitchLockedJelly) {
+      redBlend = Math.max(redBlend, 0.68);
+    }
 
     let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
     if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) bellEm += echoTimer * 0.35;

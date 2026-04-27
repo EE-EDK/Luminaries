@@ -81,6 +81,12 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   } = creatureData;
   const pulseEdge = pulsePressed && !_jellyLastPulseInput;
 
+  // Pitch lock decays in ~3s after hum stops; jelly rhythm needs two taps ~2s apart before
+  // matchType becomes 'jelly', so refresh lock whenever carrier is jelly and a jelly is in hum range.
+  if (isLocked() && getLockType() === 'jelly' && nearestJellyDist2 < 400 && nearestJellyDist2 < Infinity) {
+    refreshLock();
+  }
+
   // Jelly post-attune mode: once attuned, player only needs pulse cadence (no lock hold).
   if (playerFrequency === 'jelly') {
     _jellyPostTimer -= dt;

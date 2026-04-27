@@ -62,7 +62,7 @@ export function updateSpiritHumVisuals(dt) {
   if (!mobile && humFreqArmed) {
     const ramp = HUM_KEY_RAMP_NORM_PER_S;
     if (keys['KeyQ']) _desktopHumNorm += ramp * dt;
-    if (keys['KeyE']) _desktopHumNorm -= ramp * dt;
+    if (keys['KeyE'] || keys['KeyR']) _desktopHumNorm -= ramp * dt;
     _desktopHumNorm = Math.max(0, Math.min(1, _desktopHumNorm));
   }
   _humWasActive = _humInput;
@@ -123,8 +123,15 @@ export function updateSpiritHumVisuals(dt) {
     _humRingTimer = 0;
   }
 
-  // Write resonance state for other systems (fauna, etc.)
-  setHumResonance(_humResType, _humRes);
+  // Write resonance state for other systems (fauna, etc.). While pitch-locked but not humming,
+  // carry lock type + floor strength so jelly visuals/orbs stay in "carrier" mode (resonance decays to 0 in spiritHum).
+  let _outType = _humResType;
+  let _outStr = _humRes;
+  if (!isHumming() && isLocked() && getLockType()) {
+    _outType = getLockType();
+    _outStr = Math.max(_outStr, 0.5);
+  }
+  setHumResonance(_outType, _outStr);
 
   // Slider visual feedback
   if (_humThumbEl) {

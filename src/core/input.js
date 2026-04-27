@@ -19,7 +19,7 @@ export let mouseY = window.innerHeight * 0.5;
 export let screenH = window.innerHeight;
 export let touchHum = false;
 export let touchHumY = 0.5; // normalized 0–1 (0=top/high pitch, 1=bottom/low pitch)
-/** Desktop: F toggles spirit-hum armed; hum runs while armed (Q/E adjust pitch). */
+/** Desktop: F toggles spirit-hum armed; hum runs while armed (Q/E or Q/R adjust pitch). */
 export let humFreqArmed = false;
 export let pointerLocked = false;
 

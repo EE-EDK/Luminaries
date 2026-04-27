@@ -1,5 +1,5 @@
 // --- Puffling (round hopping creature — enhanced detail) ---
-import { CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
+import { ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -56,7 +56,7 @@ export function makePuff(x, z, opts = {}) {
     // Brow mesh
     const brow = new Mesh(new PlaneGeometry(0.06, 0.02), new MeshBasicMaterial({ color: C.puffBrow }));
     brow.position.set(i * 0.09, 0.74, 0.19);
-    brow.rotation.z = i * 0.2;
+    brow.rotation.z = i * -0.18;
     shell.add(brow);
     brows.push(brow);
   }
@@ -99,10 +99,6 @@ export function makePuff(x, z, opts = {}) {
     foot.position.set(i * 0.12, 0.07, 0.05); foot.scale.set(1, 0.5, 1.3); shell.add(foot);
   }
 
-  // Tail pom
-  const tail = new Mesh(new SphereGeometry(0.06, 10, 8), new MeshStandardMaterial({ color: C.puffTail, roughness: 0.9 }));
-  tail.position.set(0, 0.38, -0.28); shell.add(tail);
-
   // --- SPORE TRAIL MOTES ---
   const sporeMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.6, depthWrite: false });
   const spores = [];
@@ -113,14 +109,9 @@ export function makePuff(x, z, opts = {}) {
     spores.push(spore);
   }
 
-  // Ground glow
-  const glowMat = new MeshBasicMaterial({ color: C.puffGlow, transparent: true, opacity: 0.1, depthWrite: false, side: DoubleSide });
-  const glowDisc = new Mesh(new CircleGeometry(0.5, 8), glowMat);
-  glowDisc.rotation.x = -Math.PI / 2; glowDisc.position.y = 0.02; g.add(glowDisc);
-
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, shell, body, head, ears, eyes, brows, nose, mouth, tail, spores, core, bodyMat, glowMat, crownMat,
+    group: g, shell, body, head, ears, eyes, brows, nose, mouth, spores, core, bodyMat, crownMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _baseY: 0, _lastTX: x, _lastTZ: z,
@@ -182,7 +173,7 @@ export function updatePuff(p, dt, playerPos) {
   p.core.scale.setScalar(0.9 + Math.sin(p.phase * 4) * 0.1);
 
   // 4. EXPRESSIVE BROWS
-  const browTilt = (distSq < 25) ? -0.4 : 0.2; // Grumpy/scared if close
+  const browTilt = (distSq < 25) ? 0.08 : 0.22; // Keep brows relaxed/happy
   p.brows.forEach((b, i) => {
     b.rotation.z = (i === 0 ? 1 : -1) * browTilt;
   });

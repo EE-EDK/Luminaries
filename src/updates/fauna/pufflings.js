@@ -332,8 +332,6 @@ export function updatePuffs(dt, t) {
       const ear = p.ears[ei];
       ear.mesh.rotation.z = ear.baseRotZ + Math.sin(t * 3.5 + ear.side * 1.2 + p.phase) * 0.08;
     }
-    // Tail pom bounce
-    p.tail.position.y = 0.38 + Math.sin(t * 4 + p.phase) * 0.015;
     // Simple mouth flap while speaking.
     if (p.mouth) {
       p._talkTimer = Math.max(0, (p._talkTimer || 0) - dt);
@@ -376,15 +374,6 @@ export function updatePuffs(dt, t) {
       }
       if (echoTimer > 0 && attuneFlashType !== 'puff' && pDist2 < 900 && p.bodyMat) p.bodyMat.emissiveIntensity += echoTimer * 0.35;
     }
-    // Ground glow disc
-    if (p.glowMat) {
-      const glowBase = 0.15 + Math.sin(t * 2 + p.phase) * 0.06;
-      const glowAttune = pDist2 < 64 ? curAttune * 0.2 : 0;
-      const syncGlow = p.state === 'syncing' ? curAttune * 0.5 : 0;
-      const localG = getLocalGlow(px, pz, bioGlow * orbBoost);
-      p.glowMat.opacity = Math.min(1.0, (glowBase + glowAttune + syncGlow) * Math.max(localG, 0.3));
-    }
-
     // World bounds
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;

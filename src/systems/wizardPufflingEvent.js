@@ -18,6 +18,9 @@ const CAM_FOCUS_MIN_HZ = 0.55;
 const PROCLAIM_SEC = 3.5;
 /** Pause after TAB before sky beam */
 const PREBEAM_SEC = 2.5;
+/** On-screen hint when camera first locks onto the approaching wizard */
+const APPROACH_HINT_TEXT = 'A wizard approaches?';
+const APPROACH_HINT_SEC = 3.6;
 /** ~2 ft diameter ≈ 0.61 m → cylinder radius (meters) */
 const BEAM_RADIUS = 0.31;
 const BEAM_GLOW_RADIUS = 0.42;
@@ -43,6 +46,7 @@ let _laser = null;
 let _smoke = null;
 /** World focus for camera after wizard despawns (beam site) */
 let _smiteFocus = { x: 0, y: 0, z: 0 };
+let _approachHintShown = false;
 
 function wrapPi(a) {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -220,13 +224,19 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       spawnWizardNearPlayer(ctx.player.pos, ctx.yaw);
       _state = 'approach';
       _phaseTimer = 0;
+      _approachHintShown = false;
+    } else {
+      return null;
     }
-    return null;
   }
 
   const focusVec = { x: 0, y: 0, z: 0 };
 
   if (_state === 'approach' && _wizard) {
+    if (!_approachHintShown) {
+      _approachHintShown = true;
+      if (_showNarrativeText) _showNarrativeText(APPROACH_HINT_TEXT, APPROACH_HINT_SEC);
+    }
     _phaseTimer += dt;
     const g = _wizard.group;
     const px = ctx.player.pos.x;

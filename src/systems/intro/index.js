@@ -483,9 +483,11 @@ export function updateIntro(dt, camera) {
           terminalEl.style.maxHeight = '';
           terminalEl.style.overflowY = '';
         } else {
-          // Top-anchored fantasy — sit slightly lower so tall cards breathe; terminal gaps below from measured bottom.
+          // Top-anchored fantasy — terminal Y is derived from offsetHeight (same offsetParent as terminal)
+          // so we never overlap; getBoundingClientRect was fragile on 2nd/3rd tall cards.
           fantasyEl.style.top = 'clamp(20px, 6vh, 72px)';
           fantasyEl.style.transform = 'translate(-50%, 0)';
+          fantasyEl.style.marginBottom = '0';
         }
         if (visTime < NARRATION_FADE) {
           fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
@@ -514,19 +516,17 @@ export function updateIntro(dt, camera) {
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
         if (narrationIndex >= 1) {
-          const gap = Math.max(32, Math.min(56, window.innerHeight * 0.034));
-          const typedBlockExtraDown = 36;
-          const bottomPad = Math.max(16, window.innerHeight * 0.04);
-          fantasyEl.offsetHeight;
-          const fr = fantasyEl.getBoundingClientRect();
-          const termTop = fr.bottom + gap + typedBlockExtraDown;
-          const maxH = window.innerHeight - termTop - bottomPad;
-          terminalEl.style.top = `${termTop}px`;
+          const gapPx = Math.max(48, Math.min(88, window.innerHeight * 0.06));
+          const bottomPad = Math.max(20, window.innerHeight * 0.05);
+          void fantasyEl.offsetHeight;
+          const stackTop = fantasyEl.offsetTop + fantasyEl.offsetHeight + gapPx;
+          const maxH = window.innerHeight - stackTop - bottomPad;
+          terminalEl.style.top = `${stackTop}px`;
           terminalEl.style.bottom = 'auto';
           terminalEl.style.left = '50%';
           terminalEl.style.transform = 'translate(-50%, 0)';
-          terminalEl.style.maxHeight = `${Math.max(96, maxH)}px`;
-          terminalEl.style.overflowY = maxH < 200 ? 'auto' : 'visible';
+          terminalEl.style.maxHeight = `${Math.max(120, maxH)}px`;
+          terminalEl.style.overflowY = maxH < 220 ? 'auto' : 'visible';
         }
 
         const typingDelay2 = typingDelay;

@@ -1,0 +1,20 @@
+# Core app graph only: exclude generated/docs/artifacts/reference material
+docs/
+graphify-out/
+reference/
+node_modules/
+.git/
+.github/
+
+# Non-source docs/notes
+*.md
+*.txt
+*.pdf
+*.doc
+*.docx
+*.csv
+*.xlsx
+*.zip
+
+# Build/dependency artifacts
+package-lock.json

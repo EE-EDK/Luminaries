@@ -1,25 +1,25 @@
-# Graph Report - .  (2026-04-19)
+# Graph Report - C:\Users\edk7c\ENGINEERING-PROJECTS\web\luminaries  (2026-04-26)
 
 ## Corpus Check
-- 136 files · ~209,059 words
+- 129 files · ~119,598 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 958 nodes · 1578 edges · 135 communities detected
-- Extraction: 53% EXTRACTED · 47% INFERRED · 0% AMBIGUOUS · INFERRED: 741 edges (avg confidence: 0.5)
+- 630 nodes · 670 edges · 119 communities detected
+- Extraction: 76% EXTRACTED · 24% INFERRED · 0% AMBIGUOUS · INFERRED: 159 edges (avg confidence: 0.5)
 - Token cost: 0 input · 0 output
 
 ## God Nodes (most connected - your core abstractions)
-1. `X()` - 43 edges
-2. `Ra()` - 36 edges
-3. `vO()` - 31 edges
-4. `la()` - 27 edges
-5. `Cc()` - 27 edges
-6. `Y()` - 21 edges
-7. `ap()` - 20 edges
-8. `fa()` - 19 edges
-9. `fd()` - 19 edges
-10. `hc()` - 18 edges
+1. `updateWizardPufflingEvent()` - 9 edges
+2. `animateTitle()` - 8 edges
+3. `_computeGroundY()` - 8 edges
+4. `updateQuest()` - 7 edges
+5. `updateQuestVisuals()` - 7 edges
+6. `showNarrativeText()` - 7 edges
+7. `updateMusic()` - 7 edges
+8. `_directorFaunaUpdate()` - 6 edges
+9. `animate()` - 6 edges
+10. `initProceduralRocks()` - 6 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `updateMusic()` --calls--> `playDrone()`  [INFERRED]
@@ -35,648 +35,564 @@
 
 ## Communities
 
-### Community 0 - "Bundled Assets"
-Cohesion: 0.03
-Nodes (32): Al(), av(), bl(), cl(), $e(), Er(), eu(), Fl() (+24 more)
-
-### Community 1 - "Utility Functions A"
-Cohesion: 0.05
-Nodes (76): ao(), ap(), au(), Ba(), Bf(), Bk(), bv(), Bx() (+68 more)
-
-### Community 2 - "Utility Functions B"
+### Community 0 - "Community 0"
 Cohesion: 0.11
-Nodes (36): Ac(), bc(), c(), Cc(), Dc(), Ds(), ec(), el() (+28 more)
+Nodes (11): animate(), director(), _directorFaunaUpdate(), _directorMagical(), syncContext(), updateDeers(), updateFairyRings(), updateJellies() (+3 more)
 
-### Community 3 - "Utility Functions C"
-Cohesion: 0.08
-Nodes (28): ay(), bg(), Eg(), fg(), Gg(), gx(), Hg(), hx() (+20 more)
-
-### Community 4 - "Kernel Logic"
-Cohesion: 0.12
-Nodes (10): animate(), director(), _directorFaunaUpdate(), _directorMagical(), updateDeers(), updateFairyRings(), updateJellies(), updateLuminids() (+2 more)
-
-### Community 5 - "Utility Functions D"
-Cohesion: 0.12
-Nodes (20): _b(), Bd(), ca(), co(), da(), db(), dd(), gb() (+12 more)
-
-### Community 6 - "Spirit Hum System"
+### Community 1 - "Community 1"
 Cohesion: 0.11
 Nodes (2): startResonanceDrone(), stopResonanceDrone()
 
-### Community 7 - "Utility Functions E"
-Cohesion: 0.16
-Nodes (18): AE(), be(), de(), df(), fE(), hE(), ie(), le() (+10 more)
+### Community 2 - "Community 2"
+Cohesion: 0.22
+Nodes (13): checkDiscoveries(), checkEntityGroup(), checkIdleHints(), getHintClarityTier(), getSeekHudLabel(), showDiscovery(), showFinaleText(), showFreeRoamText() (+5 more)
 
-### Community 8 - "Utility Functions F"
-Cohesion: 0.12
-Nodes (17): a(), eo(), gO(), Ka(), kE(), Lx(), ne(), og() (+9 more)
-
-### Community 9 - "Utility Functions G"
-Cohesion: 0.12
-Nodes (17): am(), bb(), cm(), ED(), em(), i(), If(), JD() (+9 more)
-
-### Community 10 - "Utility Functions H"
-Cohesion: 0.24
-Nodes (17): bT(), gt(), ht(), JT(), Kt(), n(), pt(), qT() (+9 more)
-
-### Community 11 - "Sky & Stars"
+### Community 3 - "Community 3"
 Cohesion: 0.23
 Nodes (13): createConstellations(), createShootingStars(), createSkyDome(), createTwinkleStars(), getConstellationDir(), paintSkyCanvas(), revealConstellation(), rgba() (+5 more)
 
-### Community 12 - "Utility Functions I"
-Cohesion: 0.13
-Nodes (15): Bw(), Fw(), Hw(), Ja(), nT(), ov(), qw(), re() (+7 more)
+### Community 4 - "Community 4"
+Cohesion: 0.23
+Nodes (12): explodeGlitter(), gatherCreatures(), getObeliskTipY(), initFlashOverlay(), initGlitter(), initQuestVisuals(), onOrbCollected(), onOrbLaserStart() (+4 more)
 
-### Community 13 - "Intro Animations"
+### Community 5 - "Community 5"
 Cohesion: 0.23
 Nodes (12): animateMushrooms(), animatePixie(), animatePufflings(), animateTitle(), animateTitleGlow(), animateTree(), noise1d(), pixiePos() (+4 more)
 
-### Community 14 - "Discoveries System"
-Cohesion: 0.15
-Nodes (4): checkDiscoveries(), checkIdleHints(), showDiscovery(), showNarrativeText()
+### Community 6 - "Community 6"
+Cohesion: 0.31
+Nodes (11): buildHeightCache(), cellDist(), _computeGroundY(), fbm(), getGroundNormal(), getGroundY(), hash(), landformHeight() (+3 more)
 
-### Community 15 - "Game State"
-Cohesion: 0.14
-Nodes (0): 
-
-### Community 16 - "Rock Generation"
+### Community 7 - "Community 7"
 Cohesion: 0.21
 Nodes (8): applyVertexColors(), createImpostor(), createRockSDF(), displaceSmooth(), initPebbles(), initProceduralRocks(), marchingCubes(), measureGeometry()
 
-### Community 17 - "Tree Generation"
+### Community 8 - "Community 8"
+Cohesion: 0.25
+Nodes (11): cleanupLaser(), clearCameraForce(), forceLookAt(), lookAngles(), removeWizard(), spawnSkyLaser(), spawnSmokePuff(), spawnWizardNearPlayer() (+3 more)
+
+### Community 9 - "Community 9"
 Cohesion: 0.24
 Nodes (10): applySlopeTilt(), bakeTemplate(), createTreeInstances(), createTreeTemplates(), generateTemplateTree(), getBarkTexture(), getCanopyAlphaMap(), getGlowTexture() (+2 more)
 
-### Community 18 - "Music Synthesis"
+### Community 10 - "Community 10"
 Cohesion: 0.33
 Nodes (11): generateChimeCluster(), generateFlutePhrase(), generateHarpArpeggio(), initMusic(), noteFreq(), playBassPulse(), playChime(), playDrone() (+3 more)
 
-### Community 19 - "Terrain Engine"
-Cohesion: 0.36
-Nodes (11): buildHeightCache(), cellDist(), _computeGroundY(), fbm(), getGroundNormal(), getGroundY(), hash(), landformHeight() (+3 more)
-
-### Community 20 - "Utility Functions J"
-Cohesion: 0.17
-Nodes (12): d(), ek(), ep(), f(), Ik(), Lk(), o(), Qf() (+4 more)
-
-### Community 21 - "Audio Core"
+### Community 11 - "Community 11"
 Cohesion: 0.17
 Nodes (0): 
 
-### Community 22 - "Utility Functions K"
-Cohesion: 0.27
-Nodes (11): g(), h(), hh(), hl(), l(), lm(), m(), Os() (+3 more)
+### Community 12 - "Community 12"
+Cohesion: 0.17
+Nodes (0): 
 
-### Community 23 - "Core Architecture"
+### Community 13 - "Community 13"
+Cohesion: 0.18
+Nodes (0): 
+
+### Community 14 - "Community 14"
 Cohesion: 0.2
-Nodes (11): Director Pattern, Kernel (Scheduler/EventBus/Registry), Deterministic World Generation, 20 FPS Minimum Mandate, Zero Assets Mandate, Luminaries Project, Procedural Audio Engine Protocol, Unified WebGL Protocol v4.1 (+3 more)
+Nodes (0): 
 
-### Community 24 - "Utility Functions L"
-Cohesion: 0.22
-Nodes (10): AA(), dg(), jy(), Mv(), nv(), sy(), Vv(), vy() (+2 more)
-
-### Community 25 - "Quest Interactions"
+### Community 15 - "Community 15"
 Cohesion: 0.36
 Nodes (9): explodeGlitter(), getObeliskTipY(), initFlashOverlay(), initGlitter(), initQuest(), revealAllObeliskDetails(), transformTreesAndGround(), updateGlitter() (+1 more)
 
-### Community 26 - "AI Steering"
-Cohesion: 0.2
-Nodes (0): 
-
-### Community 27 - "Player Audio"
-Cohesion: 0.2
-Nodes (0): 
-
-### Community 28 - "Input Handling"
-Cohesion: 0.2
-Nodes (0): 
-
-### Community 29 - "Attunement Logic"
+### Community 16 - "Community 16"
 Cohesion: 0.25
 Nodes (2): updateAttunement(), _updatePuffOnly()
 
-### Community 30 - "Utility Functions M"
-Cohesion: 0.29
-Nodes (8): ip(), jf(), mf(), np(), r(), rp(), um(), wm()
-
-### Community 31 - "Intro System"
-Cohesion: 0.29
-Nodes (2): onTitleClick(), startIntro()
-
-### Community 32 - "Obelisk System"
-Cohesion: 0.25
-Nodes (0): 
-
-### Community 33 - "Ground Engine"
+### Community 17 - "Community 17"
 Cohesion: 0.43
 Nodes (5): createGround(), gfbm(), ghash(), gnoise(), makeGroundTexture()
 
-### Community 34 - "Quest Audio"
+### Community 18 - "Community 18"
+Cohesion: 0.25
+Nodes (0): 
+
+### Community 19 - "Community 19"
+Cohesion: 0.25
+Nodes (0): 
+
+### Community 20 - "Community 20"
+Cohesion: 0.43
+Nodes (5): addHarmonicLayer(), noteFreq(), startClusterHarmonies(), stopClusterHarmonies(), updateCrystalResonance()
+
+### Community 21 - "Community 21"
+Cohesion: 0.29
+Nodes (2): onTitleClick(), startIntro()
+
+### Community 22 - "Community 22"
 Cohesion: 0.29
 Nodes (0): 
 
-### Community 35 - "World Sectors"
-Cohesion: 0.33
-Nodes (2): getSector(), isRestored()
-
-### Community 36 - "Task Scheduler"
+### Community 23 - "Community 23"
 Cohesion: 0.29
 Nodes (0): 
 
-### Community 37 - "Utility Functions N"
-Cohesion: 0.52
-Nodes (7): cf(), Ef(), ff(), lf(), sf(), uf(), yf()
-
-### Community 38 - "Laser System"
+### Community 24 - "Community 24"
 Cohesion: 0.43
 Nodes (4): buildBendGeo(), makeLaser(), rebuildBends(), updateLasers()
 
-### Community 39 - "Math Utils"
+### Community 25 - "Community 25"
+Cohesion: 0.33
+Nodes (2): getSector(), isRestored()
+
+### Community 26 - "Community 26"
 Cohesion: 0.29
 Nodes (0): 
 
-### Community 40 - "Utility Functions O"
-Cohesion: 0.33
-Nodes (6): af(), gp(), hp(), mp(), Qp(), Wd()
+### Community 27 - "Community 27"
+Cohesion: 0.29
+Nodes (0): 
 
-### Community 41 - "Utility Functions P"
-Cohesion: 0.4
-Nodes (6): at(), dt(), ft(), it(), ot(), xw()
+### Community 28 - "Community 28"
+Cohesion: 0.43
+Nodes (4): _query(), queryNearAll(), queryNearDynamic(), queryNearTrees()
 
-### Community 42 - "World Population"
-Cohesion: 0.67
-Nodes (5): computeSlopeQuat(), inKeepOut(), makeGlyphs(), populate(), tiltToSlope()
-
-### Community 43 - "Weather Engine"
-Cohesion: 0.47
-Nodes (4): buildMistPlanes(), initWeather(), pickNext(), updateWeather()
-
-### Community 44 - "Magical Entity Updates"
+### Community 29 - "Community 29"
 Cohesion: 0.33
 Nodes (0): 
 
-### Community 45 - "Creature Audio"
-Cohesion: 0.47
-Nodes (3): playAttunementFlash(), playPufflingSinging(), singNoteFreq()
+### Community 30 - "Community 30"
+Cohesion: 0.33
+Nodes (0): 
 
-### Community 46 - "AI Senses"
+### Community 31 - "Community 31"
+Cohesion: 0.4
+Nodes (2): setPerspective(), togglePerspective()
+
+### Community 32 - "Community 32"
 Cohesion: 0.4
 Nodes (2): dist(), dist2()
 
-### Community 47 - "Service Registry"
+### Community 33 - "Community 33"
 Cohesion: 0.33
 Nodes (0): 
 
-### Community 48 - "Game Mechanics"
+### Community 34 - "Community 34"
+Cohesion: 0.47
+Nodes (4): buildMistPlanes(), initWeather(), pickNext(), updateWeather()
+
+### Community 35 - "Community 35"
+Cohesion: 0.67
+Nodes (5): computeSlopeQuat(), inKeepOut(), makeGlyphs(), populate(), tiltToSlope()
+
+### Community 36 - "Community 36"
 Cohesion: 0.33
-Nodes (6): Fauna (Jelly/Puffling/Deer/Moth), Creature Attunement, The Dimming (Sector Suppression), Dual Narrative (Child/Adult), Spirit Hum (Pitch Lock), Phase 2 (Symbiotic Attunement)
+Nodes (0): 
 
-### Community 49 - "Footprints System"
-Cohesion: 0.5
-Nodes (2): createFootShape(), initFootprints()
+### Community 37 - "Community 37"
+Cohesion: 0.47
+Nodes (3): playAttunementFlash(), playPufflingSinging(), singNoteFreq()
 
-### Community 50 - "RNG Utils"
+### Community 38 - "Community 38"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 51 - "Leaves Particles"
+### Community 39 - "Community 39"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 52 - "Spores Particles"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 53 - "Seeds Particles"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 54 - "Player Visuals"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 55 - "Puffling Chat"
-Cohesion: 0.5
-Nodes (2): pickMessage(), triggerPufflingChat()
-
-### Community 56 - "EventBus Tests"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 57 - "Moth Generation"
-Cohesion: 0.6
-Nodes (3): _makeForewingShape(), _makeHindwingShape(), makeMoth()
-
-### Community 58 - "Event Bus"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 59 - "Day/Night Cycle"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 60 - "Ambient Audio"
+### Community 40 - "Community 40"
 Cohesion: 0.6
 Nodes (3): ensureAmbient(), spawnCricketPing(), updateAmbientSounds()
 
-### Community 61 - "Laser Audio"
+### Community 41 - "Community 41"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 62 - "Orb Bursts"
+### Community 42 - "Community 42"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 43 - "Community 43"
+Cohesion: 0.5
+Nodes (2): pickMessage(), triggerPufflingChat()
+
+### Community 44 - "Community 44"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 45 - "Community 45"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 46 - "Community 46"
+Cohesion: 0.6
+Nodes (3): _makeForewingShape(), _makeHindwingShape(), makeMoth()
+
+### Community 47 - "Community 47"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 48 - "Community 48"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 49 - "Community 49"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 50 - "Community 50"
+Cohesion: 0.5
+Nodes (2): initCrystalLights(), initLightPooler()
+
+### Community 51 - "Community 51"
+Cohesion: 0.5
+Nodes (2): createFootShape(), initFootprints()
+
+### Community 52 - "Community 52"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 53 - "Community 53"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 63 - "Luminid Fauna"
+### Community 54 - "Community 54"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 64 - "Moat Visuals"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 65 - "Dust Particles"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 66 - "Resonance Rings"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 67 - "Intro Models"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 68 - "Puffling Fauna"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 69 - "Star Motes"
-Cohesion: 0.67
-Nodes (2): spawnStarMote(), updateStarMotes()
-
-### Community 70 - "Particle Spawning"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 71 - "Deer Fauna"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 72 - "Entity Store"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 73 - "Rainbow Visuals"
-Cohesion: 0.67
-Nodes (2): buildRibbonGeo(), makeRainbows()
-
-### Community 74 - "Rain System"
+### Community 55 - "Community 55"
 Cohesion: 0.83
 Nodes (3): hideDropVerts(), initRain(), updateRain()
 
-### Community 75 - "Performance Monitor"
+### Community 56 - "Community 56"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 76 - "Bubble Particles"
+### Community 57 - "Community 57"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 77 - "Fireflies Particles"
+### Community 58 - "Community 58"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 78 - "Overlay UI"
+### Community 59 - "Community 59"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 79 - "Dandelion Flora"
+### Community 60 - "Community 60"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 61 - "Community 61"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 62 - "Community 62"
+Cohesion: 0.67
+Nodes (2): spawnStarMote(), updateStarMotes()
+
+### Community 63 - "Community 63"
+Cohesion: 0.67
+Nodes (2): buildRibbonGeo(), makeRainbows()
+
+### Community 64 - "Community 64"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 65 - "Community 65"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 66 - "Community 66"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 67 - "Community 67"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 68 - "Community 68"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 69 - "Community 69"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 70 - "Community 70"
+Cohesion: 0.67
+Nodes (2): ensureJellyRitualOrb(), updateJellies()
+
+### Community 71 - "Community 71"
+Cohesion: 0.5
+Nodes (0): 
+
+### Community 72 - "Community 72"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 80 - "Atmospheric Audio"
+### Community 73 - "Community 73"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 74 - "Community 74"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 75 - "Community 75"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 76 - "Community 76"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 77 - "Community 77"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 78 - "Community 78"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 79 - "Community 79"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 80 - "Community 80"
 Cohesion: 1.0
 Nodes (2): playThunder(), updateAudio()
 
-### Community 81 - "Spatial Hashing"
+### Community 81 - "Community 81"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 82 - "Aurora Visuals"
+### Community 82 - "Community 82"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 83 - "Vegetation Updates"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 84 - "Echo Visions"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 85 - "Kernel Context"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 86 - "Pond Generation"
+### Community 83 - "Community 83"
 Cohesion: 1.0
 Nodes (2): makeOrganicDiscGeo(), makePond()
 
-### Community 87 - "Jelly Fauna"
+### Community 84 - "Community 84"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 88 - "Energy Lines"
+### Community 85 - "Community 85"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 89 - "Post-Processing"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 90 - "Grass Generation"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 91 - "HUD System"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 92 - "Snapthorn Flora"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 93 - "Wisp Entities"
+### Community 86 - "Community 86"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 94 - "Reed Flora"
+### Community 87 - "Community 87"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 95 - "Lanternpod Flora"
+### Community 88 - "Community 88"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 96 - "Fairy Rings"
+### Community 89 - "Community 89"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 97 - "Flower Flora"
+### Community 90 - "Community 90"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 98 - "Glyphs Visuals"
+### Community 91 - "Community 91"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 99 - "Attunement Visuals"
+### Community 92 - "Community 92"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 100 - "Fern Flora"
+### Community 93 - "Community 93"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 101 - "Thornbloom Flora"
+### Community 94 - "Community 94"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 102 - "Veilmoss Flora"
+### Community 95 - "Community 95"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 103 - "Spirit Hum Visuals"
+### Community 96 - "Community 96"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 104 - "Spiralfrond Flora"
+### Community 97 - "Community 97"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 105 - "Corpsebloom Flora"
+### Community 98 - "Community 98"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 106 - "Helixvine Flora"
+### Community 99 - "Community 99"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 107 - "System Registration"
+### Community 100 - "Community 100"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 108 - "Crystal Lighting"
+### Community 101 - "Community 101"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 109 - "Mushroom Flora"
+### Community 102 - "Community 102"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 110 - "Orb Entities"
+### Community 103 - "Community 103"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 111 - "Bubble Entities"
+### Community 104 - "Community 104"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 112 - "Orbbush Flora"
+### Community 105 - "Community 105"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 113 - "Audio Controls"
+### Community 106 - "Community 106"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 114 - "Crystal Flora"
+### Community 107 - "Community 107"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 115 - "Build Config"
+### Community 108 - "Community 108"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 116 - "Test Config"
+### Community 109 - "Community 109"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 117 - "Global Constants"
+### Community 110 - "Community 110"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 118 - "Geometry Utils"
+### Community 111 - "Community 111"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 119 - "Renderer Core"
+### Community 112 - "Community 112"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 120 - "Context Tests"
+### Community 113 - "Community 113"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 121 - "Registry Tests"
+### Community 114 - "Community 114"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 122 - "Scheduler Tests"
+### Community 115 - "Community 115"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 123 - "Intro Utils"
+### Community 116 - "Community 116"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 124 - "Fauna Registry"
+### Community 117 - "Community 117"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 125 - "Math Tests"
+### Community 118 - "Community 118"
 Cohesion: 1.0
 Nodes (0): 
-
-### Community 126 - "RNG Tests"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 127 - "Lighting Constraints"
-Cohesion: 1.0
-Nodes (1): 8 Real-time Lights Max
-
-### Community 128 - "Rendering Constraints"
-Cohesion: 1.0
-Nodes (1): < 200 Draw Calls Mandate
-
-### Community 129 - "Allocation Constraints"
-Cohesion: 1.0
-Nodes (1): Zero Loop Allocations Mandate
-
-### Community 130 - "Gameplay Boosts"
-Cohesion: 1.0
-Nodes (1): Fairy Ring Boost
-
-### Community 131 - "Editorial Protocols"
-Cohesion: 1.0
-Nodes (1): Technical Editor Protocol v5.1
-
-### Community 132 - "Project Milestones"
-Cohesion: 1.0
-Nodes (1): Phase 1 (Foundation)
-
-### Community 133 - "Flora Categories"
-Cohesion: 1.0
-Nodes (1): Flora (Trees/Mushrooms/Crystals/etc)
-
-### Community 134 - "Magical Categories"
-Cohesion: 1.0
-Nodes (1): Magical Entities (Wisps/Fairy Rings/Orbs)
 
 ## Knowledge Gaps
-- **17 isolated node(s):** `20 FPS Minimum Mandate`, `8 Real-time Lights Max`, `< 200 Draw Calls Mandate`, `Zero Loop Allocations Mandate`, `Three.js (r172+)` (+12 more)
-  These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Wisp Entities`** (2 nodes): `wisps.js`, `makeWisp()`
+- **Thin community `Community 86`** (2 nodes): `attunementVisuals.js`, `updateAttunementVisuals()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Reed Flora`** (2 nodes): `reeds.js`, `makeReed()`
+- **Thin community `Community 87`** (2 nodes): `spiralfrond.js`, `makeSpiralFrond()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Lanternpod Flora`** (2 nodes): `lanternpod.js`, `makeLanternPod()`
+- **Thin community `Community 88`** (2 nodes): `spiritHumVisuals.js`, `updateSpiritHumVisuals()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Fairy Rings`** (2 nodes): `fairyRings.js`, `makeFairyRing()`
+- **Thin community `Community 89`** (2 nodes): `bubbles.js`, `makeBubble()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Flower Flora`** (2 nodes): `flowers.js`, `makeFlower()`
+- **Thin community `Community 90`** (2 nodes): `lanternpod.js`, `makeLanternPod()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Glyphs Visuals`** (2 nodes): `glyphs.js`, `updateGlyphs()`
+- **Thin community `Community 91`** (2 nodes): `reeds.js`, `makeReed()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Attunement Visuals`** (2 nodes): `attunementVisuals.js`, `updateAttunementVisuals()`
+- **Thin community `Community 92`** (2 nodes): `audio.js`, `toggleMute()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Fern Flora`** (2 nodes): `ferns.js`, `makeFern()`
+- **Thin community `Community 93`** (2 nodes): `helixvine.js`, `makeHelixvine()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Thornbloom Flora`** (2 nodes): `thornbloom.js`, `makeThornbloom()`
+- **Thin community `Community 94`** (2 nodes): `thornbloom.js`, `makeThornbloom()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Veilmoss Flora`** (2 nodes): `veilmoss.js`, `makeVeilMoss()`
+- **Thin community `Community 95`** (2 nodes): `registration.js`, `registerAllSystems()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Spirit Hum Visuals`** (2 nodes): `spiritHumVisuals.js`, `updateSpiritHumVisuals()`
+- **Thin community `Community 96`** (2 nodes): `fairyRings.js`, `makeFairyRing()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Spiralfrond Flora`** (2 nodes): `spiralfrond.js`, `makeSpiralFrond()`
+- **Thin community `Community 97`** (2 nodes): `wisps.js`, `makeWisp()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Corpsebloom Flora`** (2 nodes): `corpsebloom.js`, `makeCorpseBloom()`
+- **Thin community `Community 98`** (2 nodes): `corpsebloom.js`, `makeCorpseBloom()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Helixvine Flora`** (2 nodes): `helixvine.js`, `makeHelixvine()`
+- **Thin community `Community 99`** (2 nodes): `orbs.js`, `makeOrb()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `System Registration`** (2 nodes): `registration.js`, `registerAllSystems()`
+- **Thin community `Community 100`** (2 nodes): `flowers.js`, `makeFlower()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Crystal Lighting`** (2 nodes): `lighting.js`, `initCrystalLights()`
+- **Thin community `Community 101`** (2 nodes): `glyphs.js`, `updateGlyphs()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Mushroom Flora`** (2 nodes): `mushrooms.js`, `makeMush()`
+- **Thin community `Community 102`** (2 nodes): `mushrooms.js`, `makeMush()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Orb Entities`** (2 nodes): `orbs.js`, `makeOrb()`
+- **Thin community `Community 103`** (2 nodes): `config.js`, `vitest.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Bubble Entities`** (2 nodes): `bubbles.js`, `makeBubble()`
+- **Thin community `Community 104`** (2 nodes): `ferns.js`, `makeFern()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Orbbush Flora`** (2 nodes): `orbbush.js`, `makeOrbBush()`
+- **Thin community `Community 105`** (2 nodes): `veilmoss.js`, `makeVeilMoss()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Audio Controls`** (2 nodes): `audio.js`, `toggleMute()`
+- **Thin community `Community 106`** (2 nodes): `orbbush.js`, `makeOrbBush()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Crystal Flora`** (2 nodes): `crystals.js`, `makeCrystal()`
+- **Thin community `Community 107`** (1 nodes): `vite.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Build Config`** (1 nodes): `vite.config.js`
+- **Thin community `Community 108`** (1 nodes): `constants.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Test Config`** (1 nodes): `vitest.config.js`
+- **Thin community `Community 109`** (1 nodes): `geometries.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Global Constants`** (1 nodes): `constants.js`
+- **Thin community `Community 110`** (1 nodes): `renderer.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Geometry Utils`** (1 nodes): `geometries.js`
+- **Thin community `Community 111`** (1 nodes): `context.test.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Renderer Core`** (1 nodes): `renderer.js`
+- **Thin community `Community 112`** (1 nodes): `registry.test.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Context Tests`** (1 nodes): `context.test.js`
+- **Thin community `Community 113`** (1 nodes): `scheduler.test.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Registry Tests`** (1 nodes): `registry.test.js`
+- **Thin community `Community 114`** (1 nodes): `gameState.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Scheduler Tests`** (1 nodes): `scheduler.test.js`
+- **Thin community `Community 115`** (1 nodes): `intro.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Intro Utils`** (1 nodes): `intro.js`
+- **Thin community `Community 116`** (1 nodes): `fauna.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Fauna Registry`** (1 nodes): `fauna.js`
+- **Thin community `Community 117`** (1 nodes): `math.test.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Math Tests`** (1 nodes): `math.test.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `RNG Tests`** (1 nodes): `rng.test.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Lighting Constraints`** (1 nodes): `8 Real-time Lights Max`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Rendering Constraints`** (1 nodes): `< 200 Draw Calls Mandate`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Allocation Constraints`** (1 nodes): `Zero Loop Allocations Mandate`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Gameplay Boosts`** (1 nodes): `Fairy Ring Boost`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Editorial Protocols`** (1 nodes): `Technical Editor Protocol v5.1`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Project Milestones`** (1 nodes): `Phase 1 (Foundation)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Flora Categories`** (1 nodes): `Flora (Trees/Mushrooms/Crystals/etc)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Magical Categories`** (1 nodes): `Magical Entities (Wisps/Fairy Rings/Orbs)`
+- **Thin community `Community 118`** (1 nodes): `rng.test.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `X()` connect `Utility Functions C` to `Bundled Assets`, `Utility Functions A`, `Utility Functions B`, `Utility Functions E`, `Utility Functions F`, `Utility Functions J`, `Utility Functions K`, `Utility Functions L`?**
-  _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **Why does `Ra()` connect `Utility Functions A` to `Bundled Assets`, `Utility Functions B`, `Utility Functions C`, `Utility Functions D`, `Utility Functions E`, `Utility Functions F`, `Utility Functions G`, `Utility Functions P`, `Utility Functions O`, `Utility Functions J`, `Utility Functions L`?**
-  _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **Why does `vO()` connect `Utility Functions E` to `Bundled Assets`, `Utility Functions A`, `Utility Functions C`, `Utility Functions F`, `Utility Functions H`, `Utility Functions I`, `Utility Functions K`, `Utility Functions M`?**
-  _High betweenness centrality (0.000) - this node is a cross-community bridge._
-- **Are the 42 inferred relationships involving `X()` (e.g. with `au()` and `lm()`) actually correct?**
-  _`X()` has 42 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 35 inferred relationships involving `Ra()` (e.g. with `fa()` and `qa()`) actually correct?**
-  _`Ra()` has 35 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 30 inferred relationships involving `vO()` (e.g. with `X()` and `Y()`) actually correct?**
-  _`vO()` has 30 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 26 inferred relationships involving `la()` (e.g. with `da()` and `fa()`) actually correct?**
-  _`la()` has 26 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 8 inferred relationships involving `updateWizardPufflingEvent()` (e.g. with `updateSmoke()` and `spawnWizardNearPlayer()`) actually correct?**
+  _`updateWizardPufflingEvent()` has 8 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 7 inferred relationships involving `animateTitle()` (e.g. with `animatePixie()` and `animatePufflings()`) actually correct?**
+  _`animateTitle()` has 7 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 7 inferred relationships involving `_computeGroundY()` (e.g. with `buildHeightCache()` and `smoothstep()`) actually correct?**
+  _`_computeGroundY()` has 7 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 6 inferred relationships involving `updateQuest()` (e.g. with `revealAllObeliskDetails()` and `getObeliskTipY()`) actually correct?**
+  _`updateQuest()` has 6 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 6 inferred relationships involving `updateQuestVisuals()` (e.g. with `getObeliskTipY()` and `updateGlitter()`) actually correct?**
+  _`updateQuestVisuals()` has 6 INFERRED edges - model-reasoned connections that need verification._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.11 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.11 - nodes in this community are weakly interconnected._

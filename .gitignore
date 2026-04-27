@@ -11,3 +11,6 @@ __pycache__/
 
 # Environment
 .env
+
+# Graphify transient cache artifacts
+graphify-out/cache/

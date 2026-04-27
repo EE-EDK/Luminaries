@@ -1,21 +1,26 @@
 // ================================================================
-// Puffling mushroom homes — instanced clusters across the world
+// Puffling mushroom homes — clustered settlements across the world
 // ================================================================
-// Twenty settlement sites; stalk + cap + gill + door + knob (instanced).
-// Colors/proportions aligned with public/assets/mushroom-house-puffling-home.html THEMES.
+// Detailed brick/cap/door/window meshes (see pufflingHomeDetailed.js), same art as
+// public/assets/mushroom-house-puffling-home.html.
 
+import { Quaternion, Vector3 } from 'three';
 import {
-  BoxGeometry,
-  CylinderGeometry,
-  InstancedMesh,
-  MeshStandardMaterial,
-  Object3D,
-  Quaternion,
-  SphereGeometry,
-  Vector3
-} from 'three';
+  createPufflingHomeDetailedGroup,
+  pufflingHomeCollisionRadius,
+  applyThemeToDetailedHouse,
+  themePayloadBioluminescent,
+  PUFF_HOUSE,
+  PUFF_HOME_WORLD_SCALE
+} from './pufflingHomeDetailed.js';
 import { scene } from '../../core/renderer.js';
-import { getGroundY, getGroundNormal } from '../../world/terrain.js';
+import {
+  getGroundY,
+  getGroundNormal,
+  registerHousePlateau,
+  clearHousePlateaus,
+  buildHeightCache
+} from '../../world/terrain.js';
 import { WORLD_R, ORB_N } from '../../constants.js';
 import { on, Events } from '../../kernel/eventBus.js';
 import { getQuestState } from '../../quest/questState.js';
@@ -23,107 +28,37 @@ import { getQuestState } from '../../quest/questState.js';
 const CLUSTER_N = 20;
 const OBELISK_EXCLUSION_R2 = 400; // 20 m from origin
 const MIN_CLUSTER_SEP2 = 324; // 18 m between cluster centers
-/** Minimum horizontal distance between house centers (caps ~6 m wide). */
-const MIN_HOUSE_CENTER_SEP = 9.25;
+/** Minimum horizontal distance between house centers (collision disks ~10 m Ø). */
+const MIN_HOUSE_CENTER_SEP = 10.5;
 const MIN_HOUSE_CENTER_SEP2 = MIN_HOUSE_CENTER_SEP * MIN_HOUSE_CENTER_SEP;
+/** Rim belt — foothills below world wall (intentional settlements). */
+const RIM_D_MIN = WORLD_R * 0.56;
+const RIM_D_MAX = WORLD_R * 0.93;
+/** Midslope pockets — fewer, still graded / intentional. */
+const MID_D_MIN = WORLD_R * 0.30;
+const MID_D_MAX = WORLD_R * 0.56;
 /** Extra clearance beyond tree trunk collision radius (see fauna pufflings). */
 const TREE_SITE_CLEAR = 5.2;
 /** Extra clearance beyond rock colR. */
 const ROCK_SITE_CLEAR = 3.8;
 
-const H_STALK = 4;
-const RB_STALK = 2.1;
-const RT_STALK = 1.75;
-const R_CAP = 3.0;
-/** Matches HOUSE.capFlatten in mushroom-house-puffling-home.html */
-const CAP_FLATTEN = 0.55;
-const DOOR_Y = 1.15;
-const DOOR_RADIAL = RT_STALK + 0.12;
-const GILL_H = 0.42;
-/** Sample stalk footprint — lowest terrain contact reduces floating on slopes. */
-const FOOTPRINT_SAMPLE_R = RB_STALK * 0.94;
+/** Sample footprint under widest part of scaled detailed base for anchorGroundY. */
+const FOOTPRINT_SAMPLE_R = PUFF_HOUSE.baseRadius * PUFF_HOME_WORLD_SCALE + 1.15;
 
 const _vUp = new Vector3(0, 1, 0);
 const _vNorm = new Vector3();
 const _qTilt = new Quaternion();
 const _qYaw = new Quaternion();
 const _qIdent = new Quaternion();
-const _dummy = new Object3D();
 
-/** @type {MeshStandardMaterial | null} */
-let _stalkMat = null;
-/** @type {MeshStandardMaterial | null} */
-let _capMat = null;
-/** @type {MeshStandardMaterial | null} */
-let _gillMat = null;
-/** @type {MeshStandardMaterial | null} */
-let _doorMat = null;
-/** @type {MeshStandardMaterial | null} */
-let _knobMat = null;
-/** @type {InstancedMesh | null} */
-let _stalkMesh = null;
-/** @type {InstancedMesh | null} */
-let _capMesh = null;
-/** @type {InstancedMesh | null} */
-let _gillMesh = null;
-/** @type {InstancedMesh | null} */
-let _doorMesh = null;
-/** @type {InstancedMesh | null} */
-let _knobMesh = null;
+/** @type {import('three').Group[]} */
+let _detailedRoots = [];
 
 let _themeListenerRegistered = false;
 
-// --- Themes: keys aligned with mushroom-house-puffling-home.html THEMES.BIOLUMINESCENT / COTTAGECORE ---
-const THEME_BIO = {
-  stalk: 0x222a2a,
-  cap: 0x003333,
-  capEmissive: 0x002222,
-  capEmissiveInt: 0.25,
-  gill: 0x00ff88,
-  gillEmissive: 0x00aa55,
-  gillEmissiveInt: 0.7,
-  door: 0x2a1a15,
-  knob: 0x88ffcc,
-  knobEmissive: 0x00ffaa,
-  knobEmissiveInt: 1.5
-};
-
-const THEME_COTTAGE = {
-  stalk: 0xb8a890,
-  cap: 0xff7aa8,
-  capEmissive: 0x000000,
-  capEmissiveInt: 0,
-  gill: 0xfff0f5,
-  gillEmissive: 0x000000,
-  gillEmissiveInt: 0,
-  door: 0x5a3a1f,
-  knob: 0xb87333,
-  knobEmissive: 0x000000,
-  knobEmissiveInt: 0
-};
-
-function setMaterialFogOff(mat) {
-  if (mat) mat.fog = false;
-}
-
 function applyPufflingHomeTheme(cottage) {
-  const p = cottage ? THEME_COTTAGE : THEME_BIO;
-  if (_stalkMat) _stalkMat.color.setHex(p.stalk);
-  if (_capMat) {
-    _capMat.color.setHex(p.cap);
-    _capMat.emissive.setHex(p.capEmissive);
-    _capMat.emissiveIntensity = p.capEmissiveInt;
-  }
-  if (_gillMat) {
-    _gillMat.color.setHex(p.gill);
-    _gillMat.emissive.setHex(p.gillEmissive);
-    _gillMat.emissiveIntensity = p.gillEmissiveInt;
-  }
-  if (_doorMat) _doorMat.color.setHex(p.door);
-  if (_knobMat) {
-    _knobMat.color.setHex(p.knob);
-    _knobMat.emissive.setHex(p.knobEmissive);
-    _knobMat.emissiveIntensity = p.knobEmissiveInt;
+  for (let i = 0; i < _detailedRoots.length; i++) {
+    applyThemeToDetailedHouse(_detailedRoots[i], cottage);
   }
 }
 
@@ -135,6 +70,41 @@ function registerThemeListener() {
   if (_themeListenerRegistered) return;
   _themeListenerRegistered = true;
   on(Events.ORB_COLLECTED, syncThemeFromQuest);
+}
+
+/** Bias settlements toward outer rim / foothills; some midslope for variety. */
+function sampleRimClusterCenter(sr) {
+  const ang = sr() * Math.PI * 2;
+  const dist = sr() < 0.76
+    ? RIM_D_MIN + sr() * (RIM_D_MAX - RIM_D_MIN)
+    : MID_D_MIN + sr() * (MID_D_MAX - MID_D_MIN);
+  return { cx: Math.cos(ang) * dist, cz: Math.sin(ang) * dist };
+}
+
+/** Grade a leveled pad around cluster (mean natural height); radius covers ring of houses + apron. */
+function registerClusterPad(cx, cz, houses) {
+  if (!houses.length) return;
+  let maxRing = 0;
+  for (let h = 0; h < houses.length; h++) {
+    const dx = houses[h].x - cx;
+    const dz = houses[h].z - cz;
+    const rr = Math.sqrt(dx * dx + dz * dz);
+    if (rr > maxRing) maxRing = rr;
+  }
+  let sumY = 0;
+  for (let h = 0; h < houses.length; h++) {
+    sumY += anchorGroundY(houses[h].x, houses[h].z);
+  }
+  const padY = sumY / houses.length;
+  const padR = Math.max(12, maxRing + 6.5);
+  registerHousePlateau(cx, cz, padR, padY);
+}
+
+/** @type {Array<{ x: number, z: number, colR: number }>} */
+let _pufflingHouseCollision = [];
+
+export function getPufflingHouseCollision() {
+  return _pufflingHouseCollision;
 }
 
 function clusterCenterOk(x, z, centers) {
@@ -263,45 +233,9 @@ function housesInCluster(cx, cz, n, inKeepOut, classifyBiome, rnd, placedOut, tr
 export function placePufflingHomeClusters(ctx) {
   const { inKeepOut, classifyBiome, sr, keepOutZones, trees_data: treesData, rocks_data: rocksData } = ctx;
 
-  _stalkMat = new MeshStandardMaterial({
-    color: THEME_BIO.stalk, roughness: 0.92, metalness: 0
-  });
-  _capMat = new MeshStandardMaterial({
-    color: THEME_BIO.cap,
-    emissive: THEME_BIO.capEmissive,
-    emissiveIntensity: THEME_BIO.capEmissiveInt,
-    roughness: 0.45,
-    metalness: 0.05
-  });
-  _gillMat = new MeshStandardMaterial({
-    color: THEME_BIO.gill,
-    emissive: THEME_BIO.gillEmissive,
-    emissiveIntensity: THEME_BIO.gillEmissiveInt,
-    roughness: 0.9,
-    metalness: 0
-  });
-  _doorMat = new MeshStandardMaterial({
-    color: THEME_BIO.door, roughness: 0.9, metalness: 0
-  });
-  _knobMat = new MeshStandardMaterial({
-    color: THEME_BIO.knob,
-    emissive: THEME_BIO.knobEmissive,
-    emissiveIntensity: THEME_BIO.knobEmissiveInt,
-    metalness: 0.65,
-    roughness: 0.28
-  });
-
-  setMaterialFogOff(_stalkMat);
-  setMaterialFogOff(_capMat);
-  setMaterialFogOff(_gillMat);
-  setMaterialFogOff(_doorMat);
-  setMaterialFogOff(_knobMat);
-
-  const geoStalk = new CylinderGeometry(RT_STALK, RB_STALK, H_STALK, 10);
-  const geoCap = new SphereGeometry(R_CAP, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-  const geoGill = new CylinderGeometry(R_CAP - 0.1, R_CAP * 0.58, GILL_H, 14, 1, false);
-  const geoDoor = new BoxGeometry(0.55, 1.35, 0.12);
-  const geoKnob = new SphereGeometry(0.14, 8, 6);
+  clearHousePlateaus();
+  _pufflingHouseCollision.length = 0;
+  _detailedRoots = [];
 
   const placements = [];
   const placedAcc = [];
@@ -315,10 +249,9 @@ export function placePufflingHomeClusters(ctx) {
     let cz = 0;
     let placed = false;
     for (let attempt = 0; attempt < 70; attempt++) {
-      const ang = sr() * Math.PI * 2;
-      const d = 14 + sr() * (WORLD_R * 0.82 - 14);
-      cx = Math.cos(ang) * d;
-      cz = Math.sin(ang) * d;
+      const rim = sampleRimClusterCenter(sr);
+      cx = rim.cx;
+      cz = rim.cz;
       if (inKeepOut(cx, cz)) continue;
       if (!clusterCenterOk(cx, cz, clusterCenters)) continue;
       if (!clearOfTrees(cx, cz, treesData)) continue;
@@ -332,6 +265,8 @@ export function placePufflingHomeClusters(ctx) {
     const houses = housesInCluster(cx, cz, groupSize, inKeepOut, classifyBiome, sr, placedAcc, treesData, rocksData);
     if (houses.length === 0) continue;
 
+    registerClusterPad(cx, cz, houses);
+
     for (let h = 0; h < houses.length; h++) {
       placements.push(houses[h]);
     }
@@ -344,9 +279,10 @@ export function placePufflingHomeClusters(ctx) {
 
   let nInst = placements.length;
   if (nInst === 0) {
-    const fx = WORLD_R * 0.42;
-    const fz = -WORLD_R * 0.28;
+    const fx = WORLD_R * 0.72;
+    const fz = -WORLD_R * 0.21;
     const fb = housesInCluster(fx, fz, 3, () => false, () => 'clear', sr, placedAcc, treesData, rocksData);
+    registerClusterPad(fx, fz, fb);
     for (let hi = 0; hi < fb.length; hi++) placements.push(fb[hi]);
     if (keepOutZones) keepOutZones.push({ x: fx, z: fz, r2: 100 });
     nInst = placements.length;
@@ -357,74 +293,32 @@ export function placePufflingHomeClusters(ctx) {
     }
   }
 
-  _stalkMesh = new InstancedMesh(geoStalk, _stalkMat, nInst);
-  _capMesh = new InstancedMesh(geoCap, _capMat, nInst);
-  _gillMesh = new InstancedMesh(geoGill, _gillMat, nInst);
-  _doorMesh = new InstancedMesh(geoDoor, _doorMat, nInst);
-  _knobMesh = new InstancedMesh(geoKnob, _knobMat, nInst);
-
-  for (const im of [_stalkMesh, _capMesh, _gillMesh, _doorMesh, _knobMesh]) {
-    im.castShadow = true;
-    im.receiveShadow = true;
-    im.frustumCulled = false;
+  buildHeightCache();
+  for (let pi = 0; pi < placements.length; pi++) {
+    const pl = placements[pi];
+    pl.y = anchorGroundY(pl.x, pl.z);
+  }
+  const houseColR = pufflingHomeCollisionRadius();
+  for (let ci = 0; ci < placements.length; ci++) {
+    const pl = placements[ci];
+    _pufflingHouseCollision.push({ x: pl.x, z: pl.z, colR: houseColR });
   }
 
+  const themeStart = themePayloadBioluminescent();
   for (let i = 0; i < nInst; i++) {
     const { x, z, y, yaw } = placements[i];
+    const seed = (i * 9185527 + (Math.floor(x * 313.37) ^ Math.floor(z * 271.99))) >>> 0;
+    const house = createPufflingHomeDetailedGroup(themeStart, seed);
     const n = getGroundNormal(x, z);
     _vNorm.set(n.x, n.y, n.z);
     _qTilt.setFromUnitVectors(_vUp, _vNorm);
-    _qTilt.slerp(_qIdent, 0.92);
+    _qTilt.slerp(_qIdent, 0.88);
     _qYaw.setFromAxisAngle(_vUp, yaw);
-    const qWorld = _dummy.quaternion.copy(_qTilt).multiply(_qYaw);
-
-    _dummy.position.set(x, y + H_STALK * 0.5, z);
-    _dummy.scale.set(1, 1, 1);
-    _dummy.quaternion.copy(qWorld);
-    _dummy.updateMatrix();
-    _stalkMesh.setMatrixAt(i, _dummy.matrix);
-
-    _dummy.position.set(x, y + H_STALK, z);
-    _dummy.quaternion.copy(qWorld);
-    _dummy.scale.set(1, CAP_FLATTEN, 1);
-    _dummy.updateMatrix();
-    _capMesh.setMatrixAt(i, _dummy.matrix);
-
-    _dummy.position.set(x, y + H_STALK - GILL_H * 0.5 - 0.06, z);
-    _dummy.quaternion.copy(qWorld);
-    _dummy.scale.set(1, 1, 1);
-    _dummy.updateMatrix();
-    _gillMesh.setMatrixAt(i, _dummy.matrix);
-
-    const ox = Math.cos(yaw) * DOOR_RADIAL;
-    const oz = Math.sin(yaw) * DOOR_RADIAL;
-    _dummy.position.set(x + ox, y + DOOR_Y, z + oz);
-    _dummy.quaternion.copy(qWorld);
-    _dummy.scale.set(1, 1, 1);
-    _dummy.updateMatrix();
-    _doorMesh.setMatrixAt(i, _dummy.matrix);
-
-    const nx = Math.cos(yaw);
-    const nz = Math.sin(yaw);
-    const rx = -Math.sin(yaw);
-    const rz = Math.cos(yaw);
-    const kx = x + nx * (DOOR_RADIAL + 0.1) + rx * 0.34;
-    const kz = z + nz * (DOOR_RADIAL + 0.1) + rz * 0.34;
-    const ky = y + DOOR_Y + 0.26;
-    _dummy.position.set(kx, ky, kz);
-    _dummy.quaternion.copy(qWorld);
-    _dummy.scale.set(1, 1, 1);
-    _dummy.updateMatrix();
-    _knobMesh.setMatrixAt(i, _dummy.matrix);
+    house.quaternion.copy(_qTilt).multiply(_qYaw);
+    house.position.set(x, y, z);
+    scene.add(house);
+    _detailedRoots.push(house);
   }
-
-  _stalkMesh.instanceMatrix.needsUpdate = true;
-  _capMesh.instanceMatrix.needsUpdate = true;
-  _gillMesh.instanceMatrix.needsUpdate = true;
-  _doorMesh.instanceMatrix.needsUpdate = true;
-  _knobMesh.instanceMatrix.needsUpdate = true;
-
-  scene.add(_stalkMesh, _capMesh, _gillMesh, _doorMesh, _knobMesh);
 
   registerThemeListener();
   syncThemeFromQuest();

@@ -483,7 +483,8 @@ export function updateIntro(dt, camera) {
           terminalEl.style.maxHeight = '';
           terminalEl.style.overflowY = '';
         } else {
-          fantasyEl.style.top = 'clamp(10px, 3.5vh, 40px)';
+          // Top-anchored fantasy — sit slightly lower so tall cards breathe; terminal gaps below from measured bottom.
+          fantasyEl.style.top = 'clamp(20px, 6vh, 72px)';
           fantasyEl.style.transform = 'translate(-50%, 0)';
         }
         if (visTime < NARRATION_FADE) {
@@ -513,11 +514,12 @@ export function updateIntro(dt, camera) {
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
         if (narrationIndex >= 1) {
-          const gap = Math.max(14, Math.min(32, window.innerHeight * 0.024));
+          const gap = Math.max(32, Math.min(56, window.innerHeight * 0.034));
+          const typedBlockExtraDown = 36;
           const bottomPad = Math.max(16, window.innerHeight * 0.04);
           fantasyEl.offsetHeight;
           const fr = fantasyEl.getBoundingClientRect();
-          const termTop = fr.bottom + gap;
+          const termTop = fr.bottom + gap + typedBlockExtraDown;
           const maxH = window.innerHeight - termTop - bottomPad;
           terminalEl.style.top = `${termTop}px`;
           terminalEl.style.bottom = 'auto';

@@ -505,17 +505,25 @@ export function updateIntro(dt, camera) {
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
         {
-          const gapPx = Math.max(80, Math.min(160, window.innerHeight * 0.1));
-          const bottomPad = Math.max(32, window.innerHeight * 0.065);
           void fantasyEl.offsetHeight;
-          const stackTop = fantasyEl.offsetTop + fantasyEl.offsetHeight + gapPx;
+          void terminalEl.offsetHeight;
+          const cr = container.getBoundingClientRect();
+          const fr = fantasyEl.getBoundingClientRect();
+          // Cards 2–3: taller prose + terminal — extra gap (border boxes ignore text-shadow glow bleed).
+          const gapPx =
+            narrationIndex >= 1
+              ? Math.max(108, Math.min(200, window.innerHeight * 0.13))
+              : Math.max(88, Math.min(170, window.innerHeight * 0.1));
+          const glowBleedPx = narrationIndex >= 1 ? 52 : 28;
+          const bottomPad = Math.max(36, window.innerHeight * 0.07);
+          const stackTop = fr.bottom - cr.top + gapPx + glowBleedPx;
           const maxH = window.innerHeight - stackTop - bottomPad;
-          terminalEl.style.top = `${stackTop}px`;
+          terminalEl.style.top = `${Math.round(stackTop)}px`;
           terminalEl.style.bottom = 'auto';
           terminalEl.style.left = '50%';
           terminalEl.style.transform = 'translate(-50%, 0)';
-          terminalEl.style.maxHeight = `${Math.max(140, maxH)}px`;
-          terminalEl.style.overflowY = maxH < 260 ? 'auto' : 'visible';
+          terminalEl.style.maxHeight = `${Math.max(120, maxH)}px`;
+          terminalEl.style.overflowY = maxH < 280 ? 'auto' : 'visible';
         }
 
         const typingDelay2 = typingDelay;

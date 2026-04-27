@@ -17,6 +17,7 @@ import {
 
 import { sr } from './utils/rng.js';
 import { getGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
+import { placePufflingHomeClusters } from './entities/world/pufflingHomes.js';
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -603,6 +604,8 @@ export function populate(arrays, builders, scene) {
     veilmosses.push(vm);
     keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
   }
+  // Puffling mushroom-home settlements (20 sites × 2–5 houses, instanced)
+  placePufflingHomeClusters({ inKeepOut, classifyBiome, sr, keepOutZones });
   // Ground glow patches (subtle bioluminescent light on terrain)
   for (let i = 0; i < GROUND_GLOW_N; i++) {
     const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.8);

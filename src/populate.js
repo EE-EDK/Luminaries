@@ -605,7 +605,7 @@ export function populate(arrays, builders, scene) {
     keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
   }
   // Puffling mushroom-home settlements (20 sites × 2–5 houses, instanced)
-  placePufflingHomeClusters({ inKeepOut, classifyBiome, sr, keepOutZones });
+  placePufflingHomeClusters({ inKeepOut, classifyBiome, sr, keepOutZones, trees_data, rocks_data });
   // Ground glow patches (subtle bioluminescent light on terrain)
   for (let i = 0; i < GROUND_GLOW_N; i++) {
     const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.8);

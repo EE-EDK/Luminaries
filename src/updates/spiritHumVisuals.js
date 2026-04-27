@@ -129,7 +129,9 @@ export function updateSpiritHumVisuals(dt) {
   let _outStr = _humRes;
   if (!isHumming() && isLocked() && getLockType()) {
     _outType = getLockType();
-    _outStr = Math.max(_outStr, 0.5);
+    // Stronger floor for jelly so fauna/red-glow reads match carrier state after auto-stop hum.
+    const _floor = getLockType() === 'jelly' ? 0.72 : 0.5;
+    _outStr = Math.max(_outStr, _floor);
   }
   setHumResonance(_outType, _outStr);
 

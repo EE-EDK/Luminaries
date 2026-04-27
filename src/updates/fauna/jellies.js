@@ -11,7 +11,12 @@ import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
-import { isLocked, getLockType } from '../../systems/spiritHum.js';
+import {
+  isLocked,
+  getLockType,
+  getResonance,
+  getResonanceType
+} from '../../systems/spiritHum.js';
 import { jellies } from '../../state/entityStore.js';
 import { playCreatureSound } from '../../systems/audio.js';
 import { scene } from '../../core/renderer.js';
@@ -205,11 +210,15 @@ export function updateJellies(dt, t) {
   const jellyFreq = getPlayerFrequency();
   const pitchLockedJelly = pitchLockedJellyPre;
   const hummingJelly = humResonanceType === 'jelly' && humResonanceStr > 0.08;
+  /** Same-frame jelly band read (gameState is written at end of spirit hum — can lag one mental step behind). */
+  const humBandJelly =
+    getResonanceType() === 'jelly' && getResonance() > 0.07;
   const jellyRedActive =
     jellyAttuneTarget === 'jelly' ||
     jellyFreq === 'jelly' ||
     pitchLockedJelly ||
     hummingJelly ||
+    humBandJelly ||
     jellyCrimson.active;
 
   for (let i = 0; i < jellies.length; i++) {
@@ -413,7 +422,10 @@ export function updateJellies(dt, t) {
 
     const jellySyncFlash = getJellySyncFlash();
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 100) ? (1.0 + getAttunement() * 1.2) : 1.0;
-    const jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
+    let jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
+    if (humBandJelly && _jhd2 < 400) {
+      jellyResMult = Math.max(jellyResMult, 1.0 + getResonance() * 1.45);
+    }
     const nearRitual = _jhd2 < 100;
     const rhythmPulse = nearRitual ? (Math.sin(t * Math.PI + i * 0.7) * 0.5 + 0.5) : 0;
     const redSyncPulse = jellyRedActive
@@ -440,16 +452,6 @@ export function updateJellies(dt, t) {
         if (j._crimsonJoined) redBlendRaw += 0.14;
         redBlendRaw += crimsonWaveTint * 0.38;
       }
-      const humOnlyDamp =
-        hummingJelly &&
-        !pitchLockedJelly &&
-        jellyFreq !== 'jelly' &&
-        jellyAttuneTarget !== 'jelly' &&
-        !jellyCrimson.active &&
-        getAttunement() < 0.12;
-      if (humOnlyDamp) {
-        redBlendRaw *= 0.42 + humResonanceStr * 0.48;
-      }
     }
     let redBlend = Math.min(1, redBlendRaw);
     if (pitchLockedJelly) {
@@ -457,6 +459,9 @@ export function updateJellies(dt, t) {
     }
     if (jellyFreq === 'jelly') {
       redBlend = Math.max(redBlend, 0.78);
+    }
+    if (humBandJelly || hummingJelly) {
+      redBlend = Math.max(redBlend, 0.52);
     }
 
     let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
@@ -466,6 +471,7 @@ export function updateJellies(dt, t) {
     }
     if (redBlend > 0) bellEm *= 1 + redBlend * (_JELLY_RED_LUMA_MUL - 1);
     if (redBlend > 0.12) bellEm *= 1.0 + redBlend * 0.48;
+    if (pitchLockedJelly || humBandJelly) bellEm *= 1.22;
 
     j.bellMat.emissiveIntensity = bellEm;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;

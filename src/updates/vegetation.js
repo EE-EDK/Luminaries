@@ -28,6 +28,28 @@ import { emit, Events } from '../kernel/eventBus.js';
 // Pre-allocated quaternion for slope sway (replaces _slopeSwayQuat from main.js)
 const _slopeSwayQuat = new Quaternion();
 
+/** Base opacities from trees.js (instanced canopy / underglow) */
+const _TREE_CANOPY_BASE_OP = 0.55;
+const _TREE_GLOW_BASE_OP = 0.15;
+
+/**
+ * Slow emissive "breathing" per tree template (shared material per instanced batch).
+ * Incommensurate sines → non-repeating shimmer; only when sector glow is active.
+ */
+function treeCanopyLivingPulse(templateIndex, time, treeDim) {
+  if (treeDim <= 0.06) {
+    return { em: 1, op: 1 };
+  }
+  const seed = templateIndex * 2.399963229 + templateIndex * templateIndex * 0.00217;
+  const s1 = Math.sin(time * 0.31 + seed);
+  const s2 = Math.sin(time * 0.19 + seed * 1.6847);
+  const s3 = Math.sin(time * 0.11 + seed * 0.413);
+  const mix = (s1 * 0.5 + 0.5) * 0.38 + (s2 * 0.5 + 0.5) * 0.35 + (s3 * 0.5 + 0.5) * 0.27;
+  const em = 0.87 + 0.26 * mix;
+  const op = 0.93 + 0.14 * mix;
+  return { em, op };
+}
+
 export function updateVegetation(dt, t) {
   const smoothedDimFactor = getSmoothedDimFactor();
 
@@ -41,9 +63,16 @@ export function updateVegetation(dt, t) {
   const treeDim = smoothedDimFactor * orbBoost;
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const tm = treeMeshes[ti];
-    if (tm.canopyMat) tm.canopyMat.emissiveIntensity = 1.2 * treeDim;
-    if (tm.glowMat) tm.glowMat.emissiveIntensity = 0.4 * treeDim;
-    if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * treeDim;
+    const pulse = treeCanopyLivingPulse(ti, t, treeDim);
+    if (tm.canopyMat) {
+      tm.canopyMat.emissiveIntensity = 1.2 * treeDim * pulse.em;
+      tm.canopyMat.opacity = _TREE_CANOPY_BASE_OP * (treeDim > 0.06 ? pulse.op : 1);
+    }
+    if (tm.glowMat) {
+      tm.glowMat.emissiveIntensity = 0.4 * treeDim * pulse.em * 1.06;
+      tm.glowMat.opacity = _TREE_GLOW_BASE_OP * (treeDim > 0.06 ? pulse.op : 1);
+    }
+    if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * treeDim * (0.92 + 0.08 * pulse.em);
     if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.6 * treeDim;
   }
 

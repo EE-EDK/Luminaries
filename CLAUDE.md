@@ -179,6 +179,11 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - [x] bubble pop rewards (Remaining Phase 2 feature)
 - [x] dandelion wayfinding (Remaining Phase 2 feature)
 - [x] obelisk runes (Remaining Phase 2 feature)
+- [ ] **Jellies (formation + encounter)** — Further visual/behavior pass: ritual + crimson ring still needs tuning; verify encounter feels cohesive in play (see `src/updates/fauna/jellies.js`).
+- [ ] **Jelly / attunement encounter** — "Receptive" flow still not reliably working end-to-end: trace attunement + `CREATURE_ATTUNED` + spirit hum gating; confirm narrative/camera/UX (see `systems/attunement.js`, `spiritHum.js`, `quest/questManager.js`).
+- [ ] **Puffling houses (readability)** — Still reading as basic black silhouettes in night; improve materials (env, tone map parity, emissive) vs `mushroom-house-puffling-home.html` reference; verify not culled (see `entities/world/pufflingHomeDetailed.js`, `pufflingHomes.js`).
+- [ ] **2nd phase / quest progression unlock** — Cannot advance past first-phase gate: audit orb count, quest state, `FREE_ROAM` / `getQuestState`, frequency gate, and any blockers in `quest/questState.js` + `quest/questManager.js` (repro with save-less refresh).
+- [ ] **In-game debug UI** — Debug terminal (`Esc`×2) not obvious / not discoverable: add brief HUD hint in dev, optional persistent affordance, ensure `initDebugConsole()` + `LumiDebug` surface in `docs` build; verify not stripped by `import.meta.env` on GH Pages (`src/debug/debugConsole.js`, `index.html` / HUD copy).
 - [ ] crystal resonance chains (Remaining Phase 2 feature)
 - [ ] ground glyphs (Remaining Phase 2 feature)
 - [ ] echo-visions (Remaining Phase 2 feature)
@@ -186,6 +191,12 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - [ ] Implement save/load system (Debt)
 - [ ] Add accessibility support (Debt)
 - [ ] Replace Intro DOM overlays with troika-three-text (Debt)
+
+## END SESSION (Luminaries)
+
+When a session touches this repo, align with the **root workspace** `END SESSION` protocol (`ENGINEERING-PROJECTS/CLAUDE.md`: verify + journal, project commit, `run_all_tools` / report if workspace-level). For **project-only** Luminaries work, minimum: `npm test`, `npm run build`, one descriptive commit, push `origin main`.
+
+**Roll-up (next sessions — playtest / polish queue):** Track the five open **[ ]** items in **TODO** above (jellies, encounter, houses, 2nd phase, debug discoverability) until each is verified in dev **and** on `https://ee-edk.github.io/Luminaries/` if applicable. Append date + outcome to this subsection when an item closes (additive; do not delete history).
 
 
 ## Auto-Commit & Push

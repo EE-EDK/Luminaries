@@ -135,6 +135,8 @@ const NARRATION_TYPING_DELAY = 0.55;
 const NARRATION_CHARS_PER_SEC = 22;
 /** Minimum time after last typed character before card can end (read beat). */
 const NARRATION_HOLD_AFTER_TYPING = 1.0;
+/** Longer hold for 2nd / 3rd cards (more text — extra time to read). */
+const NARRATION_HOLD_AFTER_TYPING_LONG = 4.25;
 /** Minimum visible window so fantasy layer can fade in / hold / fade out. */
 const NARRATION_MIN_VIS = 2 * NARRATION_FADE + 1.5;
 
@@ -450,9 +452,12 @@ export function updateIntro(dt, camera) {
       const card = NARRATION[narrationIndex];
       const terminalText = card.terminalLines.join('\n');
       const typingDurationFull = estimateTypingDuration(terminalText, NARRATION_CHARS_PER_SEC);
+      const holdAfterTyping = narrationIndex >= 1
+        ? NARRATION_HOLD_AFTER_TYPING_LONG
+        : NARRATION_HOLD_AFTER_TYPING;
       const visDuration = Math.max(
         NARRATION_MIN_VIS,
-        typingDelay + typingDurationFull + NARRATION_HOLD_AFTER_TYPING + NARRATION_FADE
+        typingDelay + typingDurationFull + holdAfterTyping + NARRATION_FADE
       );
       const totalCardTime = DARK_GAP + visDuration;
 
@@ -463,6 +468,14 @@ export function updateIntro(dt, camera) {
         fantasyEl.style.opacity = '0';
         terminalEl.style.opacity = '0';
       } else {
+        // Tighter default layout for card 1; more vertical gap for 2nd / 3rd (dense text + typing).
+        if (narrationIndex === 0) {
+          fantasyEl.style.top = '34%';
+          terminalEl.style.top = '60%';
+        } else {
+          fantasyEl.style.top = '25%';
+          terminalEl.style.top = '74%';
+        }
         if (visTime < NARRATION_FADE) {
           fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
         } else if (visTime > visDuration - NARRATION_FADE) {

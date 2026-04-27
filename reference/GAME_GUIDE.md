@@ -34,7 +34,8 @@ You are a small light in a vast dark forest. The forest once sang. Now it is qui
 | **SPACE** | Jump (or tap rhythm near jellyfish to attune) |
 | **SHIFT** | Sprint |
 | **TAB** | Toggle narrative perspective (Child / Adult) |
-| **Right-click (hold)** | Spirit Hum — move mouse up/down to control pitch |
+| **F** | Toggle Spirit Hum (continuous tone while on) |
+| **Q / E** (hold) | Lower / raise hum pitch |
 | **Click + Drag** | Look around |
 
 On mobile, a virtual joystick appears on the left, jump/sprint buttons on the right, and a vertical **HUM slider** on the left edge for pitch control (drag up/down).

@@ -102,11 +102,13 @@ export const WEATHER_ATTUNE_MODS = {
 };
 
 // Spirit Hum — two-phase creature unlock (Phase 2)
-// Right-click (desktop) or HUM button (mobile) to emit a continuous tone.
-// Mouse Y controls pitch. Match a creature's resonance band for 2s to lock.
+// Desktop: F toggles hum; Q/E adjust pitch. Mobile: HUM slider.
+// Match a creature's resonance band for 2s to lock.
 // Then perform the creature's physical behavior to build attunement.
 export const HUM_FREQ_MIN = 80;        // lowest pitch player can hum (Hz)
 export const HUM_FREQ_MAX = 700;       // highest pitch player can hum (Hz)
+/** Normalized pitch 0–1 per second when holding Q/E (desktop spirit hum). */
+export const HUM_KEY_RAMP_NORM_PER_S = 1.0;
 export const HUM_LOCK_TIME = 1.2;      // seconds of sustained pitch match to lock
 export const HUM_LOCK_DECAY = 3.0;     // seconds before pitch lock fades after releasing hum
 // Creature resonance bands: { center, tol } in Hz — widened for mobile-friendly tuning

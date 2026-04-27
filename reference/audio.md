@@ -56,7 +56,7 @@ All creature sounds use the `playCreatureSound(type, position, playerPos)` funct
 | Orb warble | Near uncollected orb | `playOrbWarble()` |
 | Laser zap | Orb laser fires | `playLaserZap()` |
 | Laser hum | Active laser beam | `playLaserHum()` |
-| Spirit Hum Tone | Right-click held | `startSpiritHumAudio()` — 3 oscillators (sine + detuned sine + triangle octave) + LFO |
+| Spirit Hum Tone | F toggles hum (desktop) | `startSpiritHumAudio()` — 3 oscillators (sine + detuned sine + triangle octave) + LFO |
 | Pitch Lock Chime | 2s sustained match | `playPitchLockSound()` — ascending root + perfect 5th |
 | Resonance Layer | Pitch in creature band | Sympathetic oscillator fades in via `updateSpiritHumAudio()` |
 

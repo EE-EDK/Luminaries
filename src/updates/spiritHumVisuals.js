@@ -4,7 +4,8 @@
 // Extracted from main.js _directorSpiritHum(). Self-contained visual
 // and input handling for the spirit hum mechanic.
 
-import { rightMouseDown, touchHum, touchHumY, mouseY, screenH } from '../core/input.js';
+import { touchHum, touchHumY, keys, humFreqArmed, mobile } from '../core/input.js';
+import { HUM_FREQ_MIN, HUM_FREQ_MAX, HUM_KEY_RAMP_NORM_PER_S } from '../constants.js';
 import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked } from '../systems/spiritHum.js';
 import { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
@@ -19,6 +20,8 @@ import { nearest } from '../systems/registration.js';
 // ================================================================
 let _humWasActive = false;
 let _humRingTimer = 0;
+/** Desktop: normalized hum pitch 0=high Hz, 1=low Hz (Q/E nudge). */
+let _desktopHumNorm = 0.5;
 
 // Slider DOM refs
 const _humThumbEl = document.getElementById('hum-thumb');
@@ -42,7 +45,8 @@ const _lockTexts = {
 // Update — called once per frame from director
 // ================================================================
 export function updateSpiritHumVisuals(dt) {
-  const _humInput = rightMouseDown || touchHum;
+  const _humInput = touchHum || (!mobile && humFreqArmed);
+  const _enterHum = _humInput && !_humWasActive;
   if (_humInput && !_humWasActive) {
     startHum();
     startSpiritHumAudio();
@@ -50,9 +54,20 @@ export function updateSpiritHumVisuals(dt) {
     stopHum();
     stopSpiritHumAudio();
   }
+  if (_enterHum && !touchHum && !mobile && humFreqArmed) {
+    const hz = getHumPitch();
+    _desktopHumNorm = (HUM_FREQ_MAX - hz) / (HUM_FREQ_MAX - HUM_FREQ_MIN);
+    _desktopHumNorm = Math.max(0, Math.min(1, _desktopHumNorm));
+  }
+  if (!mobile && humFreqArmed) {
+    const ramp = HUM_KEY_RAMP_NORM_PER_S;
+    if (keys['KeyQ']) _desktopHumNorm += ramp * dt;
+    if (keys['KeyE']) _desktopHumNorm -= ramp * dt;
+    _desktopHumNorm = Math.max(0, Math.min(1, _desktopHumNorm));
+  }
   _humWasActive = _humInput;
 
-  const _humInputY = touchHum ? touchHumY : (screenH > 0 ? mouseY / screenH : 0.5);
+  const _humInputY = touchHum ? touchHumY : _desktopHumNorm;
 
   updateHum(dt, _humInputY, {
     deerDist2: nearest.deerDist2,

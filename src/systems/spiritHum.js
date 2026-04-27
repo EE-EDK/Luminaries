@@ -1,8 +1,8 @@
 // ================================================================
 // Spirit Hum — Two-Phase Creature Unlock System
 // ================================================================
-// Phase 1 (Spirit Hum): Player holds right-click/HUM button to emit
-// a continuous tone. Mouse Y controls pitch (80–700 Hz). When pitch
+// Phase 1 (Spirit Hum): Desktop — F toggles hum; hold Q/E to lower/raise pitch.
+// Mobile — HUM slider. Continuous tone while active (80–700 Hz). When pitch
 // enters a creature's resonance band and is sustained for 2s, it locks.
 //
 // Phase 2 (Resonance): With pitch locked, performing the creature's

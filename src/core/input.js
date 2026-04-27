@@ -15,11 +15,12 @@ export let joyY = 0;
 export let joyOn = false;
 export let touchJump = false;
 export let touchSprint = false;
-export let rightMouseDown = false;
 export let mouseY = window.innerHeight * 0.5;
 export let screenH = window.innerHeight;
 export let touchHum = false;
 export let touchHumY = 0.5; // normalized 0–1 (0=top/high pitch, 1=bottom/low pitch)
+/** Desktop: F toggles spirit-hum armed; hum runs while armed (Q/E adjust pitch). */
+export let humFreqArmed = false;
 export let pointerLocked = false;
 
 let joyTid = null;
@@ -57,38 +58,43 @@ function requestLookLock() {
 // Keyboard
 window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
+  if (e.code === 'KeyF' && !e.repeat) {
+    e.preventDefault();
+    humFreqArmed = !humFreqArmed;
+  }
   if ('Space ShiftLeft ShiftRight KeyW KeyA KeyS KeyD'.split(' ').indexOf(e.code) >= 0) e.preventDefault();
   triggerGo();
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rightMouseDown = false; });
+window.addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  mouseDown = false;
+  humFreqArmed = false;
+});
 // NOTE: renderer.js and postprocessing.js also listen for 'resize'
 window.addEventListener('resize', () => { screenH = window.innerHeight; });
 
 // Mouse — desktop uses pointer lock for standard FPS look.
-// Right-click remains spirit hum control.
+// Spirit hum: F toggles frequency mode; Q/E adjust pitch (see spiritHumVisuals.js).
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('mousedown', (e) => {
-  if (e.button === 2) { rightMouseDown = true; triggerGo(); }
-  else {
-    mouseDown = true;
+  if (e.button === 2) {
     triggerGo();
-    requestLookLock();
+    return;
   }
+  mouseDown = true;
+  triggerGo();
+  requestLookLock();
 });
 window.addEventListener('mouseup', (e) => {
-  if (e.button === 2) rightMouseDown = false;
-  else mouseDown = false;
+  if (e.button !== 2) mouseDown = false;
 });
 document.addEventListener('pointerlockchange', () => {
   pointerLocked = document.pointerLockElement === renderer.domElement;
   if (!pointerLocked) mouseDown = false;
 });
 window.addEventListener('mousemove', (e) => {
-  if (pointerLocked) {
-    // Pointer lock keeps cursor position fixed; use relative deltas for hum pitch.
-    mouseY = Math.max(0, Math.min(screenH, mouseY + e.movementY));
-  } else {
+  if (!pointerLocked) {
     mouseY = e.clientY;
   }
   // Pointer lock path (FPS): always look while locked.
@@ -115,7 +121,7 @@ if (mobile) {
   if (bsEl) bsEl.style.display = 'block';
   if (controlsEl) controlsEl.textContent = 'Stick: Move · Drag right: Look · JUMP · SPRINT · HUM';
 } else {
-  if (controlsEl) controlsEl.textContent = 'WASD: Move · Mouse: Look (click to lock) · Left-click: PULSE · Esc: Unlock · Right-click: HUM';
+  if (controlsEl) controlsEl.textContent = 'WASD: Move · Mouse: Look (click to lock) · Left-click: PULSE · Esc: Unlock · F: HUM · Q/E: pitch';
 }
 
 export function unlockTruthControlHint() {

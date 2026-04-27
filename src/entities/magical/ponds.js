@@ -42,7 +42,8 @@ export function makePond(x, z) {
   const rotY = sr() * Math.PI; // random orientation
   // Shallow depression (dark disc below water for depth illusion)
   const depthMat = new MeshStandardMaterial({
-    color: 0x050812, roughness: 0.9
+    color: 0x0a1220, roughness: 0.9,
+    emissive: C.pondGlow, emissiveIntensity: 0.04
   });
   const depthGeo = makeOrganicDiscGeo(pondR * 0.85, 24, shapeSeed);
   const depth = new Mesh(depthGeo, depthMat);
@@ -61,20 +62,24 @@ export function makePond(x, z) {
   water.scale.set(elongX, 1, elongZ); water.rotation.z = rotY;
   g.add(water);
   // Edge stones (5-8 irregular pebbles around rim)
-  const stoneMat = new MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.85 });
+  const stoneMat = new MeshStandardMaterial({
+    color: 0x3a3a42, roughness: 0.85,
+    emissive: C.pondGlow, emissiveIntensity: 0.02
+  });
   const stoneN = 5 + Math.floor(sr() * 4);
   for (let si = 0; si < stoneN; si++) {
     const sa = si / stoneN * 6.28 + sr() * 0.3;
     const sd = pondR + sr() * 0.2 - 0.1;
     const sSz = 0.06 + sr() * 0.08;
-    const stone = new Mesh(new SphereGeometry(sSz, 4, 3), stoneMat);
+    const stone = new Mesh(new SphereGeometry(sSz, 10, 8), stoneMat);
     stone.scale.set(1 + sr() * 0.5, 0.4 + sr() * 0.3, 1 + sr() * 0.5);
     stone.position.set(Math.cos(sa) * sd, sSz * 0.2, Math.sin(sa) * sd);
     stone.rotation.set(sr(), sr(), sr()); g.add(stone);
   }
   // Water grass tufts at edge (3 clumps)
   const wgMat = new MeshStandardMaterial({
-    color: 0x1a5520, roughness: 0.7, side: DoubleSide
+    color: 0x1a5520, roughness: 0.7, side: DoubleSide,
+    emissive: C.pondGlow, emissiveIntensity: 0.06
   });
   for (let wi = 0; wi < 3; wi++) {
     const wa = sr() * 6.28;
@@ -114,7 +119,7 @@ export function makePond(x, z) {
       color: 0x1a5020, transparent: true, opacity: 0.3,
       depthWrite: false
     });
-    const vein = new Mesh(new CylinderGeometry(0.002, 0.002, padSize * 1.5, 3), veinMat);
+    const vein = new Mesh(new CylinderGeometry(0.002, 0.002, padSize * 1.5, 6), veinMat);
     vein.position.set(Math.cos(pa) * pd, 0.052, Math.sin(pa) * pd);
     vein.rotation.x = Math.PI / 2; vein.rotation.z = sr() * 3; g.add(vein);
     pads.push({ mesh: pad, phase: sr() * 6.28 });
@@ -137,7 +142,7 @@ export function makePond(x, z) {
   const fcMat = new MeshStandardMaterial({
     color: 0xffffaa, emissive: C.lilyGlow, emissiveIntensity: 0.8
   });
-  const fc = new Mesh(new SphereGeometry(0.025, 4, 3), fcMat);
+  const fc = new Mesh(new SphereGeometry(0.025, 10, 8), fcMat);
   fc.position.set(pads[0].mesh.position.x, flowerY + 0.02, pads[0].mesh.position.z);
   g.add(fc);
   // Second smaller bud on another pad (if enough pads)
@@ -146,7 +151,7 @@ export function makePond(x, z) {
       color: C.lilyFlower, emissive: C.lilyGlow, emissiveIntensity: 0.2,
       transparent: true, opacity: 0.7, depthWrite: false
     });
-    const bud = new Mesh(new SphereGeometry(0.03, 5, 4), budMat);
+    const bud = new Mesh(new SphereGeometry(0.03, 10, 8), budMat);
     bud.scale.set(0.8, 1.2, 0.8);
     bud.position.set(pads[2].mesh.position.x, 0.09, pads[2].mesh.position.z);
     g.add(bud);
@@ -155,11 +160,12 @@ export function makePond(x, z) {
   // Submerged pebbles (visible through water)
   const pebMat = new MeshStandardMaterial({
     color: 0x3a3835, roughness: 0.8, transparent: true, opacity: 0.5,
-    depthWrite: false
+    depthWrite: false,
+    emissive: C.pondGlow, emissiveIntensity: 0.03
   });
   for (let pbi = 0; pbi < 5; pbi++) {
     const pbA = sr() * 6.28, pbD = sr() * pondR * 0.7;
-    const peb = new Mesh(new SphereGeometry(0.02 + sr() * 0.025, 4, 3), pebMat);
+    const peb = new Mesh(new SphereGeometry(0.02 + sr() * 0.025, 10, 8), pebMat);
     peb.scale.set(1 + sr() * 0.5, 0.4, 1 + sr() * 0.5);
     peb.position.set(Math.cos(pbA) * pbD, 0.015, Math.sin(pbA) * pbD); g.add(peb);
   }
@@ -179,15 +185,16 @@ export function makePond(x, z) {
   // Tadpole shapes (animated swim paths)
   const tadMat = new MeshStandardMaterial({
     color: 0x112215, roughness: 0.7, transparent: true, opacity: 0.4,
-    depthWrite: false
+    depthWrite: false,
+    emissive: C.pondGlow, emissiveIntensity: 0.05
   });
   const tadpoles = [];
   for (let tdi = 0; tdi < 2; tdi++) {
     const tdA = sr() * 6.28, tdD = sr() * pondR * 0.4;
-    const tadBody = new Mesh(new SphereGeometry(0.012, 4, 3), tadMat);
+    const tadBody = new Mesh(new SphereGeometry(0.012, 10, 8), tadMat);
     tadBody.scale.set(0.8, 0.5, 1.3);
     tadBody.position.set(Math.cos(tdA) * tdD, 0.04, Math.sin(tdA) * tdD); g.add(tadBody);
-    const tadTail = new Mesh(new CylinderGeometry(0.002, 0.001, 0.025, 3), tadMat);
+    const tadTail = new Mesh(new CylinderGeometry(0.002, 0.001, 0.025, 8), tadMat);
     tadTail.position.set(Math.cos(tdA) * tdD - Math.cos(tdA) * 0.02, 0.04, Math.sin(tdA) * tdD - Math.sin(tdA) * 0.02);
     tadTail.rotation.z = Math.PI / 2; tadTail.rotation.y = tdA; g.add(tadTail);
     tadpoles.push({ body: tadBody, tail: tadTail, ang: tdA, orbR: 0.15 + sr() * pondR * 0.35, speed: 0.3 + sr() * 0.4 });
@@ -221,12 +228,15 @@ export function makePond(x, z) {
     color: 0x4a3018, roughness: 0.8, side: DoubleSide, transparent: true, opacity: 0.6,
     depthWrite: false
   });
-  const fLeaf = new Mesh(new SphereGeometry(0.03, 5, 3), fLeafMat);
+  const fLeaf = new Mesh(new SphereGeometry(0.03, 10, 8), fLeafMat);
   fLeaf.scale.set(1.3, 0.2, 1.0);
   fLeaf.position.set((sr() - 0.5) * pondR * 0.5, 0.07, (sr() - 0.5) * pondR * 0.5); g.add(fLeaf);
 
   // Mud bank rim — organic mound around edges to contain water
-  const bankMat = new MeshStandardMaterial({ color: 0x2a2018, roughness: 0.9 });
+  const bankMat = new MeshStandardMaterial({
+    color: 0x2a2018, roughness: 0.9,
+    emissive: C.pondGlow, emissiveIntensity: 0.035
+  });
   const bankSegments = 16;
   for (let bi = 0; bi < bankSegments; bi++) {
     const ba = (bi / bankSegments) * Math.PI * 2;
@@ -236,7 +246,7 @@ export function makePond(x, z) {
     const bx = Math.cos(ba + rotY) * br * elongX;
     const bz = Math.sin(ba + rotY) * br * elongZ;
     const bankH = 0.04 + sr() * 0.03;
-    const bank = new Mesh(new SphereGeometry(0.15 + sr() * 0.1, 4, 3), bankMat);
+    const bank = new Mesh(new SphereGeometry(0.15 + sr() * 0.1, 12, 10), bankMat);
     bank.scale.set(1.5 + sr() * 0.5, bankH / 0.1, 1.5 + sr() * 0.5);
     bank.position.set(bx, bankH * 0.5, bz);
     g.add(bank);

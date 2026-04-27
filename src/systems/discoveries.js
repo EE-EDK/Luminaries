@@ -160,24 +160,102 @@ function checkEntityGroup(px, pz, entities, key) {
 }
 
 // ================================================================
-// Idle Hints
+// Idle Hints — tiered clarity (cryptic → plain) from (1) stand-still time
+// since last move and (2) how many idle hints we’ve already shown this run.
 // ================================================================
+// Slots: [0] explore · [1] hum · [2] quest / “orbs” · [3] fairy rings
 const IDLE_HINTS_CHILD = [
-  'Try walking toward the glowing things...',
-  'Hold RIGHT-CLICK to hum and wake the creatures',
-  'Find 5 orbs hidden in the forest',
-  'Some mushroom circles let you super-jump!'
+  [
+    'Something remembers the way by light alone—whose glow pulls you strongest?',
+    'The bright hums recall old paths—cross the dim until a shine leans toward you.',
+    'Walk toward the strongest biolights; answers pool where the forest shines loudest.',
+    'Head for glowing mushrooms, crystals, and water—clues gather in the bright places.',
+  ],
+  [
+    'Between silence and song the wood leans closer—what if you almost sang?',
+    'The creatures know a breath that isn’t quite speech—stillness helps them hear you.',
+    'Hold RIGHT-CLICK to hum softly; the grove listens for that thin thread of sound.',
+    'Hold RIGHT-CLICK near friends—pufflings and others teach hums the gold will answer.',
+  ],
+  [
+    'What fell from the gray needle as five sleeping coals, and wakes only for stolen voices?',
+    'Five borrowed songs fit five hidden locks—the tower counts, but never tells which first.',
+    'Five golden sun-seeds hide in the wild; each opens only to the creature lesson it names.',
+    'Find five glowing orbs—carry puffling, jelly, deer, then moth songs to them in order.',
+  ],
+  [
+    'Some circles of caps drink the heaviness from your thoughts—then the earth lets go.',
+    'Old mushroom rings thin the mind’s weight—step through, and jumping feels like falling upward.',
+    'In a restored fairy ring, your leap forgets the ground for a little while.',
+    'Stand in an active mushroom circle to super-jump; restored sectors only.',
+  ],
 ];
 const IDLE_HINTS_ADULT = [
-  'Navigate toward bioluminescent signatures...',
-  'Engage resonance tuning (RIGHT-CLICK) for fauna interface',
-  'Locate 5 frequency nodes distributed across the biome',
-  'Mycelial relay nodes amplify vertical displacement'
+  [
+    'Bioluminescent vectors imply objective gradients—follow ascending photon flux.',
+    'Coherent glow clusters on non-random geometry—steer toward peak signature.',
+    'Navigate toward dominant bioluminescence; mission-critical markers cluster there.',
+    'Proceed toward high-glow features—mushroom beds, crystal chains, open water.',
+  ],
+  [
+    'Sub-vocal carrier may couple to local fauna—test near-field harmonic injection.',
+    'Fauna interface favors sustained sub-threshold tone—stillness improves SNR.',
+    'RIGHT-CLICK: resonance tuning; maintain carrier until coupling locks.',
+    'RIGHT-CLICK near micro-fauna to sample teachable frequencies for anchor handshake.',
+  ],
+  [
+    'Lattice log: five dormant ignitions; each demands a specific borrowed bio-key.',
+    'Five offline anchors—staged key schedule; obelisk enforces order without broadcasting it.',
+    'Recover five orbital nodes; sequence fixed—match carrier species to stage index.',
+    'Objective: five gold resonance orbs—pair each collection with the required carried frequency.',
+  ],
+  [
+    'Hyphal loops compile transient boundary code—expect non-Newtonian hop gains.',
+    'Closed mycelial meshes relax local g′—restored cells favor elevated jump integrals.',
+    'Fairy-ring sectors: brief g attenuation; exploit for vertical mobility.',
+    'Mechanic: mushroom circles grant super-jump + feather fall in restored zones.',
+  ],
 ];
+
+/** How many idle-hint lines we’ve shown this session (persists across short walks). */
+let idleHintsShownSession = 0;
 let lastHintIndex = -1;
 let hintCooldown = 0;
 let stageHintTimer = 0;
 let lastStageHintOrbCount = -1;
+
+const SEEK_HUD_LABELS = {
+  child: [
+    'The needle dreams of five stolen sparks...',
+    'Five gold sleeps wait—each yields to a borrowed voice.',
+    'Seek five sun-seeds; wake them in the grove’s order.',
+    'Find five glowing orbs—match each stage’s creature song.',
+  ],
+  adult: [
+    'Lattice: five dormant anchor ignitions.',
+    'Five offline nodes—staged bio-keys required.',
+    'Recover five resonance anchors in enforced order.',
+    'Quest: five gold orbs—correct carrier per stage.',
+  ],
+};
+
+/**
+ * @param {number} idleTime seconds since last movement
+ * @returns {number} 0 = most cryptic, 3 = most explicit
+ */
+export function getHintClarityTier(idleTime) {
+  const base = Math.min(3, Math.max(0, Math.floor((idleTime - 15) / 40)));
+  const sessionBump = Math.min(1, Math.floor(idleHintsShownSession / 5));
+  return Math.min(3, base + sessionBump);
+}
+
+/** SEEK-phase HUD line — escalates with the same tier model as idle hints. */
+export function getSeekHudLabel() {
+  const perspective = getPerspective();
+  const tier = getHintClarityTier(playerIdleTime);
+  const rows = SEEK_HUD_LABELS[perspective] || SEEK_HUD_LABELS.child;
+  return rows[tier];
+}
 
 export function checkIdleHints(idleTime) {
   const orbCount = getOrbsFound();
@@ -200,9 +278,12 @@ export function checkIdleHints(idleTime) {
   if (hintCooldown > 0) { hintCooldown -= 0.016; return; }
   if (idleTime < 15) return;
   const perspective = getPerspective();
-  const hints = perspective === 'child' ? IDLE_HINTS_CHILD : IDLE_HINTS_ADULT;
-  lastHintIndex = (lastHintIndex + 1) % hints.length;
-  showNarrativeText(hints[lastHintIndex], 4.0);
+  const table = perspective === 'child' ? IDLE_HINTS_CHILD : IDLE_HINTS_ADULT;
+  const tier = getHintClarityTier(idleTime);
+  lastHintIndex = (lastHintIndex + 1) % table.length;
+  idleHintsShownSession += 1;
+  const text = table[lastHintIndex][tier];
+  showNarrativeText(text, tier >= 2 ? 5.2 : 4.2);
   hintCooldown = 30;
 }
 

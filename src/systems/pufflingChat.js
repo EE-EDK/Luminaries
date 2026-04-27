@@ -87,7 +87,7 @@ const MESSAGES_NEAR_ORB = {
     'High-energy gold-signature',
     'Synchronization potential: HIGH',
     'Anchor frequency: MATCHED',
-    'Localized gravity anomaly',
+    'Localized gravity anomaly — ring-adjacent coupling suspected',
     'Kinetic energy buildup nearby',
     'Thermal trace: METALLIC GOLD',
   ]
@@ -99,11 +99,11 @@ const MESSAGES_ATTUNING = {
     'you feel like us now',
     'vari! vari! you hum!',
     'your light shifts warm',
-    'jump jump jump! like us!',
+    'your thoughts got light—leap with us, like mist!',
     'sel tavi ori — together!',
-    'the song is in your leap!',
+    'the song lives in the arc you carve through air',
     'we can hear your glow',
-    'we love to jump! you too!',
+    'the rings taught us: heavy bodies, light minds, big hops',
   ],
   adult: [
     'User attunement rising',
@@ -127,7 +127,7 @@ const MESSAGES_CARRYING = {
     'quick, before it fades',
     'ori nesh — find the anchor!',
     'your glow is our glow',
-    'jumping is how we sing!',
+    'we sing in little arcs—the ground lets go when you mean it',
     'every hop carries the hum',
   ],
   adult: [
@@ -165,6 +165,8 @@ const MESSAGES_GENERAL = {
     'jellies drift where the old currents hum',
     'moths guard the high air roads',
     'when crystals ring, the ground feels happy',
+    'the mushroom circles hum a trick—stand in one, and your head floats',
+    'kelu says the old rings eat worry; after that, jumping is easy',
   ],
   adult: [
     'Background scan active',
@@ -187,6 +189,8 @@ const MESSAGES_GENERAL = {
     'Crystal resonance correlates with soil vitality',
     'Biolight density peaks near old root lattices',
     'Local history cache indicates prior high-coherence era',
+    'Fairy-ring sites: sporadic g′ depression correlates with closed hyphal topology',
+    'Anecdotal: “liminal opcodes” in soil RNA analogs—jump integrator gains spike inside active rings',
   ]
 };
 

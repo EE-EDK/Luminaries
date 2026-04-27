@@ -20,7 +20,7 @@
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setYaw, setPitch } from './core/input.js';
+import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setYaw, setPitch, unlockTruthControlHint } from './core/input.js';
 // Constants
 import {
   WORLD_R, EYE_H, STARMOTE_N,
@@ -30,7 +30,7 @@ import {
 // World
 import { createGround } from './world/ground.js';
 import { createSkyDome, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
-import { getGroundY, registerFlatZone, buildHeightCache } from './world/terrain.js';
+import { getGroundY, registerFlatZone } from './world/terrain.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
@@ -104,7 +104,7 @@ import { initWeather, updateWeather, windX, windZ, windStrength, weatherState, l
 import { initRain, updateRain } from './particles/rain.js';
 
 // Audio
-import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbCollect, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, playOrbReject, startResonanceDrone, setAudioOrbCount, initCrystalClusters, updateCrystalResonance } from './systems/audio.js';
+import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, startResonanceDrone, setAudioOrbCount, initCrystalClusters, updateCrystalResonance } from './systems/audio.js';
 
 // Intro cinematic (Phase 2)
 import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } from './systems/intro.js';
@@ -153,6 +153,7 @@ import { initEchoVisions, updateEchoVisions } from './systems/echoVisions.js';
 
 // Puffling Chat
 import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
+import { initWizardPufflingEvent, updateWizardPufflingEvent } from './systems/wizardPufflingEvent.js';
 
 // Performance Monitor
 import { reportTimings, timeStart, timeEnd } from './systems/perfMonitor.js';
@@ -573,6 +574,12 @@ function animate() {
     setGravityMult(1.0);
   }
   updatePlayer(dt);
+  const wizardCam = updateWizardPufflingEvent(dt, elapsed, {
+    player,
+    cameraPos: camera.position,
+    yaw,
+    pitch
+  });
   director(dt, elapsed);
   const flyC = updateFlies(dt, elapsed);
   const spC = updateSpores(dt);
@@ -583,8 +590,16 @@ function animate() {
 
   // Constellation camera pan — smoothly override yaw/pitch
   const camPan = updateCameraPan(dt, yaw, pitch, setYaw, setPitch);
-  camera.rotation.y = camPan.yaw;
-  camera.rotation.x = camPan.pitch;
+  let finalYaw = camPan.yaw;
+  let finalPitch = camPan.pitch;
+  if (wizardCam && wizardCam.active) {
+    finalYaw = wizardCam.yaw;
+    finalPitch = wizardCam.pitch;
+    setYaw(finalYaw);
+    setPitch(finalPitch);
+  }
+  camera.rotation.y = finalYaw;
+  camera.rotation.x = finalPitch;
 
   updateHUD(dt, player.pos);
   postRender();
@@ -628,11 +643,8 @@ try {
   moon.shadow.needsUpdate = true;
 
   // Create ground AFTER populate so pond/fairy ring flat zones are registered
+  // (populate ends with buildHeightCache() once all flat zones exist)
   const groundMesh = createGround();
-
-  // Build terrain height cache — replaces ~15 noise layers per getGroundY() call
-  // with bilinear-interpolated Float32Array lookup. Must be after all registerFlatZone() calls.
-  buildHeightCache();
 
   // Wire up collision data for player
   setCollisionData(trees_data, rocks_data);
@@ -688,6 +700,12 @@ try {
   // Init discoveries (Item 10)
   initDiscoveries();
   initPufflingChat();
+  initWizardPufflingEvent({
+    showNarrativeText,
+    playPufflingVocal,
+    getGroundY,
+    onTruthUnlocked: unlockTruthControlHint
+  });
 
   // Init UI (must be before quest so orb HUD element is available)
   initHUD();
@@ -727,12 +745,10 @@ try {
     trees: trees_data,
     treeMeshes: treeMeshes,
     groundMesh: groundMesh,
-    playOrbCollect: playOrbCollect,
     playOrbWarble: playOrbWarble,
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
-    playOrbReject: playOrbReject,
     showOrbRejectHint: () => showOrbRejectHint(),
     showOrbListening: () => showOrbListening(),
     spawnOrbBurst: spawnOrbBurst,

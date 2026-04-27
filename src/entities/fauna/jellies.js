@@ -14,7 +14,7 @@ export function makeJelly(x, y, z) {
   // Bell dome (squashed sphere)
   const bellMat = new MeshStandardMaterial({
     color: C.jellyBell, emissive: C.jellyGlow, emissiveIntensity: 0.8,
-    transparent: true, opacity: 0.5, depthWrite: false, roughness: 0.2, metalness: 0.1, side: DoubleSide
+    transparent: true, opacity: 0.68, depthWrite: true, roughness: 0.2, metalness: 0.1, side: DoubleSide
   });
   const dome = new Mesh(new SphereGeometry(0.5, 8, 6, 0, 6.28, 0, Math.PI / 2), bellMat);
   dome.scale.set(1, 0.6, 1); dome.position.y = 0; bell.add(dome);
@@ -22,20 +22,20 @@ export function makeJelly(x, y, z) {
   // Bell rim torus (thickened edge)
   const rimMat = new MeshStandardMaterial({
     color: C.jellyBell, emissive: C.jellyGlow, emissiveIntensity: 1.0,
-    transparent: true, opacity: 0.6, depthWrite: false
+    transparent: true, opacity: 0.72, depthWrite: true
   });
   const rim = new Mesh(new TorusGeometry(0.48, 0.025, 5, 12), rimMat);
   rim.rotation.x = Math.PI / 2; rim.position.y = -0.02; bell.add(rim);
 
   // Inner glow orb
   const inner = new Mesh(new SphereGeometry(0.2, 6, 4), new MeshBasicMaterial({
-    color: C.jellyGlow, transparent: true, opacity: 0.7, depthWrite: false
+    color: C.jellyGlow, transparent: true, opacity: 0.78, depthWrite: true
   }));
   inner.position.y = -0.05; bell.add(inner);
 
   // Internal organ shapes (2 small elongated forms)
   const organMat = new MeshBasicMaterial({
-    color: C.jellyOrgan, transparent: true, opacity: 0.3, depthWrite: false
+    color: C.jellyOrgan, transparent: true, opacity: 0.42, depthWrite: true
   });
   for (let oi = -1; oi <= 1; oi += 2) {
     const organ = new Mesh(new SphereGeometry(0.06, 4, 3), organMat);
@@ -45,7 +45,7 @@ export function makeJelly(x, y, z) {
 
   // Bioluminescent spots on bell surface (5)
   const spotMat = new MeshBasicMaterial({
-    color: C.jellySpot, transparent: true, opacity: 0.7, depthWrite: false
+    color: C.jellySpot, transparent: true, opacity: 0.82, depthWrite: true
   });
   for (let si = 0; si < 5; si++) {
     const sa = sr() * 6.28, sel = sr() * 0.8;
@@ -56,7 +56,7 @@ export function makeJelly(x, y, z) {
 
   // Nerve net radial lines on bell surface (8 faint lines)
   const nerveMat = new MeshBasicMaterial({
-    color: C.jellyGlow, transparent: true, opacity: 0.12, depthWrite: false
+    color: C.jellyGlow, transparent: true, opacity: 0.18, depthWrite: true
   });
   for (let ni = 0; ni < 8; ni++) {
     const na = (ni / 8) * 6.28;
@@ -68,7 +68,7 @@ export function makeJelly(x, y, z) {
   // Bell margin lappets (tiny frilly bumps at rim edge)
   const lappetMat = new MeshStandardMaterial({
     color: C.jellyBell, emissive: C.jellyGlow, emissiveIntensity: 0.6,
-    transparent: true, opacity: 0.4, depthWrite: false
+    transparent: true, opacity: 0.55, depthWrite: true
   });
   for (let lpi = 0; lpi < 10; lpi++) {
     const la = (lpi / 10) * 6.28;
@@ -85,10 +85,10 @@ export function makeJelly(x, y, z) {
   // Tentacles (6 dangling cylinders) with tip bulbs
   const tentMat = new MeshStandardMaterial({
     color: C.jellyTent, emissive: C.jellyGlow, emissiveIntensity: 0.4,
-    transparent: true, opacity: 0.4, depthWrite: false
+    transparent: true, opacity: 0.58, depthWrite: true
   });
   const tipMat = new MeshBasicMaterial({
-    color: C.jellyTip, transparent: true, opacity: 0.9, depthWrite: false
+    color: C.jellyTip, transparent: true, opacity: 0.95, depthWrite: true
   });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * 6.28;
@@ -105,14 +105,14 @@ export function makeJelly(x, y, z) {
   // Oral arm (central thicker feeding tentacle)
   const oralMat = new MeshStandardMaterial({
     color: C.jellyTent, emissive: C.jellyGlow, emissiveIntensity: 0.5,
-    transparent: true, opacity: 0.35, depthWrite: false
+    transparent: true, opacity: 0.5, depthWrite: true
   });
   const oral = new Mesh(new CylinderGeometry(0.02, 0.01, 0.35, 4), oralMat);
   oral.position.y = -0.2; tentGroup.add(oral);
 
   // Mucus drip beads (3 tiny spheres on tentacle tips)
   const mucusMat = new MeshBasicMaterial({
-    color: C.jellyMucus, transparent: true, opacity: 0.4, depthWrite: false
+    color: C.jellyMucus, transparent: true, opacity: 0.55, depthWrite: true
   });
   for (let mui = 0; mui < 3; mui++) {
     const mua = (mui / 3) * 6.28;
@@ -122,6 +122,8 @@ export function makeJelly(x, y, z) {
   }
 
   g.position.set(x, y, z); scene.add(g);
+  // Keep jelly transparent layers rendering in a stable order near the camera.
+  g.traverse((obj) => { obj.renderOrder = 5; });
   return {
     group: g, bell, tentGroup, bellMat: bellMat, tipMat: tipMat, phase: sr() * 6.28, driftAng: sr() * 6.28,
     homeX: x, homeZ: z, floatY: y, wobble: 0.5 + sr() * 0.5,

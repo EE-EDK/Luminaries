@@ -16,6 +16,7 @@ import { playCreatureSound } from '../../systems/audio.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
+import { queryNearTrees } from '../../utils/spatialHash.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 const _jellyNearColor = new Color(0xff4fd2);
@@ -211,6 +212,24 @@ export function updateJellies(dt, t) {
     const jellyMinY = jellyGroundY + 3;
     if (g.position.y < jellyMinY) {
       g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 4);
+    }
+
+    // Tree avoidance — keep jellies from clipping through trunks at any distance.
+    const nearby = queryNearTrees(g.position.x, g.position.z, 2.2);
+    for (let ti = 0; ti < nearby.length; ti++) {
+      const tr = nearby.items[ti];
+      const tdx = g.position.x - tr.x;
+      const tdz = g.position.z - tr.z;
+      const td2 = tdx * tdx + tdz * tdz;
+      const treeR = (tr.scale || 1) * 0.75 + 0.5;
+      const jellyR = 0.62;
+      const minR = treeR + jellyR;
+      if (td2 < minR * minR && td2 > 0.0001) {
+        const td = Math.sqrt(td2);
+        const push = (minR - td) / td;
+        g.position.x += tdx * push * 0.9;
+        g.position.z += tdz * push * 0.9;
+      }
     }
 
     // Periodic hum sound

@@ -21,20 +21,21 @@ export const QUEST_CONFIG = {
 // Orb 1 stays puff-friendly onboarding. Orb 5 accepts any carried frequency.
 export const ORB_CREATURE_SEQUENCE = ['puff', 'jelly', 'deer', 'moth', 'any'];
 
+// Shown by orb count (0–4): mood of what the next sleeper asks for—no species or recipe.
 export const ORB_STAGE_HINTS = {
   child: [
-    'The pufflings can teach your first song.',
-    'Now follow the jelly rhythm — stand still and tap in time.',
-    'Walk with the deer, gently and in their direction.',
-    'Dance with the moths while keeping them in view.',
-    'One last anchor — carry any creature song to finish.'
+    'Borrow a hum so small it almost isn’t yours—the first door likes thieves.',
+    'The next spark wants a heartbeat you didn’t make—listen, be still, answer on the beat.',
+    'Something shy in the underbrush sets the pace—walk beside it; never march ahead of it.',
+    'Silver scribbles the high dark—keep one eye on their spiral while your feet keep moving.',
+    'The last coal isn’t picky; bring whatever song still clings to your ribs.'
   ],
   adult: [
-    'Stage 1: Puffling frequency required for node bootstrap.',
-    'Stage 2: Jelly resonance required; maintain stillness + rhythm input.',
-    'Stage 3: Deer gait-lock required; align heading and pace.',
-    'Stage 4: Moth orbital lock required; maintain visual tracking while moving.',
-    'Stage 5: Final node accepts any valid carried frequency.'
+    'Next handshake favors a lightweight carrier—sample something teachable before you knock.',
+    'Coupling improves under low motion; let an external cadence phase-lock you before transmit.',
+    'Correlation rises when your trajectory mirrors a larger, skittish vector—match, don’t chase.',
+    'Maintain optical lock on a fast, erratic emitter while your own frame translates—no dropped gaze.',
+    'Final ignition accepts any authenticated payload you still hold—no further schema.'
   ]
 };
 
@@ -44,7 +45,7 @@ export const DISCOVERY_LABELS = {
   puffling:     { child: 'A Little Puffling!',       adult: 'Micro-Fauna Cluster Identified' },
   jelly:        { child: 'A Floating Jelly!',        adult: 'Bioluminescent Drifter Catalogued' },
   moth:         { child: 'A Moon Moth!',             adult: 'Orbital Pollinator Registered' },
-  fairyRing:    { child: 'A Circle of Mushrooms!',   adult: 'Mycelial Relay Node Mapped' },
+  fairyRing:    { child: 'A Ring of Mushrooms… the Air Feels Lighter!', adult: 'Closed Mycelial Loop — Liminal g′ Patch Logged' },
   crystalChain: { child: 'The Crystals Are Singing!', adult: 'Resonance Cascade Initiated' },
   pond:         { child: 'A Hidden Pond!',           adult: 'Aquatic Biosensor Basin Located' },
   glyph:        { child: 'A Secret Message!',        adult: 'Encoded Surface Signal Deciphered' }

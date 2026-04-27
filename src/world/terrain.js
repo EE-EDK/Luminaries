@@ -143,14 +143,14 @@ function landformHeight(x, z) {
   const rx1 = x * 0.82 + z * 0.57;
   const rz1 = -x * 0.57 + z * 0.82;
   const ridge1 = ridgeNoise(rx1 * ridgeScale1 + 400, rz1 * ridgeScale1 + 500, 4);
-  lf += ridge1 * 3.5; // up to ~3.5m tall ridges
+  lf += ridge1 * 4.6; // sharp crests
 
   // Second ridge set at different angle (~70°) and coarser scale
   const ridgeScale2 = 0.018;
   const rx2 = x * 0.34 + z * 0.94;
   const rz2 = -x * 0.94 + z * 0.34;
   const ridge2 = ridgeNoise(rx2 * ridgeScale2 - 200, rz2 * ridgeScale2 + 150, 3);
-  lf += ridge2 * 2.0; // broader, gentler ridges
+  lf += ridge2 * 2.7; // broader ridges
 
   // ---- 2. Knolls — isolated rounded hills via cell noise ----
   // Sparse dome-shaped hills scattered across the world
@@ -160,13 +160,13 @@ function landformHeight(x, z) {
   const knollDome = Math.max(0, 1.0 - kd * 1.6);
   const knollH = knollDome * knollDome * (3 - 2 * knollDome); // smoothstep shape
   // Vary height per cell using noise
-  const knollAmp = 2.0 + fbm(x * 0.01 + 600, z * 0.01 + 700, 2) * 4.0; // 2-6m tall
+  const knollAmp = 2.6 + fbm(x * 0.01 + 600, z * 0.01 + 700, 2) * 5.2; // ~2.6–7.8m domes
   lf += knollH * knollAmp;
 
   // ---- 3. Mounds / hummocks — medium-frequency rounded bumps ----
   const moundN = fbm(x * 0.08 + 800, z * 0.08 + 900, 3);
   // Square to make them punchier — peaks sharper, flats flatter
-  const moundH = moundN * moundN * 4.0; // up to ~1m
+  const moundH = moundN * moundN * 5.5;
   lf += moundH;
 
   // ---- 4. Terraced shelves — subtle stepped ledges ----
@@ -175,7 +175,7 @@ function landformHeight(x, z) {
   const steps = 5; // number of terrace levels
   const terraced = Math.floor(terraceN * steps) / steps;
   // Blend between smooth and stepped (70% stepped for visible ledges)
-  const terraceH = (terraceN * 0.3 + terraced * 0.7) * 3.0; // up to ~3m
+  const terraceH = (terraceN * 0.3 + terraced * 0.7) * 3.9;
   lf += terraceH;
 
   // ---- 5. Gullies — inverted ridges creating low channels ----
@@ -185,7 +185,7 @@ function landformHeight(x, z) {
   const gullyN = Math.abs(simplexNoise(gx * gullyScale + 150, gz * gullyScale + 250));
   // Only carve where gully is narrow (sharp channel)
   const gully = gullyN * gullyN; // squared = sharper channel walls
-  lf -= (1.0 - gully) * 1.5; // carve down up to 1.5m
+  lf -= (1.0 - gully) * 2.0; // shallow channels
 
   return lf;
 }
@@ -235,20 +235,19 @@ function _computeGroundY(x, z) {
   // Distance from world center (for edge falloff)
   const dist = Math.sqrt(x * x + z * z);
 
-  // Edge falloff: flatten near world edge
-  const edgeFade = 1 - smoothstep(Math.max(0, (dist - WORLD_R * 0.7) / (WORLD_R * 0.3)));
-
-  // Center falloff: flatten near obelisk (world center)
-  const centerFade = smoothstep(Math.min(1, dist / 10));
+  // Center falloff: gentle bowl at obelisk — narrower than before so relief returns sooner
+  const centerFade = smoothstep(Math.min(1, dist / 7));
 
   // ---- Regional hilliness map ----
   // Large-scale noise determines whether an area is hilly, flat, or in-between.
   // This creates distinct terrain "zones" across the world.
   const regionScale = 0.012; // very large features (~80m wavelength)
   const regionNoise = fbm(x * regionScale + 200, z * regionScale + 300, 3);
-  // Map to 0-1 range with some flat meadow areas (regionNoise < 0.3 → flat)
-  const hilliness = smoothstep(Math.max(0, Math.min(1, (regionNoise - 0.15) * 2.0)));
-  // hilliness: 0 = flat meadow, 0.5 = gentle rolling, 1.0 = hilly
+  // hilliness: fewer large “dead flat” meadows; floor keeps subtle roll everywhere
+  const hilliness = Math.max(
+    0.2,
+    smoothstep(Math.max(0, Math.min(1, (regionNoise - 0.06) * 1.75)))
+  );
 
   // ---- Layered terrain noise ----
   const scale = 0.035;
@@ -262,10 +261,10 @@ function _computeGroundY(x, z) {
   // - Rolling hills (0-5m) scaled by hilliness
   // - Medium bumps (0-1.5m) scaled by hilliness
   // - Micro detail always present (0-0.2m)
-  const baseHeight = n4 * 1.5;                           // gentle everywhere
-  const hillHeight = n1 * 5.0 * hilliness;              // up to 5m in hilly areas
-  const bumpHeight = n2 * 1.5 * hilliness;              // medium detail in hilly areas
-  const microHeight = n3 * 0.2;                          // always present
+  const baseHeight = n4 * 2.35;                         // broad swells
+  const hillHeight = n1 * 7.25 * hilliness;             // primary hills
+  const bumpHeight = n2 * 2.25 * hilliness;             // medium lumps
+  const microHeight = n3 * 0.38;                        // small surface grit
 
   let height = baseHeight + hillHeight + bumpHeight + microHeight;
 
@@ -273,12 +272,23 @@ function _computeGroundY(x, z) {
   // Additional layer with sharper, more dramatic terrain features
   // Scaled by hilliness so meadows stay relatively flat
   const lfRaw = landformHeight(x, z);
-  // Full landforms in hilly areas, 30% in flat meadows for some baseline texture
-  const lfScale = 0.3 + hilliness * 0.7;
+  // Landforms scale with hilliness; minimum keeps ledges/knolls visible in “calm” cells
+  const lfScale = 0.48 + hilliness * 0.62;
   height += lfRaw * lfScale;
 
-  // Apply edge and center falloff
-  height *= edgeFade * centerFade;
+  // Keep center bowl while preserving edge relief.
+  height *= centerFade;
+
+  // Perimeter mountain ring — closes the world edge with continuous steep terrain.
+  // "rimT" builds a broad rising ring; "wallT" adds a hard terminal escarpment.
+  const rimT = smoothstep(Math.max(0, Math.min(1, (dist - WORLD_R * 0.68) / (WORLD_R * 0.22))));
+  const wallT = smoothstep(Math.max(0, Math.min(1, (dist - WORLD_R * 0.90) / (WORLD_R * 0.10))));
+  const ringN1 = ridgeNoise(x * 0.03 + 920, z * 0.03 + 1140, 3);
+  const ringN2 = fbm(x * 0.06 - 610, z * 0.06 + 380, 2);
+  const ringVar = ringN1 * 0.75 + ringN2 * 0.25;
+  const rimLift = rimT * (8.5 + ringVar * 5.0);
+  const wallLift = wallT * (16.0 + ringVar * 7.5);
+  height += rimLift + wallLift;
 
   // Flatten near registered flat zones (ponds, fairy rings)
   for (let i = 0; i < flatZones.length; i++) {
@@ -324,7 +334,7 @@ export function getGroundY(x, z) {
 
 // Get terrain normal at a point (for entity alignment)
 export function getGroundNormal(x, z) {
-  const e = 0.3; // sample offset
+  const e = 0.35; // sample offset — slightly wider on steeper slopes for stable tilts
   const hC = getGroundY(x, z);
   const hR = getGroundY(x + e, z);
   const hF = getGroundY(x, z + e);

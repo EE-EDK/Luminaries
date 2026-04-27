@@ -4,7 +4,7 @@
 // The player synchronizes with creatures by matching their energy.
 // Each creature type has a unique matching mechanic:
 //   Puffling — Jump near syncing pufflings within 15m (they glow brighter each jump)
-//   Jelly    — Stand still within 6m, tap SPACE in rhythm (±0.3s)
+//   Jelly    — Stand still within 6m, tap LEFT-CLICK in rhythm (±0.3s)
 //   Deer     — Walk (no sprint) within 12m, same direction (±45°)
 //   Moth     — Move laterally within 8m, look toward moth
 //
@@ -42,8 +42,8 @@ let flashPending = false;     // true for one frame when attunement hits 1.0
 let flashCreaturePos = null;  // position of creature when flash triggers
 
 // Jelly rhythm tracking
-let _jellyTapTimes = [];      // timestamps of recent SPACE taps
-let _jellyLastSpace = false;  // previous frame's space state (edge detect)
+let _jellyTapTimes = [];        // timestamps of recent rhythm taps
+let _jellyLastPulseInput = false;  // previous frame's tap state (edge detect)
 
 // Puff jump edge detection
 let _puffWasJumping = false;  // previous frame's jump state
@@ -60,7 +60,7 @@ let _puffWasJumping = false;  // previous frame's jump state
 //   nearestJellyDist2: number, nearestJellyPos: {x,z}, nearestJellyPulsePhase: number,
 //   nearestDeerDist2: number, nearestDeerPos: {x,z}, nearestDeerWanderAng: number,
 //   nearestMothDist2: number, nearestMothPos: {x,z},
-//   playerYaw: number, playerSpeed: number, spacePressed: bool,
+//   playerYaw: number, playerSpeed: number, pulsePressed: bool,
 //   playerX: number, playerZ: number, time: number
 // }
 export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ctx) {
@@ -73,7 +73,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     nearestJellyDist2, nearestJellyPos,
     nearestDeerDist2, nearestDeerPos, nearestDeerWanderAng,
     nearestMothDist2, nearestMothPos,
-    playerYaw, playerSpeed, spacePressed, sprinting,
+    playerYaw, playerSpeed, pulsePressed, sprinting,
     playerX, playerZ, time
   } = creatureData;
 
@@ -95,15 +95,15 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   }
   _puffWasJumping = jumping;
 
-  // --- Jelly: Stand still within 6m + tap SPACE in rhythm (requires pitch-lock to jelly) ---
+  // --- Jelly: Stand still within 6m + tap LEFT-CLICK in rhythm (requires pitch-lock to jelly) ---
   if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
-    // Track space taps (rising edge)
-    if (spacePressed && !_jellyLastSpace) {
+    // Track rhythm taps (rising edge)
+    if (pulsePressed && !_jellyLastPulseInput) {
       _jellyTapTimes.push(time);
       // Keep only last 5 taps
       if (_jellyTapTimes.length > 5) _jellyTapTimes.shift();
     }
-    _jellyLastSpace = spacePressed;
+    _jellyLastPulseInput = pulsePressed;
 
     // Check if recent taps match the rhythm (~2s interval, ±0.3s)
     if (_jellyTapTimes.length >= 2) {
@@ -113,7 +113,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
       }
     }
   } else {
-    _jellyLastSpace = spacePressed;
+    _jellyLastPulseInput = pulsePressed;
   }
 
   // --- Deer: Walk (no sprint) within 8-12m, same direction (±45°, requires pitch-lock to deer) ---

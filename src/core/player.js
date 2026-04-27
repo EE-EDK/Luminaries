@@ -47,6 +47,7 @@ export function setAudioCallbacks(onStep, onJump, onLand) {
 let treesData = [];
 let rocksData = [];
 let spawnDustBurstFn = null;
+const WORLD_WALL_R = WORLD_R - 0.8;
 
 export function setCollisionData(trees, rocks) {
   treesData = trees;
@@ -137,10 +138,18 @@ export function updatePlayer(dt) {
     }
   }
   const d2 = player.pos.x * player.pos.x + player.pos.z * player.pos.z;
-  if (d2 > WORLD_R * WORLD_R) {
+  if (d2 > WORLD_WALL_R * WORLD_WALL_R) {
     const d = Math.sqrt(d2);
     const a = Math.atan2(player.pos.z, player.pos.x);
-    player.pos.x = Math.cos(a) * WORLD_R; player.pos.z = Math.sin(a) * WORLD_R;
+    const nx = Math.cos(a), nz = Math.sin(a);
+    player.pos.x = nx * WORLD_WALL_R;
+    player.pos.z = nz * WORLD_WALL_R;
+    // Hard wall: cancel outward velocity so mushroom-boost flight can't cross.
+    const outwardV = player.vel.x * nx + player.vel.z * nz;
+    if (outwardV > 0) {
+      player.vel.x -= nx * outwardV;
+      player.vel.z -= nz * outwardV;
+    }
   }
   playerLight.position.copy(player.pos);
 

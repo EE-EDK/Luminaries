@@ -68,6 +68,26 @@ function formatFantasyLine(line) {
   return line.replace(/\bglow\b/gi, '<span style="color:#ffd6ff;text-shadow:0 0 8px rgba(255,120,220,.95),0 0 20px rgba(255,80,200,.7)">glow</span>');
 }
 
+// Must match the per-character loop in NARRATION (used to size each card after typing ends)
+function charTypingInterval(text, ci, baseCharsPerSec) {
+  let interval = 1.0 / baseCharsPerSec;
+  const prevChar = ci > 0 ? text[ci - 1] : '';
+  if (prevChar === '.' || prevChar === ':' || prevChar === '\u2014') {
+    interval += 0.12;
+  } else if (prevChar === ',' || prevChar === ';') {
+    interval += 0.06;
+  } else if (prevChar === ' ') {
+    interval += 0.025;
+  }
+  return interval;
+}
+
+function estimateTypingDuration(text, baseCharsPerSec) {
+  let t = 0;
+  for (let ci = 0; ci < text.length; ci++) t += charTypingInterval(text, ci, baseCharsPerSec);
+  return t;
+}
+
 // ================================================================
 // State
 // ================================================================
@@ -77,6 +97,8 @@ let phaseTimer = 0;
 let titleTime = 0; // accumulated time for pixie animation during TITLE
 let narrationIndex = 0;
 let narrationCharIndex = 0; // for terminal typing effect
+/** Seconds elapsed in the current narration card (includes dark gap). */
+let narrationCardTime = 0;
 let sweepProgress = 0;
 let onComplete = null; // callback when cinematic ends
 
@@ -106,8 +128,15 @@ let dustParticles = [];
 // Camera sweep parameters
 const SWEEP_START_Y = 120;
 const SWEEP_DURATION = 8.0;
-const NARRATION_PER_CARD = 14.0; // seconds per text pair — slow and dramatic
-const NARRATION_FADE = 2.0;      // fade in/out duration
+const NARRATION_FADE = 2.0; // fade in/out duration (fantasy + terminal)
+/** Delay before terminal typing starts after card becomes visible. */
+const NARRATION_TYPING_DELAY = 0.55;
+/** Terminal typing speed (shared with estimateTypingDuration). */
+const NARRATION_CHARS_PER_SEC = 22;
+/** Minimum time after last typed character before card can end (read beat). */
+const NARRATION_HOLD_AFTER_TYPING = 1.0;
+/** Minimum visible window so fantasy layer can fade in / hold / fade out. */
+const NARRATION_MIN_VIS = 2 * NARRATION_FADE + 1.5;
 
 // ================================================================
 // Init — create DOM structure (called at startup)
@@ -408,45 +437,32 @@ export function updateIntro(dt, camera) {
         phaseTimer = 0;
         narrationIndex = 0;
         narrationCharIndex = 0;
+        narrationCardTime = 0;
       }
       break;
     }
 
     case 'NARRATION': {
-      // Each card: [dark gap 1.5s] [fade in 2.0s] [hold] [fade out 2.0s]
-      // Total card time = NARRATION_PER_CARD (14s)
-      const DARK_GAP = 1.5; // darkness between cards
-      const cardTime = phaseTimer % NARRATION_PER_CARD;
-      const cardIndex = Math.floor(phaseTimer / NARRATION_PER_CARD);
+      narrationCardTime += dt;
 
-      if (cardIndex >= NARRATION.length) {
-        phase = 'SWEEP';
-        phaseTimer = 0;
-        sweepProgress = 0;
-        fantasyEl.style.opacity = '0';
-        terminalEl.style.opacity = '0';
-        break;
-      }
-
-      // Update narration index
-      if (cardIndex !== narrationIndex) {
-        narrationIndex = cardIndex;
-        narrationCharIndex = 0;
-      }
-
+      const DARK_GAP = 1.5;
+      const typingDelay = NARRATION_TYPING_DELAY;
       const card = NARRATION[narrationIndex];
       const terminalText = card.terminalLines.join('\n');
+      const typingDurationFull = estimateTypingDuration(terminalText, NARRATION_CHARS_PER_SEC);
+      const visDuration = Math.max(
+        NARRATION_MIN_VIS,
+        typingDelay + typingDurationFull + NARRATION_HOLD_AFTER_TYPING + NARRATION_FADE
+      );
+      const totalCardTime = DARK_GAP + visDuration;
 
-      // Effective time within the visible portion (after dark gap)
+      const cardTime = Math.min(narrationCardTime, totalCardTime);
       const visTime = cardTime - DARK_GAP;
-      const visDuration = NARRATION_PER_CARD - DARK_GAP;
 
       if (visTime < 0) {
-        // In the dark gap — both texts invisible
         fantasyEl.style.opacity = '0';
         terminalEl.style.opacity = '0';
       } else {
-        // Fantasy text — fade in, hold, fade out
         if (visTime < NARRATION_FADE) {
           fantasyEl.style.opacity = String(visTime / NARRATION_FADE);
         } else if (visTime > visDuration - NARRATION_FADE) {
@@ -456,29 +472,13 @@ export function updateIntro(dt, camera) {
         }
         fantasyEl.innerHTML = card.fantasyLines.map(formatFantasyLine).join('<br>');
 
-        // Terminal typing effect — slow, natural human typing cadence
-        const typingDelay = 0.8;
-        const baseCharsPerSec = 10; // slower base rate (~100ms per character)
         if (visTime > typingDelay) {
           const elapsed = visTime - typingDelay;
-          // Simulate natural typing: bursts and pauses
-          // Characters come in groups with tiny pauses between words
+          const text = terminalText;
           let charCount = 0;
           let cumTime = 0;
-          const text = terminalText;
           for (let ci = 0; ci < text.length; ci++) {
-            // Base interval per character
-            let interval = 1.0 / baseCharsPerSec;
-            // Longer pause after punctuation (period, comma, colon, dash)
-            const prevChar = ci > 0 ? text[ci - 1] : '';
-            if (prevChar === '.' || prevChar === ':' || prevChar === '\u2014') {
-              interval += 0.18; // ~180ms pause after punctuation
-            } else if (prevChar === ',' || prevChar === ';') {
-              interval += 0.1;
-            } else if (prevChar === ' ') {
-              interval += 0.04; // slight pause between words
-            }
-            cumTime += interval;
+            cumTime += charTypingInterval(text, ci, NARRATION_CHARS_PER_SEC);
             if (cumTime > elapsed) break;
             charCount = ci + 1;
           }
@@ -486,14 +486,27 @@ export function updateIntro(dt, camera) {
         }
         terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
-        // Terminal fade matches fantasy with slight delay
-        const typingDelay2 = 0.8;
+        const typingDelay2 = typingDelay;
         if (visTime < NARRATION_FADE + typingDelay2) {
           terminalEl.style.opacity = String(Math.min(1, (visTime - typingDelay2 * 0.5) / NARRATION_FADE));
         } else if (visTime > visDuration - NARRATION_FADE) {
           terminalEl.style.opacity = String((visDuration - visTime) / NARRATION_FADE);
         } else {
           terminalEl.style.opacity = '0.8';
+        }
+      }
+
+      if (narrationCardTime >= totalCardTime) {
+        narrationCardTime = 0;
+        narrationCharIndex = 0;
+        if (narrationIndex + 1 >= NARRATION.length) {
+          phase = 'SWEEP';
+          phaseTimer = 0;
+          sweepProgress = 0;
+          fantasyEl.style.opacity = '0';
+          terminalEl.style.opacity = '0';
+        } else {
+          narrationIndex++;
         }
       }
 

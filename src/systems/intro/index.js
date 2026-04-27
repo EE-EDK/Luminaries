@@ -23,18 +23,50 @@ import { initEffects, animateTitle, cleanupEffects } from './effects.js';
 // ================================================================
 const NARRATION = [
   {
-    fantasy: 'The Archive woke before you did.',
-    terminal: '// BOOT LOG v5.1 — Observer handshake accepted // Luminance memory stream online'
+    fantasyLines: [
+      'Once, this forest sang.'
+    ],
+    terminalLines: [
+      '// BIOSENSOR ARRAY v4.2',
+      '// Historical luminance baseline detected'
+    ]
   },
   {
-    fantasy: 'Once, every root carried dawn. Then a quiet fracture spread through the canopy. Five anchors still burn beneath the dark, waiting for a living frequency to find them.',
-    terminal: '// Network integrity degraded: 73% // Anchor nodes online: 0/5 // Recovery path: restore field resonance via fauna-linked carrier'
+    fantasyLines: [
+      'Every root hummed with light.',
+      'Every canopy blazed.',
+      'Then the glow began to dim.',
+      'The songs grew quiet.',
+      'Five anchors of light remain,',
+      'buried beneath the dark.'
+    ],
+    terminalLines: [
+      '// Bioluminescent network coverage: 100%',
+      '// Symbiotic frequency: NOMINAL',
+      '// WARNING: Sector luminance decay — 73% loss over 2,400 cycles',
+      '// 5 restoration nodes offline — Awaiting frequency carrier activation'
+    ]
   },
   {
-    fantasy: 'The creatures remember what the trees forgot. Match their rhythm. Carry their chorus. Return their signal to the sleeping gold.',
-    terminal: '// Fauna channels contain synchronized key frequencies // Protocol: attune -> carry -> uplink -> rekindle'
+    fantasyLines: [
+      'The creatures still remember',
+      'the old harmony.',
+      'Listen to them.',
+      'Move with them.',
+      'Carry their voice to the light.'
+    ],
+    terminalLines: [
+      '// Native fauna vocalizations contain encoded frequency patterns',
+      '// PROTOCOL: Attune to carrier organisms',
+      '// Transport frequency',
+      '// Restore nodes'
+    ]
   }
 ];
+
+function formatFantasyLine(line) {
+  return line.replace(/\bglow\b/gi, '<span style="color:#ffd6ff;text-shadow:0 0 8px rgba(255,120,220,.95),0 0 20px rgba(255,80,200,.7)">glow</span>');
+}
 
 // ================================================================
 // State
@@ -403,6 +435,7 @@ export function updateIntro(dt, camera) {
       }
 
       const card = NARRATION[narrationIndex];
+      const terminalText = card.terminalLines.join('\n');
 
       // Effective time within the visible portion (after dark gap)
       const visTime = cardTime - DARK_GAP;
@@ -421,7 +454,7 @@ export function updateIntro(dt, camera) {
         } else {
           fantasyEl.style.opacity = '1';
         }
-        fantasyEl.textContent = card.fantasy;
+        fantasyEl.innerHTML = card.fantasyLines.map(formatFantasyLine).join('<br>');
 
         // Terminal typing effect — slow, natural human typing cadence
         const typingDelay = 0.8;
@@ -432,7 +465,7 @@ export function updateIntro(dt, camera) {
           // Characters come in groups with tiny pauses between words
           let charCount = 0;
           let cumTime = 0;
-          const text = card.terminal;
+          const text = terminalText;
           for (let ci = 0; ci < text.length; ci++) {
             // Base interval per character
             let interval = 1.0 / baseCharsPerSec;
@@ -451,7 +484,7 @@ export function updateIntro(dt, camera) {
           }
           narrationCharIndex = Math.min(charCount, text.length);
         }
-        terminalEl.textContent = card.terminal.substring(0, narrationCharIndex);
+        terminalEl.textContent = terminalText.substring(0, narrationCharIndex);
 
         // Terminal fade matches fantasy with slight delay
         const typingDelay2 = 0.8;

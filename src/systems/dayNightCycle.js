@@ -16,6 +16,10 @@ import { setSkyBrightness } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { C } from '../constants.js';
 import { lerp } from '../utils/math.js';
+import { getQuestState } from '../quest/questState.js';
+
+/** Multiplier applied per orb found (compound): each orb makes sky ~10% brighter overall. */
+const ORB_SKY_BRIGHTNESS_STEP = 1.1;
 
 const CYCLE_DURATION = 600; // seconds for one full cycle (10 minutes)
 
@@ -122,6 +126,8 @@ export function initDayNight(config) {
 export function updateDayNight(dt) {
   if (!sceneRef) return;
 
+  const orbSkyMult = Math.pow(ORB_SKY_BRIGHTNESS_STEP, getQuestState().orbsFound);
+
   // Advance world clock
   worldTime = (worldTime + dt / CYCLE_DURATION) % 1.0;
 
@@ -143,12 +149,14 @@ export function updateDayNight(dt) {
     _prevPhase = phase;
   }
 
-  // --- Scene background ---
+  // --- Scene background (+ orb progression: brighter sky each orb found) ---
   _c1.copy(a.sky).lerp(b.sky, t);
+  _c1.multiplyScalar(orbSkyMult);
   sceneRef.background.copy(_c1);
 
   // --- Fog ---
   _c1.copy(a.fog).lerp(b.fog, t);
+  _c1.multiplyScalar(orbSkyMult);
   sceneRef.fog.color.copy(_c1);
   sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
 
@@ -197,7 +205,7 @@ export function updateDayNight(dt) {
 
   // --- Sky star brightness (via color tint, not opacity) ---
   starBrightness = lerp(a.stars, b.stars, t);
-  setSkyBrightness(starBrightness);
+  setSkyBrightness(starBrightness * orbSkyMult);
 
   // --- Bio-glow multiplier (read by main.js via live export binding) ---
   bioGlow = lerp(a.bio, b.bio, t);

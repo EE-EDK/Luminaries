@@ -201,6 +201,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _state = 'proclaim';
       _phaseTimer = 0;
       if (_showNarrativeText) _showNarrativeText('PRESS TAB to know the TRUTH!', 3.6);
+      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 2.0);
       if (_playPufflingVocal) _playPufflingVocal('PRESS TAB to know the TRUTH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
     }
     return forceLookAt(dt, ctx.cameraPos, g.position, ctx.yaw, ctx.pitch);
@@ -212,11 +213,23 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 8.5) * 0.08;
     g.rotation.y += Math.sin(t * 16) * dt * 0.8;
+    if (_wizard.mouth) {
+      _wizard._talkTimer = Math.max(0, (_wizard._talkTimer || 0) - dt);
+      if (_wizard._talkTimer > 0) {
+        const flap = 0.25 + Math.abs(Math.sin(t * 26 + _wizard.phase)) * 0.9;
+        _wizard.mouth.scale.y = flap;
+        _wizard.mouth.position.y = 0.595 - flap * 0.004;
+      } else {
+        _wizard.mouth.scale.y += (0.22 - _wizard.mouth.scale.y) * Math.min(1, dt * 14);
+        _wizard.mouth.position.y += (0.595 - _wizard.mouth.position.y) * Math.min(1, dt * 14);
+      }
+    }
     if (_phaseTimer > 2.25) {
       _state = 'smite';
       _phaseTimer = 0;
       spawnSkyLaser(g.position.x, baseY, g.position.z);
       if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 1.4);
+      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.0);
       if (_playPufflingVocal) _playPufflingVocal('AhhhhHHHH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
     }
     return forceLookAt(dt, ctx.cameraPos, g.position, ctx.yaw, ctx.pitch);

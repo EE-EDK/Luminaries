@@ -145,7 +145,10 @@ export function updatePuffs(dt, t) {
           }
           const hasFreq = getPlayerFrequency() !== null;
           const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
-          if (msg) playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+          if (msg) {
+            playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+            p._talkTimer = Math.max(p._talkTimer || 0, 1.6);
+          }
         }
         if (p.idleTimer <= 0) {
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
@@ -219,7 +222,10 @@ export function updatePuffs(dt, t) {
           }
           const hasFreq = getPlayerFrequency() !== null;
           const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
-          if (msg) playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+          if (msg) {
+            playPufflingVocal(msg, { x: px, z: pz }, player.pos);
+            p._talkTimer = Math.max(p._talkTimer || 0, 1.6);
+          }
         }
         if (p.ears) {
           const toPlayerAng = Math.atan2(player.pos.x - px, player.pos.z - pz);
@@ -328,6 +334,18 @@ export function updatePuffs(dt, t) {
     }
     // Tail pom bounce
     p.tail.position.y = 0.38 + Math.sin(t * 4 + p.phase) * 0.015;
+    // Simple mouth flap while speaking.
+    if (p.mouth) {
+      p._talkTimer = Math.max(0, (p._talkTimer || 0) - dt);
+      if (p._talkTimer > 0) {
+        const flap = 0.25 + Math.abs(Math.sin(t * 26 + p.phase)) * 0.9;
+        p.mouth.scale.y = flap;
+        p.mouth.position.y = 0.595 - flap * 0.004;
+      } else {
+        p.mouth.scale.y += (0.22 - p.mouth.scale.y) * Math.min(1, dt * 14);
+        p.mouth.position.y += (0.595 - p.mouth.position.y) * Math.min(1, dt * 14);
+      }
+    }
 
     // Sparkle motes
     const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0;

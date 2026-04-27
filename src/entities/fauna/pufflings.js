@@ -6,7 +6,6 @@ import { sr } from '../../utils/rng.js';
 
 export function makePuff(x, z, opts = {}) {
   const wizardHat = !!opts.wizardHat;
-  const disableAccessories = !!opts.disableAccessories;
   const eyeColor = opts.eyeColor || C.puffEye;
   const g = new Group();
 
@@ -37,20 +36,6 @@ export function makePuff(x, z, opts = {}) {
   const head = new Mesh(new SphereGeometry(0.22, 12, 9), bodyMat);
   head.position.y = 0.65; shell.add(head);
 
-  // Rounded fur nubs — replaces flat alpha planes that looked like squares.
-  const furMat = new MeshStandardMaterial({
-    color: C.puffBody, emissive: C.puffGlow, emissiveIntensity: 0.08, roughness: 0.95
-  });
-  for (let fi = 0; fi < 10; fi++) {
-    const fa = sr() * 6.28;
-    const fy = 0.3 + sr() * 0.35;
-    const fr = 0.25 + sr() * 0.05;
-    const nub = new Mesh(new SphereGeometry(0.035 + sr() * 0.01, 6, 5), furMat);
-    nub.position.set(Math.cos(fa) * fr, fy, Math.sin(fa) * fr);
-    nub.scale.set(1.0 + sr() * 0.25, 0.75 + sr() * 0.2, 1.0 + sr() * 0.25);
-    shell.add(nub);
-  }
-
   // Ears
   const ears = [];
   for (let i = -1; i <= 1; i += 2) {
@@ -76,17 +61,17 @@ export function makePuff(x, z, opts = {}) {
     brows.push(brow);
   }
 
-  // --- SYMBIOTIC ACCESSORIES (Moss or Mushroom) ---
-  const accChance = sr();
-  if (!disableAccessories && accChance < 0.3) {
-    // Small mushroom
-    const mushCap = new Mesh(new SphereGeometry(0.06, 10, 8), new MeshStandardMaterial({ color: C.puffMushroom }));
-    mushCap.scale.set(1, 0.5, 1); mushCap.position.set(0.15, 0.85, -0.1); shell.add(mushCap);
-  } else if (!disableAccessories && accChance < 0.6) {
-    // Moss patch
-    const moss = new Mesh(new SphereGeometry(0.1, 10, 8), new MeshStandardMaterial({ color: C.puffMoss }));
-    moss.scale.set(1, 0.3, 1.2); moss.position.set(-0.12, 0.55, -0.2); shell.add(moss);
-  }
+  // Face details: tiny cute nose + simple mouth flap.
+  const noseMat = new MeshBasicMaterial({ color: 0x101010 });
+  const nose = new Mesh(new SphereGeometry(0.016, 8, 6), noseMat);
+  nose.position.set(0, 0.64, 0.225);
+  nose.scale.set(1, 0.85, 1.2);
+  shell.add(nose);
+  const mouthMat = new MeshBasicMaterial({ color: 0x191919, transparent: true, opacity: 0.92 });
+  const mouth = new Mesh(new SphereGeometry(0.024, 8, 6), mouthMat);
+  mouth.position.set(0, 0.595, 0.22);
+  mouth.scale.set(1.0, 0.22, 0.55);
+  shell.add(mouth);
 
   let crownMat = null;
   if (wizardHat) {
@@ -135,11 +120,11 @@ export function makePuff(x, z, opts = {}) {
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, shell, body, head, ears, eyes, brows, tail, spores, core, bodyMat, glowMat, crownMat,
+    group: g, shell, body, head, ears, eyes, brows, nose, mouth, tail, spores, core, bodyMat, glowMat, crownMat,
     phase: sr() * 6.28, wanderAng: sr() * 6.28, speed: 0.6 + sr() * 0.8,
     hopTimer: 0, hopPhase: sr() * 6.28, homeX: x, homeZ: z, state: 'idle', idleTimer: sr() * 3,
     _init: true, _baseY: 0, _lastTX: x, _lastTZ: z,
-    _blinkTimer: 2 + Math.random() * 4, _blinkState: 0
+    _blinkTimer: 2 + Math.random() * 4, _blinkState: 0, _talkTimer: 0
   };
 }
 

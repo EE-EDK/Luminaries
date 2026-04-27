@@ -315,10 +315,21 @@ export function populate(arrays, builders, scene) {
     lu.group.position.y = getGroundY(lx, lz);
     luminids.push(lu);
   }
-  // Moths (fly above ground)
+  // Moths (fly above ground) — scatter across the map like deer; optional tree fallback
   for (let i = 0; i < MOTH_N; i++) {
-    const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    moths.push(makeMoth(ref.x, getGroundY(ref.x, ref.z) + 2 + sr() * 4, ref.z));
+    let mx, mz, ok = false;
+    for (let a = 0; a < 14; a++) {
+      const ang = sr() * 6.28, d = 8 + sr() * WORLD_R * 0.58;
+      const tx = Math.cos(ang) * d, tz = Math.sin(ang) * d;
+      if (!inKeepOut(tx, tz)) { mx = tx; mz = tz; ok = true; break; }
+    }
+    if (!ok && trees_data.length) {
+      const ref = trees_data[Math.floor(sr() * trees_data.length)];
+      mx = ref.x; mz = ref.z;
+    } else if (!ok) {
+      mx = Math.cos(sr() * 6.28) * 24; mz = Math.sin(sr() * 6.28) * 24;
+    }
+    moths.push(makeMoth(mx, getGroundY(mx, mz) + 2 + sr() * 4, mz));
   }
   // Grass patches (4 varieties: original green, purple, blue, teal)
   const grassPalettes = [null, C.grassPurple, C.grassBlue, C.grassTeal];

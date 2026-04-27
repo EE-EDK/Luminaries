@@ -3,6 +3,7 @@
 // ================================================================
 
 import { getGroundY } from '../../world/terrain.js';
+import { WORLD_R } from '../../constants.js';
 import { getLocalGlow } from '../../systems/dimming.js';
 import { getAttunement, getAttunementTarget } from '../../systems/attunement.js';
 import { emit, Events } from '../../kernel/eventBus.js';
@@ -34,20 +35,55 @@ export function updateMoths(dt, t) {
       nearestPos.z = mz;
     }
 
-    // State transitions from patrol
+    const mothSpeed = dayPhase === 'DEEP_NIGHT' ? 1.6 : (dayPhase === 'DAWN' ? 0.5 : 1.0);
+    const mothRange = dayPhase === 'DEEP_NIGHT' ? 1.4 : 1.0;
+
+    // --- Map-wide roam: drift patrol anchor toward distant goals (not crystal-tied) ---
     if (m._state === 'patrol') {
-      if (Math.random() < 0.002) {
+      if (m._wanderRetargetT === undefined) {
+        m._wanderRetargetT = 6 + Math.random() * 10;
+        m._wanderGoalX = m.centerX;
+        m._wanderGoalZ = m.centerZ;
+      }
+      if (m._crystalCooldown === undefined) m._crystalCooldown = Math.random() * 25;
+      m._wanderRetargetT -= dt;
+      if (m._wanderRetargetT <= 0) {
+        const ang = Math.random() * 6.28;
+        const dist = 14 + Math.random() * (WORLD_R * 0.78);
+        m._wanderGoalX = Math.cos(ang) * dist;
+        m._wanderGoalZ = Math.sin(ang) * dist;
+        m._wanderRetargetT = 14 + Math.random() * 26;
+      }
+      const pull = dt * (0.19 + mothSpeed * 0.07);
+      m.centerX += (m._wanderGoalX - m.centerX) * pull;
+      m.centerZ += (m._wanderGoalZ - m.centerZ) * pull;
+      m.centerX += Math.sin(t * 0.31 + m.phase * 2) * dt * 0.62;
+      m.centerZ += Math.cos(t * 0.27 + m.phase * 1.5) * dt * 0.62;
+      const cr = Math.hypot(m.centerX, m.centerZ);
+      const lim = WORLD_R * 0.92;
+      if (cr > lim && cr > 1e-6) {
+        const s = lim / cr;
+        m.centerX *= s;
+        m.centerZ *= s;
+      }
+    }
+
+    if (m._crystalCooldown > 0) m._crystalCooldown -= dt;
+
+    // State transitions from patrol — crystals/rings are optional visits, not the main behavior
+    if (m._state === 'patrol') {
+      if (m._crystalCooldown <= 0 && Math.random() < 0.00042) {
         let bestD2 = Infinity, bestTarget = null;
         for (let ci = 0; ci < crys_data.length; ci++) {
           const cdx = crys_data[ci].x - mx, cdz = crys_data[ci].z - mz;
           const cd2 = cdx * cdx + cdz * cdz;
-          if (cd2 < 900 && cd2 < bestD2) { bestD2 = cd2; bestTarget = crys_data[ci]; }
+          if (cd2 < 625 && cd2 < bestD2) { bestD2 = cd2; bestTarget = crys_data[ci]; }
         }
         for (let fi = 0; fi < fairyRings.length; fi++) {
           if (fairyRings[fi].glowIntensity < 0.3) continue;
           const fdx = fairyRings[fi].x - mx, fdz = fairyRings[fi].z - mz;
           const fd2 = fdx * fdx + fdz * fdz;
-          if (fd2 < 900 && fd2 < bestD2) { bestD2 = fd2; bestTarget = fairyRings[fi]; }
+          if (fd2 < 625 && fd2 < bestD2) { bestD2 = fd2; bestTarget = fairyRings[fi]; }
         }
         if (bestTarget) {
           m._state = 'attracted'; m._attractTarget = bestTarget;
@@ -75,18 +111,17 @@ export function updateMoths(dt, t) {
       }
     }
 
-    const mothSpeed = dayPhase === 'DEEP_NIGHT' ? 1.6 : (dayPhase === 'DAWN' ? 0.5 : 1.0);
-    const mothRange = dayPhase === 'DEEP_NIGHT' ? 1.4 : 1.0;
-
     m._prevMx = mx; m._prevMz = mz; m._prevY = g.position.y;
 
     switch (m._state) {
       case 'patrol': {
         m.orbitAng += dt * 0.4 * mothSpeed;
-        const tx = m.centerX + Math.cos(m.orbitAng) * m.orbitR * mothRange
+        const orbitBreath = 0.82 + 0.32 * Math.sin(t * 0.048 + m.phase * 1.4);
+        const effOrbitR = m.orbitR * mothRange * orbitBreath;
+        const tx = m.centerX + Math.cos(m.orbitAng) * effOrbitR
           + Math.sin(t * 1.3 + m.phase * 2.1) * 0.5
           + Math.sin(t * 2.7 + m.phase) * 0.2;
-        const tz = m.centerZ + Math.sin(m.orbitAng) * m.orbitR * mothRange
+        const tz = m.centerZ + Math.sin(m.orbitAng) * effOrbitR
           + Math.sin(t * 1.7 + m.phase * 1.3) * 0.4
           + Math.sin(t * 3.1 + m.phase * 2) * 0.15;
         g.position.x += (tx - mx) * dt * 1.5;
@@ -101,6 +136,7 @@ export function updateMoths(dt, t) {
         m._stT -= dt;
         if (!m._attractTarget || m._stT <= 0) {
           m._state = 'patrol'; m._attractTarget = null;
+          m._crystalCooldown = 26 + Math.random() * 48;
           m._transitionT = 0.6; m._prevPx = mx; m._prevPz = mz;
           break;
         }

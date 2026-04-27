@@ -113,6 +113,7 @@ import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } fro
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
+import { initPufflingHomePreview } from './ui/pufflingHomePreview.js';
 
 // ================================================================
 // Entity arrays (centralized in state/entityStore.js)
@@ -758,6 +759,8 @@ try {
     startResonanceDrone: startResonanceDrone,
     runeFaces: getRuneFaces()
   });
+
+  initPufflingHomePreview();
 
   // Wire up go callback
   setGoCallback(go);

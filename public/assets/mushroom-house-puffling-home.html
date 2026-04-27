@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puffling mushroom home</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #ui-layer {
+      position: absolute; inset: 0; pointer-events: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #hud {
+      position: absolute; top: 14px; left: 14px; color: #fff;
+      background: rgba(0, 0, 0, 0.55); padding: 8px 12px; border-radius: 6px;
+      font-size: 12px; letter-spacing: 0.3px; backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+    #controls-hint {
+      position: absolute; bottom: 18px; left: 14px; color: #fff;
+      background: rgba(0, 0, 0, 0.55); padding: 8px 12px; border-radius: 6px;
+      font-size: 11px; opacity: 0.85; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+    #theme-toggle {
+      position: absolute; bottom: 18px; right: 14px; pointer-events: auto;
+      background: rgba(20, 20, 30, 0.78); color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.25); padding: 10px 16px;
+      border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: background 0.2s, transform 0.1s; font-family: inherit; letter-spacing: 0.4px;
+    }
+    #theme-toggle:hover { background: rgba(40, 40, 60, 0.9); }
+    #theme-toggle:active { transform: translateY(1px); }
+    #fade-overlay {
+      position: absolute; inset: 0; background: #000; opacity: 0;
+      pointer-events: none; transition: opacity 0.2s ease-in-out; z-index: 10;
+    }
+    #fade-overlay.active { opacity: 1; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="fade-overlay"></div>
+  <div id="ui-layer">
+    <div id="hud">Theme: —</div>
+    <div id="controls-hint">Orbit: drag · Pan: right-drag · Zoom: scroll</div>
+    <button type="button" id="theme-toggle">Switch theme</button>
+  </div>
+
+  <script type="module">
+    /**
+     * @file mushroom-house-puffling-home.html (streamlined dual-theme asset)
+     * @brief Bioluminescent vs cottagecore mushroom home for puffling lore.
+     * @details URL: ?embed=1 hides chrome. ?theme=bioluminescent|cottagecore sets start theme.
+     *          Parent may postMessage({ type: 'puffling-home-theme', theme: 'BIOLUMINESCENT'|'COTTAGECORE' }).
+     *          Replace this file with the full protocol build when desired (same query API).
+     */
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const __qs = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+    const __EMBED = __qs.get('embed') === '1';
+    const _t = (__qs.get('theme') || 'bioluminescent').toLowerCase();
+    const __THEMEKEY = (_t === 'cottagecore' || _t === 'cottage') ? 'COTTAGECORE' : 'BIOLUMINESCENT';
+
+    const THEMES = Object.freeze({
+      BIOLUMINESCENT: Object.freeze({
+        label: 'BIOLUMINESCENT',
+        sky: 0x081720, fogColor: 0x081720, fogDensity: 0.020,
+        ambientColor: 0x101e26, ambientIntensity: 1.05,
+        dirColor: 0x224466, dirIntensity: 0.78,
+        brickHueRange: [0.50, 0.55], brickSatRange: [0.05, 0.18], brickLumRange: [0.13, 0.30],
+        innerWall: 0x0a0a0a, cap: 0x003333, capEmissive: 0x002222, capEmissiveInt: 0.25,
+        gill: 0x00ff88, gillEmissive: 0x00aa55, gillEmissiveInt: 0.7,
+        spot: 0x88ffcc, spotEmissive: 0x00ffaa, spotEmissiveInt: 1.6,
+        door: 0x2a1a15, doorFrame: 0x4b4038, doorGroove: 0x150805,
+        knob: 0x88ffcc, knobEmissive: 0x00ffaa, knobEmissiveInt: 1.5,
+        glass: 0x88ffcc, glassEmissive: 0x00ffaa, glassEmissiveInt: 1.2,
+        ground: 0x0a1f0a, pathStone: 0x2a3030, wallStone: 0x222a2a,
+        glowLight: 0x00ffaa, glowLightInt: 1.8, windowLight: 0x00ffaa, windowLightInt: 1.0,
+        gillLight: 0x00ff88, gillLightInt: 2.0,
+        particleColor: 0x88ffcc, particleEmissive: 0x00ffaa, particleEmIntensity: 1.4,
+        mossColor: 0x66ddaa, mossEmissive: 0x00aa55, mossEmissiveInt: 0.7,
+        decorMode: 'GLOW_MUSHROOM'
+      }),
+      COTTAGECORE: Object.freeze({
+        label: 'COTTAGECORE',
+        sky: 0xffe4ee, fogColor: 0xffe8f1, fogDensity: 0.004,
+        ambientColor: 0xffe0ec, ambientIntensity: 0.95,
+        dirColor: 0xfff5dc, dirIntensity: 1.6,
+        brickHueRange: [0.06, 0.10], brickSatRange: [0.35, 0.55], brickLumRange: [0.25, 0.50],
+        innerWall: 0x3a1f10, cap: 0xff7aa8, capEmissive: 0x000000, capEmissiveInt: 0.0,
+        gill: 0xfff0f5, gillEmissive: 0x000000, gillEmissiveInt: 0.0,
+        spot: 0xffffff, spotEmissive: 0x000000, spotEmissiveInt: 0.0,
+        door: 0x5a3a1f, doorFrame: 0x7a5a3c, doorGroove: 0x2e1a0a,
+        knob: 0xb87333, knobEmissive: 0x000000, knobEmissiveInt: 0.0,
+        glass: 0xe6c8ff, glassEmissive: 0xb088ff, glassEmissiveInt: 0.55,
+        ground: 0x9bdc8c, pathStone: 0xcfb8a0, wallStone: 0xb8a890,
+        glowLight: 0xffd0a0, glowLightInt: 0.9, windowLight: 0xc8a0ff, windowLightInt: 0.6,
+        gillLight: 0xffaaff, gillLightInt: 0.0,
+        particleColor: 0xffe4f7, particleEmissive: 0xc8a0ff, particleEmIntensity: 0.5,
+        mossColor: 0x6acc4a, mossEmissive: 0x000000, mossEmissiveInt: 0.0,
+        decorMode: 'FLOWER'
+      })
+    });
+
+    const RNG_SEED = 0xC0FFEE;
+    function makeRNG(seed) {
+      let state = seed >>> 0;
+      return () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 0x100000000; };
+    }
+    let sr = makeRNG(RNG_SEED);
+    const lerpRange = (a, b) => a + sr() * (b - a);
+
+    const HOUSE = Object.freeze({
+      baseHeight: 5.0, baseRadius: 3.5, topRadius: 3.0, capRadius: 6.5, capFlatten: 0.55,
+      brickLayers: 10, bricksPerRow: 18
+    });
+
+    let scene, camera, renderer, controls, clock;
+    let themeController;
+    let particles;
+    const houseRefs = {};
+    const worldRefs = {};
+    const matPool = {};
+
+    function initScaffold() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 5, 20);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.body.appendChild(renderer.domElement);
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 + 0.05;
+      controls.minDistance = 5;
+      controls.maxDistance = 60;
+      controls.target.set(0, 3, 0);
+      clock = new THREE.Clock();
+    }
+
+    function initWorld(theme) {
+      scene.background = new THREE.Color(theme.sky);
+      scene.fog = new THREE.FogExp2(theme.fogColor, theme.fogDensity);
+      const ambient = new THREE.AmbientLight(theme.ambientColor, theme.ambientIntensity);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(theme.dirColor, theme.dirIntensity);
+      dirLight.position.set(15, 22, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -18;
+      dirLight.shadow.camera.right = 18;
+      dirLight.shadow.camera.top = 18;
+      dirLight.shadow.camera.bottom = -18;
+      dirLight.shadow.camera.near = 1;
+      dirLight.shadow.camera.far = 60;
+      dirLight.shadow.mapSize.set(2048, 2048);
+      dirLight.shadow.bias = -0.001;
+      scene.add(dirLight);
+      matPool.ground = new THREE.MeshStandardMaterial({ color: theme.ground, roughness: 1.0 });
+      const ground = new THREE.Mesh(new THREE.CircleGeometry(120, 48), matPool.ground);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+      worldRefs.ambient = ambient;
+      worldRefs.dirLight = dirLight;
+      worldRefs.ground = ground;
+    }
+
+    function createStoneBase(theme) {
+      const group = new THREE.Group();
+      const layers = HOUSE.brickLayers;
+      const bricksPerRow = HOUSE.bricksPerRow;
+      const brickH = HOUSE.baseHeight / layers;
+      const BRICK_VARIANTS = 8;
+      matPool.brick = [];
+      for (let v = 0; v < BRICK_VARIANTS; v++) {
+        const h = lerpRange(theme.brickHueRange[0], theme.brickHueRange[1]);
+        const s = lerpRange(theme.brickSatRange[0], theme.brickSatRange[1]);
+        const l = lerpRange(theme.brickLumRange[0], theme.brickLumRange[1]);
+        matPool.brick.push(new THREE.MeshStandardMaterial({
+          color: new THREE.Color().setHSL(h, s, l), roughness: 0.92, metalness: 0
+        }));
+      }
+      for (let i = 0; i < layers; i++) {
+        const t = i / (layers - 1);
+        const radius = HOUSE.baseRadius * (1 - t) + HOUSE.topRadius * t;
+        const y = i * brickH + brickH / 2;
+        const angleOffset = (i % 2 === 0) ? 0 : Math.PI / bricksPerRow;
+        const brickWidth = (Math.PI * 2 * radius) / bricksPerRow * 0.95;
+        const brickGeo = new THREE.BoxGeometry(brickWidth, brickH * 0.9, 0.8);
+        for (let j = 0; j < bricksPerRow; j++) {
+          const angle = j * (Math.PI * 2 / bricksPerRow) + angleOffset;
+          const mat = matPool.brick[Math.floor(sr() * BRICK_VARIANTS)];
+          const brick = new THREE.Mesh(brickGeo, mat);
+          brick.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+          brick.lookAt(0, y, 0);
+          brick.castShadow = true;
+          brick.receiveShadow = true;
+          group.add(brick);
+        }
+      }
+      matPool.innerWall = new THREE.MeshStandardMaterial({ color: theme.innerWall, roughness: 0.95 });
+      const innerWall = new THREE.Mesh(
+        new THREE.CylinderGeometry(HOUSE.topRadius - 0.4, HOUSE.baseRadius - 0.4, HOUSE.baseHeight, 32),
+        matPool.innerWall
+      );
+      innerWall.position.y = HOUSE.baseHeight / 2;
+      group.add(innerWall);
+      const seal = new THREE.Mesh(
+        new THREE.CylinderGeometry(HOUSE.topRadius - 0.3, HOUSE.topRadius - 0.3, 0.2, 32),
+        matPool.innerWall
+      );
+      seal.position.y = HOUSE.baseHeight;
+      group.add(seal);
+      return group;
+    }
+
+    function createMushroomCap(theme) {
+      const group = new THREE.Group();
+      const r = HOUSE.capRadius;
+      const flat = HOUSE.capFlatten;
+      const yPos = HOUSE.baseHeight;
+      const capGeo = new THREE.SphereGeometry(r, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2);
+      capGeo.scale(1, flat, 1);
+      matPool.cap = new THREE.MeshStandardMaterial({
+        color: theme.cap, emissive: theme.capEmissive, emissiveIntensity: theme.capEmissiveInt,
+        roughness: 0.45, metalness: 0.05
+      });
+      const cap = new THREE.Mesh(capGeo, matPool.cap);
+      cap.position.y = yPos;
+      cap.castShadow = true;
+      cap.receiveShadow = true;
+      group.add(cap);
+      matPool.gill = new THREE.MeshStandardMaterial({
+        color: theme.gill, emissive: theme.gillEmissive, emissiveIntensity: theme.gillEmissiveInt,
+        roughness: 0.9
+      });
+      const gill = new THREE.Mesh(
+        new THREE.CylinderGeometry(r - 0.1, r * 0.6, 0.5, 48, 1, false),
+        matPool.gill
+      );
+      gill.position.y = yPos - 0.25;
+      gill.receiveShadow = true;
+      group.add(gill);
+      matPool.spot = new THREE.MeshStandardMaterial({
+        color: theme.spot, emissive: theme.spotEmissive, emissiveIntensity: theme.spotEmissiveInt,
+        roughness: 0.35
+      });
+      const spotGeo = new THREE.SphereGeometry(0.5, 12, 12);
+      spotGeo.scale(1, 0.3, 1);
+      const spots = [];
+      for (let i = 0; i < 24; i++) {
+        const theta = sr() * Math.PI * 2;
+        const phi = sr() * (Math.PI / 2.2);
+        const sx = r * Math.sin(phi) * Math.cos(theta);
+        const sy = r * flat * Math.cos(phi);
+        const sz = r * Math.sin(phi) * Math.sin(theta);
+        const spot = new THREE.Mesh(spotGeo, matPool.spot);
+        spot.position.set(sx, sy + yPos, sz);
+        const normal = new THREE.Vector3(sx, sy / flat, sz).normalize();
+        spot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        spot.scale.multiplyScalar(0.5 + sr() * 1.5);
+        spot.castShadow = true;
+        group.add(spot);
+        spots.push(spot);
+      }
+      const gillLight = new THREE.PointLight(theme.gillLight, theme.gillLightInt, 18);
+      gillLight.position.set(0, yPos - 1.0, 0);
+      group.add(gillLight);
+      houseRefs.cap = cap;
+      houseRefs.gill = gill;
+      houseRefs.spots = spots;
+      houseRefs.gillLight = gillLight;
+      return group;
+    }
+
+    function createDoor(theme) {
+      const group = new THREE.Group();
+      matPool.door = new THREE.MeshStandardMaterial({ color: theme.door, roughness: 0.9 });
+      matPool.doorFrame = new THREE.MeshStandardMaterial({ color: theme.doorFrame, roughness: 1.0 });
+      matPool.doorGroove = new THREE.MeshStandardMaterial({ color: theme.doorGroove, roughness: 0.95 });
+      matPool.knob = new THREE.MeshStandardMaterial({
+        color: theme.knob, emissive: theme.knobEmissive, emissiveIntensity: theme.knobEmissiveInt,
+        metalness: 0.7, roughness: 0.25
+      });
+      const doorShape = new THREE.Shape();
+      doorShape.moveTo(-1, 0);
+      doorShape.lineTo(-1, 1.5);
+      doorShape.absarc(0, 1.5, 1, Math.PI, 0, true);
+      doorShape.lineTo(1, 0);
+      doorShape.lineTo(-1, 0);
+      const frame = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(doorShape, { depth: 0.3, bevelEnabled: false }),
+        matPool.doorFrame
+      );
+      frame.scale.set(1.18, 1.15, 1);
+      frame.position.z = -0.06;
+      frame.castShadow = true;
+      group.add(frame);
+      const door = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(doorShape, { depth: 0.2, bevelEnabled: false }),
+        matPool.door
+      );
+      door.castShadow = true;
+      door.receiveShadow = true;
+      group.add(door);
+      const grooveGeo = new THREE.BoxGeometry(0.05, 2.4, 0.22);
+      for (let i = -0.5; i <= 0.5; i += 0.5) {
+        const g = new THREE.Mesh(grooveGeo, matPool.doorGroove);
+        g.position.set(i, 1.2, 0.001);
+        group.add(g);
+      }
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), matPool.knob);
+      knob.position.set(0.6, 1.0, 0.25);
+      group.add(knob);
+      houseRefs.knob = knob;
+      return group;
+    }
+
+    function createEnvironment(theme) {
+      const group = new THREE.Group();
+      matPool.pathStone = new THREE.MeshStandardMaterial({ color: theme.pathStone, roughness: 0.92 });
+      for (let i = 0; i < 8; i++) {
+        const stone = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.6 + sr() * 0.2, 0.6, 0.1, 7),
+          matPool.pathStone
+        );
+        stone.position.set(sr() * 0.5 - 0.25, 0.05, 5 + i * 1.5);
+        stone.scale.z = 0.6;
+        stone.rotation.y = sr() * Math.PI;
+        stone.receiveShadow = true;
+        group.add(stone);
+      }
+      const glowDecor = new THREE.Group();
+      const flowerDecor = new THREE.Group();
+      const stemGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8);
+      const capGeo = new THREE.SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      capGeo.scale(1, 0.6, 1);
+      const gmStem = new THREE.MeshStandardMaterial({ color: 0x554444, roughness: 0.95 });
+      const gmCap = new THREE.MeshStandardMaterial({
+        color: 0xffffff, emissive: 0x00ffaa, emissiveIntensity: 1.4, roughness: 0.4
+      });
+      for (let i = 0; i < 16; i++) {
+        const angle = sr() * Math.PI * 2;
+        if (angle > -0.4 && angle < 0.4) continue;
+        const rad = 4.2 + sr() * 3.5;
+        const cluster = new THREE.Group();
+        const stem = new THREE.Mesh(stemGeo, gmStem);
+        const cap = new THREE.Mesh(capGeo, gmCap);
+        stem.position.y = 0.15;
+        cap.position.y = 0.30;
+        cluster.add(stem, cap);
+        cluster.position.set(Math.cos(angle) * rad, 0, Math.sin(angle) * rad);
+        glowDecor.add(cluster);
+      }
+      const fStem = new THREE.MeshStandardMaterial({ color: 0x4a8a3a, roughness: 0.95 });
+      const fPetP = new THREE.MeshStandardMaterial({ color: 0xc88aff, roughness: 0.6 });
+      const fPetW = new THREE.MeshStandardMaterial({ color: 0xfff0ff, roughness: 0.6 });
+      const fCent = new THREE.MeshStandardMaterial({ color: 0xfff58a, roughness: 0.5 });
+      const petalGeo = new THREE.SphereGeometry(0.07, 8, 6);
+      petalGeo.scale(1, 0.45, 1.4);
+      for (let i = 0; i < 20; i++) {
+        const angle = sr() * Math.PI * 2;
+        if (angle > -0.4 && angle < 0.4) continue;
+        const rad = 4.2 + sr() * 3.5;
+        const flower = new THREE.Group();
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 0.35, 6), fStem);
+        stem.position.y = 0.175;
+        flower.add(stem);
+        const petalMat = sr() < 0.5 ? fPetP : fPetW;
+        for (let p = 0; p < 5; p++) {
+          const a = (p / 5) * Math.PI * 2;
+          const petal = new THREE.Mesh(petalGeo, petalMat);
+          petal.position.set(Math.cos(a) * 0.07, 0.36, Math.sin(a) * 0.07);
+          petal.rotation.y = a;
+          flower.add(petal);
+        }
+        const center = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), fCent);
+        center.position.y = 0.36;
+        flower.add(center);
+        flower.position.set(Math.cos(angle) * rad, 0, Math.sin(angle) * rad);
+        flower.rotation.y = sr() * Math.PI * 2;
+        flowerDecor.add(flower);
+      }
+      group.add(glowDecor, flowerDecor);
+      houseRefs.glowDecor = glowDecor;
+      houseRefs.flowerDecor = flowerDecor;
+      glowDecor.visible = theme.decorMode === 'GLOW_MUSHROOM';
+      flowerDecor.visible = theme.decorMode === 'FLOWER';
+      return group;
+    }
+
+    function buildHouse(theme) {
+      const root = new THREE.Group();
+      root.add(createStoneBase(theme));
+      root.add(createMushroomCap(theme));
+      const door = createDoor(theme);
+      door.position.set(0, 0, HOUSE.baseRadius + 0.35);
+      root.add(door);
+      houseRefs.door = door;
+      matPool.glass = new THREE.MeshStandardMaterial({
+        color: theme.glass, emissive: theme.glassEmissive, emissiveIntensity: theme.glassEmissiveInt,
+        transparent: true, opacity: 0.85
+      });
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.4), matPool.glass);
+      const wr = HOUSE.topRadius + 0.35;
+      win.position.set(-wr * 0.85, 1.3, wr * 0.45);
+      win.rotation.y = 0.9;
+      root.add(win);
+      const pl = new THREE.PointLight(theme.windowLight, theme.windowLightInt, 9);
+      pl.position.copy(win.position).multiplyScalar(1.05).setY(1.6);
+      root.add(pl);
+      houseRefs.windowLights = [pl];
+      const doorGlow = new THREE.PointLight(theme.glowLight, theme.glowLightInt, 10);
+      doorGlow.position.set(0, 2, HOUSE.baseRadius + 1.0);
+      root.add(doorGlow);
+      houseRefs.doorGlow = doorGlow;
+      scene.add(root);
+      const envGroup = createEnvironment(theme);
+      scene.add(envGroup);
+      houseRefs.root = root;
+      houseRefs.env = envGroup;
+    }
+
+    class ParticlePool {
+      constructor(sceneRef, count, theme) {
+        this.geo = new THREE.SphereGeometry(0.08, 8, 6);
+        this.mat = new THREE.MeshStandardMaterial({
+          color: theme.particleColor, emissive: theme.particleEmissive,
+          emissiveIntensity: theme.particleEmIntensity, transparent: true, opacity: 0.9, roughness: 0.3
+        });
+        this.particles = [];
+        for (let i = 0; i < count; i++) {
+          const m = new THREE.Mesh(this.geo, this.mat);
+          m.castShadow = false;
+          m.visible = false;
+          sceneRef.add(m);
+          this.particles.push({
+            mesh: m, origin: new THREE.Vector3(), phase: sr() * Math.PI * 2,
+            wobble: 1.5 + sr() * 1.5, vy: 0.3 + sr() * 0.4, life: 0, maxLife: 0
+          });
+        }
+        this.spawnCooldown = 0;
+      }
+      spawn() {
+        const p = this.particles.find(x => x.life <= 0)
+          || this.particles.reduce((a, b) => a.life < b.life ? a : b);
+        const angle = sr() * Math.PI * 2;
+        const radius = 2 + sr() * 8;
+        p.origin.set(Math.cos(angle) * radius, 0.2, Math.sin(angle) * radius);
+        p.mesh.position.copy(p.origin);
+        p.phase = sr() * Math.PI * 2;
+        p.wobble = 1.5 + sr() * 1.5;
+        p.vy = 0.3 + sr() * 0.4;
+        p.maxLife = 6 + sr() * 4;
+        p.life = p.maxLife;
+        p.mesh.visible = true;
+      }
+      update(dt, t) {
+        this.spawnCooldown -= dt;
+        if (this.spawnCooldown <= 0) {
+          this.spawn();
+          this.spawnCooldown = 0.15 + sr() * 0.15;
+        }
+        for (const p of this.particles) {
+          if (p.life <= 0) continue;
+          p.life -= dt;
+          if (p.life <= 0) { p.mesh.visible = false; continue; }
+          const tNorm = 1 - (p.life / p.maxLife);
+          p.mesh.position.y = p.origin.y + tNorm * p.maxLife * p.vy;
+          p.mesh.position.x = p.origin.x + Math.sin(t * p.wobble + p.phase) * 0.5;
+          p.mesh.position.z = p.origin.z + Math.cos(t * p.wobble * 0.7 + p.phase) * 0.5;
+          let op = 1;
+          if (tNorm < 0.2) op = tNorm / 0.2;
+          else if (tNorm > 0.7) op = 1 - (tNorm - 0.7) / 0.3;
+          p.mesh.material.opacity = op * 0.85;
+        }
+      }
+      applyTheme(theme) {
+        this.mat.color.setHex(theme.particleColor);
+        this.mat.emissive.setHex(theme.particleEmissive);
+        this.mat.emissiveIntensity = theme.particleEmIntensity;
+      }
+    }
+
+    class ThemeController {
+      constructor(initialName) {
+        this.current = initialName;
+        this.fadeEl = document.getElementById('fade-overlay');
+        this.busy = false;
+      }
+      requestTheme(name) {
+        if (this.busy || name === this.current) return;
+        if (!THEMES[name]) return;
+        this.busy = true;
+        this.fadeEl.classList.add('active');
+        setTimeout(() => {
+          this._apply(THEMES[name]);
+          this.current = name;
+          this.fadeEl.classList.remove('active');
+          setTimeout(() => { this.busy = false; }, 220);
+        }, 220);
+      }
+      _apply(theme) {
+        scene.background.setHex(theme.sky);
+        scene.fog.color.setHex(theme.fogColor);
+        scene.fog.density = theme.fogDensity;
+        worldRefs.ambient.color.setHex(theme.ambientColor);
+        worldRefs.ambient.intensity = theme.ambientIntensity;
+        worldRefs.dirLight.color.setHex(theme.dirColor);
+        worldRefs.dirLight.intensity = theme.dirIntensity;
+        houseRefs.gillLight.color.setHex(theme.gillLight);
+        houseRefs.gillLight.intensity = theme.gillLightInt;
+        houseRefs.doorGlow.color.setHex(theme.glowLight);
+        houseRefs.doorGlow.intensity = theme.glowLightInt;
+        for (const pl of houseRefs.windowLights) {
+          pl.color.setHex(theme.windowLight);
+          pl.intensity = theme.windowLightInt;
+        }
+        matPool.ground.color.setHex(theme.ground);
+        for (const m of matPool.brick) {
+          const h = lerpRange(theme.brickHueRange[0], theme.brickHueRange[1]);
+          const s = lerpRange(theme.brickSatRange[0], theme.brickSatRange[1]);
+          const l = lerpRange(theme.brickLumRange[0], theme.brickLumRange[1]);
+          m.color.setHSL(h, s, l);
+        }
+        matPool.innerWall.color.setHex(theme.innerWall);
+        matPool.pathStone.color.setHex(theme.pathStone);
+        matPool.cap.color.setHex(theme.cap);
+        matPool.cap.emissive.setHex(theme.capEmissive);
+        matPool.cap.emissiveIntensity = theme.capEmissiveInt;
+        matPool.gill.color.setHex(theme.gill);
+        matPool.gill.emissive.setHex(theme.gillEmissive);
+        matPool.gill.emissiveIntensity = theme.gillEmissiveInt;
+        matPool.spot.color.setHex(theme.spot);
+        matPool.spot.emissive.setHex(theme.spotEmissive);
+        matPool.spot.emissiveIntensity = theme.spotEmissiveInt;
+        matPool.door.color.setHex(theme.door);
+        matPool.doorFrame.color.setHex(theme.doorFrame);
+        matPool.doorGroove.color.setHex(theme.doorGroove);
+        matPool.knob.color.setHex(theme.knob);
+        matPool.knob.emissive.setHex(theme.knobEmissive);
+        matPool.knob.emissiveIntensity = theme.knobEmissiveInt;
+        if (matPool.glass) {
+          matPool.glass.color.setHex(theme.glass);
+          matPool.glass.emissive.setHex(theme.glassEmissive);
+          matPool.glass.emissiveIntensity = theme.glassEmissiveInt;
+        }
+        houseRefs.glowDecor.visible = theme.decorMode === 'GLOW_MUSHROOM';
+        houseRefs.flowerDecor.visible = theme.decorMode === 'FLOWER';
+        particles.applyTheme(theme);
+        const hud = document.getElementById('hud');
+        if (hud && hud.firstChild) hud.firstChild.nodeValue = `Theme: ${theme.label}`;
+      }
+    }
+
+    function animateAssets(t, theme) {
+      if (houseRefs.cap) {
+        const s = 1.0 + Math.sin(t * 0.6) * 0.015;
+        houseRefs.cap.scale.set(1, s, 1);
+      }
+      if (matPool.knob && matPool.knob.emissiveIntensity > 0.01) {
+        const flicker = 1.0 + Math.sin(t * 4.3) * 0.08 + Math.sin(t * 11.1) * 0.04;
+        matPool.knob.emissiveIntensity = theme.knobEmissiveInt * flicker;
+      }
+      if (matPool.gill && theme.gillEmissiveInt > 0.01) {
+        const breath = 1.0 + Math.sin(t * 0.9) * 0.10;
+        matPool.gill.emissiveIntensity = theme.gillEmissiveInt * breath;
+      }
+    }
+
+    function init() {
+      sr = makeRNG(RNG_SEED);
+      initScaffold();
+      const startTheme = THEMES[__THEMEKEY];
+      initWorld(startTheme);
+      buildHouse(startTheme);
+      particles = new ParticlePool(scene, 80, startTheme);
+      themeController = new ThemeController(__THEMEKEY);
+
+      window.addEventListener('message', (ev) => {
+        const d = ev.data;
+        if (!d || d.type !== 'puffling-home-theme' || !themeController) return;
+        const k = d.theme;
+        if (k !== 'BIOLUMINESCENT' && k !== 'COTTAGECORE') return;
+        if (!THEMES[k]) return;
+        themeController.requestTheme(k);
+      });
+
+      if (__EMBED) {
+        const ui = document.getElementById('ui-layer');
+        if (ui) ui.style.display = 'none';
+      } else {
+        const hud = document.getElementById('hud');
+        if (hud && hud.firstChild) hud.firstChild.nodeValue = `Theme: ${startTheme.label}`;
+        const btn = document.getElementById('theme-toggle');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            const next = themeController.current === 'BIOLUMINESCENT' ? 'COTTAGECORE' : 'BIOLUMINESCENT';
+            btn.textContent = next === 'BIOLUMINESCENT' ? 'Switch to Cottagecore' : 'Switch to Bioluminescent';
+            themeController.requestTheme(next);
+          });
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.1);
+        const t = clock.elapsedTime;
+        controls.update();
+        particles.update(dt, t);
+        animateAssets(t, THEMES[themeController.current]);
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+
+    window.addEventListener('resize', () => {
+      if (!camera || !renderer) return;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    init();
+  </script>
+</body>
+</html>

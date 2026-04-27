@@ -21,6 +21,7 @@ import { on, Events } from '../kernel/eventBus.js';
 import { bubblePulseTimer, bubblePulsePos, crystalChainTimer, crystalChainPos } from '../state/gameState.js';
 
 let orbs = null;
+const restoredSectors = [];
 
 // Sector geometry — 5 equal slices of 2π
 const SECTOR_SIZE = (2 * Math.PI) / ORB_N;
@@ -38,8 +39,10 @@ const waves = [];
 export function initDimming(orbsArray) {
   orbs = orbsArray;
   waves.length = 0;
+  restoredSectors.length = 0;
   for (let i = 0; i < orbs.length; i++) {
     waves.push({ active: false, elapsed: 0, radius: 0 });
+    restoredSectors.push(false);
   }
   // Subscribe to kernel events (decoupled alternative to callback)
   on(Events.ORB_COLLECTED, (d) => { notifyOrbCollected(d.orbIndex); });
@@ -50,6 +53,7 @@ export function initDimming(orbsArray) {
 // ================================================================
 export function notifyOrbCollected(orbIndex) {
   if (orbIndex >= 0 && orbIndex < waves.length) {
+    restoredSectors[orbIndex] = true;
     waves[orbIndex].active = true;
     waves[orbIndex].elapsed = 0;
     waves[orbIndex].radius = 0;
@@ -110,8 +114,8 @@ export function getLocalGlow(x, z, globalBio) {
   if (angle < 0) angle += 2 * Math.PI;
   const sectorIdx = Math.floor(angle / SECTOR_SIZE) % ORB_N;
 
-  // Check if this sector's orb is collected
-  if (sectorIdx < orbs.length && orbs[sectorIdx].found) {
+  // Check if this sector has been restored.
+  if (sectorIdx < restoredSectors.length && restoredSectors[sectorIdx]) {
     // Check restoration wave (expanding radial wave within sector)
     const w = waves[sectorIdx];
     if (w.active) {
@@ -138,7 +142,7 @@ export function getLocalGlow(x, z, globalBio) {
       ? (sectorIdx - 1 + ORB_N) % ORB_N
       : (sectorIdx + 1) % ORB_N;
 
-    if (adjIdx < orbs.length && orbs[adjIdx].found) {
+    if (adjIdx < restoredSectors.length && restoredSectors[adjIdx]) {
       // Smooth cosine blend from restored adjacent sector
       const t = edgeAngle / EDGE_BLEND;
       const factor = DIMMING_FACTOR + ONE_MINUS_DIM * (0.5 + 0.5 * Math.cos(t * Math.PI));
@@ -156,5 +160,5 @@ export function getLocalGlow(x, z, globalBio) {
 export function isRestored(x, z) {
   if (!orbs) return false;
   const sectorIdx = getSector(x, z);
-  return sectorIdx < orbs.length && orbs[sectorIdx].found;
+  return sectorIdx < restoredSectors.length && restoredSectors[sectorIdx];
 }

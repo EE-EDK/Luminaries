@@ -762,22 +762,25 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
 // Canopy "living" pulse — 3D instanced canopy + distant billboard impostors
 // ================================================================
 /**
- * @brief Slow emissive/opacity breathing per tree palette template (shared materials + per-sprite impostors).
+ * @brief Emissive/opacity breathing per tree palette template (shared materials + per-sprite impostors).
+ * Frequencies tuned so a full breath is ~6–14s — slow enough to feel organic, fast enough to read in-game.
  * @param templateIndex Instanced template index (0..templates-1), must match GLOW_PALETTES row.
  * @param time World time (s).
  * @param treeDim Sector dim factor × orb boost (same as vegetation treeDim).
  */
 export function treeCanopyLivingPulse(templateIndex, time, treeDim) {
-  if (treeDim <= 0.06) {
-    return { em: 1, op: 1 };
-  }
   const seed = templateIndex * 2.399963229 + templateIndex * templateIndex * 0.00217;
-  const s1 = Math.sin(time * 0.31 + seed);
-  const s2 = Math.sin(time * 0.19 + seed * 1.6847);
-  const s3 = Math.sin(time * 0.11 + seed * 0.413);
+  // Was ~20–60s per cycle (too slow to notice); ~3× faster fundamentals + slightly stronger contrast.
+  const s1 = Math.sin(time * 1.05 + seed);
+  const s2 = Math.sin(time * 0.71 + seed * 1.6847);
+  const s3 = Math.sin(time * 0.43 + seed * 0.413);
   const mix = (s1 * 0.5 + 0.5) * 0.38 + (s2 * 0.5 + 0.5) * 0.35 + (s3 * 0.5 + 0.5) * 0.27;
-  const em = 0.62 + 0.62 * mix;
-  const op = 0.72 + 0.32 * mix;
+  const emFull = 0.48 + 0.88 * mix;
+  const opFull = 0.56 + 0.48 * mix;
+  // Heavy dimming used to disable pulse entirely (treeDim ≤ 0.06) — blend toward flat so restored areas always breathe visibly.
+  const pulseBlend = Math.min(1, Math.max(0, (treeDim - 0.02) / 0.11));
+  const em = 1 + (emFull - 1) * pulseBlend;
+  const op = 1 + (opFull - 1) * pulseBlend;
   return { em, op };
 }
 

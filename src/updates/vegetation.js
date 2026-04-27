@@ -31,6 +31,8 @@ const _slopeSwayQuat = new Quaternion();
 /** Base opacities from trees.js (instanced canopy / underglow) */
 const _TREE_CANOPY_BASE_OP = 0.55;
 const _TREE_GLOW_BASE_OP = 0.15;
+/** Extra emissive swing so canopy pulse reads against bloom / night grades (pulse.* already modulates). */
+const _CANOPY_PULSE_EM_GAIN = 1.12;
 
 export function updateVegetation(dt, t) {
   if (updateVegetation._decorHalf === undefined) updateVegetation._decorHalf = 0;
@@ -51,12 +53,12 @@ export function updateVegetation(dt, t) {
     const tm = treeMeshes[ti];
     const pulse = treeCanopyLivingPulse(ti, t, treeDim);
     if (tm.canopyMat) {
-      tm.canopyMat.emissiveIntensity = 1.38 * treeDim * pulse.em * bioGlow;
-      tm.canopyMat.opacity = _TREE_CANOPY_BASE_OP * (treeDim > 0.06 ? pulse.op : 1);
+      tm.canopyMat.emissiveIntensity = 1.38 * treeDim * pulse.em * bioGlow * _CANOPY_PULSE_EM_GAIN;
+      tm.canopyMat.opacity = _TREE_CANOPY_BASE_OP * pulse.op;
     }
     if (tm.glowMat) {
-      tm.glowMat.emissiveIntensity = 0.48 * treeDim * pulse.em * 1.06 * bioGlow;
-      tm.glowMat.opacity = _TREE_GLOW_BASE_OP * (treeDim > 0.06 ? pulse.op : 1);
+      tm.glowMat.emissiveIntensity = 0.48 * treeDim * pulse.em * 1.06 * bioGlow * _CANOPY_PULSE_EM_GAIN;
+      tm.glowMat.opacity = _TREE_GLOW_BASE_OP * pulse.op;
     }
     if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * treeDim * (0.92 + 0.08 * pulse.em) * bioGlow;
     if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.6 * treeDim;

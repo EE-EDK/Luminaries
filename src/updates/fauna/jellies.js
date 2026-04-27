@@ -40,6 +40,13 @@ const _jelMucusRed = new Color(0xff8588);
 const _jelNerveBlue = new Color(C.jellyGlow);
 const _jelNerveRed = new Color(0xff4548);
 const _jellyTentBase = new Color(C.jellyTent);
+
+function wrapPi(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
 /**
  * Mushroom cap ≈ base * (0.7..1.7) * glow; base ≤ ~1.3 → peak factor 1.3*1.7.
  * Target jelly red glow ≈ 80% of that peak (same getLocalGlow chain).
@@ -59,6 +66,33 @@ const jellyRitual = {
   orbMesh: null
 };
 
+/** Map-wide crimson harmony after jelly attunement completes — burst → wave → orbit. */
+const jellyCrimson = {
+  active: false,
+  t: 0,
+  waveR: 0,
+  burst: 0
+};
+const CRIMSON_WAVE_SPEED = 38;
+const CRIMSON_BURST_DECAY = 1.05;
+const CRIMSON_MAX_AGE = 52;
+let _crimsonListenerOn = false;
+
+function ensureJellyCrimsonListener() {
+  if (_crimsonListenerOn) return;
+  _crimsonListenerOn = true;
+  on(Events.CREATURE_ATTUNED, (d) => {
+    if (d.type !== 'jelly') return;
+    jellyCrimson.active = true;
+    jellyCrimson.t = 0;
+    jellyCrimson.waveR = 0;
+    jellyCrimson.burst = 1.2;
+    for (let ji = 0; ji < jellies.length; ji++) {
+      jellies[ji]._crimsonJoined = false;
+    }
+  });
+}
+
 function ensureJellyRitualOrb() {
   if (jellyRitual.orbMesh) return;
   const mat = new MeshBasicMaterial({
@@ -75,6 +109,7 @@ function ensureJellyRitualOrb() {
 
 export function updateJellies(dt, t) {
   ensureJellyRitualOrb();
+  ensureJellyCrimsonListener();
   const pitchLockedJellyPre = isLocked() && getLockType() === 'jelly';
   const nearJellyRitual = nearest.jellyDist2 < 100;
   const wantsJellyRitual = getAttunementTarget() === 'jelly' || (pitchLockedJellyPre && nearJellyRitual);
@@ -94,6 +129,16 @@ export function updateJellies(dt, t) {
   if (attune > jellyRitual.lastAttune + 0.03) jellyRitual.flash = 0.28;
   jellyRitual.lastAttune = attune;
   jellyRitual.flash = Math.max(0, jellyRitual.flash - dt);
+
+  if (jellyCrimson.active) {
+    jellyCrimson.t += dt;
+    jellyCrimson.waveR = Math.min(WORLD_R * 1.08, jellyCrimson.t * CRIMSON_WAVE_SPEED);
+    jellyCrimson.burst = Math.max(0, jellyCrimson.burst - dt * CRIMSON_BURST_DECAY);
+    if (jellyCrimson.t > CRIMSON_MAX_AGE) {
+      jellyCrimson.active = false;
+      jellyCrimson.burst = 0;
+    }
+  }
 
   // Batch 2 Item 1: Nearby jellies sync glow phase (~5Hz), O(n) via 15m grid (was O(n²)).
   if (!updateJellies._syncFrame) updateJellies._syncFrame = 0;
@@ -160,13 +205,23 @@ export function updateJellies(dt, t) {
   const jellyFreq = getPlayerFrequency();
   const pitchLockedJelly = pitchLockedJellyPre;
   const hummingJelly = humResonanceType === 'jelly' && humResonanceStr > 0.08;
-  const jellyRedActive = jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly' || pitchLockedJelly || hummingJelly;
+  const jellyRedActive =
+    jellyAttuneTarget === 'jelly' ||
+    jellyFreq === 'jelly' ||
+    pitchLockedJelly ||
+    hummingJelly ||
+    jellyCrimson.active;
 
   for (let i = 0; i < jellies.length; i++) {
     const _jg = jellies[i].group;
     const _jdx = _jg.position.x - player.pos.x, _jdz = _jg.position.z - player.pos.z;
     const _jdy = _jg.position.y - player.pos.y;
-    if (_jdx * _jdx + _jdy * _jdy + _jdz * _jdz > 3025) { _jg.visible = false; continue; }
+    const _dist3Sq = _jdx * _jdx + _jdy * _jdy + _jdz * _jdz;
+    // During crimson harmony, draw distant jellies so the wave + red read on the whole flock.
+    if (_dist3Sq > 3025 && !jellyCrimson.active) {
+      _jg.visible = false;
+      continue;
+    }
     _jg.visible = true;
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
@@ -201,7 +256,28 @@ export function updateJellies(dt, t) {
       emit(Events.CREATURE_SOUND, { type: 'jelly', position: { x: jx, z: jz }, playerPos: player.pos });
     }
 
-    switch (j._state) {
+    const horizSq = _jhd2;
+    const waveRs = jellyCrimson.waveR * jellyCrimson.waveR;
+    if (jellyCrimson.active && !j._crimsonJoined && horizSq <= waveRs) {
+      j._crimsonJoined = true;
+    }
+
+    let crimsonOrbit = false;
+    if (jellyCrimson.active && j._crimsonJoined && jellyCrimson.t > 0.9) {
+      crimsonOrbit = true;
+      const ringR = 11 + (i % 6) * 3.8;
+      const omega = t * 0.38 + i * 1.091;
+      const tx = player.pos.x + Math.cos(omega) * ringR;
+      const tz = player.pos.z + Math.sin(omega) * ringR;
+      g.position.x += (tx - g.position.x) * Math.min(1, dt * 1.65);
+      g.position.z += (tz - g.position.z) * Math.min(1, dt * 1.65);
+      const tgtY = jFloatY + 3.6 + Math.sin(t * 0.95 + i * 0.5) * 0.28;
+      g.position.y += (tgtY - g.position.y) * Math.min(1, dt * 1.35);
+      j.driftAng += dt * 0.06;
+      g.rotation.y += dt * 0.85;
+    }
+
+    if (!crimsonOrbit) switch (j._state) {
       case 'drift': {
         j.driftAng += dt * 0.15;
         const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
@@ -209,36 +285,44 @@ export function updateJellies(dt, t) {
         const tz = j.homeZ + Math.sin(j.driftAng) * radius;
         g.position.x += (tx - g.position.x) * dt * 0.3;
         g.position.z += (tz - g.position.z) * dt * 0.3;
-        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 1.5;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.52;
         break;
       }
       case 'pulse': {
         j.driftAng += dt * 0.08;
         g.position.x += Math.cos(j.driftAng) * dt * 0.3;
         g.position.z += Math.sin(j.driftAng) * dt * 0.3;
-        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 1.0;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.38;
         j._pulseSync = Math.sin(t * 2.0 + j._syncPhase) * 0.5 + 0.5;
         break;
       }
       case 'migrate': {
+        const lim = WORLD_R * 0.8;
+        const limSq = lim * lim;
+        const px = g.position.x;
+        const pz = g.position.z;
+        const md2 = px * px + pz * pz;
+        // Smooth steer back toward the origin instead of a one-frame π flip (was visible jerk).
+        if (md2 > limSq) {
+          const inward = Math.atan2(-px, -pz);
+          j._migrateAng += wrapPi(inward - j._migrateAng) * Math.min(1, dt * 2.8);
+        }
         g.position.x += Math.cos(j._migrateAng) * dt * 1.0;
         g.position.z += Math.sin(j._migrateAng) * dt * 1.0;
-        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.8;
-        const md2 = g.position.x * g.position.x + g.position.z * g.position.z;
-        if (md2 > (WORLD_R * 0.8) * (WORLD_R * 0.8)) j._migrateAng += Math.PI;
+        g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.34;
         break;
       }
       case 'display': {
         j.driftAng += dt * 0.4;
         g.position.x += Math.cos(j.driftAng) * dt * 0.8;
         g.position.z += Math.sin(j.driftAng) * dt * 0.8;
-        g.position.y = jFloatY + Math.sin(t * 2.0 + j.phase) * 2.0;
+        g.position.y = jFloatY + Math.sin(t * 2.0 + j.phase) * 0.75;
         j._syncPhase += (0 - j._syncPhase) * dt * 2.0;
         break;
       }
     }
 
-    if (jellyRitual.active) {
+    if (jellyRitual.active && !jellyCrimson.active && !crimsonOrbit) {
       // Once ritual starts, jellies gather around player and form a synchronized overhead ring.
       jellyRitual.centerX += (player.pos.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
       jellyRitual.centerZ += (player.pos.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
@@ -246,7 +330,7 @@ export function updateJellies(dt, t) {
       const ang = (i / Math.max(1, jellies.length)) * Math.PI * 2 + t * 0.6;
       const tx = jellyRitual.centerX + Math.cos(ang) * ringR;
       const tz = jellyRitual.centerZ + Math.sin(ang) * ringR;
-      const ty = player.pos.y + 4.0 + Math.sin(t * 2.2 + i * 0.6) * 0.5;
+      const ty = player.pos.y + 4.0 + Math.sin(t * 2.2 + i * 0.6) * 0.22;
       g.position.x += (tx - g.position.x) * Math.min(1, dt * 2.8);
       g.position.z += (tz - g.position.z) * Math.min(1, dt * 2.8);
       g.position.y += (ty - g.position.y) * Math.min(1, dt * 2.8);
@@ -257,11 +341,19 @@ export function updateJellies(dt, t) {
       }
     }
 
-    // Curiosity: jelly drifts toward idle player
-    if (playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display') {
-      const driftFrac = Math.min((playerIdleTime - 5) / 5, 0.4);
-      g.position.x += (player.pos.x - g.position.x) * driftFrac * dt * 0.3;
-      g.position.z += (player.pos.z - g.position.z) * driftFrac * dt * 0.3;
+    // Curiosity: jelly drifts toward idle player (ease strength so crossing the idle threshold isn’t a step change).
+    if (!(jellyCrimson.active && j._crimsonJoined)) {
+      const rawPull =
+        playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display'
+          ? Math.min((playerIdleTime - 5) / 5, 0.4)
+          : 0;
+      if (j._idleCuriosityBlend === undefined) j._idleCuriosityBlend = 0;
+      j._idleCuriosityBlend += (rawPull - j._idleCuriosityBlend) * Math.min(1, dt * 2.5);
+      const pull = j._idleCuriosityBlend;
+      if (pull > 0.004) {
+        g.position.x += (player.pos.x - g.position.x) * pull * dt * 0.3;
+        g.position.z += (player.pos.z - g.position.z) * pull * dt * 0.3;
+      }
     }
 
     // Terrain floor (cached — jellies move slowly)
@@ -273,7 +365,7 @@ export function updateJellies(dt, t) {
     const jellyGroundY = j._cachedGY;
     const jellyMinY = jellyGroundY + 3;
     if (g.position.y < jellyMinY) {
-      g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 4);
+      g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 2.4);
     }
 
     // Tree avoidance — keep jellies from clipping through trunks at any distance.
@@ -288,9 +380,13 @@ export function updateJellies(dt, t) {
       const minR = treeR + jellyR;
       if (td2 < minR * minR && td2 > 0.0001) {
         const td = Math.sqrt(td2);
-        const push = (minR - td) / td;
-        g.position.x += tdx * push * 0.9;
-        g.position.z += tdz * push * 0.9;
+        const penetration = minR - td;
+        // Resolve overlap over several frames — full correction in one step when td→0 caused large jumps.
+        const nx = tdx / td;
+        const nz = tdz / td;
+        const step = penetration * Math.min(1, dt * 14);
+        g.position.x += nx * step;
+        g.position.z += nz * step;
       }
     }
 
@@ -329,21 +425,47 @@ export function updateJellies(dt, t) {
       ? (1.0 + redSyncPulse * 1.45 + jellySyncFlash * 2.65)
       : 1.0;
     let redBlendRaw = 0;
+    let crimsonWaveTint = 0;
+    if (jellyCrimson.active) {
+      const h = Math.sqrt(horizSq);
+      if (h <= jellyCrimson.waveR + 1.5) crimsonWaveTint = 1;
+      else if (h < jellyCrimson.waveR + 42) {
+        crimsonWaveTint = Math.max(0, 1 - (h - jellyCrimson.waveR - 1.5) / 40);
+      }
+    }
     if (jellyRedActive) {
-      redBlendRaw = 0.58 + redSyncPulse * 0.58 + jellySyncFlash * 0.62;
-      if (hummingJelly && !pitchLockedJelly && jellyFreq !== 'jelly' && jellyAttuneTarget !== 'jelly') {
-        redBlendRaw *= 0.35 + humResonanceStr * 0.55;
+      redBlendRaw = 0.66 + redSyncPulse * 0.52 + jellySyncFlash * 0.58;
+      if (jellyCrimson.active) {
+        redBlendRaw += jellyCrimson.burst * 0.55;
+        if (j._crimsonJoined) redBlendRaw += 0.14;
+        redBlendRaw += crimsonWaveTint * 0.38;
+      }
+      const humOnlyDamp =
+        hummingJelly &&
+        !pitchLockedJelly &&
+        jellyFreq !== 'jelly' &&
+        jellyAttuneTarget !== 'jelly' &&
+        !jellyCrimson.active &&
+        getAttunement() < 0.12;
+      if (humOnlyDamp) {
+        redBlendRaw *= 0.42 + humResonanceStr * 0.48;
       }
     }
     let redBlend = Math.min(1, redBlendRaw);
     if (pitchLockedJelly) {
-      redBlend = Math.max(redBlend, 0.9);
+      redBlend = Math.max(redBlend, 0.92);
+    }
+    if (jellyFreq === 'jelly') {
+      redBlend = Math.max(redBlend, 0.78);
     }
 
     let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
     if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) bellEm += echoTimer * 0.35;
+    if (jellyCrimson.burst > 0.02) {
+      bellEm *= 1 + jellyCrimson.burst * 5.5;
+    }
     if (redBlend > 0) bellEm *= 1 + redBlend * (_JELLY_RED_LUMA_MUL - 1);
-    if (redBlend > 0.12) bellEm *= 1.0 + redBlend * 0.42;
+    if (redBlend > 0.12) bellEm *= 1.0 + redBlend * 0.48;
 
     j.bellMat.emissiveIntensity = bellEm;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;
@@ -400,8 +522,12 @@ export function updateJellies(dt, t) {
       j.mucusMat.color.copy(_jelMucusBlue).lerp(_jelMucusRed, emitMix);
     }
     g.rotation.y += dt * 0.2;
-    const bellPulse = Math.sin(t * 2.5 + j.phase) * 0.08;
-    j.bell.scale.set(1.0 + bellPulse * 0.5, 1.0 - bellPulse, 1.0 + bellPulse * 0.5);
+    const bellPulse = Math.sin(t * 2.5 + j.phase) * 0.05;
+    j.bell.scale.set(
+      1.0 + bellPulse * 0.28,
+      1.0 - bellPulse * 0.35,
+      1.0 + bellPulse * 0.28
+    );
     for (let ti = 0; ti < j.tentGroup.children.length; ti++) {
       j.tentGroup.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
       j.tentGroup.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;

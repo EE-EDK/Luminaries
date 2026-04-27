@@ -83,6 +83,14 @@ const CRIMSON_BURST_DECAY = 1.05;
 const CRIMSON_MAX_AGE = 52;
 let _crimsonListenerOn = false;
 
+/** Linked / ritual formation — one horizontal ring 25 m Ø, ≥10 m above player, evenly spaced, rotating. */
+const FORMATION_RING_R = 12.5;
+const FORMATION_Y_ABOVE_PLAYER = 10;
+/** Carousel rad/s — whole ring drifts so slots orbit together until everyone is linked. */
+const FORMATION_SPIN = 0.38;
+const FORMATION_LERP = 2.35;
+const FORMATION_BOB = 0.32;
+
 function ensureJellyCrimsonListener() {
   if (_crimsonListenerOn) return;
   _crimsonListenerOn = true;
@@ -206,6 +214,13 @@ export function updateJellies(dt, t) {
   const nearestPos = _result.nearestPos;
   nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
 
+  let jellyJoinedCount = 0;
+  if (jellyCrimson.active) {
+    for (let jj = 0; jj < jellies.length; jj++) {
+      if (jellies[jj]._crimsonJoined) jellyJoinedCount++;
+    }
+  }
+
   const jellyAttuneTarget = getAttunementTarget();
   const jellyFreq = getPlayerFrequency();
   const pitchLockedJelly = pitchLockedJellyPre;
@@ -272,16 +287,25 @@ export function updateJellies(dt, t) {
     }
 
     let crimsonOrbit = false;
-    if (jellyCrimson.active && j._crimsonJoined && jellyCrimson.t > 0.9) {
+    /** Shared ring — start as soon as each jelly is swept by crimson wave; rank/M updates as more link. */
+    if (jellyCrimson.active && j._crimsonJoined) {
       crimsonOrbit = true;
-      const ringR = 11 + (i % 6) * 3.8;
-      const omega = t * 0.38 + i * 1.091;
-      const tx = player.pos.x + Math.cos(omega) * ringR;
-      const tz = player.pos.z + Math.sin(omega) * ringR;
-      g.position.x += (tx - g.position.x) * Math.min(1, dt * 1.65);
-      g.position.z += (tz - g.position.z) * Math.min(1, dt * 1.65);
-      const tgtY = jFloatY + 3.6 + Math.sin(t * 0.95 + i * 0.5) * 0.28;
-      g.position.y += (tgtY - g.position.y) * Math.min(1, dt * 1.35);
+      const M = Math.max(1, jellyJoinedCount);
+      let rank = 0;
+      for (let ji = 0; ji < i; ji++) {
+        if (jellies[ji]._crimsonJoined) rank++;
+      }
+      const base = t * FORMATION_SPIN;
+      const ang = base + (rank / M) * Math.PI * 2;
+      const tx = player.pos.x + Math.cos(ang) * FORMATION_RING_R;
+      const tz = player.pos.z + Math.sin(ang) * FORMATION_RING_R;
+      const tgtY =
+        player.pos.y +
+        FORMATION_Y_ABOVE_PLAYER +
+        Math.sin(t * 1.05 + rank * 0.41) * FORMATION_BOB;
+      g.position.x += (tx - g.position.x) * Math.min(1, dt * FORMATION_LERP);
+      g.position.z += (tz - g.position.z) * Math.min(1, dt * FORMATION_LERP);
+      g.position.y += (tgtY - g.position.y) * Math.min(1, dt * FORMATION_LERP * 0.95);
       j.driftAng += dt * 0.06;
       g.rotation.y += dt * 0.85;
     }
@@ -332,26 +356,31 @@ export function updateJellies(dt, t) {
     }
 
     if (jellyRitual.active && !jellyCrimson.active && !crimsonOrbit) {
-      // Once ritual starts, jellies gather around player and form a synchronized overhead ring.
       jellyRitual.centerX += (player.pos.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
       jellyRitual.centerZ += (player.pos.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
-      const ringR = 2.5;
-      const ang = (i / Math.max(1, jellies.length)) * Math.PI * 2 + t * 0.6;
-      const tx = jellyRitual.centerX + Math.cos(ang) * ringR;
-      const tz = jellyRitual.centerZ + Math.sin(ang) * ringR;
-      const ty = player.pos.y + 4.0 + Math.sin(t * 2.2 + i * 0.6) * 0.22;
-      g.position.x += (tx - g.position.x) * Math.min(1, dt * 2.8);
-      g.position.z += (tz - g.position.z) * Math.min(1, dt * 2.8);
-      g.position.y += (ty - g.position.y) * Math.min(1, dt * 2.8);
+      const cx = jellyRitual.centerX;
+      const cz = jellyRitual.centerZ;
+      const n = Math.max(1, jellies.length);
+      const base = t * FORMATION_SPIN;
+      const ang = base + (i / n) * Math.PI * 2;
+      const tx = cx + Math.cos(ang) * FORMATION_RING_R;
+      const tz = cz + Math.sin(ang) * FORMATION_RING_R;
+      const ty =
+        player.pos.y +
+        FORMATION_Y_ABOVE_PLAYER +
+        Math.sin(t * 2.05 + i * 0.55) * FORMATION_BOB;
+      g.position.x += (tx - g.position.x) * Math.min(1, dt * FORMATION_LERP);
+      g.position.z += (tz - g.position.z) * Math.min(1, dt * FORMATION_LERP);
+      g.position.y += (ty - g.position.y) * Math.min(1, dt * FORMATION_LERP);
       const cdx = g.position.x - tx;
       const cdz = g.position.z - tz;
-      if (cdx * cdx + cdz * cdz < 0.4) {
-        jellyRitual.progress += dt * (1 / Math.max(1, jellies.length));
+      if (cdx * cdx + cdz * cdz < 3.5) {
+        jellyRitual.progress += dt * (1 / n);
       }
     }
 
     // Curiosity: jelly drifts toward idle player (ease strength so crossing the idle threshold isn’t a step change).
-    if (!(jellyCrimson.active && j._crimsonJoined)) {
+    if (!(jellyCrimson.active && j._crimsonJoined) && !jellyRitual.active) {
       const rawPull =
         playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display'
           ? Math.min((playerIdleTime - 5) / 5, 0.4)
@@ -372,13 +401,18 @@ export function updateJellies(dt, t) {
       j._lastTX = g.position.x; j._lastTZ = g.position.z;
     }
     const jellyGroundY = j._cachedGY;
-    const jellyMinY = jellyGroundY + 3;
-    if (g.position.y < jellyMinY) {
-      g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 2.4);
+    /** Skip terrain/tree pulls whenever linked to player ritual or crimson wave (orbit math owns height). */
+    const inLinkedFormation =
+      jellyRitual.active || (jellyCrimson.active && j._crimsonJoined);
+    if (!inLinkedFormation) {
+      const jellyMinY = jellyGroundY + 3;
+      if (g.position.y < jellyMinY) {
+        g.position.y += (jellyMinY - g.position.y) * Math.min(1, dt * 2.4);
+      }
     }
 
     // Tree avoidance — keep jellies from clipping through trunks at any distance.
-    const nearby = queryNearTrees(g.position.x, g.position.z, 2.2);
+    const nearby = inLinkedFormation ? [] : queryNearTrees(g.position.x, g.position.z, 2.2);
     for (let ti = 0; ti < nearby.length; ti++) {
       const tr = nearby.items[ti];
       const tdx = g.position.x - tr.x;
@@ -545,7 +579,11 @@ export function updateJellies(dt, t) {
       const ritualProg = Math.min(1, jellyRitual.progress);
       const glowScale = 0.35 + ritualProg * 1.5 + (jellyRitual.flash > 0 ? jellyRitual.flash * 1.8 : 0);
       jellyRitual.orbMesh.visible = true;
-      jellyRitual.orbMesh.position.set(jellyRitual.centerX, player.pos.y + 3.0, jellyRitual.centerZ);
+      jellyRitual.orbMesh.position.set(
+        jellyRitual.centerX,
+        player.pos.y + FORMATION_Y_ABOVE_PLAYER * 0.72,
+        jellyRitual.centerZ
+      );
       jellyRitual.orbMesh.scale.setScalar(glowScale);
       jellyRitual.orbMesh.material.opacity = 0.35 + ritualProg * 0.5 + jellyRitual.flash * 0.4;
     } else {

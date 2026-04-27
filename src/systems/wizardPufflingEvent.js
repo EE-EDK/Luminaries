@@ -2,14 +2,17 @@ import { AdditiveBlending, CylinderGeometry, Mesh, MeshBasicMaterial, MeshStanda
 import { scene } from '../core/renderer.js';
 import { C } from '../constants.js';
 import { makePuff } from '../entities/fauna/pufflings.js';
+import { playWizardApproachLaLa } from './audio/creatures.js';
+import { humFreqArmed } from '../core/input.js';
 
 /** Cumulative time moving (not wall-clock) before spawn — ~1 min of walking */
 const TRIGGER_WANDER_SECONDS = 50;
 const APPROACH_MIN_SEC = 4;
 /** Must cover hop-throttled run from ~16–24 m spawn; 10s was often timing out mid-approach */
 const APPROACH_MAX_SEC = 14;
-/** Minimum horizontal distance (m) wizard ↔ player — avoids overlap + unstable look-at yaw */
-const WIZARD_STANDOFF = 1.75;
+/** Horizontal distance (m) wizard ↔ player — random 3–5 per encounter */
+const WIZARD_STANDOFF_MIN = 3.0;
+const WIZARD_STANDOFF_MAX = 5.0;
 /** Acceptable error (m) from ideal standoff point before approach can end */
 const STANDOFF_ARRIVE_TOL = 0.95;
 /** If camera–focus horizontal distance is below this (m), nudge focus for stable yaw */
@@ -21,6 +24,11 @@ const PREBEAM_SEC = 2.5;
 /** On-screen hint when camera first locks onto the approaching wizard */
 const APPROACH_HINT_TEXT = 'A wizard approaches?';
 const APPROACH_HINT_SEC = 3.6;
+const DEAD_SOUL_LINE = 'Another dead soul';
+const TAB_LINE = 'PRESS TAB to know the TRUTH!';
+/** Confront: inspect + dead soul line, then wait for F (spirit hum). */
+const CONFRONT_DEAD_SOUL_AT = 0.85;
+const CONFRONT_TO_WAIT_HUM = 6.8;
 /** ~2 ft diameter ≈ 0.61 m → cylinder radius (meters) */
 const BEAM_RADIUS = 0.31;
 const BEAM_GLOW_RADIUS = 0.42;
@@ -47,6 +55,11 @@ let _smoke = null;
 /** World focus for camera after wizard despawns (beam site) */
 let _smiteFocus = { x: 0, y: 0, z: 0 };
 let _approachHintShown = false;
+let _laLaTimer = 0;
+let _deadSoulShown = false;
+let _confrontT = 0;
+let _waitHumT = 0;
+let _humWasArmed = false;
 
 function wrapPi(a) {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -59,14 +72,15 @@ function smoothstep01(x) {
   return t * t * (3 - 2 * t);
 }
 
-function enforceWizardStandoff(g, playerPos) {
+function enforceWizardStandoff(g, playerPos, standoffR) {
   const dx = g.position.x - playerPos.x;
   const dz = g.position.z - playerPos.z;
   const d2 = dx * dx + dz * dz;
-  const min2 = WIZARD_STANDOFF * WIZARD_STANDOFF;
+  const minR = standoffR;
+  const min2 = minR * minR;
   if (d2 >= min2 || d2 < 1e-10) return;
   const d = Math.sqrt(d2);
-  const s = WIZARD_STANDOFF / d;
+  const s = minR / d;
   g.position.x = playerPos.x + dx * s;
   g.position.z = playerPos.z + dz * s;
 }
@@ -115,15 +129,39 @@ function spawnWizardNearPlayer(playerPos, yaw) {
   _wizard = makePuff(sx, sz, {
     wizardHat: true,
     eyeColor: 0x66bbff,
-    disableAccessories: true
+    disableAccessories: true,
+    skipSceneAdd: true
   });
-  _wizard.group.position.y = _getGroundY(sx, sz);
-  _wizard._baseY = _wizard.group.position.y;
+  const gy = _getGroundY(sx, sz);
+  _wizard.group.position.set(sx, gy, sz);
+  _wizard._baseY = gy;
   _wizard.phase = Math.random() * 6.28;
+  _wizard._standoffR = WIZARD_STANDOFF_MIN + Math.random() * (WIZARD_STANDOFF_MAX - WIZARD_STANDOFF_MIN);
   /* Tuned so hop-run covers ~18–26 m in ~5–10 s */
   _wizard.speed = 3.1;
   _wizard.group.visible = true;
-  if (!_wizard.group.parent) scene.add(_wizard.group);
+  scene.add(_wizard.group);
+  // Visibility: MeshStandard + Exp2 fog + directional moon can drive diffuse ~0 from some angles — mesh
+  // reads invisible while the camera still tracks this group's position. Disable fog on wizard geometry,
+  // skip frustum cull, and floor emissive so the puffling stays readable for the whole encounter.
+  _wizard.group.traverse((ch) => {
+    if (!ch.isMesh || !ch.material) return;
+    ch.frustumCulled = false;
+    ch.renderOrder = 14;
+    const mat = ch.material;
+    mat.fog = false;
+    if (mat.emissiveIntensity !== undefined) {
+      mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 1.15);
+    }
+    if (mat.opacity !== undefined && mat.transparent) {
+      mat.opacity = Math.max(mat.opacity, 0.92);
+    }
+  });
+  /** First “la-la” phrase triggers on the next approach tick (timer starts above threshold). */
+  _laLaTimer = 3;
+  _deadSoulShown = false;
+  _confrontT = 0;
+  _waitHumT = 0;
 }
 
 function removeWizard() {
@@ -239,6 +277,12 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     }
     _phaseTimer += dt;
     const g = _wizard.group;
+    const so = _wizard._standoffR;
+    _laLaTimer += dt;
+    if (_laLaTimer >= 2.35) {
+      _laLaTimer = 0;
+      playWizardApproachLaLa({ x: g.position.x, z: g.position.z }, ctx.player.pos);
+    }
     const px = ctx.player.pos.x;
     const pz = ctx.player.pos.z;
     const vx = g.position.x - px;
@@ -259,8 +303,8 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const move = hop > 0.12 ? 1 : 0.58;
     const runSpeed = _wizard.speed * (0.78 + hop * 0.48);
 
-    const slotX = px + ux * WIZARD_STANDOFF;
-    const slotZ = pz + uz * WIZARD_STANDOFF;
+    const slotX = px + ux * so;
+    const slotZ = pz + uz * so;
     const sdx = slotX - g.position.x;
     const sdz = slotZ - g.position.z;
     const slotErr = Math.sqrt(sdx * sdx + sdz * sdz) || 0.001;
@@ -277,7 +321,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       g.position.z += Math.cos(ang) * wobbleR * Math.min(1, dt * 2.4);
     }
 
-    enforceWizardStandoff(g, ctx.player.pos);
+    enforceWizardStandoff(g, ctx.player.pos, so);
 
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + hop * 0.36;
@@ -289,20 +333,98 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const vw2 = Math.sqrt(vx2 * vx2 + vz2 * vz2) || 0.001;
     const ux2 = vx2 / vw2;
     const uz2 = vz2 / vw2;
-    const slotX2 = px + ux2 * WIZARD_STANDOFF;
-    const slotZ2 = pz + uz2 * WIZARD_STANDOFF;
+    const slotX2 = px + ux2 * so;
+    const slotZ2 = pz + uz2 * so;
     const err =
       Math.sqrt((slotX2 - g.position.x) ** 2 + (slotZ2 - g.position.z) ** 2) || 0;
     const canEndApproach =
       _phaseTimer >= APPROACH_MIN_SEC &&
       (err < STANDOFF_ARRIVE_TOL || _phaseTimer >= APPROACH_MAX_SEC);
     if (canEndApproach) {
+      _state = 'confront';
+      _phaseTimer = 0;
+      _confrontT = 0;
+      _wizard.shell.rotation.x = 0;
+      _wizard.shell.rotation.z = 0;
+      _wizard.shell.scale.set(1, 1, 1);
+    }
+    focusVec.x = g.position.x;
+    focusVec.y = baseY + 0.38;
+    focusVec.z = g.position.z;
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
+  }
+
+  if (_state === 'confront' && _wizard) {
+    _confrontT += dt;
+    const g = _wizard.group;
+    const so = _wizard._standoffR;
+    const px = ctx.player.pos.x;
+    const pz = ctx.player.pos.z;
+    const hop = Math.abs(Math.sin(t * 11 + _wizard.phase));
+    const baseY = _getGroundY(g.position.x, g.position.z);
+    const inspect = Math.sin(_confrontT * 2.35);
+    _wizard.shell.rotation.x = inspect * 0.26;
+    _wizard.shell.rotation.z = Math.sin(_confrontT * 1.65) * 0.07;
+    g.position.y = baseY + hop * 0.16;
+    enforceWizardStandoff(g, ctx.player.pos, so);
+
+    const facePlayer = Math.atan2(px - g.position.x, pz - g.position.z);
+    g.rotation.y = facePlayer;
+
+    if (!_deadSoulShown && _confrontT >= CONFRONT_DEAD_SOUL_AT) {
+      _deadSoulShown = true;
+      if (_showNarrativeText) _showNarrativeText(DEAD_SOUL_LINE, 9);
+      if (_playPufflingVocal) {
+        _playPufflingVocal(DEAD_SOUL_LINE, { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
+      }
+      _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 4);
+    }
+
+    if (_confrontT >= CONFRONT_TO_WAIT_HUM) {
+      _state = 'waitHum';
+      _waitHumT = 0;
+      _humWasArmed = humFreqArmed;
+    }
+
+    focusVec.x = g.position.x;
+    focusVec.y = baseY + 0.38;
+    focusVec.z = g.position.z;
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
+  }
+
+  if (_state === 'waitHum' && _wizard) {
+    _waitHumT += dt;
+    const g = _wizard.group;
+    const so = _wizard._standoffR;
+    const px = ctx.player.pos.x;
+    const pz = ctx.player.pos.z;
+    const bob = Math.sin(t * 6 + _wizard.phase) * 0.05;
+    const baseY = _getGroundY(g.position.x, g.position.z);
+    _wizard.shell.rotation.x *= 0.92;
+    _wizard.shell.rotation.z *= 0.92;
+    g.position.y = baseY + bob;
+    enforceWizardStandoff(g, ctx.player.pos, so);
+
+    const facePlayer = Math.atan2(px - g.position.x, pz - g.position.z);
+    g.rotation.y = facePlayer;
+
+    let proceed = false;
+    if (!_humWasArmed) {
+      proceed = humFreqArmed && _waitHumT > 0.35;
+    } else {
+      proceed = humFreqArmed && _waitHumT > 2.25;
+    }
+
+    if (proceed) {
       _state = 'proclaim';
       _phaseTimer = 0;
-      if (_showNarrativeText) _showNarrativeText('PRESS TAB to know the TRUTH!', PROCLAIM_SEC + 0.8);
+      if (_showNarrativeText) _showNarrativeText(TAB_LINE, PROCLAIM_SEC + 0.8);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, PROCLAIM_SEC);
-      if (_playPufflingVocal) _playPufflingVocal('PRESS TAB to know the TRUTH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
+      if (_playPufflingVocal) {
+        _playPufflingVocal(TAB_LINE, { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
+      }
     }
+
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
     focusVec.z = g.position.z;
@@ -314,7 +436,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const g = _wizard.group;
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 8.5) * 0.08;
-    enforceWizardStandoff(g, ctx.player.pos);
+    enforceWizardStandoff(g, ctx.player.pos, _wizard._standoffR);
     const px = ctx.player.pos.x;
     const pz = ctx.player.pos.z;
     const facePlayer = Math.atan2(px - g.position.x, pz - g.position.z);
@@ -345,7 +467,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const g = _wizard.group;
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 7) * 0.06;
-    enforceWizardStandoff(g, ctx.player.pos);
+    enforceWizardStandoff(g, ctx.player.pos, _wizard._standoffR);
     if (_phaseTimer >= PREBEAM_SEC) {
       _state = 'smite';
       _phaseTimer = 0;
@@ -355,7 +477,9 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _smiteFocus.z = g.position.z;
       if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 2.2);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.6);
-      if (_playPufflingVocal) _playPufflingVocal('AhhhhHHHH!', { x: g.position.x, z: g.position.z }, ctx.player.pos);
+      if (_playPufflingVocal) {
+        _playPufflingVocal('AhhhhHHHH!', { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
+      }
     }
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
@@ -387,7 +511,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       const g = _wizard.group;
       const baseY = _getGroundY(g.position.x, g.position.z);
       g.position.y = baseY + Math.sin(t * 22) * 0.04;
-      enforceWizardStandoff(g, ctx.player.pos);
+      enforceWizardStandoff(g, ctx.player.pos, _wizard._standoffR);
       let glowT = 0;
       if (pt < SMITE_BEAM_FADE_IN) glowT = pt / SMITE_BEAM_FADE_IN;
       else if (pt < SMITE_GLOW_BUILD_END) glowT = 0.55 + (pt - SMITE_BEAM_FADE_IN) / (SMITE_GLOW_BUILD_END - SMITE_BEAM_FADE_IN) * 0.45;

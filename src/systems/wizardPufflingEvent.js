@@ -7,7 +7,12 @@ import { makePuff } from '../entities/fauna/pufflings.js';
 const TRIGGER_WANDER_SECONDS = 50;
 const APPROACH_MIN_SEC = 5;
 const APPROACH_MAX_SEC = 10;
-const APPROACH_STOP_DIST = 2.0;
+/** Minimum horizontal distance (m) wizard ↔ player — avoids overlap + unstable look-at yaw */
+const WIZARD_STANDOFF = 1.75;
+/** Acceptable error (m) from ideal standoff point before approach can end */
+const STANDOFF_ARRIVE_TOL = 0.95;
+/** If camera–focus horizontal distance is below this (m), nudge focus for stable yaw */
+const CAM_FOCUS_MIN_HZ = 0.55;
 /** TAB line + mouth */
 const PROCLAIM_SEC = 3.5;
 /** Pause after TAB before sky beam */
@@ -47,6 +52,28 @@ function wrapPi(a) {
 function smoothstep01(x) {
   const t = Math.max(0, Math.min(1, x));
   return t * t * (3 - 2 * t);
+}
+
+function enforceWizardStandoff(g, playerPos) {
+  const dx = g.position.x - playerPos.x;
+  const dz = g.position.z - playerPos.z;
+  const d2 = dx * dx + dz * dz;
+  const min2 = WIZARD_STANDOFF * WIZARD_STANDOFF;
+  if (d2 >= min2 || d2 < 1e-10) return;
+  const d = Math.sqrt(d2);
+  const s = WIZARD_STANDOFF / d;
+  g.position.x = playerPos.x + dx * s;
+  g.position.z = playerPos.z + dz * s;
+}
+
+/** Nudge look-at target so horizontal offset is not ~0 (prevents yaw thrash when wizard clips player). */
+function stabilizeCameraFocus(cameraPos, focusWorld) {
+  const dx = focusWorld.x - cameraPos.x;
+  const dz = focusWorld.z - cameraPos.z;
+  const hz = Math.sqrt(dx * dx + dz * dz);
+  if (hz >= CAM_FOCUS_MIN_HZ || hz < 1e-6) return focusWorld;
+  const scale = CAM_FOCUS_MIN_HZ / hz;
+  return { x: cameraPos.x + dx * scale, y: focusWorld.y, z: cameraPos.z + dz * scale };
 }
 
 function lookAngles(fromPos, toPos) {
@@ -90,6 +117,8 @@ function spawnWizardNearPlayer(playerPos, yaw) {
   _wizard.phase = Math.random() * 6.28;
   /* Tuned so hop-run covers ~18–26 m in ~5–10 s */
   _wizard.speed = 3.1;
+  _wizard.group.visible = true;
+  if (!_wizard.group.parent) scene.add(_wizard.group);
 }
 
 function removeWizard() {
@@ -199,39 +228,62 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
   if (_state === 'approach' && _wizard) {
     _phaseTimer += dt;
     const g = _wizard.group;
-    const dx = ctx.player.pos.x - g.position.x;
-    const dz = ctx.player.pos.z - g.position.z;
-    let d = Math.sqrt(dx * dx + dz * dz) || 0.001;
-    const dirX = dx / d;
-    const dirZ = dz / d;
-    _wizard.wanderAng = Math.atan2(dirX, dirZ);
+    const px = ctx.player.pos.x;
+    const pz = ctx.player.pos.z;
+    const vx = g.position.x - px;
+    const vz = g.position.z - pz;
+    let vw = Math.sqrt(vx * vx + vz * vz);
+    let ux; let uz;
+    if (vw < 1e-4) {
+      ux = Math.sin(ctx.yaw ?? 0);
+      uz = Math.cos(ctx.yaw ?? 0);
+      vw = 1;
+    } else {
+      ux = vx / vw;
+      uz = vz / vw;
+    }
+    _wizard.wanderAng = Math.atan2(ux, uz);
     const hop = Math.abs(Math.sin(t * 14 + _wizard.phase));
     const move = hop > 0.12 ? 1 : 0.28;
     const runSpeed = _wizard.speed * (0.75 + hop * 0.5);
 
-    if (d < APPROACH_STOP_DIST + 0.45 && _phaseTimer < APPROACH_MIN_SEC) {
-      const ang = t * 2.1 + _wizard.phase;
-      const orbitR = 3.1;
-      const tx = ctx.player.pos.x + Math.sin(ang) * orbitR;
-      const tz = ctx.player.pos.z + Math.cos(ang) * orbitR;
-      g.position.x += (tx - g.position.x) * Math.min(1, dt * 3.2);
-      g.position.z += (tz - g.position.z) * Math.min(1, dt * 3.2);
+    const slotX = px + ux * WIZARD_STANDOFF;
+    const slotZ = pz + uz * WIZARD_STANDOFF;
+    const sdx = slotX - g.position.x;
+    const sdz = slotZ - g.position.z;
+    const slotErr = Math.sqrt(sdx * sdx + sdz * sdz) || 0.001;
+
+    if (slotErr > 0.15) {
+      const sx = sdx / slotErr;
+      const sz = sdz / slotErr;
+      g.position.x += sx * runSpeed * move * dt;
+      g.position.z += sz * runSpeed * move * dt;
     } else {
-      g.position.x += dirX * runSpeed * move * dt;
-      g.position.z += dirZ * runSpeed * move * dt;
+      const ang = t * 2.1 + _wizard.phase;
+      const wobbleR = 0.22;
+      g.position.x += Math.sin(ang) * wobbleR * Math.min(1, dt * 2.4);
+      g.position.z += Math.cos(ang) * wobbleR * Math.min(1, dt * 2.4);
     }
+
+    enforceWizardStandoff(g, ctx.player.pos);
 
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + hop * 0.36;
     _wizard.shell.scale.set(1.08 - hop * 0.16, 0.95 + hop * 0.26, 1.08 - hop * 0.16);
     g.rotation.y = _wizard.wanderAng;
 
-    const dxEnd = ctx.player.pos.x - g.position.x;
-    const dzEnd = ctx.player.pos.z - g.position.z;
-    const dEnd = Math.sqrt(dxEnd * dxEnd + dzEnd * dzEnd) || 0.001;
+    const vx2 = g.position.x - px;
+    const vz2 = g.position.z - pz;
+    const vw2 = Math.sqrt(vx2 * vx2 + vz2 * vz2) || 0.001;
+    const ux2 = vx2 / vw2;
+    const uz2 = vz2 / vw2;
+    const slotX2 = px + ux2 * WIZARD_STANDOFF;
+    const slotZ2 = pz + uz2 * WIZARD_STANDOFF;
+    const err =
+      Math.sqrt((slotX2 - g.position.x) ** 2 + (slotZ2 - g.position.z) ** 2) || 0;
     const canEndApproach =
       _phaseTimer >= APPROACH_MIN_SEC &&
-      (dEnd < APPROACH_STOP_DIST || _phaseTimer >= APPROACH_MAX_SEC);
+      (err < STANDOFF_ARRIVE_TOL || _phaseTimer >= APPROACH_MAX_SEC);
     if (canEndApproach) {
       _state = 'proclaim';
       _phaseTimer = 0;
@@ -242,7 +294,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
     focusVec.z = g.position.z;
-    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
   }
 
   if (_state === 'proclaim' && _wizard) {
@@ -250,6 +302,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const g = _wizard.group;
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 8.5) * 0.08;
+    enforceWizardStandoff(g, ctx.player.pos);
     g.rotation.y += Math.sin(t * 16) * dt * 0.8;
     if (_wizard.mouth) {
       _wizard._talkTimer = Math.max(0, (_wizard._talkTimer || 0) - dt);
@@ -269,7 +322,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
     focusVec.z = g.position.z;
-    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
   }
 
   if (_state === 'prebeam' && _wizard) {
@@ -277,6 +330,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const g = _wizard.group;
     const baseY = _getGroundY(g.position.x, g.position.z);
     g.position.y = baseY + Math.sin(t * 7) * 0.06;
+    enforceWizardStandoff(g, ctx.player.pos);
     if (_phaseTimer >= PREBEAM_SEC) {
       _state = 'smite';
       _phaseTimer = 0;
@@ -291,7 +345,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;
     focusVec.z = g.position.z;
-    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
   }
 
   if (_state === 'smite') {
@@ -318,6 +372,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       const g = _wizard.group;
       const baseY = _getGroundY(g.position.x, g.position.z);
       g.position.y = baseY + Math.sin(t * 22) * 0.04;
+      enforceWizardStandoff(g, ctx.player.pos);
       let glowT = 0;
       if (pt < SMITE_BEAM_FADE_IN) glowT = pt / SMITE_BEAM_FADE_IN;
       else if (pt < SMITE_GLOW_BUILD_END) glowT = 0.55 + (pt - SMITE_BEAM_FADE_IN) / (SMITE_GLOW_BUILD_END - SMITE_BEAM_FADE_IN) * 0.45;
@@ -347,7 +402,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       ? _getGroundY(_wizard.group.position.x, _wizard.group.position.z) + 0.38
       : _smiteFocus.y;
     focusVec.z = _wizard ? _wizard.group.position.z : _smiteFocus.z;
-    return forceLookAt(dt, ctx.cameraPos, focusVec, ctx.yaw, ctx.pitch);
+    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
   }
 
   return null;

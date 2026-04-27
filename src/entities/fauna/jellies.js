@@ -128,6 +128,7 @@ export function makeJelly(x, y, z) {
     group: g, bell, tentGroup,
     bellMat, rimMat, lappetMat, tentMat, oralMat,
     tipMat, innerMat: inner.material,
+    spotMat, nerveMat, organMat, mucusMat,
     phase: sr() * 6.28, driftAng: sr() * 6.28,
     homeX: x, homeZ: z, floatY: y, wobble: 0.5 + sr() * 0.5,
     _init: true, _state: 'drift', _stT: 20 + Math.random() * 30,

@@ -11,6 +11,7 @@ import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
+import { isLocked, getLockType } from '../../systems/spiritHum.js';
 import { jellies } from '../../state/entityStore.js';
 import { playCreatureSound } from '../../systems/audio.js';
 import { scene } from '../../core/renderer.js';
@@ -29,6 +30,14 @@ const _jelInnerBlue = new Color(C.jellyGlow);
 const _jelInnerRed = new Color(0xff3528);
 const _jelTipBlue = new Color(C.jellyTip);
 const _jelTipRed = new Color(0xff6058);
+const _jelSpotBlue = new Color(C.jellySpot);
+const _jelSpotRed = new Color(0xff7078);
+const _jelOrganBlue = new Color(C.jellyOrgan);
+const _jelOrganRed = new Color(0xff6a72);
+const _jelMucusBlue = new Color(C.jellyMucus);
+const _jelMucusRed = new Color(0xff8588);
+const _jelNerveBlue = new Color(C.jellyGlow);
+const _jelNerveRed = new Color(0xff4548);
 const _jellyTentBase = new Color(C.jellyTent);
 /**
  * Mushroom cap ≈ base * (0.7..1.7) * glow; base ≤ ~1.3 → peak factor 1.3*1.7.
@@ -115,6 +124,12 @@ export function updateJellies(dt, t) {
   let nearestDist2 = Infinity;
   const nearestPos = _result.nearestPos;
   nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
+
+  const jellyAttuneTarget = getAttunementTarget();
+  const jellyFreq = getPlayerFrequency();
+  const pitchLockedJelly = isLocked() && getLockType() === 'jelly';
+  const hummingJelly = humResonanceType === 'jelly' && humResonanceStr > 0.08;
+  const jellyRedActive = jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly' || pitchLockedJelly || hummingJelly;
 
   for (let i = 0; i < jellies.length; i++) {
     const _jg = jellies[i].group;
@@ -269,24 +284,26 @@ export function updateJellies(dt, t) {
       emissiveMult = 1.0 + basePulse * 0.3;
     }
 
-    const jellyAttuneTarget = getAttunementTarget();
-    const jellyFreq = getPlayerFrequency();
     const jellySyncFlash = getJellySyncFlash();
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 100) ? (1.0 + getAttunement() * 1.2) : 1.0;
     const jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
     const nearRitual = _jhd2 < 100;
     const rhythmPulse = nearRitual ? (Math.sin(t * Math.PI + i * 0.7) * 0.5 + 0.5) : 0;
-    const redSyncPulse = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+    const redSyncPulse = jellyRedActive
       ? (Math.sin(t * Math.PI + i * 0.65) * 0.5 + 0.5)
       : 0;
     const ritualBoost = jellyRitual.active ? (1.0 + Math.min(1.0, jellyRitual.progress) * 2.2) : 1.0;
     const flashBoost = jellyRitual.flash > 0 ? (1.0 + jellyRitual.flash * 4.5) : 1.0;
-    const syncBoost = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+    const syncBoost = jellyRedActive
       ? (1.0 + redSyncPulse * 1.2 + jellySyncFlash * 2.2)
       : 1.0;
-    const redBlendRaw = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
-      ? (0.42 + redSyncPulse * 0.53 + jellySyncFlash * 0.55)
-      : 0;
+    let redBlendRaw = 0;
+    if (jellyRedActive) {
+      redBlendRaw = 0.42 + redSyncPulse * 0.53 + jellySyncFlash * 0.55;
+      if (hummingJelly && !pitchLockedJelly && jellyFreq !== 'jelly' && jellyAttuneTarget !== 'jelly') {
+        redBlendRaw *= 0.35 + humResonanceStr * 0.55;
+      }
+    }
     const redBlend = Math.min(1, redBlendRaw);
 
     let bellEm = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
@@ -295,7 +312,10 @@ export function updateJellies(dt, t) {
 
     j.bellMat.emissiveIntensity = bellEm;
     j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;
-    const ritualBlend = nearRitual ? (0.45 + rhythmPulse * 0.55) : 0;
+    let ritualBlend = nearRitual ? (0.45 + rhythmPulse * 0.55) : 0;
+    if (jellyRedActive && redBlend > 0.12) {
+      ritualBlend *= Math.max(0, 1 - redBlend * 0.92);
+    }
     j.bellMat.color.copy(_jellyFarColor).lerp(_jellyNearColor, ritualBlend);
     if (redBlend > 0) j.bellMat.color.lerp(_jellyAttuneRed, redBlend);
 
@@ -329,6 +349,20 @@ export function updateJellies(dt, t) {
       j.tipMat.color.copy(_jelTipBlue).lerp(_jelTipRed, emitMix);
       const twinkle = Math.sin(t * 5.3 + j.phase * 7.1) * Math.sin(t * 3.7 + j.phase * 4.3);
       j.tipMat.opacity = 0.3 + 0.7 * (twinkle * 0.5 + 0.5);
+    }
+    if (j.spotMat) {
+      j.spotMat.color.copy(_jelSpotBlue).lerp(_jelSpotRed, emitMix);
+      j.spotMat.opacity = 0.82 - emitMix * 0.28;
+    }
+    if (j.nerveMat) {
+      j.nerveMat.color.copy(_jelNerveBlue).lerp(_jelNerveRed, emitMix);
+      j.nerveMat.opacity = 0.18 + emitMix * 0.22;
+    }
+    if (j.organMat) {
+      j.organMat.color.copy(_jelOrganBlue).lerp(_jelOrganRed, emitMix);
+    }
+    if (j.mucusMat) {
+      j.mucusMat.color.copy(_jelMucusBlue).lerp(_jelMucusRed, emitMix);
     }
     g.rotation.y += dt * 0.2;
     const bellPulse = Math.sin(t * 2.5 + j.phase) * 0.08;

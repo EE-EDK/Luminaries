@@ -1,4 +1,4 @@
-import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Sphere, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -579,6 +579,7 @@ const _yRotQ = new Quaternion();
 const _frustum = new Frustum();
 const _projScreenMatrix = new Matrix4();
 const _testPoint = new Vector3();
+const _treeCullSphere = new Sphere();
 const SLOPE_FACTOR = 0.15; // Subtle tilt — keeps trunks vertical, roots do the work via steep template angles
 
 // Billboard vertex shader injection for canopy quads
@@ -791,13 +792,9 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       if (cam && d2 < 5625) {
         const treeR = (inst.treeH || 10) * 1.2 * inst.scale;
         _testPoint.set(inst.x, inst.y + (inst.treeH || 10) * 0.4, inst.z);
-        let inFrustum = true;
-        for (let p = 0; p < 6; p++) {
-          if (_frustum.planes[p].distanceToPoint(_testPoint) < -treeR) {
-            inFrustum = false; break;
-          }
-        }
-        if (!inFrustum) {
+        _treeCullSphere.center.copy(_testPoint);
+        _treeCullSphere.radius = treeR;
+        if (!_frustum.intersectsSphere(_treeCullSphere)) {
           if (impostor) impostor.visible = false;
           continue;
         }
@@ -847,8 +844,8 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       _dummy.position.set(inst.x, inst.y, inst.z);
       _dummy.scale.setScalar(inst.scale);
 
-      if (d2 < 400) {
-        // Tier 0 (<20m): full detail + wind sway on top of slope tilt
+      if (d2 < 324) {
+        // Tier 0 (<18m): full detail + wind sway on top of slope tilt
         const tPhase = inst.x * 0.1 + inst.z * 0.13;
         applySlopeTilt(inst.nx, inst.ny, inst.nz, inst.yRot);
         const swX = Math.sin(t * 0.25 + tPhase + 1) * 0.003 * wAmp + wLeanZ * 0.15;

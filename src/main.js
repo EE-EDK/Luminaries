@@ -31,6 +31,7 @@ import {
 import { createGround } from './world/ground.js';
 import { createSkyDome, updateSky, checkShootingStarWish, getConstellationDir } from './world/sky.js';
 import { getGroundY, registerFlatZone } from './world/terrain.js';
+import { prepareLocalGlowFrame } from './systems/dimming.js';
 import { initAurora, updateAurora } from './world/aurora.js';
 
 // Player
@@ -478,6 +479,7 @@ function animate() {
 
   // Advance dimming restoration waves BEFORE querying glow values
   updateDimming(dt);
+  prepareLocalGlowFrame();
   // Progressive glow boost: +5% per orb found
   setOrbBoost(1.15 + orbsFound * 0.05);
 

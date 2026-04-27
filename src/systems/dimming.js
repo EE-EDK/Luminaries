@@ -33,6 +33,58 @@ const ONE_MINUS_DIM = 1.0 - DIMMING_FACTOR;
 // Per-orb restoration wave state
 const waves = [];
 
+/** Per-frame cell cache for sector multiplier (~2.5m cells; cleared after updateDimming each frame). */
+const _localGlowMultCache = new Map();
+
+function _anyRestorationWaveActive() {
+  for (let i = 0; i < waves.length; i++) {
+    if (waves[i].active) return true;
+  }
+  return false;
+}
+
+/** Call once per frame after updateDimming() before heavy getLocalGlow traffic. */
+export function prepareLocalGlowFrame() {
+  _localGlowMultCache.clear();
+}
+
+/**
+ * Sector / wave multiplier only (1.0, DIMMING_FACTOR, or edge blend). No globalBio.
+ */
+function _computeLocalGlowMultiplier(x, z) {
+  let angle = Math.atan2(z, x);
+  if (angle < 0) angle += 2 * Math.PI;
+  const sectorIdx = Math.floor(angle / SECTOR_SIZE) % ORB_N;
+
+  if (sectorIdx < restoredSectors.length && restoredSectors[sectorIdx]) {
+    const w = waves[sectorIdx];
+    if (w.active) {
+      const d2 = x * x + z * z;
+      const r2 = w.radius * w.radius;
+      if (d2 > r2) return DIMMING_FACTOR;
+    }
+    return 1.0;
+  }
+
+  const posInSector = angle / SECTOR_SIZE - sectorIdx;
+  const edgeDist = Math.min(posInSector, 1.0 - posInSector);
+  const edgeAngle = edgeDist * SECTOR_SIZE;
+
+  if (edgeAngle < EDGE_BLEND) {
+    const adjIdx = posInSector < 0.5
+      ? (sectorIdx - 1 + ORB_N) % ORB_N
+      : (sectorIdx + 1) % ORB_N;
+
+    if (adjIdx < restoredSectors.length && restoredSectors[adjIdx]) {
+      const t = edgeAngle / EDGE_BLEND;
+      const factor = DIMMING_FACTOR + ONE_MINUS_DIM * (0.5 + 0.5 * Math.cos(t * Math.PI));
+      return factor;
+    }
+  }
+
+  return DIMMING_FACTOR;
+}
+
 // ================================================================
 // Init — call once after orbs are placed
 // ================================================================
@@ -109,49 +161,20 @@ export function getLocalGlow(x, z, globalBio) {
     }
   }
 
-  // Which sector is this position in?
-  let angle = Math.atan2(z, x);
-  if (angle < 0) angle += 2 * Math.PI;
-  const sectorIdx = Math.floor(angle / SECTOR_SIZE) % ORB_N;
-
-  // Check if this sector has been restored.
-  if (sectorIdx < restoredSectors.length && restoredSectors[sectorIdx]) {
-    // Check restoration wave (expanding radial wave within sector)
-    const w = waves[sectorIdx];
-    if (w.active) {
-      const d2 = x * x + z * z;
-      const r2 = w.radius * w.radius;
-      if (d2 > r2) {
-        // Beyond the wave front — still dimmed
-        return globalBio * DIMMING_FACTOR;
-      }
+  // Sector math: cache ~2.5m cells when no active restoration wave (radius changes every frame).
+  if (!_anyRestorationWaveActive()) {
+    const cx = Math.floor(x * 0.4);
+    const cz = Math.floor(z * 0.4);
+    const ck = cx * 131071 + cz;
+    let mult = _localGlowMultCache.get(ck);
+    if (mult === undefined) {
+      mult = _computeLocalGlowMultiplier(x, z);
+      _localGlowMultCache.set(ck, mult);
     }
-    // Inside restored sector (wave passed or completed)
-    return globalBio;
+    return globalBio * mult;
   }
 
-  // Check adjacent restored sectors for smooth edge blending
-  const posInSector = angle / SECTOR_SIZE - sectorIdx;
-  // How far from the nearest sector edge (0 = at edge, 0.5 = center)
-  const edgeDist = Math.min(posInSector, 1.0 - posInSector);
-  const edgeAngle = edgeDist * SECTOR_SIZE;
-
-  if (edgeAngle < EDGE_BLEND) {
-    // Near a sector edge — check if adjacent sector is restored
-    const adjIdx = posInSector < 0.5
-      ? (sectorIdx - 1 + ORB_N) % ORB_N
-      : (sectorIdx + 1) % ORB_N;
-
-    if (adjIdx < restoredSectors.length && restoredSectors[adjIdx]) {
-      // Smooth cosine blend from restored adjacent sector
-      const t = edgeAngle / EDGE_BLEND;
-      const factor = DIMMING_FACTOR + ONE_MINUS_DIM * (0.5 + 0.5 * Math.cos(t * Math.PI));
-      return globalBio * factor;
-    }
-  }
-
-  // Unrestored sector, not near a restored edge
-  return globalBio * DIMMING_FACTOR;
+  return globalBio * _computeLocalGlowMultiplier(x, z);
 }
 
 // ================================================================

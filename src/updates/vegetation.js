@@ -51,6 +51,10 @@ function treeCanopyLivingPulse(templateIndex, time, treeDim) {
 }
 
 export function updateVegetation(dt, t) {
+  if (updateVegetation._decorHalf === undefined) updateVegetation._decorHalf = 0;
+  updateVegetation._decorHalf ^= 1;
+  const decorEarly = updateVegetation._decorHalf === 1;
+
   const smoothedDimFactor = getSmoothedDimFactor();
 
   const wAmp = 1.0 + windStrength * 1.5;
@@ -213,7 +217,7 @@ export function updateVegetation(dt, t) {
     const cd2 = cdx * cdx + cdz * cdz;
     if (cd2 > 1600) { if (cb.group.visible) cb.group.visible = false; continue; }
     if (!cb.group.visible) cb.group.visible = true;
-    if (cd2 < 900) {
+    if (cd2 < 900 && decorEarly) {
       const cbGlow = getLocalGlow(cb.x, cb.z, bioGlow * orbBoost);
       cb.columnMat.emissiveIntensity = (0.5 + Math.sin(t * 0.8 + cb.phase) * 0.35) * cbGlow;
       cb.hazeMat.opacity = (0.05 + Math.sin(t * 0.8 + cb.phase) * 0.04) * cbGlow;
@@ -240,7 +244,7 @@ export function updateVegetation(dt, t) {
     const od2 = odx * odx + odz * odz;
     if (od2 > 1600) { if (ob.group.visible) ob.group.visible = false; continue; }
     if (!ob.group.visible) ob.group.visible = true;
-    if (od2 < 900) {
+    if (od2 < 900 && decorEarly) {
       for (let j = 0; j < ob.orbMats.length; j++) {
         const p = Math.sin(t * 2.0 + ob.phase + j * 1.3) * 0.5 + 0.5;
         ob.orbMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(ob.x, ob.z, bioGlow * orbBoost);
@@ -263,7 +267,7 @@ export function updateVegetation(dt, t) {
     const ld2 = ldx * ldx + ldz * ldz;
     if (ld2 > 1600) { if (lp.group.visible) lp.group.visible = false; continue; }
     if (!lp.group.visible) lp.group.visible = true;
-    if (ld2 < 900) {
+    if (ld2 < 900 && !decorEarly) {
       for (let j = 0; j < lp.podMats.length; j++) {
         const p = Math.sin(t * 1.5 + lp.phase + j * 1.8) * 0.5 + 0.5;
         lp.podMats[j].emissiveIntensity = (0.5 + p * 0.6) * getLocalGlow(lp.x, lp.z, bioGlow * orbBoost);
@@ -293,7 +297,7 @@ export function updateVegetation(dt, t) {
     const vd2 = vdx * vdx + vdz * vdz;
     if (vd2 > 1600) { if (vm.group.visible) vm.group.visible = false; continue; }
     if (!vm.group.visible) vm.group.visible = true;
-    if (vd2 < 900) {
+    if (vd2 < 900 && !decorEarly) {
       if (vm.veilRefs) {
         for (let j = 0; j < vm.veilRefs.length; j++) {
           const vr = vm.veilRefs[j];
@@ -322,8 +326,10 @@ export function updateVegetation(dt, t) {
     const gdx = gg.x - px, gdz = gg.z - pz;
     if (gdx * gdx + gdz * gdz > 3600) { gg.mesh.visible = false; continue; }
     gg.mesh.visible = true;
-    const pulse = Math.sin(t * gg.speed + gg.phase) * 0.3 + 0.7;
-    gg.mat.opacity = gg.baseOpacity * pulse * getLocalGlow(gg.x, gg.z, bioGlow * orbBoost);
+    if (!decorEarly) {
+      const pulse = Math.sin(t * gg.speed + gg.phase) * 0.3 + 0.7;
+      gg.mat.opacity = gg.baseOpacity * pulse * getLocalGlow(gg.x, gg.z, bioGlow * orbBoost);
+    }
   }
 }
 

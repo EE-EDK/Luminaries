@@ -431,8 +431,27 @@ export function finalizeProceduralRocks() {
 // Working counts for LOD assignment (pre-allocated)
 let _workingCounts = null;
 
+let _rockLastPx = NaN;
+let _rockLastPz = NaN;
+let _rockLastRy = NaN;
+let _rockLastRx = NaN;
+
 export function updateProceduralRocks(px, py, pz, cam) {
   if (!_meshes.length) return;
+
+  const ry = cam.rotation.y;
+  const rx = cam.rotation.x;
+  if (!Number.isNaN(_rockLastPx)) {
+    const dx = px - _rockLastPx;
+    const dz = pz - _rockLastPz;
+    if (dx * dx + dz * dz < 0.0225 && Math.abs(ry - _rockLastRy) < 0.012 && Math.abs(rx - _rockLastRx) < 0.012) {
+      return;
+    }
+  }
+  _rockLastPx = px;
+  _rockLastPz = pz;
+  _rockLastRy = ry;
+  _rockLastRx = rx;
 
   // Update frustum from camera
   _projMatrix.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);

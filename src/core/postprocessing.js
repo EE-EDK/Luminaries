@@ -45,7 +45,7 @@ let saturationPass = null;
 try {
   const renderPass = new RenderPass(scene, camera);
   bloomPass = new UnrealBloomPass(
-    new Vector2(Math.min(512, Math.floor(window.innerWidth / 2)), Math.min(512, Math.floor(window.innerHeight / 2))),
+    new Vector2(Math.min(448, Math.floor(window.innerWidth / 2)), Math.min(448, Math.floor(window.innerHeight / 2))),
     0.6,   // strength — subtle dreamy glow
     0.4,   // radius — how far bloom spreads
     0.85   // threshold — only bright emissives bloom
@@ -74,8 +74,8 @@ window.addEventListener('resize', () => {
     composer.setSize(window.innerWidth, window.innerHeight);
     // Re-cap bloom resolution after resize (setSize resets to half-viewport)
     if (bloomPass) {
-      const w = Math.min(512, Math.floor(window.innerWidth / 2));
-      const h = Math.min(512, Math.floor(window.innerHeight / 2));
+      const w = Math.min(448, Math.floor(window.innerWidth / 2));
+      const h = Math.min(448, Math.floor(window.innerHeight / 2));
       bloomPass.resolution.set(w, h);
     }
   }

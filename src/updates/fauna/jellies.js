@@ -91,28 +91,55 @@ export function updateJellies(dt, t) {
   jellyRitual.lastAttune = attune;
   jellyRitual.flash = Math.max(0, jellyRitual.flash - dt);
 
-  // Batch 2 Item 1: Nearby jellies sync glow phase over time (throttled to ~5Hz)
+  // Batch 2 Item 1: Nearby jellies sync glow phase (~5Hz), O(n) via 15m grid (was O(n²)).
   if (!updateJellies._syncFrame) updateJellies._syncFrame = 0;
   updateJellies._syncFrame++;
   if (updateJellies._syncFrame % 12 === 0) {
+    const cell = 15;
+    const buckets = new Map();
     for (let i = 0; i < jellies.length; i++) {
-      const j = jellies[i], g = j.group;
-      const jx = g.position.x, jz = g.position.z;
+      const g = jellies[i].group;
+      const bx = Math.floor(g.position.x / cell);
+      const bz = Math.floor(g.position.z / cell);
+      const key = bx + ',' + bz;
+      let arr = buckets.get(key);
+      if (!arr) {
+        arr = [];
+        buckets.set(key, arr);
+      }
+      arr.push(jellies[i]);
+    }
+    const R2 = 225;
+    for (let i = 0; i < jellies.length; i++) {
+      const j = jellies[i];
+      const g = j.group;
+      const jx = g.position.x;
+      const jz = g.position.z;
       if (j._syncPhase === undefined) j._syncPhase = j.phase;
 
-      let syncSum = 0, syncCount = 0;
-      for (let k = 0; k < jellies.length; k++) {
-        if (k === i) continue;
-        const o = jellies[k];
-        const odx = o.group.position.x - jx, odz = o.group.position.z - jz;
-        if (odx * odx + odz * odz < 225) {
-          syncSum += o._syncPhase || o.phase;
-          syncCount++;
+      let syncSum = 0;
+      let syncCount = 0;
+      const bx = Math.floor(jx / cell);
+      const bz = Math.floor(jz / cell);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const arr = buckets.get(`${bx + ox},${bz + oz}`);
+          if (!arr) continue;
+          for (let b = 0; b < arr.length; b++) {
+            const o = arr[b];
+            if (o === j) continue;
+            const og = o.group;
+            const odx = og.position.x - jx;
+            const odz = og.position.z - jz;
+            if (odx * odx + odz * odz < R2) {
+              syncSum += o._syncPhase ?? o.phase;
+              syncCount++;
+            }
+          }
         }
       }
       if (syncCount > 0) {
         const avgPhase = syncSum / syncCount;
-        // Use larger step to compensate for reduced frequency
         j._syncPhase += (avgPhase - j._syncPhase) * 0.2 * 4.8;
       }
     }

@@ -5,7 +5,7 @@
 import { WORLD_R } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
-import { getAttunement, getAttunementTarget } from '../../systems/attunement.js';
+import { getAttunement, getAttunementTarget, getPlayerFrequency, getJellySyncFlash } from '../../systems/attunement.js';
 import { emit, Events } from '../../kernel/eventBus.js';
 import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
@@ -20,6 +20,7 @@ import { queryNearTrees } from '../../utils/spatialHash.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 const _jellyNearColor = new Color(0xff4fd2);
+const _jellyAttuneRed = new Color(0xff3a3a);
 const _jellyFarColor = new Color(C.jellyBell);
 
 const jellyRitual = {
@@ -254,16 +255,29 @@ export function updateJellies(dt, t) {
     }
 
     const jellyAttuneTarget = getAttunementTarget();
+    const jellyFreq = getPlayerFrequency();
+    const jellySyncFlash = getJellySyncFlash();
     const jellyAttuneMult = (jellyAttuneTarget === 'jelly' && _jhd2 < 100) ? (1.0 + getAttunement() * 1.2) : 1.0;
     const jellyResMult = (humResonanceType === 'jelly' && _jhd2 < 400) ? (1.0 + humResonanceStr * 1.5) : 1.0;
     const nearRitual = _jhd2 < 100;
     const rhythmPulse = nearRitual ? (Math.sin(t * Math.PI + i * 0.7) * 0.5 + 0.5) : 0;
+    const redSyncPulse = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+      ? (Math.sin(t * Math.PI + i * 0.65) * 0.5 + 0.5)
+      : 0;
     const ritualBoost = jellyRitual.active ? (1.0 + Math.min(1.0, jellyRitual.progress) * 2.2) : 1.0;
     const flashBoost = jellyRitual.flash > 0 ? (1.0 + jellyRitual.flash * 4.5) : 1.0;
-    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost;
+    const syncBoost = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+      ? (1.0 + redSyncPulse * 1.2 + jellySyncFlash * 2.2)
+      : 1.0;
+    j.bellMat.emissiveIntensity = (0.4 + basePulse * 0.8) * getLocalGlow(g.position.x, g.position.z, bioGlow * orbBoost) * emissiveMult * jellyAttuneMult * jellyResMult * ritualBoost * flashBoost * syncBoost;
     if (echoTimer > 0 && attuneFlashType !== 'jelly' && _jhd2 < 900) j.bellMat.emissiveIntensity += echoTimer * 0.35;
-    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25;
-    j.bellMat.color.copy(_jellyFarColor).lerp(_jellyNearColor, nearRitual ? (0.45 + rhythmPulse * 0.55) : 0);
+    j.bellMat.opacity = 0.35 + basePulse * 0.25 + opacityBoost + rhythmPulse * 0.25 + jellySyncFlash * 0.2;
+    const ritualBlend = nearRitual ? (0.45 + rhythmPulse * 0.55) : 0;
+    const redBlend = (jellyAttuneTarget === 'jelly' || jellyFreq === 'jelly')
+      ? (0.35 + redSyncPulse * 0.55 + jellySyncFlash * 0.5)
+      : 0;
+    j.bellMat.color.copy(_jellyFarColor).lerp(_jellyNearColor, ritualBlend);
+    if (redBlend > 0) j.bellMat.color.lerp(_jellyAttuneRed, Math.min(1, redBlend));
 
     if (j.tipMat) {
       const twinkle = Math.sin(t * 5.3 + j.phase * 7.1) * Math.sin(t * 3.7 + j.phase * 4.3);

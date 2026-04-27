@@ -30,6 +30,7 @@ const DEER_R2_MAX = 144;    // 12m squared
 const MOTH_R2 = 64;         // 8m squared — must be within 8m
 const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
 const JELLY_TOLERANCE = 0.3; // ±0.3s tolerance for rhythm match
+const JELLY_POST_ATTUNE_WINDOW = 2.0; // must pulse every 2s once jelly-attuned
 const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
 
 // ================================================================
@@ -44,6 +45,8 @@ let flashCreaturePos = null;  // position of creature when flash triggers
 // Jelly rhythm tracking
 let _jellyTapTimes = [];        // timestamps of recent rhythm taps
 let _jellyLastPulseInput = false;  // previous frame's tap state (edge detect)
+let _jellyPostTimer = 0;        // countdown to required post-attune pulse
+let _jellySyncFlash = 0;        // brief flash marker for synchronized visual pulse
 
 // Puff jump edge detection
 let _puffWasJumping = false;  // previous frame's jump state
@@ -76,6 +79,28 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     playerYaw, playerSpeed, pulsePressed, sprinting,
     playerX, playerZ, time
   } = creatureData;
+  const pulseEdge = pulsePressed && !_jellyLastPulseInput;
+
+  // Jelly post-attune mode: once attuned, player only needs pulse cadence (no lock hold).
+  if (playerFrequency === 'jelly') {
+    _jellyPostTimer -= dt;
+    _jellySyncFlash = Math.max(0, _jellySyncFlash - dt);
+    if (pulseEdge) {
+      _jellyPostTimer = JELLY_POST_ATTUNE_WINDOW;
+      _jellySyncFlash = 0.35;
+    } else if (_jellyPostTimer <= 0) {
+      // Missed beat: frequency collapses and player must re-attune from scratch.
+      playerFrequency = null;
+      attunement = 0;
+      attunementTarget = null;
+      _jellyTapTimes = [];
+      _jellyPostTimer = 0;
+      _jellySyncFlash = 0;
+      resetLock();
+    }
+    _jellyLastPulseInput = pulsePressed;
+    return attunement;
+  }
 
   // Determine which creature (if any) is being matched this frame
   // Phase 2 gate: behavior only counts when spirit hum is pitch-locked to that type
@@ -98,7 +123,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   // --- Jelly: Stand still within 6m + tap LEFT-CLICK in rhythm (requires pitch-lock to jelly) ---
   if (!matchType && _locked && _lockTarget === 'jelly' && nearestJellyDist2 < JELLY_R2 && nearestJellyDist2 < Infinity && playerSpeed < 0.5) {
     // Track rhythm taps (rising edge)
-    if (pulsePressed && !_jellyLastPulseInput) {
+    if (pulseEdge) {
       _jellyTapTimes.push(time);
       // Keep only last 5 taps
       if (_jellyTapTimes.length > 5) _jellyTapTimes.shift();
@@ -163,6 +188,10 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
       attunement = 1.0;
       playerFrequency = matchType;
       flashPending = true;
+      if (matchType === 'jelly') {
+        _jellyPostTimer = JELLY_POST_ATTUNE_WINDOW;
+        _jellySyncFlash = 0.35;
+      }
       // Store creature position for flash effect
       switch (matchType) {
         case 'puff': flashCreaturePos = creatureData.nearestPuffPos; break;
@@ -234,6 +263,8 @@ export function consumeFrequency() {
   flashPending = false;
   flashCreaturePos = null;
   _jellyTapTimes = [];
+  _jellyPostTimer = 0;
+  _jellySyncFlash = 0;
   _puffWasJumping = false;
   // Reset spirit hum lock so player must re-discover next creature's pitch
   resetLock();
@@ -249,4 +280,8 @@ export function checkFlash() {
     return true;
   }
   return false;
+}
+
+export function getJellySyncFlash() {
+  return _jellySyncFlash;
 }

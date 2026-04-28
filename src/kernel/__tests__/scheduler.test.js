@@ -4,6 +4,20 @@ import { addSystem, removeSystem, setEnabled, run, list, reset, Phase } from '..
 beforeEach(() => reset());
 
 describe('scheduler', () => {
+  it('contract: passes (dt, t, contextSlices) — third arg is the shared snapshot', () => {
+    let seen = null;
+    addSystem('probe', Phase.HUD, (dt, t, ctx) => {
+      seen = { dt, t, ctx };
+    });
+    run(0.016, 42.25);
+    expect(seen.dt).toBe(0.016);
+    expect(seen.t).toBe(42.25);
+    expect(seen.ctx).toBeDefined();
+    expect(seen.ctx.time).toBeDefined();
+    expect(seen.ctx.quest).toBeDefined();
+    expect(seen.ctx.player).toBeDefined();
+  });
+
   it('runs systems in phase order', () => {
     const order = [];
     addSystem('c', Phase.VEGETATION, () => order.push('c'));

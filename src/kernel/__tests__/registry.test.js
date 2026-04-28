@@ -60,4 +60,16 @@ describe('registry', () => {
     a.push('x');
     expect(get('nope')).toEqual([]);
   });
+
+  it('EntityType enum values are unique strings', () => {
+    const vals = Object.values(EntityType);
+    expect(new Set(vals).size).toBe(vals.length);
+  });
+
+  it('custom string keys register independently (case-sensitive)', () => {
+    register('laneA', [1]);
+    register('lanea', [2]);
+    expect(get('laneA')).toEqual([1]);
+    expect(get('lanea')).toEqual([2]);
+  });
 });

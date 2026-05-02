@@ -46,12 +46,15 @@ export function setAudioCallbacks(onStep, onJump, onLand) {
 // Collision data references (set from main)
 let treesData = [];
 let rocksData = [];
+/** Puffling mushroom homes — same cylinder pattern as rocks ({ x, z, colR }). */
+let housesData = [];
 let spawnDustBurstFn = null;
 const WORLD_WALL_R = WORLD_R - 0.8;
 
-export function setCollisionData(trees, rocks) {
+export function setCollisionData(trees, rocks, houses) {
   treesData = trees;
   rocksData = rocks;
+  housesData = houses && houses.length ? houses : [];
 }
 
 export function setDustBurstFn(fn) {
@@ -137,6 +140,29 @@ export function updatePlayer(dt) {
       player.pos.z = rd.z + cdz * cdi * rr;
     }
   }
+  function resolveHouseCollisions() {
+    for (let ci = 0; ci < housesData.length; ci++) {
+      const hd = housesData[ci];
+      const cdx = player.pos.x - hd.x;
+      const cdz = player.pos.z - hd.z;
+      const cd2 = cdx * cdx + cdz * cdz;
+      if (cd2 > 196) continue;
+      const hr = hd.colR + PLAYER_R;
+      if (cd2 >= hr * hr || cd2 < 1e-8) continue;
+      const inv = 1 / Math.sqrt(cd2);
+      const nx = cdx * inv;
+      const nz = cdz * inv;
+      player.pos.x = hd.x + nx * hr;
+      player.pos.z = hd.z + nz * hr;
+      const vn = player.vel.x * nx + player.vel.z * nz;
+      if (vn < 0) {
+        player.vel.x -= vn * nx;
+        player.vel.z -= vn * nz;
+      }
+    }
+  }
+  resolveHouseCollisions();
+  resolveHouseCollisions();
   const d2 = player.pos.x * player.pos.x + player.pos.z * player.pos.z;
   if (d2 > WORLD_WALL_R * WORLD_WALL_R) {
     const d = Math.sqrt(d2);

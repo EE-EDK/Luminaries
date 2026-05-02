@@ -194,8 +194,20 @@ function landformHeight(x, z) {
 // Populated during init
 const flatZones = [];
 
+/** Puffling-home terraces — blend toward plateau Y so pads read as graded building sites */
+const housePlateaus = [];
+
 export function registerFlatZone(x, z, radius) {
   flatZones.push({ x, z, r: radius });
+}
+
+/** Register a leveled pad (caller recomputes buildHeightCache afterward). */
+export function registerHousePlateau(x, z, radius, plateauY) {
+  housePlateaus.push({ x, z, r: radius, y: plateauY });
+}
+
+export function clearHousePlateaus() {
+  housePlateaus.length = 0;
 }
 
 // ================================================================
@@ -299,6 +311,21 @@ function _computeGroundY(x, z) {
       const fade = smoothstep(Math.max(0, (d - fz.r * 0.5) / (fz.r * 2.0)));
       height *= fade;
     }
+  }
+
+  // Terraced pads — mushroom-home clusters (graded blend to plateauY, not zero)
+  for (let i = 0; i < housePlateaus.length; i++) {
+    const p = housePlateaus[i];
+    const dx = x - p.x;
+    const dz = z - p.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const inner = p.r * 0.22;
+    const outer = p.r * 2.35;
+    if (d >= outer) continue;
+    const span = Math.max(outer - inner, 1e-6);
+    const u = Math.max(0, Math.min(1, (d - inner) / span));
+    const blend = smoothstep(u);
+    height = height * blend + p.y * (1 - blend);
   }
 
   return height;

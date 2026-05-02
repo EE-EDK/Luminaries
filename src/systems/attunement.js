@@ -312,3 +312,22 @@ export function checkFlash() {
 export function getJellySyncFlash() {
   return _jellySyncFlash;
 }
+
+/** DEV: full creature carrier + attunement bar (jelly post-attune timer held high). */
+export function debugForceAttuned(type) {
+  if (!['puff', 'jelly', 'deer', 'moth'].includes(type)) return false;
+  playerFrequency = type;
+  attunement = 1;
+  attunementTarget = type;
+  flashPending = false;
+  flashCreaturePos = null;
+  _jellyTapTimes = [];
+  if (type === 'jelly') {
+    _jellyPostTimer = 1e6;
+    _jellySyncFlash = 0.35;
+  } else {
+    _jellyPostTimer = 0;
+    _jellySyncFlash = 0;
+  }
+  return true;
+}

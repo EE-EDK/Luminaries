@@ -222,3 +222,19 @@ export function resetLock() {
 export function refreshLock() {
   if (pitchLocked) lockDecay = HUM_LOCK_DECAY;
 }
+
+/** DEV: force pitch-lock to a creature band (requires nearby creature for gameplay; use from debug console). */
+export function debugForcePitchLock(type) {
+  const band = BANDS.find((b) => b.type === type);
+  if (!band) return false;
+  pitchLocked = true;
+  lockType = type;
+  lockDecay = HUM_LOCK_DECAY;
+  lockTimer = HUM_LOCK_TIME;
+  humPitch = band.center;
+  humTarget = band.center;
+  humActive = false;
+  resonance = 1;
+  resonanceType = type;
+  return true;
+}

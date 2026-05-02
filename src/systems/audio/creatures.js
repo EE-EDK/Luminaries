@@ -317,12 +317,13 @@ export function playAttunementFlash(position, playerPos, creatureType) {
 // ================================================================
 // Puffling Vocal Babble — Animal Crossing-style speaking sounds
 // ================================================================
-export function playPufflingVocal(text, position, playerPos) {
+export function playPufflingVocal(text, position, playerPos, opts = {}) {
   if (!initialized || muted) return;
 
+  const maxDist2 = opts.maxDist2 != null ? opts.maxDist2 : 400;
   const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
   const d2 = dx * dx + dz * dz;
-  if (d2 > 400) return;
+  if (d2 > maxDist2) return;
 
   const dist = Math.sqrt(d2);
   const vol = Math.max(0, 1 - dist / 20) * 0.05;
@@ -367,4 +368,44 @@ export function playPufflingVocal(text, position, playerPos) {
   }
 
   connectWithReverb(panner, masterGain, 0.35);
+}
+
+/**
+ * Wizard puffling approach — silly pentatonic “la-la-la” audible from mid-range while he hops closer.
+ */
+export function playWizardApproachLaLa(position, playerPos) {
+  if (!initialized || muted) return;
+
+  const dx = position.x - playerPos.x, dz = position.z - playerPos.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 > 6400) return;
+
+  const dist = Math.sqrt(d2);
+  const vol = Math.max(0, 1 - dist / 55) * 0.055;
+  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
+
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  const now = ctx.currentTime;
+
+  const degrees = [2, 1, 0, 2, 4, 2, 1, 2];
+  const noteDur = 0.11;
+  const octave = 1;
+
+  for (let i = 0; i < degrees.length; i++) {
+    const freq = singNoteFreq(degrees[i], octave);
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const g = ctx.createGain();
+    const t0 = now + i * noteDur;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + 0.014);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + noteDur * 0.95);
+    osc.connect(g).connect(panner);
+    osc.start(t0);
+    osc.stop(t0 + noteDur + 0.02);
+  }
+
+  connectWithReverb(panner, masterGain, 0.38);
 }

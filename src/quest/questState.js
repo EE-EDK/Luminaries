@@ -5,6 +5,8 @@ import { emit, Events } from '../kernel/eventBus.js';
 import { QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 
+const RUNG_H = 25 / QUEST_CONFIG.ORBS_REQUIRED;
+
 // State variables
 let _orbsFound = 0;
 let _questPhase = QuestPhases.SEEK;
@@ -131,6 +133,39 @@ export function updateQuestState(dt) {
         }
       }
     }
+  }
+}
+
+/**
+ * DEV: set orb count and mark orbs found (no walk, no frequency check). Emits ORB_COLLECTED per new orb for HUD/world hooks.
+ * @param {number} targetCount 0–ORBS_REQUIRED
+ */
+export function debugGrantOrbs(targetCount) {
+  const cap = Math.min(QUEST_CONFIG.ORBS_REQUIRED, Math.max(0, Math.floor(targetCount)));
+  while (_orbsFound < cap) {
+    const idx = _orbsFound;
+    const o = _orbs[idx];
+    if (!o) break;
+    o.found = true;
+    o.flashing = false;
+    o.flashTimer = 0;
+    o.flyUp = false;
+    o.flyY = 1.5;
+    _orbsFound++;
+    _targetObeliskY = -25 + _orbsFound * RUNG_H;
+
+    if (_questPhase === QuestPhases.SEEK && _orbsFound >= 1) {
+      _questPhase = QuestPhases.RISING;
+      emit(Events.QUEST_PHASE, { phase: QuestPhases.RISING, orbsFound: _orbsFound });
+    }
+
+    emit(Events.ORB_COLLECTED, {
+      orbIndex: idx,
+      orbsFound: _orbsFound,
+      x: o.x,
+      z: o.z,
+      creatureType: ORB_CREATURE_SEQUENCE[idx] || 'any'
+    });
   }
 }
 

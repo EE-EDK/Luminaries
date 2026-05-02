@@ -113,7 +113,9 @@ import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } fro
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
+import { initDebugConsole } from './debug/debugConsole.js';
 import { initPufflingHomePreview } from './ui/pufflingHomePreview.js';
+import { getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
 
 // ================================================================
 // Entity arrays (centralized in state/entityStore.js)
@@ -651,7 +653,7 @@ try {
   const groundMesh = createGround();
 
   // Wire up collision data for player
-  setCollisionData(trees_data, rocks_data);
+  setCollisionData(trees_data, rocks_data, getPufflingHouseCollision());
   setDustBurstFn(spawnDustBurst);
 
   // Wire up player audio callbacks (Items 1-3)
@@ -807,6 +809,8 @@ try {
     ' fairyRings=' + fairyRings.length + ' bubbles=' + bubbles.length +
     ' ponds=' + ponds.length +
     ' scene=' + scene.children.length);
+
+  initDebugConsole();
 
   animate();
 } catch (err) {

@@ -6,6 +6,7 @@ import { sr } from '../../utils/rng.js';
 
 export function makePuff(x, z, opts = {}) {
   const wizardHat = !!opts.wizardHat;
+  const skipSceneAdd = !!opts.skipSceneAdd;
   const eyeColor = opts.eyeColor || C.puffEye;
   const g = new Group();
 
@@ -109,7 +110,8 @@ export function makePuff(x, z, opts = {}) {
     spores.push(spore);
   }
 
-  g.position.set(x, 0, z); scene.add(g);
+  g.position.set(x, 0, z);
+  if (!skipSceneAdd) scene.add(g);
   return {
     group: g, shell, body, head, ears, eyes, brows, nose, mouth, spores, core,
     bodyMat, bellyMat, crownMat,

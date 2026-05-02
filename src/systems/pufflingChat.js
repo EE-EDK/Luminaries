@@ -8,6 +8,7 @@
 import { camera } from '../core/renderer.js';
 import { Vector3 } from 'three';
 import { getPerspective } from '../state/narrativeState.js';
+import { READ_DWELL_MULT } from './discoveries.js';
 
 // ================================================================
 // Message pools — context-sensitive cryptic text
@@ -254,7 +255,7 @@ export function triggerPufflingChat(puffGroup, sectorRestored, nearOrb, attuneme
   const message = pickMessage(sectorRestored, nearOrb, attunement, hasFrequency);
   chatEl.textContent = message;
   chatEl.style.opacity = '1';
-  chatTimer = 5.0; // 5s display
+  chatTimer = 5.0 * READ_DWELL_MULT;
   chatCooldown = 8 + Math.random() * 6; // 8-14s between chats
   chatVisible = true;
   chatTargetPuff = puffGroup;

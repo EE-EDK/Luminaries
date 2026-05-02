@@ -8,9 +8,16 @@ import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
 
+/** Multiplier for on-screen narrative / discovery copy so lines remain readable (intro uses separate timings). */
+export const READ_DWELL_MULT = 1.5;
+
 let discoveryEl = null;
 let fadeTimer = 0;
 let fadeText = '';
+
+function dwellSec(base) {
+  return base * READ_DWELL_MULT;
+}
 
 export function initDiscoveries() {
   discoveryEl = document.createElement('div');
@@ -83,7 +90,7 @@ export function showDiscovery(key) {
   if (!labelSet) return;
 
   fadeText = labelSet[perspective] || labelSet.child;
-  fadeTimer = 5.0;
+  fadeTimer = dwellSec(5.0);
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
@@ -97,7 +104,7 @@ export function showOrbDiscovery(orbIndex) {
   const text = textSet[orbIndex];
   if (!text) return;
   fadeText = text;
-  fadeTimer = 6.0;
+  fadeTimer = dwellSec(6.0);
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';
@@ -106,7 +113,7 @@ export function showOrbDiscovery(orbIndex) {
 
 export function showNarrativeText(text, duration) {
   fadeText = text;
-  fadeTimer = duration || 5.0;
+  fadeTimer = dwellSec(duration ?? 5.0);
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
     discoveryEl.style.opacity = '1';

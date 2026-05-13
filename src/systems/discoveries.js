@@ -297,14 +297,21 @@ export function checkIdleHints(idleTime) {
 // ================================================================
 // Orb Interaction Hints
 // ================================================================
-export function showOrbRejectHint() {
+export function showOrbRejectHint(got) {
   const perspective = getPerspective();
   const orbCount = getOrbsFound();
   const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
   const stageHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
-  const text = perspective === 'child'
-    ? 'The orb doesn\'t like that sound...'
-    : 'Frequency mismatch — recalibrate resonance';
+  let text;
+  if (!got) {
+    text = perspective === 'child'
+      ? 'The orb hums quietly... it wants to hear you hum back'
+      : 'No carrier frequency detected — initiate spirit hum [F]';
+  } else {
+    text = perspective === 'child'
+      ? 'The orb doesn\'t recognize that sound...'
+      : 'Frequency mismatch — recalibrate resonance';
+  }
   showNarrativeText(stageHint ? `${text} ${stageHint}` : text, 4.2);
 }
 

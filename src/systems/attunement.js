@@ -31,7 +31,7 @@ const MOTH_R2 = 64;         // 8m squared — must be within 8m
 const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
 const JELLY_TOLERANCE = 0.42; // ± tolerance (s) — rhythm clicks are forgiving on keyboard/mouse
 const JELLY_PRIME_CAP = 0.34; // slow build while locked+near so ritual/gather can start before full cadence
-const JELLY_POST_ATTUNE_WINDOW = 2.0; // must pulse every 2s once jelly-attuned
+const JELLY_POST_ATTUNE_WINDOW = 4.0; // must pulse every 4s once jelly-attuned (enough time to walk to an orb)
 const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
 
 // ================================================================

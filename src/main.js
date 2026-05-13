@@ -756,7 +756,7 @@ try {
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
-    showOrbRejectHint: () => showOrbRejectHint(),
+    showOrbRejectHint: (got) => showOrbRejectHint(got),
     showOrbListening: () => showOrbListening(),
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,

@@ -65,6 +65,9 @@ let fernsRef = [];
 let flowersRef = [];
 let reedsRef = [];
 
+// Throttle: only show "listening" once per orb approach
+let _listeningShown = -1;
+
 // Pinnacle explosion glitter
 const GLITTER_COUNT = 200;
 let glitterMesh = null;
@@ -233,7 +236,7 @@ function onOrbCollected(d) {
 }
 
 function onOrbRejected(d) {
-  if (showOrbRejectHintFn) showOrbRejectHintFn();
+  if (showOrbRejectHintFn) showOrbRejectHintFn(d.got);
 }
 
 function onOrbLaserStart(d) {
@@ -294,11 +297,15 @@ export function updateQuestVisuals(dt, t, ctx) {
         o.hazeMat.opacity = Math.min((0.08 + p * 0.12 + glow * 0.25) * _bio, 0.6);
         o.coreMat.color.copy(_whiteColor).lerp(_orbGoldColor, 1.0 - glow);
         o.group.scale.setScalar(1.0 + glow * 0.3);
-        if (glow > 0.15 && showOrbListeningFn) showOrbListeningFn();
-        
+        if (glow > 0.15 && showOrbListeningFn && _listeningShown !== i) {
+          showOrbListeningFn();
+          _listeningShown = i;
+        }
+
         // Attempt collection (logic is in state, visuals triggered by events)
         attemptCollectOrb(i, player.pos);
       } else {
+        if (_listeningShown === i) _listeningShown = -1;
         o.group.scale.setScalar(1.0);
       }
 

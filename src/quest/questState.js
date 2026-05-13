@@ -19,6 +19,7 @@ let _transformTimer = 0;
 let _freeRoamTimer = 0;
 let _transformDone = false;
 let _orbLasersCleaned = false;
+let _rejectCooldown = 0;
 
 // Internal state for orbs
 let _orbs = []; 
@@ -41,6 +42,7 @@ export function initQuestState(orbs) {
   _questPhase = QuestPhases.SEEK;
   _obeliskY = -25;
   _targetObeliskY = -25;
+  _rejectCooldown = 0;
 }
 
 export function getQuestState() {
@@ -63,6 +65,7 @@ export function getQuestPhase() {
 
 export function updateQuestState(dt) {
   if (_timersPaused) return;
+  if (_rejectCooldown > 0) _rejectCooldown -= dt;
 
   // Update timers based on phase
   if (_questPhase === QuestPhases.RISING) {
@@ -191,7 +194,10 @@ export function attemptCollectOrb(index, playerPos) {
     const required = ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
     if (freq) {
       if (!freeGrabMode && required !== 'any' && freq !== required) {
-        emit(Events.ORB_REJECTED, { orbIndex: index, required, got: freq, orbsFound: _orbsFound });
+        if (_rejectCooldown <= 0) {
+          emit(Events.ORB_REJECTED, { orbIndex: index, required, got: freq, orbsFound: _orbsFound });
+          _rejectCooldown = 3.0;
+        }
         return false;
       }
       o.found = true;
@@ -220,7 +226,10 @@ export function attemptCollectOrb(index, playerPos) {
       if (!freeGrabMode) consumeFrequency();
       return true;
     } else {
-      emit(Events.ORB_REJECTED, { orbIndex: index, required, got: null, orbsFound: _orbsFound });
+      if (_rejectCooldown <= 0) {
+        emit(Events.ORB_REJECTED, { orbIndex: index, required, got: null, orbsFound: _orbsFound });
+        _rejectCooldown = 3.0;
+      }
       return false;
     }
   }

@@ -5,6 +5,7 @@
 // public/assets/mushroom-house-puffling-home.html.
 
 import { Quaternion, Vector3 } from 'three';
+import { player } from '../../core/player.js';
 import {
   createPufflingHomeDetailedGroup,
   pufflingHomeCollisionRadius,
@@ -26,6 +27,7 @@ import { on, Events } from '../../kernel/eventBus.js';
 import { getQuestState } from '../../quest/questState.js';
 
 const CLUSTER_N = 20;
+const HOUSE_CULL_DIST2 = 2025; // 45 m — roughly half the max placement range
 const OBELISK_EXCLUSION_R2 = 400; // 20 m from origin
 const MIN_CLUSTER_SEP2 = 324; // 18 m between cluster centers
 /** Minimum horizontal distance between house centers (collision disks ~10 m Ø). */
@@ -322,4 +324,15 @@ export function placePufflingHomeClusters(ctx) {
 
   registerThemeListener();
   syncThemeFromQuest();
+}
+
+export function updatePufflingHomes() {
+  const px = player.pos.x;
+  const pz = player.pos.z;
+  for (let i = 0; i < _detailedRoots.length; i++) {
+    const h = _detailedRoots[i];
+    const dx = h.position.x - px;
+    const dz = h.position.z - pz;
+    h.visible = (dx * dx + dz * dz) < HOUSE_CULL_DIST2;
+  }
 }

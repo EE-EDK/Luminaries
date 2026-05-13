@@ -116,7 +116,7 @@ import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 import { initDebugConsole } from './debug/debugConsole.js';
 import { initDevSkipPanel } from './debug/devSkipPanel.js';
 import { initPufflingHomePreview } from './ui/pufflingHomePreview.js';
-import { getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
+import { getPufflingHouseCollision, updatePufflingHomes } from './entities/world/pufflingHomes.js';
 
 // ================================================================
 // Entity arrays (centralized in state/entityStore.js)
@@ -789,7 +789,7 @@ try {
     spiritHumUpdate: (dt, t, ctx) => _directorSpiritHum(dt, t, ctx),
     attunementUpdate: (dt, t, ctx) => _directorAttunement(dt, t, ctx),
     skyUpdate: (dt, t, ctx) => { updateSky(dt, t); _directorSkyWish(dt, t, ctx); },
-    vegetationUpdate: (dt, t, ctx) => updateVegetation(dt, t),
+    vegetationUpdate: (dt, t, ctx) => { updateVegetation(dt, t); updatePufflingHomes(); },
     rocksUpdate: (dt, t, ctx) => _directorRocks(dt, t, ctx),
     magicalUpdate: (dt, t, ctx) => _directorMagical(dt, t, ctx),
     particleUpdate: (dt, t, ctx) => _directorParticles(dt, t, ctx),

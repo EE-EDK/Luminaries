@@ -531,15 +531,15 @@ function animate() {
       camera.rotation.x = 0;
     }
 
-    // Still pulse mushrooms + crystals
+    // Still pulse mushrooms + crystals (respect dimming sectors)
     for (let i = 0; i < mush_data.length; i++) {
       const m = mush_data[i];
       const p = Math.sin(elapsed * m.speed + m.phase) * 0.5 + 0.5;
-      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * bioGlow;
+      m.capMat.emissiveIntensity = m.base * (0.5 + p * 0.8) * getLocalGlow(m.x, m.z, bioGlow);
     }
     for (let i = 0; i < crys_data.length; i++) {
       const c = crys_data[i];
-      c.mat.emissiveIntensity = (1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75) * bioGlow;
+      c.mat.emissiveIntensity = (1.0 + Math.sin(elapsed * 0.6 + c.phase) * 0.5 * 1.5 + 0.75) * getLocalGlow(c.x, c.z, bioGlow);
     }
     updateJellies(dt, elapsed);
     updatePuffs(dt, elapsed);

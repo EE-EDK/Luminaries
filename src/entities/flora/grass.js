@@ -65,14 +65,14 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     const lean1 = lean * 0.3, lean2 = lean * 0.7;
     const leanZ1 = leanZ * 0.3, leanZ2 = leanZ * 0.7;
     // Segment 1: base quad (2 tris)
-    verts.push(lx - w, dy + 0.01, lz);
-    verts.push(lx + w, dy + 0.01, lz);
+    verts.push(lx - w, dy, lz);
+    verts.push(lx + w, dy, lz);
     verts.push(lx + lean1 - w * 0.9, dy + h1, lz + leanZ1);
     heights.push(0, 0, 0.35);
     colors.push(bc.r, bc.g, bc.b, bc.r, bc.g, bc.b);
     tmpC.copy(bc).lerp(colMid, 0.4);
     colors.push(tmpC.r, tmpC.g, tmpC.b);
-    verts.push(lx + w, dy + 0.01, lz);
+    verts.push(lx + w, dy, lz);
     verts.push(lx + lean1 + w * 0.9, dy + h1, lz + leanZ1);
     verts.push(lx + lean1 - w * 0.9, dy + h1, lz + leanZ1);
     heights.push(0, 0.35, 0.35);
@@ -115,9 +115,9 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     const clx = Math.cos(ca) * cd, clz = Math.sin(ca) * cd;
     const cdy = getGroundY(cx + clx, cz + clz) - centerY;
     const csz = 0.02 + sr() * 0.03;
-    verts.push(clx - csz, cdy + 0.01, clz);
-    verts.push(clx + csz, cdy + 0.01, clz);
-    verts.push(clx, cdy + 0.03 + sr() * 0.02, clz + csz);
+    verts.push(clx - csz, cdy, clz);
+    verts.push(clx + csz, cdy, clz);
+    verts.push(clx, cdy + 0.02 + sr() * 0.02, clz + csz);
     heights.push(0, 0, 0.05);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);

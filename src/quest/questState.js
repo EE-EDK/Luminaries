@@ -61,6 +61,8 @@ export function getQuestPhase() {
 }
 
 export function updateQuestState(dt) {
+  if (_timersPaused) return;
+
   // Update timers based on phase
   if (_questPhase === QuestPhases.RISING) {
     if (_obeliskY < _targetObeliskY) {
@@ -226,4 +228,25 @@ export function getTimers() {
     transform: _transformTimer,
     freeRoam: _freeRoamTimer
   };
+}
+
+let _timersPaused = false;
+
+export function debugForcePhase(phase) {
+  _questPhase = phase;
+  if (phase === QuestPhases.COMPLETE) _finaleTimer = 0;
+  if (phase === QuestPhases.FINALE) _finalePhaseTimer = 0;
+  if (phase === QuestPhases.TRANSFORM) { _transformTimer = 0; _transformDone = false; }
+  if (phase === 'FREE_ROAM') _freeRoamTimer = 0;
+  _obeliskY = 0;
+  _targetObeliskY = 0;
+  emit(Events.QUEST_PHASE, { phase, orbsFound: _orbsFound });
+}
+
+export function debugPauseTimers(paused) {
+  _timersPaused = paused;
+}
+
+export function isTimersPaused() {
+  return _timersPaused;
 }

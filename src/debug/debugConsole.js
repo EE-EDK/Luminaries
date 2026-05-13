@@ -17,7 +17,8 @@ import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
 import { debugForcePitchLock, resetLock } from '../systems/spiritHum.js';
 import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
-import { debugGrantOrbs } from '../quest/questState.js';
+import { debugGrantOrbs, debugForcePhase, debugPauseTimers } from '../quest/questState.js';
+import { QuestPhases } from '../quest/config.js';
 import { unlockTruthControlHint } from '../core/input.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 
@@ -95,6 +96,9 @@ function buildHelpText() {
   unlockSequence(delayMs?, ['jelly','deer',…])   — chained demo (default ${1800}ms)
   unlockAllCreatures()                           — fire all four (stagger 400ms); last = puff carrier
   grantOrbs(n)                                  — quest orbs 0–5 (no walking; fires ORB_COLLECTED)
+  forcePhase(phase)                             — jump to quest phase (use phases.FINALE etc)
+  pauseTimers() / resumeTimers()                — freeze/unfreeze quest phase timers
+  phases                                        — QuestPhases enum (SEEK, RISING, COMPLETE, FINALE, TRANSFORM)
   spawnWizard()                                  — start wizard encounter immediately (camera tracks him)
   unlockTruth()                                 — TAB discovery hint in control bar
   resetAttune()                                  — consumeFrequency + resetLock
@@ -165,6 +169,20 @@ export function attachLumiDebugApi() {
         _seqChainTimer = null;
       }
     },
+
+    forcePhase(phase) {
+      debugForcePhase(phase);
+    },
+
+    pauseTimers() {
+      debugPauseTimers(true);
+    },
+
+    resumeTimers() {
+      debugPauseTimers(false);
+    },
+
+    phases: QuestPhases,
 
     /** Truth hint + all four creatures (staggered) + 5 orbs — smoke-test everything */
     unlockEverything() {

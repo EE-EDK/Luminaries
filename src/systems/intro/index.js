@@ -623,3 +623,13 @@ export function introActive() {
 export function introDone() {
   return phase === 'DONE';
 }
+
+export function debugSkipIntro() {
+  if (phase === 'DONE') return;
+  phase = 'DONE';
+  if (container) {
+    container.style.opacity = '0';
+    setTimeout(() => { try { container.remove(); } catch (_) {} }, 100);
+  }
+  if (onComplete) onComplete();
+}

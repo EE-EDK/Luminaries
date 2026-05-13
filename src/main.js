@@ -114,6 +114,7 @@ import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } fro
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 import { initDebugConsole } from './debug/debugConsole.js';
+import { initDevSkipPanel } from './debug/devSkipPanel.js';
 import { initPufflingHomePreview } from './ui/pufflingHomePreview.js';
 import { getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
 
@@ -811,6 +812,7 @@ try {
     ' scene=' + scene.children.length);
 
   initDebugConsole();
+  initDevSkipPanel();
 
   animate();
 } catch (err) {

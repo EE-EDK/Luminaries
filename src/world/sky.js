@@ -491,8 +491,8 @@ let _skyTransformed = false;
 export function setSkyBrightness(brightness) {
   if (!skyDomeMat) return;
   if (_skyTransformed) {
-    const v = Math.max(0.4, brightness);
-    skyDomeMat.color.setRGB(v * 0.5, v * 1.0, v * 0.85);
+    const v = Math.max(0.55, brightness);
+    skyDomeMat.color.setRGB(v * 0.45, v * 1.0, v * 0.75);
     return;
   }
   const v = Math.max(0.15, brightness); // never fully black

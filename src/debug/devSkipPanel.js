@@ -128,7 +128,7 @@ export function initDevSkipPanel() {
     debugSkipIntro();
     debugGrantOrbs(5);
     setTimeout(() => {
-      debugForcePhase(QuestPhases.FINALE);
+      debugForcePhase(QuestPhases.TRANSFORM);
       updateStatus();
     }, 500);
   }));

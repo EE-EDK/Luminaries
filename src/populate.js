@@ -264,7 +264,7 @@ export function populate(arrays, builders, scene) {
     // Avoid oversaturating very dense clusters after mixed-plant increase.
     if (classifyBiome(mx, mz) === 'dense' && sr() < 0.45) continue;
     const m = makeMush(mx, mz);
-    m.group.position.y = getGroundY(mx, mz);
+    m.group.position.y = getGroundY(mx, mz) - 0.06;
     tiltToSlope(m.group, mx, mz, 0.3);
     mush_data.push(m);
     keepOutZones.push({ x: mx, z: mz, r2: 1 });
@@ -275,7 +275,7 @@ export function populate(arrays, builders, scene) {
     const cx = Math.cos(ang) * d, cz = Math.sin(ang) * d;
     if (inKeepOut(cx, cz)) continue;
     const c = makeCrystal(cx, cz);
-    c.group.position.y = getGroundY(cx, cz);
+    c.group.position.y = getGroundY(cx, cz) - 0.06;
     tiltToSlope(c.group, cx, cz, 0.45);
     crys_data.push(c);
     keepOutZones.push({ x: cx, z: cz, r2: 4 });
@@ -417,7 +417,7 @@ export function populate(arrays, builders, scene) {
     if (fernBiome === 'dense' && sr() < 0.55) continue;
     if (fernBiome === 'open' && sr() < 0.15) continue;
     const f = makeFern(fx, fz);
-    f.group.position.y = getGroundY(fx, fz);
+    f.group.position.y = getGroundY(fx, fz) - 0.05;
     f.slopeQ = computeSlopeQuat(fx, fz, 0.4);
     ferns.push(f);
     keepOutZones.push({ x: fx, z: fz, r2: 1 });
@@ -431,7 +431,7 @@ export function populate(arrays, builders, scene) {
     if (flowerBiome === 'dense' && sr() < 0.92) continue;
     if (flowerBiome === 'edge' && sr() < 0.55) continue;
     const fl = makeFlower(flx, flz);
-    fl.group.position.y = getGroundY(flx, flz);
+    fl.group.position.y = getGroundY(flx, flz) - 0.05;
     fl.slopeQ = computeSlopeQuat(flx, flz, 0.35);
     flowers.push(fl);
     keepOutZones.push({ x: flx, z: flz, r2: 1 });
@@ -445,7 +445,7 @@ export function populate(arrays, builders, scene) {
     if (reedBiome === 'dense' && sr() < 0.9) continue;
     if (reedBiome === 'edge' && sr() < 0.5) continue;
     const rd = makeReed(rdx, rdz);
-    rd.group.position.y = getGroundY(rdx, rdz);
+    rd.group.position.y = getGroundY(rdx, rdz) - 0.05;
     rd.slopeQ = computeSlopeQuat(rdx, rdz, 0.15);
     reeds.push(rd);
     keepOutZones.push({ x: rdx, z: rdz, r2: 1 });
@@ -496,7 +496,7 @@ export function populate(arrays, builders, scene) {
     if (dandBiome === 'dense' && sr() < 0.92) continue;
     if (dandBiome === 'edge' && sr() < 0.55) continue;
     const dn = makeDandelion(dnx, dnz);
-    dn.group.position.y = getGroundY(dnx, dnz);
+    dn.group.position.y = getGroundY(dnx, dnz) - 0.05;
     tiltToSlope(dn.group, dnx, dnz, 0.35);
     dandelions.push(dn);
     keepOutZones.push({ x: dnx, z: dnz, r2: 1 });
@@ -513,7 +513,7 @@ export function populate(arrays, builders, scene) {
     const tx = Math.cos(ang) * d, tz = Math.sin(ang) * d;
     if (inKeepOut(tx, tz)) continue;
     const tb = makeThornbloom(tx, tz);
-    tb.group.position.y = getGroundY(tx, tz);
+    tb.group.position.y = getGroundY(tx, tz) - 0.05;
     tb.slopeQ = computeSlopeQuat(tx, tz, 0.3);
     thornblooms.push(tb);
     keepOutZones.push({ x: tx, z: tz, r2: 2.25 });
@@ -527,7 +527,7 @@ export function populate(arrays, builders, scene) {
     // Keep some in groves but shift excess into less-crowded transitions.
     if (classifyBiome(hx, hz) === 'dense' && sr() < 0.35) continue;
     const hv = makeHelixvine(hx, hz);
-    hv.group.position.y = getGroundY(hx, hz);
+    hv.group.position.y = getGroundY(hx, hz) - 0.05;
     hv.slopeQ = computeSlopeQuat(hx, hz, 0.25);
     helixvines.push(hv);
     keepOutZones.push({ x: hx, z: hz, r2: 1 });
@@ -538,7 +538,7 @@ export function populate(arrays, builders, scene) {
     const sx = Math.cos(ang) * d, sz = Math.sin(ang) * d;
     if (inKeepOut(sx, sz)) continue;
     const sn = makeSnapthorn(sx, sz);
-    sn.group.position.y = getGroundY(sx, sz);
+    sn.group.position.y = getGroundY(sx, sz) - 0.05;
     tiltToSlope(sn.group, sx, sz, 0.25);
     snapthorns.push(sn);
     keepOutZones.push({ x: sx, z: sz, r2: 2.25 });
@@ -550,7 +550,7 @@ export function populate(arrays, builders, scene) {
     const sfx = ref.x + Math.cos(ang) * d, sfz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(sfx, sfz)) continue;
     const sf = makeSpiralFrond(sfx, sfz);
-    sf.group.position.y = getGroundY(sfx, sfz);
+    sf.group.position.y = getGroundY(sfx, sfz) - 0.05;
     sf.slopeQ = computeSlopeQuat(sfx, sfz, 0.35);
     spiralfronds.push(sf);
     keepOutZones.push({ x: sfx, z: sfz, r2: 1.5 });
@@ -561,7 +561,7 @@ export function populate(arrays, builders, scene) {
     const cbx = Math.cos(ang) * d, cbz = Math.sin(ang) * d;
     if (inKeepOut(cbx, cbz)) continue;
     const cb = makeCorpseBloom(cbx, cbz);
-    cb.group.position.y = getGroundY(cbx, cbz);
+    cb.group.position.y = getGroundY(cbx, cbz) - 0.05;
     cb.slopeQ = computeSlopeQuat(cbx, cbz, 0.3);
     corpseblooms.push(cb);
     keepOutZones.push({ x: cbx, z: cbz, r2: 3 });
@@ -572,7 +572,7 @@ export function populate(arrays, builders, scene) {
     const obx = Math.cos(ang) * d, obz = Math.sin(ang) * d;
     if (inKeepOut(obx, obz)) continue;
     const ob = makeOrbBush(obx, obz);
-    ob.group.position.y = getGroundY(obx, obz);
+    ob.group.position.y = getGroundY(obx, obz) - 0.05;
     ob.slopeQ = computeSlopeQuat(obx, obz, 0.35);
     orbbushes.push(ob);
     keepOutZones.push({ x: obx, z: obz, r2: 1.5 });
@@ -585,7 +585,7 @@ export function populate(arrays, builders, scene) {
     if (inKeepOut(lpx, lpz)) continue;
     if (classifyBiome(lpx, lpz) === 'dense' && sr() < 0.4) continue;
     const lp = makeLanternPod(lpx, lpz);
-    lp.group.position.y = getGroundY(lpx, lpz);
+    lp.group.position.y = getGroundY(lpx, lpz) - 0.05;
     lp.slopeQ = computeSlopeQuat(lpx, lpz, 0.3);
     lanternpods.push(lp);
     keepOutZones.push({ x: lpx, z: lpz, r2: 1.5 });
@@ -599,7 +599,7 @@ export function populate(arrays, builders, scene) {
     const vmx = ref.x + Math.cos(ang) * d, vmz = ref.z + Math.sin(ang) * d;
     if (inKeepOut(vmx, vmz)) continue;
     const vm = makeVeilMoss(vmx, vmz);
-    vm.group.position.y = getGroundY(vmx, vmz);
+    vm.group.position.y = getGroundY(vmx, vmz) - 0.05;
     vm.slopeQ = computeSlopeQuat(vmx, vmz, 0.2);
     veilmosses.push(vm);
     keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
@@ -644,7 +644,7 @@ export function populate(arrays, builders, scene) {
         scene.remove(e.group);
         arr.splice(i, 1);
       } else {
-        e.group.position.y = getGroundY(ex, ez);
+        e.group.position.y = getGroundY(ex, ez) - 0.05;
       }
     }
   }
@@ -655,7 +655,17 @@ export function populate(arrays, builders, scene) {
       scene.remove(m.group);
       mush_data.splice(i, 1);
     } else {
-      m.group.position.y = getGroundY(mx, mz);
+      m.group.position.y = getGroundY(mx, mz) - 0.06;
+    }
+  }
+  for (let i = crys_data.length - 1; i >= 0; i--) {
+    const c = crys_data[i];
+    const cx = c.x, cz = c.z;
+    if (overlapsHouse(cx, cz)) {
+      scene.remove(c.group);
+      crys_data.splice(i, 1);
+    } else {
+      c.group.position.y = getGroundY(cx, cz) - 0.06;
     }
   }
 

@@ -455,6 +455,15 @@ export function updateQuestVisuals(dt, t, ctx) {
   }
 
   if (state.questPhase === 'FREE_ROAM') {
+    if (treeLasers.length > 0) {
+      for (const tl of treeLasers) {
+        scene.remove(tl.tube); tl.tube.geometry.dispose(); tl.mat.dispose();
+        scene.remove(tl.glow); tl.glow.geometry.dispose(); tl.glowMat.dispose();
+      }
+      treeLasers.length = 0;
+    }
+    if (!orbLasersCleaned) { cleanupLasers(); orbLasersCleaned = true; }
+    if (flashPlane) { flashPlane.style.opacity = 0; }
     if (obeliskMat) obeliskMat.emissiveIntensity = 1.5 + Math.sin(t * 0.5) * 0.3;
     if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = 2.5 + Math.sin(t * 0.7) * 0.5;
     if (moatMesh) moatMesh.position.y = 0.05 + Math.sin(t * 3) * 0.02;
@@ -526,7 +535,7 @@ function updateTransformVisuals(dt, t, transformTimer) {
     }
   }
 
-  const fadeLinear = transformTimer >= 13 ? Math.min((transformTimer - 13) / 30, 1) : 0;
+  const fadeLinear = transformTimer >= 13 ? Math.min((transformTimer - 13) / 5, 1) : 0;
   const laserFadeOut = fadeLinear * fadeLinear * (3 - 2 * fadeLinear);
   for (let i = 0; i < treeLasers.length; i++) {
     const tl = treeLasers[i];
@@ -668,7 +677,7 @@ function transformTreesAndGround() {
   }
 
   // Transform sky — teal/green dawn to complement pink ground
-  scene.background.setHex(0x0a2828);
-  scene.fog.color.setHex(0x102828);
+  scene.background.setHex(0x0e3530);
+  scene.fog.color.setHex(0x143830);
   transformSky();
 }

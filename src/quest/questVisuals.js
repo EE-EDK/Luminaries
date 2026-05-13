@@ -13,6 +13,7 @@ import { revealConstellation } from '../world/sky.js';
 import { on, emit, Events } from '../kernel/eventBus.js';
 import { QuestPhases } from './config.js';
 import { getQuestState, getTimers, attemptCollectOrb } from './questState.js';
+import { transformSky } from '../world/sky.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(C.white);
@@ -57,6 +58,12 @@ let groundMesh = null;
 let treeLasers = [];
 let flashPlane = null;
 let orbLasersCleaned = false;
+
+// Flora references for transform
+let grassPatchesRef = [];
+let fernsRef = [];
+let flowersRef = [];
+let reedsRef = [];
 
 // Pinnacle explosion glitter
 const GLITTER_COUNT = 200;
@@ -185,6 +192,10 @@ export function initQuestVisuals(config) {
   spawnOrbBurstFn = config.spawnOrbBurst || null;
   startResonanceDroneFn = config.startResonanceDrone || null;
   runeFaces = config.runeFaces || [];
+  grassPatchesRef = config.grassPatches || [];
+  fernsRef = config.ferns || [];
+  flowersRef = config.flowers || [];
+  reedsRef = config.reeds || [];
   initGlitter();
 
   // Listen to state events
@@ -262,7 +273,10 @@ export function updateQuestVisuals(dt, t, ctx) {
   for (let i = 0; i < orbs.length; i++) {
     const o = orbs[i];
     const s = state.orbs[i];
-    if (s.found && !s.flyUp && !s.flashing) continue;
+    if (s.found && !s.flyUp && !s.flashing) {
+      if (o.group.visible) o.group.visible = false;
+      continue;
+    }
 
     if (!s.found) {
       const p = Math.sin(t * 1.5 + o.phase) * 0.5 + 0.5;
@@ -433,12 +447,10 @@ export function updateQuestVisuals(dt, t, ctx) {
       rainbowArcs[i].mesh.rotation.y += dt * 0.1 * (i + 1) * 0.3;
       rainbowArcs[i].mat.opacity = 0.45 + Math.sin(t + i) * 0.1;
     }
-    if (timers.finalePhase > 30) {
-      initFlashOverlay();
-    }
   }
 
   if (state.questPhase === QuestPhases.TRANSFORM) {
+    initFlashOverlay();
     updateTransformVisuals(dt, t, timers.transform);
   }
 
@@ -598,7 +610,7 @@ function transformTreesAndGround() {
   setGroundTransform(1.0);
   if (groundMesh?.material) {
     groundMesh.material.emissive.set(C.transformGroundGlow);
-    groundMesh.material.emissiveIntensity = 1.0;
+    groundMesh.material.emissiveIntensity = 0.4;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;
@@ -611,4 +623,52 @@ function transformTreesAndGround() {
       colorAttr.needsUpdate = true;
     }
   }
+
+  // Transform grass patches — shift vertex colors + emissive to pink/purple
+  for (let gi = 0; gi < grassPatchesRef.length; gi++) {
+    const gp = grassPatchesRef[gi];
+    if (!gp.mesh?.material) continue;
+    gp.mesh.material.emissive.setHex(0xff55aa);
+    gp.mesh.material.emissiveIntensity = 0.5;
+    const colorAttr = gp.mesh.geometry.attributes.color;
+    if (colorAttr) {
+      const arr = colorAttr.array;
+      for (let i = 0; i < arr.length; i += 3) {
+        const r = arr[i], g = arr[i + 1], b = arr[i + 2];
+        arr[i] = r * 0.3 + g * 0.2 + 0.35;
+        arr[i + 1] = g * 0.08;
+        arr[i + 2] = b * 0.4 + g * 0.35 + 0.15;
+      }
+      colorAttr.needsUpdate = true;
+    }
+  }
+
+  // Transform ferns, flowers, reeds — traverse groups and shift materials
+  const floraGroups = [];
+  for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push(fernsRef[i].group);
+  for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push(flowersRef[i].group);
+  for (let i = 0; i < reedsRef.length; i++) if (reedsRef[i].group) floraGroups.push(reedsRef[i].group);
+  for (let i = 0; i < floraGroups.length; i++) {
+    floraGroups[i].traverse((ch) => {
+      if (!ch.isMesh || !ch.material) return;
+      const m = ch.material;
+      if (m.emissive) {
+        m.emissive.setHex(0xdd44aa);
+        m.emissiveIntensity = Math.max(m.emissiveIntensity || 0, 0.6);
+      }
+      if (m.color) {
+        const r = m.color.r, g = m.color.g, b = m.color.b;
+        m.color.setRGB(
+          r * 0.4 + g * 0.15 + 0.3,
+          g * 0.1,
+          b * 0.5 + g * 0.3 + 0.15
+        );
+      }
+    });
+  }
+
+  // Transform sky — teal/green dawn to complement pink ground
+  scene.background.setHex(0x0a2828);
+  scene.fog.color.setHex(0x102828);
+  transformSky();
 }

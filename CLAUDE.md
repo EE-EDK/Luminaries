@@ -27,6 +27,8 @@ npm test             # Run unit tests (kernel modules)
 | `reference/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |
 | `reference/audio.md` | Web Audio API graph, synthesis patterns, layer reference, callback injection + event bus | Audio work |
 | `reference/procedural-audio-engine-protocol.md` | Production methodology for zero-asset Web Audio API synthesis (voice pools, scheduling, anti-clicking, spatial audio) | Audio architecture |
+| `reference/unified_webgl_protocol_v4.1.md` | Legacy monolithic protocol (v4.1) — still valid for Luminaries-specific patterns | Historical reference |
+| `../../tools/webgl-protocol-v5/00-hub.md` | **WebGL Protocol v5.0** — modular successor to v4.1. 46 composable modules + walking-sim recipe. Use for new Three.js work or understanding universal patterns. | New Three.js projects, architecture decisions |
 | `reference/phase-1-summary.md` | Everything built in Phase 1, completion checklist, known debt | Understanding current state |
 | `reference/phase-2-roadmap.md` | 21 prioritized implementation items for Phase 2 (from MANIFESTO.md) | Planning Phase 2 work |
 | `reference/MANIFESTO.md` | Full Phase 2 design: Symbiotic Attunement, The Dimming, dual-narrative, all mechanics | Understanding the vision |

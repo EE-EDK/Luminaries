@@ -760,7 +760,11 @@ try {
     showOrbListening: () => showOrbListening(),
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,
-    runeFaces: getRuneFaces()
+    runeFaces: getRuneFaces(),
+    grassPatches: grassPatches,
+    ferns: ferns,
+    flowers: flowers,
+    reeds: reeds
   });
 
   initPufflingHomePreview();

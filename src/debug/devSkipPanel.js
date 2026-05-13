@@ -5,6 +5,7 @@ import { debugSkipIntro } from '../systems/intro/index.js';
 import { debugGrantOrbs, debugForcePhase, debugPauseTimers, getQuestPhase, getOrbsFound } from '../quest/questState.js';
 import { QuestPhases } from '../quest/config.js';
 import { debugUnlockCreature } from './debugConsole.js';
+import { freeGrabMode, setFreeGrabMode } from './debugFlags.js';
 
 const ORB_CREATURES = ['puff', 'jelly', 'deer', 'moth', null];
 
@@ -31,6 +32,27 @@ function btn(label, onClick) {
     onClick();
     updateStatus();
   });
+  return b;
+}
+
+function toggleBtn(label, getState, onToggle) {
+  const b = document.createElement('button');
+  function render() {
+    const on = getState();
+    b.textContent = `${label}: ${on ? 'ON' : 'OFF'}`;
+    b.style.background = on ? 'rgba(60,120,80,.9)' : 'rgba(20,60,40,.85)';
+    b.style.borderColor = on ? 'rgba(100,255,180,.7)' : 'rgba(100,255,180,.4)';
+  }
+  b.style.cssText =
+    'display:block;width:100%;padding:6px 8px;margin:0 0 4px;cursor:pointer;' +
+    'font-family:monospace;font-size:11px;border:1px solid rgba(100,255,180,.4);' +
+    'border-radius:4px;color:#aaffcc;text-align:left;transition:background .15s;';
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onToggle();
+    render();
+  });
+  render();
   return b;
 }
 
@@ -70,6 +92,16 @@ export function initDevSkipPanel() {
   panel.appendChild(statusEl);
   updateStatus();
 
+  // --- Toggles section ---
+  panel.appendChild(toggleBtn('Free Grab', () => freeGrabMode, () => {
+    setFreeGrabMode(!freeGrabMode);
+  }));
+
+  const sep0 = document.createElement('div');
+  sep0.style.cssText = 'border-top:1px solid rgba(100,255,180,.15);margin:6px 0;';
+  panel.appendChild(sep0);
+
+  // --- Skip buttons ---
   panel.appendChild(btn('Skip Intro', () => {
     debugSkipIntro();
   }));
@@ -85,25 +117,6 @@ export function initDevSkipPanel() {
       : `Orb ${i} (any)`;
     panel.appendChild(btn(label, () => {
       grantOrbWithCreature(i);
-      if (i === 5) {
-        setTimeout(() => {
-          debugForcePhase(QuestPhases.COMPLETE);
-          updateStatus();
-          setTimeout(() => {
-            debugForcePhase(QuestPhases.FINALE);
-            updateStatus();
-            setTimeout(() => {
-              debugForcePhase(QuestPhases.TRANSFORM);
-              updateStatus();
-              setTimeout(() => {
-                debugForcePhase('FREE_ROAM');
-                debugPauseTimers(true);
-                updateStatus();
-              }, 22000);
-            }, 32000);
-          }, 14000);
-        }, 2000);
-      }
     }));
   }
 

@@ -284,28 +284,28 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
 /** Theme payload aligned with pufflingHomes THEME_BIO / THEME_COTTAGE + HTML innerWall/glass */
 export function themePayloadBioluminescent() {
   return {
-    stalk: 0x222a2a,
-    brickEmissive: 0x062822,
-    brickEmissiveInt: 0.22,
-    innerWall: 0x0a0a0a,
-    cap: 0x003333,
-    capEmissive: 0x002222,
-    capEmissiveInt: 0.35,
+    stalk: 0x2a3535,
+    brickEmissive: 0x0a4838,
+    brickEmissiveInt: 0.55,
+    innerWall: 0x0a1510,
+    cap: 0x004444,
+    capEmissive: 0x003833,
+    capEmissiveInt: 0.6,
     gill: 0x00ff88,
-    gillEmissive: 0x00aa55,
-    gillEmissiveInt: 0.75,
+    gillEmissive: 0x00cc66,
+    gillEmissiveInt: 1.2,
     spot: 0x88ffcc,
     spotEmissive: 0x00ffaa,
     spotEmissiveInt: 1.65,
-    door: 0x2a1a15,
-    doorFrame: 0x4b4038,
-    doorGroove: 0x150805,
+    door: 0x3a2820,
+    doorFrame: 0x5a4a38,
+    doorGroove: 0x1a0a05,
     knob: 0x88ffcc,
     knobEmissive: 0x00ffaa,
     knobEmissiveInt: 1.55,
     glass: 0x88ffcc,
     glassEmissive: 0x00ffaa,
-    glassEmissiveInt: 1.25
+    glassEmissiveInt: 1.4
   };
 }
 

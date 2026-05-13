@@ -342,7 +342,7 @@ export function populate(arrays, builders, scene) {
     const rad = 2 + sr() * 2.5, cnt = 38 + Math.floor(sr() * 30);
     if (inKeepOut(gx, gz)) continue;
     const gp = makeGrassPatch(gx, gz, rad, cnt, pal);
-    gp.mesh.position.y = getGroundY(gx, gz);
+    gp.mesh.position.y = getGroundY(gx, gz) - 0.08;
     grassPatches.push(gp);
     keepOutZones.push({ x: gx, z: gz, r2: rad * rad });
   }

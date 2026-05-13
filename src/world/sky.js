@@ -485,12 +485,24 @@ export function checkShootingStarWish(playerPitch, orbsFound, perspectiveStr) {
   return texts[idx] || null;
 }
 
+let _skyTransformed = false;
+
 // Modulate sky brightness via color tint (called by day/night cycle)
 export function setSkyBrightness(brightness) {
-  if (skyDomeMat) {
-    const v = Math.max(0.15, brightness); // never fully black
-    skyDomeMat.color.setRGB(v, v, v);
+  if (!skyDomeMat) return;
+  if (_skyTransformed) {
+    const v = Math.max(0.4, brightness);
+    skyDomeMat.color.setRGB(v * 0.5, v * 1.0, v * 0.85);
+    return;
   }
+  const v = Math.max(0.15, brightness); // never fully black
+  skyDomeMat.color.setRGB(v, v, v);
+}
+
+export function transformSky() {
+  if (_skyTransformed || !skyDomeMat) return;
+  _skyTransformed = true;
+  skyDomeMat.color.setRGB(0.35, 0.75, 0.6);
 }
 
 // ================================================================

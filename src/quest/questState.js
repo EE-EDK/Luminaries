@@ -4,6 +4,7 @@
 import { emit, Events } from '../kernel/eventBus.js';
 import { QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
+import { freeGrabMode } from '../debug/debugFlags.js';
 
 const RUNG_H = 25 / QUEST_CONFIG.ORBS_REQUIRED;
 
@@ -152,7 +153,8 @@ export function debugGrantOrbs(targetCount) {
     o.flashing = false;
     o.flashTimer = 0;
     o.flyUp = false;
-    o.flyY = 1.5;
+    o.flyY = 31;
+    o.laserActive = true;
     _orbsFound++;
     _targetObeliskY = -25 + _orbsFound * RUNG_H;
 
@@ -169,6 +171,11 @@ export function debugGrantOrbs(targetCount) {
       creatureType: ORB_CREATURE_SEQUENCE[idx] || 'any'
     });
   }
+  _obeliskY = 0;
+  _targetObeliskY = 0;
+  for (let i = 0; i < cap; i++) {
+    emit(Events.ORB_LASER_START, { index: i });
+  }
 }
 
 export function attemptCollectOrb(index, playerPos) {
@@ -181,10 +188,10 @@ export function attemptCollectOrb(index, playerPos) {
   const touchR = 2.0; // ORB_TOUCH_R
 
   if (distSq < touchR * touchR) {
-    const freq = getPlayerFrequency();
+    const freq = freeGrabMode ? (ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)] || 'any') : getPlayerFrequency();
     const required = ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
     if (freq) {
-      if (required !== 'any' && freq !== required) {
+      if (!freeGrabMode && required !== 'any' && freq !== required) {
         emit(Events.ORB_REJECTED, { orbIndex: index, required, got: freq, orbsFound: _orbsFound });
         return false;
       }
@@ -211,7 +218,7 @@ export function attemptCollectOrb(index, playerPos) {
         creatureType: freq
       });
 
-      consumeFrequency();
+      if (!freeGrabMode) consumeFrequency();
       return true;
     } else {
       emit(Events.ORB_REJECTED, { orbIndex: index, required, got: null, orbsFound: _orbsFound });

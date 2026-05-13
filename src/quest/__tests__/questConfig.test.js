@@ -56,8 +56,8 @@ describe('quest/config', () => {
     }
   });
 
-  it('QuestPhases has exactly five canonical phases', () => {
-    expect(Object.keys(QuestPhases)).toHaveLength(5);
+  it('QuestPhases has exactly six canonical phases', () => {
+    expect(Object.keys(QuestPhases)).toHaveLength(6);
   });
 
   it('ORB_CREATURE_SEQUENCE uses known creature ids or any', () => {

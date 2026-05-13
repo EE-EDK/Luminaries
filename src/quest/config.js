@@ -7,7 +7,8 @@ export const QuestPhases = {
   RISING: 'RISING',       // Obelisk rising from the moat
   COMPLETE: 'COMPLETE',   // Obelisk fully risen
   FINALE: 'FINALE',       // Creatures gathering
-  TRANSFORM: 'TRANSFORM'  // World-wide bioluminescent bloom
+  TRANSFORM: 'TRANSFORM', // World-wide bioluminescent bloom
+  FREE_ROAM: 'FREE_ROAM'  // Post-quest peaceful endgame
 };
 
 export const QUEST_CONFIG = {

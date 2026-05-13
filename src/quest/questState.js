@@ -69,7 +69,6 @@ export function updateQuestState(dt) {
     if (_obeliskY < _targetObeliskY) {
       _obeliskY += QUEST_CONFIG.OBELISK_RISE_SPEED * dt;
       if (_obeliskY > _targetObeliskY) _obeliskY = _targetObeliskY;
-      emit('quest:obeliskMoved', { y: _obeliskY });
     }
 
     if (_orbsFound >= QUEST_CONFIG.ORBS_REQUIRED && _obeliskY >= -0.01) {
@@ -104,13 +103,13 @@ export function updateQuestState(dt) {
       emit(Events.WORLD_TRANSFORMED);
     }
     if (_transformTimer >= 20) {
-      _questPhase = 'FREE_ROAM';
+      _questPhase = QuestPhases.FREE_ROAM;
       _freeRoamTimer = 0;
-      emit(Events.QUEST_PHASE, { phase: 'FREE_ROAM', orbsFound: _orbsFound });
+      emit(Events.QUEST_PHASE, { phase: QuestPhases.FREE_ROAM, orbsFound: _orbsFound });
     }
   }
 
-  if (_questPhase === 'FREE_ROAM') {
+  if (_questPhase === QuestPhases.FREE_ROAM) {
     _freeRoamTimer += dt;
   }
 
@@ -241,12 +240,14 @@ let _timersPaused = false;
 
 export function debugForcePhase(phase) {
   _questPhase = phase;
-  if (phase === QuestPhases.COMPLETE) _finaleTimer = 0;
-  if (phase === QuestPhases.FINALE) _finalePhaseTimer = 0;
-  if (phase === QuestPhases.TRANSFORM) { _transformTimer = 0; _transformDone = false; }
-  if (phase === 'FREE_ROAM') _freeRoamTimer = 0;
   _obeliskY = 0;
   _targetObeliskY = 0;
+  // Reset all timers — jumping to any phase should start fresh
+  _finaleTimer = 0;
+  _finalePhaseTimer = 0;
+  _transformTimer = 0;
+  _transformDone = false;
+  _freeRoamTimer = 0;
   emit(Events.QUEST_PHASE, { phase, orbsFound: _orbsFound });
 }
 

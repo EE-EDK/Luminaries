@@ -13,7 +13,7 @@ import { renderer, scene } from '../core/renderer.js';
 import { smoothstep } from '../utils/math.js';
 import { setSaturation, bloomPass } from '../core/postprocessing.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
-import { orbsFound } from '../quest/questManager.js';
+import { getOrbsFound } from '../quest/questState.js';
 import { attuneFlashTimer, attuneFlashType } from '../state/gameState.js';
 import { lightningFlash } from '../systems/weather.js';
 
@@ -112,7 +112,8 @@ export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
 export function updatePlayerVisuals(dt, elapsed) {
 
   // Player light evolution — color/intensity/range scales with orbs
-  const orbIdx = Math.min(orbsFound, ORB_N);
+  const _orbsFound = getOrbsFound();
+  const orbIdx = Math.min(_orbsFound, ORB_N);
   _playerLightTargetColor.set(PLAYER_LIGHT_COLORS[orbIdx]);
   _playerLightColor.lerp(_playerLightTargetColor, Math.min(2.0 * dt, 1.0));
   playerLight.color.copy(_playerLightColor);
@@ -134,7 +135,7 @@ export function updatePlayerVisuals(dt, elapsed) {
 
   // Global dimming blend
   const localDim = getLocalGlow(player.pos.x, player.pos.z, 1.0);
-  const globalRestore = DIMMING_FACTOR + (1.0 - DIMMING_FACTOR) * (orbsFound / ORB_N);
+  const globalRestore = DIMMING_FACTOR + (1.0 - DIMMING_FACTOR) * (_orbsFound / ORB_N);
   const targetDimF = localDim * 0.7 + globalRestore * 0.3;
   smoothedDimFactor += (targetDimF - smoothedDimFactor) * Math.min(8.0 * dt, 1.0);
   const dimF = smoothedDimFactor;

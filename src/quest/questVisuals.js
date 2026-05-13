@@ -454,7 +454,7 @@ export function updateQuestVisuals(dt, t, ctx) {
     updateTransformVisuals(dt, t, timers.transform);
   }
 
-  if (state.questPhase === 'FREE_ROAM') {
+  if (state.questPhase === QuestPhases.FREE_ROAM) {
     if (treeLasers.length > 0) {
       for (const tl of treeLasers) {
         scene.remove(tl.tube); tl.tube.geometry.dispose(); tl.mat.dispose();

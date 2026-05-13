@@ -641,6 +641,10 @@ export function populate(arrays, builders, scene) {
       const e = arr[i];
       const ex = e.group.position.x, ez = e.group.position.z;
       if (overlapsHouse(ex, ez)) {
+        e.group.traverse((ch) => {
+          if (ch.geometry) ch.geometry.dispose();
+          if (ch.material) ch.material.dispose();
+        });
         scene.remove(e.group);
         arr.splice(i, 1);
       } else {
@@ -652,6 +656,10 @@ export function populate(arrays, builders, scene) {
     const m = mush_data[i];
     const mx = m.x, mz = m.z;
     if (overlapsHouse(mx, mz)) {
+      m.group.traverse((ch) => {
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+      });
       scene.remove(m.group);
       mush_data.splice(i, 1);
     } else {
@@ -662,12 +670,75 @@ export function populate(arrays, builders, scene) {
     const c = crys_data[i];
     const cx = c.x, cz = c.z;
     if (overlapsHouse(cx, cz)) {
+      c.group.traverse((ch) => {
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+      });
       scene.remove(c.group);
       crys_data.splice(i, 1);
     } else {
       c.group.position.y = getGroundY(cx, cz) - 0.06;
     }
   }
+  // Pufflings — overlap check + re-ground + update _baseY
+  for (let i = puffs.length - 1; i >= 0; i--) {
+    const p = puffs[i];
+    const px = p.group.position.x, pz = p.group.position.z;
+    if (overlapsHouse(px, pz)) {
+      p.group.traverse((ch) => {
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+      });
+      scene.remove(p.group);
+      puffs.splice(i, 1);
+    } else {
+      const y = getGroundY(px, pz);
+      p.group.position.y = y;
+      p._baseY = y;
+    }
+  }
+  // Spirit Deer — overlap check + re-ground + update _baseY
+  for (let i = deers.length - 1; i >= 0; i--) {
+    const d = deers[i];
+    const dx = d.group.position.x, dz = d.group.position.z;
+    if (overlapsHouse(dx, dz)) {
+      d.group.traverse((ch) => {
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+      });
+      scene.remove(d.group);
+      deers.splice(i, 1);
+    } else {
+      const y = getGroundY(dx, dz);
+      d.group.position.y = y;
+      d._baseY = y;
+    }
+  }
+  // Luminids — overlap check + re-ground (no _baseY)
+  for (let i = luminids.length - 1; i >= 0; i--) {
+    const lu = luminids[i];
+    const lx = lu.group.position.x, lz = lu.group.position.z;
+    if (overlapsHouse(lx, lz)) {
+      lu.group.traverse((ch) => {
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+      });
+      scene.remove(lu.group);
+      luminids.splice(i, 1);
+    } else {
+      lu.group.position.y = getGroundY(lx, lz);
+    }
+  }
+  // Orbs — re-ground only (don't remove near houses)
+  for (let i = 0; i < orbs.length; i++) {
+    const o = orbs[i];
+    o.group.position.y = getGroundY(o.x, o.z) + 1.0;
+    o.flyY = getGroundY(o.x, o.z) + 1.0;
+  }
+  // NOTE: rocks_data are already finalized as InstancedMesh (finalizeProceduralRocks)
+  // before this pass runs, so individual re-grounding is not feasible.
+  // Flying entities (jellies, moths, wisps, bubbles) skipped — height
+  // difference from plateaus is negligible for entities 2-5m above ground.
 
   // Ground glow patches (subtle bioluminescent light on terrain)
   for (let i = 0; i < GROUND_GLOW_N; i++) {

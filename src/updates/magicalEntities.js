@@ -14,7 +14,7 @@ import { keys, touchSprint } from '../core/input.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { orbBoost, setBubblePulse } from '../state/gameState.js';
 import { getRainRate } from '../systems/weather.js';
-import { questPhase } from '../quest/questManager.js';
+import { getQuestPhase } from '../quest/questState.js';
 import { wisps, fairyRings, bubbles, ponds, orbs, crys_data, mush_data, flowers } from '../state/entityStore.js';
 import { getEchoBloomRing, echoBloom } from '../entities/world/energyLines.js';
 import { playFairyBounce, playBubblePop } from '../systems/audio.js';
@@ -23,7 +23,8 @@ export function updateWisps(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   const carriedFreq = getPlayerFrequency();
   let guideOrb = null;
-  if ((playerIdleTime > 5 || carriedFreq) && (questPhase === 'SEEK' || questPhase === 'RISING')) {
+  const qp = getQuestPhase();
+    if ((playerIdleTime > 5 || carriedFreq) && (qp === 'SEEK' || qp === 'RISING')) {
     let bestD = Infinity;
     for (let oi = 0; oi < orbs.length; oi++) {
       if (orbs[oi].found) continue;

@@ -17,7 +17,7 @@ import {
 
 import { sr } from './utils/rng.js';
 import { getGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
-import { placePufflingHomeClusters } from './entities/world/pufflingHomes.js';
+import { placePufflingHomeClusters, getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -605,7 +605,60 @@ export function populate(arrays, builders, scene) {
     keepOutZones.push({ x: vmx, z: vmz, r2: 1 });
   }
   // Puffling mushroom-home settlements (20 sites × 2–5 houses, instanced)
+  // Houses register plateaus and rebuild the height cache, so getGroundY()
+  // returns plateau-adjusted values for everything placed afterward.
   placePufflingHomeClusters({ inKeepOut, classifyBiome, sr, keepOutZones, trees_data, rocks_data });
+
+  // Remove ground-level entities that overlap house collision zones,
+  // then re-ground survivors to the plateau-aware height cache.
+  const houseCol = getPufflingHouseCollision();
+  const HOUSE_FLORA_PAD = 2;
+  function overlapsHouse(ex, ez) {
+    for (let j = 0; j < houseCol.length; j++) {
+      const dx = ex - houseCol[j].x, dz = ez - houseCol[j].z;
+      const need = houseCol[j].colR + HOUSE_FLORA_PAD;
+      if (dx * dx + dz * dz < need * need) return true;
+    }
+    return false;
+  }
+  for (let i = grassPatches.length - 1; i >= 0; i--) {
+    const gp = grassPatches[i];
+    const gpx = gp.mesh.position.x, gpz = gp.mesh.position.z;
+    if (overlapsHouse(gpx, gpz)) {
+      scene.remove(gp.mesh);
+      gp.mesh.geometry.dispose();
+      gp.mesh.material.dispose();
+      grassPatches.splice(i, 1);
+    } else {
+      gp.mesh.position.y = getGroundY(gpx, gpz) - 0.08;
+    }
+  }
+  const floraArrays = [ferns, flowers, reeds, thornblooms, helixvines, snapthorns,
+    spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, dandelions];
+  for (let ai = 0; ai < floraArrays.length; ai++) {
+    const arr = floraArrays[ai];
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const e = arr[i];
+      const ex = e.group.position.x, ez = e.group.position.z;
+      if (overlapsHouse(ex, ez)) {
+        scene.remove(e.group);
+        arr.splice(i, 1);
+      } else {
+        e.group.position.y = getGroundY(ex, ez);
+      }
+    }
+  }
+  for (let i = mush_data.length - 1; i >= 0; i--) {
+    const m = mush_data[i];
+    const mx = m.x, mz = m.z;
+    if (overlapsHouse(mx, mz)) {
+      scene.remove(m.group);
+      mush_data.splice(i, 1);
+    } else {
+      m.group.position.y = getGroundY(mx, mz);
+    }
+  }
+
   // Ground glow patches (subtle bioluminescent light on terrain)
   for (let i = 0; i < GROUND_GLOW_N; i++) {
     const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.8);

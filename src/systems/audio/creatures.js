@@ -265,13 +265,12 @@ export function playAttunementFlash(position, playerPos, creatureType) {
     if (isLast) {
       g.gain.setValueAtTime(noteVol, noteStart + 0.5);
       g.gain.exponentialRampToValueAtTime(0.001, noteStart + 1.2);
-      osc.stop(noteStart + 1.3);
     } else {
       g.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDur + 0.04);
-      osc.stop(noteStart + noteDur + 0.06);
     }
     osc.connect(g).connect(panner);
     osc.start(noteStart);
+    osc.stop(noteStart + (isLast ? 1.3 : noteDur + 0.06));
 
     const harm = ctx.createOscillator();
     harm.type = 'sine'; harm.frequency.value = freq * 2;

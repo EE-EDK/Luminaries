@@ -618,15 +618,15 @@ function transformTreesAndGround() {
   for (let i = 0; i < treeMeshesRef.length; i++) {
     const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    if (mesh.trunkMat) { mesh.trunkMat.color.set(C.transformTrunk); mesh.trunkMat.emissive.set(C.transformTrunkGlow); mesh.trunkMat.emissiveIntensity = 1.2; }
-    if (mesh.canopyMat) { mesh.canopyMat.color.set(shade.core); mesh.canopyMat.emissive.set(shade.glow); mesh.canopyMat.emissiveIntensity = 3.5; }
-    if (mesh.glowMat) { mesh.glowMat.color.set(shade.glow); mesh.glowMat.emissive.set(shade.glow); mesh.glowMat.emissiveIntensity = 1.2; }
-    if (mesh.detailMat) { mesh.detailMat.color.set(shade.color); mesh.detailMat.emissive.set(shade.glow); mesh.detailMat.emissiveIntensity = 1.5; }
+    if (mesh.trunkMat) { mesh.trunkMat.emissive.set(0x884466); mesh.trunkMat.emissiveIntensity = 0.35; }
+    if (mesh.canopyMat) { mesh.canopyMat.color.set(shade.core); mesh.canopyMat.emissive.set(shade.glow); mesh.canopyMat.emissiveIntensity = 2.0; }
+    if (mesh.glowMat) { mesh.glowMat.color.set(shade.glow); mesh.glowMat.emissive.set(shade.glow); mesh.glowMat.emissiveIntensity = 0.9; }
+    if (mesh.detailMat) { mesh.detailMat.color.set(shade.color); mesh.detailMat.emissive.set(shade.glow); mesh.detailMat.emissiveIntensity = 1.0; }
   }
   setGroundTransform(1.0);
   if (groundMesh?.material) {
     groundMesh.material.emissive.set(C.transformGroundGlow);
-    groundMesh.material.emissiveIntensity = 0.4;
+    groundMesh.material.emissiveIntensity = 0.25;
     const colorAttr = groundMesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;
@@ -683,8 +683,6 @@ function transformTreesAndGround() {
     });
   }
 
-  // Transform sky — teal/green dawn to complement pink ground
-  scene.background.setHex(0x0e3530);
-  scene.fog.color.setHex(0x143830);
+  // Transform sky — day/night cycle reads isSkyTransformed() for background/fog
   transformSky();
 }

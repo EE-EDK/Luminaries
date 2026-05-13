@@ -12,7 +12,7 @@
 //   The sun follows the forest.
 
 import { Color } from 'three';
-import { setSkyBrightness } from '../world/sky.js';
+import { setSkyBrightness, isSkyTransformed } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { C } from '../constants.js';
 import { lerp } from '../utils/math.js';
@@ -150,15 +150,21 @@ export function updateDayNight(dt) {
   }
 
   // --- Scene background (+ orb progression: brighter sky each orb found) ---
-  _c1.copy(a.sky).lerp(b.sky, t);
-  _c1.multiplyScalar(orbSkyMult);
-  sceneRef.background.copy(_c1);
+  if (isSkyTransformed()) {
+    sceneRef.background.setRGB(0.06, 0.22, 0.19);
+    sceneRef.fog.color.setRGB(0.08, 0.24, 0.20);
+    sceneRef.fog.density = 0.007;
+  } else {
+    _c1.copy(a.sky).lerp(b.sky, t);
+    _c1.multiplyScalar(orbSkyMult);
+    sceneRef.background.copy(_c1);
 
-  // --- Fog ---
-  _c1.copy(a.fog).lerp(b.fog, t);
-  _c1.multiplyScalar(orbSkyMult);
-  sceneRef.fog.color.copy(_c1);
-  sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
+    // --- Fog ---
+    _c1.copy(a.fog).lerp(b.fog, t);
+    _c1.multiplyScalar(orbSkyMult);
+    sceneRef.fog.color.copy(_c1);
+    sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
+  }
 
   // --- Primary moon light ---
   if (moonRef) {

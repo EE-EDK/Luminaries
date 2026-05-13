@@ -409,11 +409,11 @@ export function updateSky(dt, t) {
   // --- Twinkling stars ---
   if (twinkleSizeAttr) {
     const arr = twinkleSizeAttr.array;
+    const starScale = _skyTransformed ? 0.15 : 1.0;
     for (let i = 0; i < TWINKLE_COUNT; i++) {
       const base = twinkleSizes[i];
       const twinkle = Math.sin(t * twinkleSpeeds[i] + twinklePhases[i]);
-      // Oscillate between 30% and 100% of base size
-      arr[i] = base * (0.65 + twinkle * 0.35);
+      arr[i] = base * (0.65 + twinkle * 0.35) * starScale;
     }
     twinkleSizeAttr.needsUpdate = true;
   }
@@ -497,6 +497,10 @@ export function setSkyBrightness(brightness) {
   }
   const v = Math.max(0.15, brightness); // never fully black
   skyDomeMat.color.setRGB(v, v, v);
+}
+
+export function isSkyTransformed() {
+  return _skyTransformed;
 }
 
 export function transformSky() {

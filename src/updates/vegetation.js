@@ -410,11 +410,9 @@ export function updateFloraReactions(dt, t) {
       }
     }
     
-    // Visual feedback for nearby crystals (pulsing)
-    if (distSq < 400) {
-      const p = Math.sin(t * 3 + i * 0.5) * 0.2 + 0.8;
-      c.mat.emissiveIntensity = p * getLocalGlow(c.x, c.z, bioGlow * orbBoost);
-    }
+    // NOTE: crystal emissiveIntensity is owned solely by crystalVisuals.js
+    // (updateCrystalVisuals). The former proximity pulse here is folded into
+    // that system's idle branch, which multiplies idle emissive by local glow.
   }
   
   // Cleanup/fade unused lines

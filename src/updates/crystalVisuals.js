@@ -3,6 +3,9 @@
 // ================================================================
 import { on, Events } from '../kernel/eventBus.js';
 import { crys_data } from '../state/entityStore.js';
+import { getLocalGlow } from '../systems/dimming.js';
+import { bioGlow } from '../systems/dayNightCycle.js';
+import { orbBoost } from '../state/gameState.js';
 
 let activeIndices = [];
 let targetIntensity = 0;
@@ -49,9 +52,11 @@ export function updateCrystalVisuals(dt, t) {
       const sc = 1.0 + currentIntensity * 0.05 * pulse;
       crys.group.scale.setScalar(sc);
     } else {
-      // Idle pulse
+      // Idle pulse. crystalVisuals is the sole owner of crystal emissive, so the
+      // local-glow term (formerly applied by _directorFloraGlow / updateFloraReactions)
+      // is folded in here: dimmed sectors dim crystals, restored sectors brighten them.
       const idle = Math.sin(t * 1.5 + crys.phase) * 0.2 + 0.8;
-      mat.emissiveIntensity = idle;
+      mat.emissiveIntensity = idle * getLocalGlow(crys.x, crys.z, bioGlow * orbBoost);
       crys.group.scale.setScalar(1.0);
     }
   }

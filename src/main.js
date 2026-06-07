@@ -312,17 +312,11 @@ function _directorFloraGlow(dt, t, ctx) {
   timeEnd('mushrooms');
 
   timeStart('crystals');
+  // NOTE: crystal emissiveIntensity + group scale are owned solely by
+  // crystalVisuals.js (updateCrystalVisuals). Do NOT write c.mat.emissiveIntensity
+  // here — only the spin and the proximity light loop below remain.
   for (let i = 0; i < crys_data.length; i++) {
     const c = crys_data[i];
-    const p = Math.sin(t * 0.6 + c.phase) * 0.5 + 0.5;
-    const cGlow = getLocalGlow(c.x, c.z, e.bioGlow * e.orbBoost);
-    c.mat.emissiveIntensity = (1.0 + p * 1.5) * cGlow;
-    if (a.flashTimer > 0) {
-      const cdx = c.x - pPos.x, cdz = c.z - pPos.z;
-      if (cdx * cdx + cdz * cdz < 225) {
-        c.mat.emissiveIntensity += a.flashTimer * 0.35;
-      }
-    }
     c.group.children[0].rotation.y += dt * 0.15;
   }
 

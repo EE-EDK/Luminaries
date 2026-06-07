@@ -72,4 +72,21 @@ describe('narrativeState (fresh module per test)', () => {
     narrative.markDiscovered('jelly');
     expect(narrative.isDiscovered('jelly')).toBe(true);
   });
+
+  it('truth starts sealed and can be revealed once', () => {
+    expect(narrative.isTruthRevealed()).toBe(false);
+    narrative.revealTruth();
+    expect(narrative.isTruthRevealed()).toBe(true);
+  });
+
+  it('revealTruth is one-way (second call is no-op)', async () => {
+    const ev = vi.fn();
+    const bus = await import('../../kernel/eventBus.js');
+    bus.on(bus.Events.PERSPECTIVE_CHANGED, ev);
+    narrative.revealTruth();
+    narrative.revealTruth();
+    expect(ev).toHaveBeenCalledTimes(1);
+    expect(ev.mock.calls[0][0]).toMatchObject({ truthRevealed: true });
+    bus.off(bus.Events.PERSPECTIVE_CHANGED, ev);
+  });
 });

@@ -29,6 +29,27 @@ export const togglePerspective = () => {
 };
 
 // ================================================================
+// Truth Reveal (wizard payoff) — persistent, one-way
+// ================================================================
+let _truthRevealed = false;
+
+/**
+ * Returns whether the wizard has revealed the truth of both worlds.
+ * @returns {boolean}
+ */
+export const isTruthRevealed = () => _truthRevealed;
+
+/**
+ * Permanently reveals the truth (one-way). Emits PERSPECTIVE_CHANGED
+ * with truthRevealed:true so subscribers can react.
+ */
+export const revealTruth = () => {
+  if (_truthRevealed) return;
+  _truthRevealed = true;
+  emit(Events.PERSPECTIVE_CHANGED, { perspective: _perspective, truthRevealed: true });
+};
+
+// ================================================================
 // Discovery Tracking
 // ================================================================
 

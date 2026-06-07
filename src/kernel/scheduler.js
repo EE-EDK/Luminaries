@@ -20,6 +20,9 @@ export const Phase = {
   CRYSTAL_PROXIMITY:  10,
   PARTICLE_SPAWN:     20,
   FLORA_GLOW:         30,
+  // Crystal resonance-chain visuals run with other glow work (after flora glow,
+  // before spirit hum). crystalVisuals is the single owner of crystal emissive/scale.
+  CRYSTAL_VISUALS:    32,
   SPATIAL_HASH_UPDATE: 35,
   // Spirit hum before fauna so pitch-lock is current when jellies/attunement read isLocked().
   SPIRIT_HUM:         38,

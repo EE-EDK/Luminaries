@@ -45,6 +45,11 @@ export function registerAllSystems(deps) {
     if (deps.floraGlow) deps.floraGlow(dt, t, ctx);
   });
 
+  // --- Crystal Visuals (resonance-chain pulse; single owner of crystal emissive) ---
+  addSystem('crystalVisuals', Phase.CRYSTAL_VISUALS, (dt, t, ctx) => {
+    if (deps.crystalVisualsUpdate) deps.crystalVisualsUpdate(dt, t, ctx);
+  });
+
   // --- Spirit Hum (phase before fauna — lock state matches jelly ritual same frame) ---
   addSystem('spiritHum', Phase.SPIRIT_HUM, (dt, t, ctx) => {
     if (deps.spiritHumUpdate) deps.spiritHumUpdate(dt, t, ctx);

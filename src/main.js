@@ -687,6 +687,9 @@ try {
   initOrbBurst();
   initResonanceRings(scene);
   initEchoVisions();
+  // Crystal resonance-chain visuals: register the CRYSTAL_CHAIN listener once.
+  // crystalVisuals is the single per-frame owner of crystal emissive/scale.
+  initCrystalVisuals();
 
   // Aurora (sky event)
   initAurora();
@@ -781,6 +784,7 @@ try {
     crystalProximity: (dt, t, ctx) => _directorCrystalProximity(dt, t, ctx),
     particleSpawn: (dt, t, ctx) => _directorParticleSpawn(dt, t, ctx),
     floraGlow: (dt, t, ctx) => _directorFloraGlow(dt, t, ctx),
+    crystalVisualsUpdate: (dt, t, ctx) => _directorCrystalVisuals(dt, t, ctx),
     faunaUpdate: (dt, t, ctx) => _directorFaunaUpdate(dt, t, ctx),
     spiritHumUpdate: (dt, t, ctx) => _directorSpiritHum(dt, t, ctx),
     attunementUpdate: (dt, t, ctx) => _directorAttunement(dt, t, ctx),

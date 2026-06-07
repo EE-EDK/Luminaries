@@ -235,12 +235,13 @@ function pickMessage(sectorRestored, nearOrb, attunement, hasFrequency) {
     poolSet = MESSAGES_ATTUNING;
   } else if (nearOrb) {
     poolSet = MESSAGES_NEAR_ORB;
+  } else if (Math.random() < 0.25) {
+    // 25% chance of a general idle line regardless of sector state
+    poolSet = MESSAGES_GENERAL;
   } else if (sectorRestored) {
     poolSet = MESSAGES_RESTORED;
-  } else if (!sectorRestored) {
-    poolSet = MESSAGES_DIMMED;
   } else {
-    poolSet = MESSAGES_GENERAL;
+    poolSet = MESSAGES_DIMMED;
   }
   const pool = poolSet[perspective] || poolSet.child;
   return pool[Math.floor(Math.random() * pool.length)];

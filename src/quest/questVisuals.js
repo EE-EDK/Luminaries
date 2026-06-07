@@ -17,7 +17,7 @@ import { transformSky } from '../world/sky.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(C.white);
-const _orbActivatedPink = new Color(0xff4fd2);
+const _orbActivatedPink = new Color(C.orbActivatedPink);
 
 // References
 let orbs = [];

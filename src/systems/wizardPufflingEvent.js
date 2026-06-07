@@ -13,8 +13,8 @@ import { player } from '../core/player.js';
  */
 export const WIZARD_APPROACH_DEBUG_ONLY = false;
 
-/** Cumulative time moving (not wall-clock) before spawn — ~1 min of walking */
-const TRIGGER_WANDER_SECONDS = 50;
+/** Cumulative time moving (not wall-clock) before spawn — ~18s of walking */
+const TRIGGER_WANDER_SECONDS = 18;
 /** Fast trigger when WIZARD_APPROACH_DEBUG_ONLY */
 const TRIGGER_WANDER_SECONDS_DEBUG = 6;
 const APPROACH_MIN_SEC = 4;

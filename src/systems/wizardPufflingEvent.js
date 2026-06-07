@@ -3,7 +3,7 @@ import { scene } from '../core/renderer.js';
 import { C } from '../constants.js';
 import { makePuff } from '../entities/fauna/pufflings.js';
 import { playWizardApproachLaLa } from './audio/creatures.js';
-import { humFreqArmed, yaw } from '../core/input.js';
+import { humFreqArmed, pitch, yaw } from '../core/input.js';
 import { player } from '../core/player.js';
 
 /**
@@ -70,6 +70,13 @@ let _deadSoulShown = false;
 let _confrontT = 0;
 let _waitHumT = 0;
 let _humWasArmed = false;
+/** Player look angles captured at idle->approach, eased back to on encounter end */
+let _savedYaw = 0;
+let _savedPitch = 0;
+/** Ease-back timer (seconds) while handing the camera back to the player */
+let _handBackTimer = 0;
+/** Duration (seconds) of the camera ease-back at encounter end */
+const HAND_BACK_SEC = 0.6;
 
 function wrapPi(a) {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -294,6 +301,10 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     if (speed2 > 0.06) _movingTimer += dt;
     if (_movingTimer >= wanderTh) {
       spawnWizardNearPlayer(ctx.player.pos, ctx.yaw);
+      // Capture the player's current look so the camera can ease back to it on encounter end.
+      _savedYaw = ctx.yaw;
+      _savedPitch = ctx.pitch;
+      _handBackTimer = 0;
       _state = 'approach';
       _phaseTimer = 0;
       _approachHintShown = false;
@@ -589,18 +600,34 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     if (pt >= SMITE_TOTAL - 0.05) cleanupLaser();
 
     if (pt >= SMITE_TOTAL) {
+      // Ease the camera back to the player's pre-encounter look rather than dropping it abruptly.
+      _state = 'handBack';
+      _handBackTimer = 0;
+      if (_onTruthUnlocked) _onTruthUnlocked();
+      // Continue this frame into the ease-back below (no early return).
+    } else {
+      focusVec.x = _wizard ? _wizard.group.position.x : _smiteFocus.x;
+      focusVec.y = _wizard
+        ? _getGroundY(_wizard.group.position.x, _wizard.group.position.z) + 0.38
+        : _smiteFocus.y;
+      focusVec.z = _wizard ? _wizard.group.position.z : _smiteFocus.z;
+      return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
+    }
+  }
+
+  if (_state === 'handBack') {
+    _handBackTimer += dt;
+    const u = smoothstep01(_handBackTimer / HAND_BACK_SEC);
+    // Lerp the latched forced angles toward the saved player look (shortest path on yaw).
+    const easedYaw = _camYaw + wrapPi(_savedYaw - _camYaw) * u;
+    const easedPitch = _camPitch + (_savedPitch - _camPitch) * u;
+    if (_handBackTimer >= HAND_BACK_SEC) {
       _state = 'done';
       clearCameraForce();
-      if (_onTruthUnlocked) _onTruthUnlocked();
-      return null;
+      // Snap exactly to the saved look on the final frame, then release control.
+      return { active: true, yaw: _savedYaw, pitch: _savedPitch };
     }
-
-    focusVec.x = _wizard ? _wizard.group.position.x : _smiteFocus.x;
-    focusVec.y = _wizard
-      ? _getGroundY(_wizard.group.position.x, _wizard.group.position.z) + 0.38
-      : _smiteFocus.y;
-    focusVec.z = _wizard ? _wizard.group.position.z : _smiteFocus.z;
-    return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);
+    return { active: true, yaw: easedYaw, pitch: easedPitch };
   }
 
   return null;
@@ -632,6 +659,10 @@ export function debugSpawnWizardEncounter() {
   _waitHumT = 0;
   _laLaTimer = 3;
   spawnWizardNearPlayer(player.pos, yaw);
+  // Capture current look so the camera eases back to it when the debug encounter ends.
+  _savedYaw = yaw;
+  _savedPitch = pitch;
+  _handBackTimer = 0;
   _state = 'approach';
   return true;
 }

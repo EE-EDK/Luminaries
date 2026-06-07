@@ -9,7 +9,7 @@ import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
 import { spawnBubblePop } from '../particles/bubblePops.js';
 import { emit, Events } from '../kernel/eventBus.js';
-import { player, playerIdleTime, setPlayerBoost } from '../core/player.js';
+import { player, playerIdleTime, setPlayerBoost, consumeJumpEdge } from '../core/player.js';
 import { keys, touchSprint } from '../core/input.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { orbBoost, setBubblePulse } from '../state/gameState.js';
@@ -88,6 +88,10 @@ export function updateWisps(dt, t) {
 
 export function updateFairyRings(dt, t) {
   let featherFallTriggered = false;
+  // Consume the one-frame grounded-jump edge once per frame (updatePlayer runs earlier
+  // in the same frame and sets it). The player can only be inside one ring at a time, so
+  // reading it before the loop is correct and avoids a later ring "stealing" the edge.
+  const jumpEdgeThisFrame = consumeJumpEdge();
   for (let i = 0; i < fairyRings.length; i++) {
     const fr = fairyRings[i];
     const dx = fr.x - player.pos.x, dz = fr.z - player.pos.z;
@@ -97,7 +101,10 @@ export function updateFairyRings(dt, t) {
     fr.glowIntensity += (targetGlow - fr.glowIntensity) * dt * 3;
     fr.discMat.opacity = fr.glowIntensity * 0.5 * (0.6 + Math.sin(t * 2 + fr.phase) * 0.4);
     fr.mushMat.emissiveIntensity = (0.2 + fr.glowIntensity * 0.8) * getLocalGlow(fr.x, fr.z, bioGlow * orbBoost);
-    if (inRing && player.vel.y > 0 && player.vel.y <= JUMP_IMPULSE + 0.5) {
+    // Fire the fairy-ring boost on the jump rising-edge while in-ring (the player is
+    // grounded when the edge is produced), instead of sniffing a post-clamp vel.y window
+    // which could miss frames at varying dt or after the impulse was modified.
+    if (inRing && jumpEdgeThisFrame) {
       const ringRestored = isRestored(fr.x, fr.z);
       if (ringRestored) {
         player.vel.y = JUMP_IMPULSE * 3.5;

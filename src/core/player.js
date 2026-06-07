@@ -35,6 +35,17 @@ export function setPlayerBoost(speed, jump, duration) {
 export let gravityMult = 1.0;
 export function setGravityMult(val) { gravityMult = val; }
 
+// One-frame jump rising-edge signal. Set true on the frame a jump actually fires
+// (Space/touchJump pressed AND grounded); consumed once by downstream systems
+// (e.g. fairy-ring super-jump). Reset every updatePlayer so it never goes stale.
+let _jumpEdge = false;
+/** Returns true exactly once on the frame a grounded jump fired, then clears the flag. */
+export function consumeJumpEdge() {
+  const e = _jumpEdge;
+  _jumpEdge = false;
+  return e;
+}
+
 // Audio callbacks (set from main)
 let onStepFn = null, onJumpFn = null, onLandFn = null;
 let prevBobSign = 1;
@@ -72,9 +83,13 @@ export function updatePlayer(dt) {
   player.vel.x = inp.x * (currentMoveSpeed / MOVE_SPEED); // Input is pre-scaled by MOVE_SPEED in input.js
   player.vel.z = inp.z * (currentMoveSpeed / MOVE_SPEED);
   
+  // Clear last frame's jump edge before re-evaluating (so a consumer that never
+  // ran does not see a stale edge next frame).
+  _jumpEdge = false;
   player.vel.y -= GRAVITY * gravityMult * dt;
   if ((keys['Space'] || touchJump) && player.onGround) {
     player.vel.y = currentJumpImpulse; player.onGround = false; setTouchJump(false);
+    _jumpEdge = true; // rising-edge: grounded jump fired this frame
     if (onJumpFn) onJumpFn();
     emit(Events.JUMP);
   }

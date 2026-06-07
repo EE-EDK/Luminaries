@@ -243,23 +243,32 @@ function syncContext(dt, t) {
 // ================================================================
 let dirState = 'EXPLORE';
 
-function director(dt, t) {
-  // Sync frame values to kernel context slices
-  syncContext(dt, t);
-
-  // Enhancement 8: Slow-mo micro-pause — world holds its breath on attunement flash
-  // First 0.4s at 0.3× speed, then ease back to 1.0× over next 0.6s (1.0s total dilation)
+// Enhancement 8: Slow-mo micro-pause — world holds its breath on attunement flash.
+// First 0.4s at 0.3× speed, then ease back to 1.0× over next 0.6s (1.0s total dilation).
+// Single source of truth so the player physics (in animate) and the world systems
+// (in director) share the exact same time scale during the breath beat.
+function attuneTimeScale() {
   if (_attuneFlashTimer > 1.5) { // first 1.0s of the 2.5s window
     const dilationT = (_attuneFlashTimer - 1.5); // 1.0 → 0.0
-    const timeScale = dilationT > 0.6 ? 0.3 : (0.3 + (1.0 - dilationT / 0.6) * 0.7);
-    dt *= timeScale;
+    return dilationT > 0.6 ? 0.3 : (0.3 + (1.0 - dilationT / 0.6) * 0.7);
   }
+  return 1.0;
+}
+
+function director(dt, t) {
+  // Sync frame values to kernel context slices (real dt → ctx.dt for decay-style timers).
+  syncContext(dt, t);
+
+  // World shares the player's dilated time scale during the attunement breath beat.
+  const worldDt = dt * attuneTimeScale();
 
   // Run all registered systems in phase order
-  runScheduler(dt, t);
+  runScheduler(worldDt, t);
 
-  decayAttuneFlash(dt);
-  decayEchoTimer(dt);
+  // Decay on the dilated worldDt — unchanged from the original (preserves the
+  // self-stretching breath-beat window the slow-mo produced).
+  decayAttuneFlash(worldDt);
+  decayEchoTimer(worldDt);
 
   reportTimings(renderer);
 }
@@ -575,7 +584,10 @@ function animate() {
   } else {
     setGravityMult(1.0);
   }
-  updatePlayer(dt);
+  // Slow-mo beat: dilate the player's physics dt with the SAME scale the world uses in
+  // director() so movement, gravity, jump arcs and head-bob slow with the breath beat.
+  // attuneTimeScale() returns 1.0 outside the beat, so normal play is unaffected.
+  updatePlayer(dt * attuneTimeScale());
   // Sync camera to player *before* wizard event so look-at physics match current player (not T-1 frame).
   camera.position.copy(player.pos);
   camera.position.y += cameraBobY;

@@ -19,8 +19,8 @@ export const QUEST_CONFIG = {
 };
 
 // Required carried creature frequency per orb index (0-based).
-// Orb 1 stays puff-friendly onboarding. Orb 5 accepts any carried frequency.
-export const ORB_CREATURE_SEQUENCE = ['puff', 'jelly', 'deer', 'moth', 'any'];
+// Orb 1 accepts any carried frequency (onboarding). Orb 5 also accepts any.
+export const ORB_CREATURE_SEQUENCE = ['any', 'jelly', 'deer', 'moth', 'any'];
 
 // Shown by orb count (0–4): mood of what the next sleeper asks for—no species or recipe.
 export const ORB_STAGE_HINTS = {

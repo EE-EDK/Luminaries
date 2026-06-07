@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { initQuestState, attemptCollectOrb, getQuestState } from '../questState.js';
 import { setFreeGrabMode } from '../../debug/debugFlags.js';
+import { ORB_CREATURE_SEQUENCE } from '../config.js';
 
 const ORBS = [{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }, { x: 15, z: 0 }, { x: 20, z: 0 }];
 
@@ -24,5 +25,9 @@ describe('orb frequency gate', () => {
     const r = attemptCollectOrb(0, { x: 100, z: 100 });
     expect(r).toBe(null);
     expect(getQuestState().orbsFound).toBe(0);
+  });
+
+  it('orb 0 accepts any frequency (onboarding)', () => {
+    expect(ORB_CREATURE_SEQUENCE[0]).toBe('any');
   });
 });

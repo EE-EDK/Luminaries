@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { GRAVITY, MOVE_SPEED, SPRINT_MULT, JUMP_IMPULSE, GROUND_DRAG, AIR_DRAG, EYE_H, WORLD_R } from '../constants.js';
+import { GRAVITY, MOVE_SPEED, SPRINT_MULT, JUMP_IMPULSE, EYE_H, WORLD_R } from '../constants.js';
 import { camera } from './renderer.js';
 import { playerLight } from './lighting.js';
 import { getInput, keys, yaw, pitch, touchJump, setTouchJump, touchSprint } from './input.js';
@@ -125,8 +125,7 @@ export function updatePlayer(dt) {
     player.onGround = true;
   }
   wasOnGround = player.onGround;
-  if (player.onGround) { player.vel.x *= GROUND_DRAG; player.vel.z *= GROUND_DRAG; }
-  else { player.vel.x *= AIR_DRAG; player.vel.z *= AIR_DRAG; }
+  // Movement is intentionally stop-on-release (arcade model); collisions resolve via position push-out, not velocity reflection.
 
   // --- Collision: push player out of tree trunks and rocks ---
   const PLAYER_R = 0.4;
@@ -173,11 +172,6 @@ export function updatePlayer(dt) {
       const nz = cdz * inv;
       player.pos.x = hd.x + nx * hr;
       player.pos.z = hd.z + nz * hr;
-      const vn = player.vel.x * nx + player.vel.z * nz;
-      if (vn < 0) {
-        player.vel.x -= vn * nx;
-        player.vel.z -= vn * nz;
-      }
     }
   }
   resolveHouseCollisions();

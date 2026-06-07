@@ -7,7 +7,6 @@
 import { player } from '../core/player.js';
 import { keys, touchSprint, yaw, mouseDown, touchJump } from '../core/input.js';
 import { updateAttunement, getAttunementTarget, getFlashCreaturePos, checkFlash } from '../systems/attunement.js';
-import { playAttunementFlash } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
 import { getPerspective } from '../state/narrativeState.js';
@@ -52,7 +51,7 @@ export function updateAttunementVisuals(dt, t, ctx) {
     setEchoTimer(1.5);
     const _flashType = getAttunementTarget();
     const flashPos = getFlashCreaturePos() || nearest.puffPos;
-    playAttunementFlash(flashPos, ctx?.player?.pos || player.pos, _flashType);
+    // Audio fires once via audio.js on(Events.CREATURE_ATTUNED) — no direct call here
     if (_flashType && _attuneTexts[_flashType]) {
       const _atxt = _attuneTexts[_flashType][getPerspective()] || _attuneTexts[_flashType].child;
       showNarrativeText(_atxt, 5.0);

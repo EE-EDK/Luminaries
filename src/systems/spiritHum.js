@@ -143,8 +143,8 @@ export function updateHum(dt, inputY, nearestCreatures) {
 
   resonance = bestResonance;
 
-  // Build lock timer if resonating (low threshold so edge-of-band still progresses)
-  if (resonance > 0.15 && !pitchLocked) {
+  // Build lock timer if resonating (shared boundary 0.12 — no dead band)
+  if (resonance > 0.12 && !pitchLocked) {
     // Stronger resonance builds faster
     lockTimer += dt * (0.5 + resonance * 0.5);
     if (lockTimer >= HUM_LOCK_TIME) {
@@ -164,8 +164,8 @@ export function updateHum(dt, inputY, nearestCreatures) {
       // Stop humming automatically once locked
       humActive = false;
     }
-  } else if (resonance <= 0.1) {
-    // Decay lock timer when not in any band
+  } else if (resonance <= 0.12) {
+    // Decay lock timer when not in any band (shared boundary — no (0.10,0.15] freeze)
     lockTimer = Math.max(0, lockTimer - dt * 0.5);
   }
 }

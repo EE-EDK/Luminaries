@@ -302,7 +302,6 @@ export function consumeFrequency() {
 // ================================================================
 export function checkFlash() {
   if (flashPending) {
-    emit(Events.ATTUNEMENT_FLASH, { type: playerFrequency, pos: flashCreaturePos });
     flashPending = false;
     return true;
   }

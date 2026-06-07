@@ -16,7 +16,6 @@ export const Events = {
 
   // Creature interaction
   CREATURE_ATTUNED:   'creature:attuned',
-  ATTUNEMENT_FLASH:   'attunement:flash',
   PITCH_LOCKED:       'hum:locked',
   ENTITY_MOOD_CHANGE: 'entity:mood',
   SYMBIOSIS_COUPLED:  'symbiosis:coupled',

@@ -41,7 +41,6 @@ scene.add(playerLight);
 // Priority Light Pooler — manages the limited point light budget
 // Budget: 1 Hemi + 2 Dir + 1 Player + 4 Dynamic Slots = 8 Hardware Lights
 export const dynamicLights = [];
-const lightRequests = [];
 
 export function initLightPooler() {
   for (let i = 0; i < MAX_CRYSTAL_LIGHTS; i++) {
@@ -49,38 +48,6 @@ export function initLightPooler() {
     scene.add(pl);
     dynamicLights.push(pl);
   }
-}
-
-/**
- * Register a light request for the current frame.
- * @param {number} x, y, z - World position
- * @param {number} color - Hex color
- * @param {number} intensity - Target intensity
- * @param {number} distance - Light range
- * @param {number} importance - Priority score (higher = more likely to get a slot)
- */
-export function requestLight(x, y, z, color, intensity, distance, importance) {
-  lightRequests.push({ x, y, z, color, intensity, distance, importance });
-}
-
-export function updateLightPooler() {
-  // Sort requests by importance (descending)
-  lightRequests.sort((a, b) => b.importance - a.importance);
-
-  for (let i = 0; i < dynamicLights.length; i++) {
-    const pl = dynamicLights[i];
-    if (i < lightRequests.length) {
-      const r = lightRequests[i];
-      pl.position.set(r.x, r.y, r.z);
-      pl.color.setHex(r.color);
-      pl.intensity = r.intensity;
-      pl.distance = r.distance;
-    } else {
-      pl.intensity = 0;
-    }
-  }
-  // Clear for next frame
-  lightRequests.length = 0;
 }
 
 // Legacy exports for compatibility (now handled by pooler)

@@ -1,4 +1,4 @@
-import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Sphere, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Sphere, SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -107,6 +107,7 @@ function getBarkTexture() {
   }
 
   _barkTexture = new CanvasTexture(canvas);
+  _barkTexture.colorSpace = SRGBColorSpace;
   _barkTexture.wrapS = RepeatWrapping;
   _barkTexture.wrapT = RepeatWrapping;
   return _barkTexture;

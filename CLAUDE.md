@@ -88,6 +88,7 @@ These are non-negotiable. Every session must follow them.
 - Guard every audio function: `if (!initialized || muted) return;`
 - Volumes: 0.02-0.08 per voice. Always call `.stop(time)` to prevent node accumulation.
 - Connect through `connectWithReverb(gain, masterGain, wetAmount)`.
+- **Sanctioned volume exceptions** (do not flag as bugs): thunder burst (`src/systems/audio/ambient.js` — 0.20/0.15, short transient with immediate exponential decay) and music bus voices (`src/systems/music.js` — 0.15, attenuated by musicMasterGain×0.6 × masterGain×0.42 ≈ 0.038 effective). Full rationale: `reference/audio.md` → "Sanctioned exceptions" table.
 
 ### Entity Placement
 - Use `sr()` for placement, never `Math.random()`.

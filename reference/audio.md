@@ -132,6 +132,18 @@ export function playNewSound(param1, param2) {
 - No audio files — everything is Web Audio API synthesis
 - Howler.js is in package.json but completely unused
 
+**Sanctioned exceptions to the 0.02-0.08 per-voice ceiling:**
+
+| Exception | Location | Peak value | Justification |
+|-----------|----------|------------|---------------|
+| Thunder oscillator | `src/systems/audio/ambient.js:78` | 0.20 initial → exponential decay | Short transient burst (≤1.5s). Thunder must be physically startling; tonal component decays to 0.001. |
+| Thunder noise component | `src/systems/audio/ambient.js:94` | 0.15 initial → exponential decay | Same burst. Brown-noise rumble body; decays to 0.001 within 1.2s. |
+| Music bus (harp/bass voices) | `src/systems/music.js:140,158,269` | 0.15 per voice | Routed through `musicMasterGain` (0.6) → `masterGain` (0.42); effective contribution to destination ≈ 0.038, well inside the per-voice ceiling at the output stage. |
+
+> **Why the music bus is safe:** `musicMasterGain.gain.value = 0.6` and `masterGain.gain.value = 0.42` apply successive attenuation. A 0.15 voice exits the chain at 0.15 × 0.6 × 0.42 ≈ 0.038 — comfortably within the 0.02-0.08 target. The 0.15 figure is a pre-bus level, not the delivered amplitude.
+>
+> **Why thunder is acceptable:** Thunder is a one-shot atmospheric transient (2-5s rate-limited by `thunderTimer`) that immediately envelope-decays. It is not a sustained voice and its peak loudness is intentional for the stormy weather UX moment. Both nodes call `.stop(now + 1.5)` and connect directly to `masterGain` (no additional bus attenuation), so the 0.20/0.15 values are the true delivered peaks — this is the intended perceptual impact.
+
 ## Spirit Hum Audio
 
 Player tone: sine fundamental + detuned sine (+7 cents) + triangle (octave up), routed through gain → `connectWithReverb(0.5)`. LFO at 3.5Hz ±4Hz for organic warble. Volume: 0.04 with 0.3s attack. Pitch glides via `setTargetAtTime(hz, now, 0.08)`.

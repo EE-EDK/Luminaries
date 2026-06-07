@@ -30,6 +30,7 @@ export const Events = {
   FAIRY_BOUNCE:       'fairy:bounce',
   BUBBLE_POP:         'bubble:pop',
   CRYSTAL_CHAIN:      'crystal:chain',
+  CRYSTAL_VISITED:    'crystal:visited',
   CREATURE_SOUND:     'creature:sound',
 
   // Weather / day-night

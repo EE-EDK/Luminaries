@@ -9,10 +9,12 @@ let targetIntensity = 0;
 let currentIntensity = 0;
 
 export function initCrystalVisuals() {
-  // Listen for crystal resonance events from the audio system
+  // Listen for crystal resonance events from the audio system.
+  // Canonical payload: { indices: number[], intensity: number }. Defensive
+  // defaults guard against malformed/partial emits.
   on(Events.CRYSTAL_CHAIN, (data) => {
-    activeIndices = data.indices;
-    targetIntensity = data.intensity;
+    activeIndices = Array.isArray(data && data.indices) ? data.indices : [];
+    targetIntensity = (data && typeof data.intensity === 'number') ? data.intensity : 0;
   });
 }
 

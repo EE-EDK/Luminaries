@@ -401,7 +401,9 @@ export function updateFloraReactions(dt, t) {
             }
             if (len >= 3) {
               setCrystalChainBoost(c.x, c.z);
-              emit(Events.CRYSTAL_CHAIN, { count: len, x: c.x, z: c.z });
+              // Proximity/discovery concern — distinct from the audio resonance
+              // CRYSTAL_CHAIN payload ({indices,intensity}). Keeps payloads unmixed.
+              emit(Events.CRYSTAL_VISITED, { count: len, x: c.x, z: c.z });
             }
           }
         }

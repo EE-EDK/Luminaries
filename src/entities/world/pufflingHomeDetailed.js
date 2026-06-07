@@ -6,6 +6,8 @@
 
 import {
   BoxGeometry,
+  BufferAttribute,
+  Color,
   CylinderGeometry,
   ExtrudeGeometry,
   Group,
@@ -19,6 +21,7 @@ import {
   Vector3
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { C } from '../../constants.js';
 
 /** Same footprint as mushroom-house-puffling-home.html HOUSE */
 export const PUFF_HOUSE = Object.freeze({
@@ -69,8 +72,13 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   const rng = mulberry32(seed);
   const H = PUFF_HOUSE;
 
+  // Per-brick HSL variation is baked into vertex colors (see below), so the base
+  // color stays white and the brick palette shows through at full saturation. The
+  // `stalk` hex still drives the cottage theme (uniform color, no vertex variation).
+  const brickVertexColored = !!theme.brickHueRange;
   const brickMat = new MeshStandardMaterial({
-    color: theme.stalk ?? 0x222a2a,
+    color: brickVertexColored ? 0xffffff : (theme.stalk ?? 0x222a2a),
+    vertexColors: brickVertexColored,
     roughness: 0.92,
     metalness: 0,
     fog: false
@@ -79,6 +87,9 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     brickMat.emissive.setHex(theme.brickEmissive);
     brickMat.emissiveIntensity = theme.brickEmissiveInt ?? 0;
   }
+  // Base emissive intensity floor, modulated per-frame by getLocalGlow so restored
+  // sectors brighten the houses while dimmed sectors keep a readable floor.
+  brickMat.userData.baseEmissiveInt = brickMat.emissiveIntensity;
   const innerMat = new MeshStandardMaterial({ color: theme.innerWall ?? 0x0a0a0a, roughness: 0.95, fog: false });
   const capMat = new MeshStandardMaterial({
     color: theme.cap,
@@ -130,9 +141,17 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   const _v = new Vector3();
 
   // --- Brick rings → single merged geometry (single material for perf) ---
+  // Per-brick HSL variation (hue 0.50–0.55, sat 0.05–0.18, lum 0.18–0.32 for the
+  // bio theme) is baked into vertex colors so the merged geometry stays one draw
+  // call while each brick reads distinctly against the night grade.
   const brickGeos = [];
   const brickH = H.baseHeight / H.brickLayers;
   const brickTemplate = new BoxGeometry(1, 1, 1);
+  const hueR = theme.brickHueRange;
+  const satR = theme.brickSatRange;
+  const lumR = theme.brickLumRange;
+  const _brickColor = new Color();
+  const vCount = brickTemplate.attributes.position.count;
   for (let i = 0; i < H.brickLayers; i++) {
     const t = i / Math.max(H.brickLayers - 1, 1);
     const radius = H.baseRadius * (1 - t) + H.topRadius * t;
@@ -147,6 +166,19 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
       _m.compose(new Vector3(bx, y, bz), _q, new Vector3(brickWidth, brickH * 0.9, 0.8));
       const g = brickTemplate.clone();
       g.applyMatrix4(_m);
+      if (brickVertexColored && hueR && satR && lumR) {
+        const h = hueR[0] + rng() * (hueR[1] - hueR[0]);
+        const s = satR[0] + rng() * (satR[1] - satR[0]);
+        const l = lumR[0] + rng() * (lumR[1] - lumR[0]);
+        _brickColor.setHSL(h, s, l);
+        const colors = new Float32Array(vCount * 3);
+        for (let v = 0; v < vCount; v++) {
+          colors[v * 3] = _brickColor.r;
+          colors[v * 3 + 1] = _brickColor.g;
+          colors[v * 3 + 2] = _brickColor.b;
+        }
+        g.setAttribute('color', new BufferAttribute(colors, 3));
+      }
       brickGeos.push(g);
     }
   }
@@ -284,9 +316,14 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
 /** Theme payload aligned with pufflingHomes THEME_BIO / THEME_COTTAGE + HTML innerWall/glass */
 export function themePayloadBioluminescent() {
   return {
-    stalk: 0x2a3535,
-    brickEmissive: 0x0a4838,
-    brickEmissiveInt: 0.55,
+    stalk: C.puffBrick,
+    // Per-brick HSL variation (matches mushroom-house-puffling-home.html, lightened
+    // so the shell reads at night). hue 0.50–0.55, sat 0.05–0.18, lum 0.18–0.32.
+    brickHueRange: [0.50, 0.55],
+    brickSatRange: [0.05, 0.18],
+    brickLumRange: [0.18, 0.32],
+    brickEmissive: C.puffBrickEmissive,
+    brickEmissiveInt: 1.0,
     innerWall: 0x0a1510,
     cap: 0x004444,
     capEmissive: 0x003833,
@@ -341,11 +378,19 @@ export function applyThemeToDetailedHouse(root, cottage) {
   const m = root.userData.pufflingMats;
   if (!m) return;
 
-  m.brickMat.color.setHex(p.stalk);
+  // Bio theme renders baked per-brick vertex colors (white base); cottage theme is a
+  // uniform stalk color (vertex colors ignored). Toggle the flag so both read right.
+  const vc = !!p.brickHueRange;
+  if (m.brickMat.vertexColors !== vc) {
+    m.brickMat.vertexColors = vc;
+    m.brickMat.needsUpdate = true;
+  }
+  m.brickMat.color.setHex(vc ? 0xffffff : p.stalk);
   if (p.brickEmissive !== undefined) {
     m.brickMat.emissive.setHex(p.brickEmissive);
     m.brickMat.emissiveIntensity = p.brickEmissiveInt ?? 0;
   }
+  m.brickMat.userData.baseEmissiveInt = m.brickMat.emissiveIntensity;
   m.innerMat.color.setHex(p.innerWall);
   m.capMat.color.setHex(p.cap);
   m.capMat.emissive.setHex(p.capEmissive);

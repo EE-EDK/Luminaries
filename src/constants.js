@@ -204,6 +204,10 @@ export const C = {
   // Puffling detail palette
   puffBelly: 0xfff0e0, puffBrow: 0x332211, puffMushroom: 0xff4444,
   puffMoss: 0x448822, puffTail: 0xffffff,
+  // Puffling home (mushroom house) brick palette — lighter teal base + stronger
+  // emissive so the brick shell reads as detail (not a black silhouette) at night.
+  // HSL variation ranges match mushroom-house-puffling-home.html BIOLUMINESCENT.
+  puffBrick: 0x3c4b4b, puffBrickEmissive: 0x18584a,
   // Jelly detail palette
   jellyOrgan: 0xbbddff, jellySpot: 0xeeffff, jellyTip: 0xddeeff, jellyMucus: 0xddffff,
   // Moth detail palette

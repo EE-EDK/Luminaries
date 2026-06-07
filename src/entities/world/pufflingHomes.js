@@ -25,6 +25,9 @@ import {
 import { WORLD_R, ORB_N } from '../../constants.js';
 import { on, Events } from '../../kernel/eventBus.js';
 import { getQuestState } from '../../quest/questState.js';
+import { getLocalGlow } from '../../systems/dimming.js';
+import { bioGlow } from '../../systems/dayNightCycle.js';
+import { orbBoost } from '../../state/gameState.js';
 
 const CLUSTER_N = 20;
 const HOUSE_CULL_DIST2 = 2025; // 45 m — roughly half the max placement range
@@ -326,13 +329,32 @@ export function placePufflingHomeClusters(ctx) {
   syncThemeFromQuest();
 }
 
+/**
+ * Emissive floor so dimmed sectors never crush the brick shell to a black
+ * silhouette; restored sectors brighten above this via getLocalGlow.
+ */
+const BRICK_EMISSIVE_FLOOR = 0.55;
+
 export function updatePufflingHomes() {
   const px = player.pos.x;
   const pz = player.pos.z;
+  const glowBase = bioGlow * orbBoost;
   for (let i = 0; i < _detailedRoots.length; i++) {
     const h = _detailedRoots[i];
     const dx = h.position.x - px;
     const dz = h.position.z - pz;
-    h.visible = (dx * dx + dz * dz) < HOUSE_CULL_DIST2;
+    const visible = (dx * dx + dz * dz) < HOUSE_CULL_DIST2;
+    h.visible = visible;
+    if (!visible) continue;
+    // Feed brick emissive through getLocalGlow so houses brighten in restored
+    // sectors, with a floor that survives the dimmed-sector saturation crush.
+    const mats = h.userData.pufflingMats;
+    if (mats && mats.brickMat) {
+      const base = mats.brickMat.userData.baseEmissiveInt ?? 0;
+      if (base > 0) {
+        const localGlow = getLocalGlow(h.position.x, h.position.z, glowBase);
+        mats.brickMat.emissiveIntensity = Math.max(BRICK_EMISSIVE_FLOOR, base * localGlow);
+      }
+    }
   }
 }

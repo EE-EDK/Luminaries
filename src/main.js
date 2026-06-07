@@ -93,7 +93,7 @@ import { initQuestVisuals, updateQuestVisuals } from './quest/questVisuals.js';
 import { makeLaser } from './quest/lasers.js';
 
 // Narrative
-import { togglePerspective, getPerspective } from './state/narrativeState.js';
+import { togglePerspective, getPerspective, revealTruth } from './state/narrativeState.js';
 import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
 // Population
@@ -711,7 +711,7 @@ try {
     showNarrativeText,
     playPufflingVocal,
     getGroundY,
-    onTruthUnlocked: unlockTruthControlHint
+    onTruthUnlocked: () => { revealTruth(); unlockTruthControlHint(); }
   });
 
   // Init UI (must be before quest so orb HUD element is available)

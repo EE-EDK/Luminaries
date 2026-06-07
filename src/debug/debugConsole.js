@@ -20,6 +20,7 @@ import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
 import { debugGrantOrbs, debugForcePhase, debugPauseTimers } from '../quest/questState.js';
 import { QuestPhases } from '../quest/config.js';
 import { unlockTruthControlHint } from '../core/input.js';
+import { revealTruth } from '../state/narrativeState.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 
 /** @type {number | null} */
@@ -155,6 +156,7 @@ export function attachLumiDebugApi() {
     },
 
     unlockTruth() {
+      revealTruth();
       unlockTruthControlHint();
     },
 
@@ -186,6 +188,7 @@ export function attachLumiDebugApi() {
 
     /** Truth hint + all four creatures (staggered) + 5 orbs — smoke-test everything */
     unlockEverything() {
+      revealTruth();
       unlockTruthControlHint();
       this.unlockSequence(350, ['jelly', 'deer', 'moth', 'puff']);
       window.setTimeout(() => debugGrantOrbs(5), 350 * 4 + 120);

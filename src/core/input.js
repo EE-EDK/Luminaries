@@ -127,8 +127,8 @@ if (mobile) {
 export function unlockTruthControlHint() {
   if (truthHintUnlocked || !controlsEl) return;
   truthHintUnlocked = true;
-  if (controlsEl.textContent.indexOf('TAB: the truth') === -1) {
-    controlsEl.textContent += ' · TAB: the truth';
+  if (controlsEl.textContent.indexOf('the veil is lifted') === -1) {
+    controlsEl.textContent += ' · TAB: the truth · the veil is lifted';
   }
 }
 

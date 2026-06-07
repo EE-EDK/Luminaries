@@ -35,7 +35,7 @@ const PREBEAM_SEC = 2.5;
 const APPROACH_HINT_TEXT = 'A wizard approaches?';
 const APPROACH_HINT_SEC = 3.6;
 const DEAD_SOUL_LINE = 'Another dead soul';
-const TAB_LINE = 'PRESS TAB to know the TRUTH!';
+const TAB_LINE = 'NOW you see BOTH worlds at once!';
 /** Confront: inspect + dead soul line, then wait for F (spirit hum). */
 const CONFRONT_DEAD_SOUL_AT = 0.85;
 const CONFRONT_TO_WAIT_HUM = 6.8;

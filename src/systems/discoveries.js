@@ -2,7 +2,7 @@
 // Discovery Moments — First Encounter Rewards
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
-import { getPerspective, isDiscovered, markDiscovered } from '../state/narrativeState.js';
+import { getPerspective, isDiscovered, isTruthRevealed, markDiscovered } from '../state/narrativeState.js';
 import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS } from '../quest/config.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
@@ -17,6 +17,41 @@ let fadeText = '';
 
 function dwellSec(base) {
   return base * READ_DWELL_MULT;
+}
+
+/**
+ * Renders the discovery overlay. When `secondary` is provided (the
+ * wizard has lifted the veil — both worlds visible at once), it is shown
+ * as a smaller subtitle beneath the primary line. Otherwise plain text.
+ */
+function renderDiscovery(primary, secondary) {
+  fadeText = secondary ? `${primary} / ${secondary}` : primary;
+  if (!discoveryEl) return;
+  if (secondary) {
+    discoveryEl.innerHTML =
+      `${primary}<span style="display:block;margin-top:6px;` +
+      `font-size:0.62em;letter-spacing:2px;color:#a8d8ff;` +
+      `text-shadow:0 0 10px #3399ff;opacity:0.85;">${secondary}</span>`;
+  } else {
+    discoveryEl.textContent = primary;
+  }
+  discoveryEl.style.opacity = '1';
+}
+
+/**
+ * Picks the dual-narrative line(s) from a {child, adult} label set.
+ * Once the truth is revealed, both lines are shown (child primary,
+ * adult secondary). Before that, only the active perspective's line.
+ * @returns {{primary: string, secondary: string|null}}
+ */
+function dualLine(set) {
+  const child = set.child;
+  const adult = set.adult;
+  if (isTruthRevealed() && child && adult && child !== adult) {
+    return { primary: child, secondary: adult };
+  }
+  const perspective = getPerspective();
+  return { primary: set[perspective] || child, secondary: null };
 }
 
 export function initDiscoveries() {
@@ -89,26 +124,19 @@ export function showDiscovery(key) {
   const labelSet = DISCOVERY_LABELS[key];
   if (!labelSet) return;
 
-  fadeText = labelSet[perspective] || labelSet.child;
+  const { primary, secondary } = dualLine(labelSet);
   fadeTimer = dwellSec(5.0);
-  if (discoveryEl) {
-    discoveryEl.textContent = fadeText;
-    discoveryEl.style.opacity = '1';
-  }
+  renderDiscovery(primary, secondary);
   emit(Events.DISCOVERY, { key, text: fadeText, perspective });
 }
 
 export function showOrbDiscovery(orbIndex) {
-  const perspective = getPerspective();
-  const textSet = ORB_NARRATIVE[perspective] || ORB_NARRATIVE.child;
-  const text = textSet[orbIndex];
-  if (!text) return;
-  fadeText = text;
+  const childText = ORB_NARRATIVE.child[orbIndex];
+  const adultText = ORB_NARRATIVE.adult[orbIndex];
+  const { primary, secondary } = dualLine({ child: childText, adult: adultText });
+  if (!primary) return;
   fadeTimer = dwellSec(6.0);
-  if (discoveryEl) {
-    discoveryEl.textContent = fadeText;
-    discoveryEl.style.opacity = '1';
-  }
+  renderDiscovery(primary, secondary);
 }
 
 export function showNarrativeText(text, duration) {

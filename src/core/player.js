@@ -94,7 +94,11 @@ export function updatePlayer(dt) {
   player.pos.z += player.vel.z * dt;
   const groundY = getGroundY(player.pos.x, player.pos.z) + EYE_H;
   if (player.pos.y <= groundY) {
-    player.pos.y = groundY; player.vel.y = 0;
+    // Hard-catch if we fell well below ground (>0.5m), else ease up to the
+    // surface so terrace/ridge/cell boundaries don't pop the camera.
+    if (groundY - player.pos.y > 0.5) player.pos.y = groundY;
+    else player.pos.y += (groundY - player.pos.y) * Math.min(12 * dt, 1);
+    player.vel.y = 0;
     // Landing detection
     if (!wasOnGround && landingVelY < -3) {
       const impactStrength = Math.min(Math.abs(landingVelY) / JUMP_IMPULSE, 1);

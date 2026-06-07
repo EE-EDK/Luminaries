@@ -21,7 +21,7 @@ import { lightningFlash } from '../systems/weather.js';
 const _playerLightColor = new Color(PLAYER_LIGHT_COLORS[0]);
 const _playerLightTargetColor = new Color(PLAYER_LIGHT_COLORS[0]);
 const _flashCreatureColor = new Color();
-const _humLightColor = new Color(0x668888);
+const _humLightColor = new Color(C.playerLight);
 
 // Creature glow hex map for flash color effects
 const _creatureGlowHex = { puff: C.puffGlow, deer: C.deerGlow, jelly: C.jellyGlow, moth: C.mothGlow };
@@ -180,7 +180,7 @@ export function updatePlayerVisuals(dt, elapsed) {
     const _humResNow = getResonance();
     const _humResTypeNow = getResonanceType();
     if (_humResNow > 0.1 && _humResTypeNow) {
-      let hcol = 0x668888;
+      let hcol = C.playerLight;
       switch (_humResTypeNow) {
         case 'deer':  hcol = C.deerGlow;  break;
         case 'moth':  hcol = C.mothGlow;  break;

@@ -26,24 +26,24 @@ import { queryNearTrees } from '../../utils/spatialHash.js';
 import { nearest } from '../../systems/registration.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
-const _jellyNearColor = new Color(0xff4fd2);
-const _jellyAttuneRed = new Color(0xff2a28);
+const _jellyNearColor = new Color(C.jellyNearPink);
+const _jellyAttuneRed = new Color(C.jellyAttuneRed);
 const _jellyFarColor = new Color(C.jellyBell);
 /** Emissive lerp targets — jellyGlow reads cyan on lit emissive even when color is red */
 const _jelEmitBlue = new Color(C.jellyGlow);
-const _jelEmitRed = new Color(0xff0a14);
+const _jelEmitRed = new Color(C.jellyEmitRed);
 const _jelInnerBlue = new Color(C.jellyGlow);
-const _jelInnerRed = new Color(0xff3528);
+const _jelInnerRed = new Color(C.jellyInnerRed);
 const _jelTipBlue = new Color(C.jellyTip);
-const _jelTipRed = new Color(0xff6058);
+const _jelTipRed = new Color(C.jellyTipRed);
 const _jelSpotBlue = new Color(C.jellySpot);
-const _jelSpotRed = new Color(0xff7078);
+const _jelSpotRed = new Color(C.jellySpotRed);
 const _jelOrganBlue = new Color(C.jellyOrgan);
-const _jelOrganRed = new Color(0xff6a72);
+const _jelOrganRed = new Color(C.jellyOrganRed);
 const _jelMucusBlue = new Color(C.jellyMucus);
-const _jelMucusRed = new Color(0xff8588);
+const _jelMucusRed = new Color(C.jellyMucusRed);
 const _jelNerveBlue = new Color(C.jellyGlow);
-const _jelNerveRed = new Color(0xff4548);
+const _jelNerveRed = new Color(C.jellyNerveRed);
 const _jellyTentBase = new Color(C.jellyTent);
 
 function wrapPi(a) {
@@ -109,7 +109,7 @@ function ensureJellyCrimsonListener() {
 function ensureJellyRitualOrb() {
   if (jellyRitual.orbMesh) return;
   const mat = new MeshBasicMaterial({
-    color: 0xff4fd2,
+    color: C.orbActivatedPink,
     transparent: true,
     opacity: 0.65,
     blending: AdditiveBlending,

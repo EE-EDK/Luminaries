@@ -136,9 +136,7 @@ import {
 // ================================================================
 import {
   orbBoost as _orbBoost, setOrbBoost,
-  attuneFlashTimer as _attuneFlashTimer, attuneFlashType as _attuneFlashType,
-  echoTimer as _echoTimer,
-  humResonanceType as _humResonanceType, humResonanceStr as _humResonanceStr,
+  attuneFlashTimer as _attuneFlashTimer,
   featherFallTimer as _featherFallTimer,
   decayAttuneFlash, decayEchoTimer, decayFeatherFall, setFeatherFallTimer
 } from './state/gameState.js';
@@ -224,6 +222,9 @@ function updateFairyRings(dt, t) {
 // ================================================================
 function syncContext(dt, t) {
   const q = getQuestState();
+  // attune (flashTimer/flashType/echoTimer/humResonance*) and questPhase are no
+  // longer mirrored into the kernel ctx — consumers read them directly from the
+  // state/* stores via live bindings (same-frame, no stale copy).
   updateContext({
     dt, t,
     player, camera,
@@ -231,10 +232,7 @@ function syncContext(dt, t) {
     playerIdleTime,
     bioGlow, orbBoost: _orbBoost, orbsFound: q.orbsFound,
     windX, windZ, windStrength, weatherState, lightningFlash, isStorming, rainRate: getRainRate(),
-    dayPhase,
-    attuneFlashTimer: _attuneFlashTimer, attuneFlashType: _attuneFlashType, echoTimer: _echoTimer,
-    humResonanceType: _humResonanceType, humResonanceStr: _humResonanceStr,
-    questPhase: q.questPhase
+    dayPhase
   });
 }
 
@@ -300,7 +298,9 @@ function _directorParticleSpawn(dt, t, ctx) {
 
 function _directorFloraGlow(dt, t, ctx) {
   const e = ctx.env;
-  const a = ctx.attune;
+  // Read attune flash directly from the state store (live binding) so the
+  // mushroom flash glow is same-frame, not the one-frame-stale kernel ctx copy.
+  const _flash = _attuneFlashTimer;
   const pPos = ctx.player.pos;
 
   timeStart('mushrooms');
@@ -312,8 +312,8 @@ function _directorFloraGlow(dt, t, ctx) {
     if (!m.group.visible) m.group.visible = true;
     const p = Math.sin(t * m.speed + m.phase) * 0.5 + 0.5;
     m.capMat.emissiveIntensity = m.base * (0.7 + p * 1.0) * getLocalGlow(m.x, m.z, e.bioGlow * e.orbBoost);
-    if (a.flashTimer > 0 && md2 < 625) {
-      m.capMat.emissiveIntensity += a.flashTimer * 0.6;
+    if (_flash > 0 && md2 < 625) {
+      m.capMat.emissiveIntensity += _flash * 0.6;
     }
   }
   timeEnd('mushrooms');

@@ -14,7 +14,7 @@ describe('scheduler', () => {
     expect(seen.t).toBe(42.25);
     expect(seen.ctx).toBeDefined();
     expect(seen.ctx.time).toBeDefined();
-    expect(seen.ctx.quest).toBeDefined();
+    expect(seen.ctx.env).toBeDefined();
     expect(seen.ctx.player).toBeDefined();
   });
 

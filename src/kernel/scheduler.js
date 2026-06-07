@@ -6,14 +6,14 @@ import * as Context from './context.js';
 const _systems = [];
 let _sorted = true;
 
-// Pre-allocated context snapshot to avoid per-frame allocations
+// Pre-allocated context snapshot to avoid per-frame allocations.
+// attune/quest slices were removed: those values live in state/* stores and are
+// read directly via live ES bindings (no one-frame-stale kernel copy).
 const _contextSnapshot = {
   time: Context.timeCtx,
   player: Context.playerCtx,
   env: Context.envCtx,
   weather: Context.weatherCtx,
-  attune: Context.attuneCtx,
-  quest: Context.questCtx,
 };
 
 export const Phase = {

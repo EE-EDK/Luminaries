@@ -8,7 +8,7 @@ describe('context', () => {
     expect(ctx.dt).toBe(0);
     expect(ctx.bioGlow).toBe(0);
     expect(ctx.orbBoost).toBe(1.15);
-    expect(ctx.questPhase).toBe('SEEK');
+    expect(ctx.dayPhase).toBe(0);
   });
 
   it('update() writes known properties', () => {
@@ -31,12 +31,12 @@ describe('context', () => {
   });
 
   it('reset() restores defaults', () => {
-    update({ dt: 0.5, bioGlow: 1.0, orbsFound: 5, attuneFlashType: 'deer' });
+    update({ dt: 0.5, bioGlow: 1.0, orbsFound: 5, dayPhase: 2 });
     reset();
     expect(ctx.dt).toBe(0);
     expect(ctx.bioGlow).toBe(0);
     expect(ctx.orbsFound).toBe(0);
-    expect(ctx.attuneFlashType).toBe(null);
+    expect(ctx.dayPhase).toBe(0);
   });
 
   it('preserves properties not included in update()', () => {

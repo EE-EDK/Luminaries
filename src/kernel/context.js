@@ -35,25 +35,17 @@ const _weather = {
   lightningFlash: 0,
 };
 
-const _attune = {
-  flashTimer: 0,
-  flashType: null,
-  echoTimer: 0,
-  humResonanceType: null,
-  humResonanceStr: 0,
-};
-
-const _quest = {
-  phase: 'SEEK',
-};
+// NOTE: attune (flashTimer/flashType/echoTimer/humResonance*) and quest (phase)
+// are NOT mirrored here. Those live in state/attunementStore.js + the quest
+// stores and are read directly via live ES bindings by their consumers
+// (fauna/*, _directorFloraGlow, attunement.js). Mirroring them into the kernel
+// ctx produced a one-frame-stale copy, so the duplicate slices were removed.
 
 // Domain-specific getters
 export const timeCtx = _time;
 export const playerCtx = _player;
 export const envCtx = _env;
 export const weatherCtx = _weather;
-export const attuneCtx = _attune;
-export const questCtx = _quest;
 
 // Global update - maps incoming values to the correct slice
 export const update = (values) => {
@@ -86,14 +78,6 @@ export const update = (values) => {
   if (values.isStorming !== undefined) _weather.isStorming = values.isStorming;
   if (values.rainRate !== undefined) _weather.rainRate = values.rainRate;
   if (values.lightningFlash !== undefined) _weather.lightningFlash = values.lightningFlash;
-
-  if (values.attuneFlashTimer !== undefined) _attune.flashTimer = values.attuneFlashTimer;
-  if (values.attuneFlashType !== undefined) _attune.flashType = values.attuneFlashType;
-  if (values.echoTimer !== undefined) _attune.echoTimer = values.echoTimer;
-  if (values.humResonanceType !== undefined) _attune.humResonanceType = values.humResonanceType;
-  if (values.humResonanceStr !== undefined) _attune.humResonanceStr = values.humResonanceStr;
-
-  if (values.questPhase !== undefined) _quest.phase = values.questPhase;
 };
 
 // For backward compatibility during migration
@@ -115,12 +99,6 @@ export const ctx = {
   get rainRate() { return _weather.rainRate; },
   get lightningFlash() { return _weather.lightningFlash; },
   get dayPhase() { return _env.dayPhase; },
-  get attuneFlashTimer() { return _attune.flashTimer; },
-  get attuneFlashType() { return _attune.flashType; },
-  get echoTimer() { return _attune.echoTimer; },
-  get humResonanceType() { return _attune.humResonanceType; },
-  get humResonanceStr() { return _attune.humResonanceStr; },
-  get questPhase() { return _quest.phase; },
 };
 
 export const reset = () => {
@@ -142,10 +120,4 @@ export const reset = () => {
   _weather.isStorming = false;
   _weather.rainRate = 0;
   _weather.lightningFlash = 0;
-  _attune.flashTimer = 0;
-  _attune.flashType = null;
-  _attune.echoTimer = 0;
-  _attune.humResonanceType = null;
-  _attune.humResonanceStr = 0;
-  _quest.phase = 'SEEK';
 };

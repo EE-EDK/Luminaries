@@ -158,7 +158,7 @@ import { initEchoVisions, updateEchoVisions } from './systems/echoVisions.js';
 
 // Puffling Chat
 import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js';
-import { initWizardPufflingEvent, updateWizardPufflingEvent } from './systems/wizardPufflingEvent.js';
+import { initWizardPufflingEvent, updateWizardPufflingEvent, resetWizardEncounter } from './systems/wizardPufflingEvent.js';
 
 // Performance Monitor
 import { reportTimings, timeStart, timeEnd } from './systems/perfMonitor.js';
@@ -465,6 +465,8 @@ let elapsed = 0;
 let gameStarted = false;
 
 function go() {
+  // Re-arm the wizard encounter so stale state from a prior session never leaks into a new run.
+  resetWizardEncounter();
   // Trigger intro cinematic — startIntro guards against double-call
   startIntro();
 }

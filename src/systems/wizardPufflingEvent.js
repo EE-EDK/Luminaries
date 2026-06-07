@@ -148,7 +148,6 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
   _wizard = makePuff(sx, sz, {
     wizardHat: true,
     eyeColor: 0x66bbff,
-    disableAccessories: true,
     skipSceneAdd: true
   });
   const gy = _getGroundY(sx, sz);
@@ -634,11 +633,11 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
 }
 
 /**
- * Jump straight into an active approach encounter (for LumiDebug). Resets a finished encounter.
- * @returns {boolean}
+ * Tear down any in-flight encounter (laser, smoke, wizard, forced camera) and re-arm the
+ * idle trigger. Call once at the start of a new run so stale state from a prior session does
+ * not leak into the next one.
  */
-export function debugSpawnWizardEncounter() {
-  if (!_getGroundY) return false;
+export function resetWizardEncounter() {
   cleanupLaser();
   if (_smoke) {
     for (let i = 0; i < _smoke.particles.length; i++) {
@@ -651,12 +650,24 @@ export function debugSpawnWizardEncounter() {
   }
   removeWizard();
   clearCameraForce();
+  _state = 'idle';
   _movingTimer = 0;
   _phaseTimer = 0;
   _approachHintShown = false;
   _deadSoulShown = false;
   _confrontT = 0;
   _waitHumT = 0;
+  _laLaTimer = 0;
+  _handBackTimer = 0;
+}
+
+/**
+ * Jump straight into an active approach encounter (for LumiDebug). Resets a finished encounter.
+ * @returns {boolean}
+ */
+export function debugSpawnWizardEncounter() {
+  if (!_getGroundY) return false;
+  resetWizardEncounter();
   _laLaTimer = 3;
   spawnWizardNearPlayer(player.pos, yaw);
   // Capture current look so the camera eases back to it when the debug encounter ends.

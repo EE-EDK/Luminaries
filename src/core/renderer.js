@@ -14,7 +14,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 renderer.toneMapping = ACESFilmicToneMapping;
-renderer.toneMappingExposure = 2.8;
+renderer.toneMappingExposure = 1.2; // base only — live value owned per-frame by playerVisuals.js
 renderer.outputColorSpace = SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 

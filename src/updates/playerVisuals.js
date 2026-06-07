@@ -45,6 +45,9 @@ const CAM_PAN_HOLD = 2.5;
 const CAM_PAN_LERP_OUT = 1.5;
 const CAM_PAN_TOTAL = CAM_PAN_LERP_IN + CAM_PAN_HOLD + CAM_PAN_LERP_OUT;
 
+/** True while a constellation pan owns the camera (read by the main.js arbiter). */
+export function isCameraPanActive() { return _camPanActive; }
+
 /**
  * Trigger camera pan toward constellation when a new orb is collected.
  * Called once per frame from animate().
@@ -69,18 +72,21 @@ export function triggerCameraPan(orbsFound, yaw, pitch, getConstellationDir) {
 }
 
 /**
- * Interpolate camera pan. Returns { yaw, pitch }.
- * If no pan is active, returns the input yaw/pitch unchanged.
+ * Interpolate the constellation camera pan. Pure: never writes yaw/pitch itself — the
+ * single arbiter in animate() owns all writes. Returns { active, yaw, pitch }.
+ *
+ * `liveYaw`/`livePitch` are the player's current look angles. They are frozen for the
+ * pan's duration (input look is suppressed by the arbiter), so the lerp-OUT eases back to
+ * the CURRENT live look rather than a value saved at trigger time — no snap on hand-back.
+ * Reading live each frame keeps the ease-back correct even if something nudges the look.
  */
-export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
-  if (!_camPanActive) return { yaw, pitch };
+export function updateCameraPan(dt, liveYaw, livePitch) {
+  if (!_camPanActive) return { active: false, yaw: liveYaw, pitch: livePitch };
 
   _camPanTimer += dt;
   if (_camPanTimer >= CAM_PAN_TOTAL) {
-    setYaw(_camPanSavedYaw);
-    setPitch(_camPanSavedPitch);
     _camPanActive = false;
-    return { yaw: _camPanSavedYaw, pitch: _camPanSavedPitch };
+    return { active: false, yaw: liveYaw, pitch: livePitch };
   }
 
   let t;
@@ -98,11 +104,15 @@ export function updateCameraPan(dt, yaw, pitch, setYaw, setPitch) {
   } else {
     t = (_camPanTimer - lerpOutStart) / CAM_PAN_LERP_OUT;
     const ease = smoothstep(t);
-    finalYaw = _camPanTargetYaw + (_camPanSavedYaw - _camPanTargetYaw) * ease;
-    finalPitch = _camPanTargetPitch + (_camPanSavedPitch - _camPanTargetPitch) * ease;
+    // Shortest-path yaw ease back toward the (frozen) live look.
+    let yawDiff = liveYaw - _camPanTargetYaw;
+    while (yawDiff > Math.PI) yawDiff -= 2 * Math.PI;
+    while (yawDiff < -Math.PI) yawDiff += 2 * Math.PI;
+    finalYaw = _camPanTargetYaw + yawDiff * ease;
+    finalPitch = _camPanTargetPitch + (livePitch - _camPanTargetPitch) * ease;
   }
 
-  return { yaw: finalYaw, pitch: finalPitch };
+  return { active: true, yaw: finalYaw, pitch: finalPitch };
 }
 
 /**

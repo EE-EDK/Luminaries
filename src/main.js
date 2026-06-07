@@ -20,7 +20,7 @@
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setYaw, setPitch, unlockTruthControlHint } from './core/input.js';
+import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setLookSuppressed, unlockTruthControlHint } from './core/input.js';
 // Constants
 import {
   WORLD_R, EYE_H, STARMOTE_N,
@@ -603,15 +603,38 @@ function animate() {
 
   camera.rotation.order = 'YXZ';
 
-  // Constellation camera pan — smoothly override yaw/pitch
-  const camPan = updateCameraPan(dt, yaw, pitch, setYaw, setPitch);
-  let finalYaw = camPan.yaw;
-  let finalPitch = camPan.pitch;
-  if (wizardCam && wizardCam.active) {
+  // ===========================================================
+  // Single camera yaw/pitch arbiter — priority: wizardCam > constellation pan > live look.
+  // Exactly ONE owner resolves camera.rotation per frame. Cinematics (wizard, pan) suppress
+  // raw mouse/touch look so the live angles stay frozen; that makes the hand-back snap-free
+  // because each cinematic eases its motion back to those same frozen angles before releasing.
+  // ===========================================================
+  // Advance the pan every frame so its timer/state machine stays coherent even if the
+  // wizard wins this frame (the pan trigger is gated on orb pickup, so overlap is rare).
+  const camPan = updateCameraPan(dt, yaw, pitch);
+  const wizardOwns = !!(wizardCam && wizardCam.active);
+  const panOwns = camPan.active;
+  const cinematicOwns = wizardOwns || panOwns;
+
+  // Freeze the live look while a cinematic owns the camera. The live yaw/pitch stay parked
+  // at the player's pre-cinematic look (no mouse/touch accumulation), giving each cinematic
+  // a stable ease-back anchor. Both cinematics end their motion exactly at that frozen look,
+  // so when ownership releases camera.rotation already equals the live look — no snap, no
+  // write-back into yaw/pitch needed. (Writing cinematic angles into the live look here would
+  // poison the ease-back target on the next frame.)
+  setLookSuppressed(cinematicOwns);
+
+  let finalYaw, finalPitch;
+  if (wizardOwns) {
     finalYaw = wizardCam.yaw;
     finalPitch = wizardCam.pitch;
-    setYaw(finalYaw);
-    setPitch(finalPitch);
+  } else if (panOwns) {
+    finalYaw = camPan.yaw;
+    finalPitch = camPan.pitch;
+  } else {
+    // Live look: input.js already owns yaw/pitch; the arbiter just mirrors them to the camera.
+    finalYaw = yaw;
+    finalPitch = pitch;
   }
   camera.rotation.y = finalYaw;
   camera.rotation.x = finalPitch;

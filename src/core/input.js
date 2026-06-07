@@ -42,6 +42,13 @@ export function setYaw(val) { yaw = val; }
 export function setPitch(val) { pitch = val; }
 export function setTouchJump(val) { touchJump = val; }
 
+// When a cinematic owns the camera (constellation pan / wizard event), suppress raw
+// look accumulation so the live yaw/pitch stays put. This makes the hand-back snap-free:
+// the arbiter eases back to the SAME live angles the player had when the cinematic began.
+let _lookSuppressed = false;
+export function setLookSuppressed(val) { _lookSuppressed = val; }
+export function isLookSuppressed() { return _lookSuppressed; }
+
 function triggerGo() {
   if (!started && goCallback) goCallback();
 }
@@ -100,6 +107,8 @@ window.addEventListener('mousemove', (e) => {
   // Pointer lock path (FPS): always look while locked.
   // Fallback path: click-drag look if pointer lock is unavailable.
   if (!pointerLocked && !mouseDown) return;
+  // Ignore look delta while a cinematic owns the camera (no stale accumulation → no hand-back snap).
+  if (_lookSuppressed) return;
   yaw -= e.movementX * MOUSE_SENS;
   pitch -= e.movementY * MOUSE_SENS;
   pitch = Math.max(-1, Math.min(1, pitch));
@@ -268,9 +277,13 @@ renderer.domElement.addEventListener('touchmove', (e) => {
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     if (t.identifier === lookTid) {
-      yaw -= (t.clientX - lx) * MOUSE_SENS;
-      pitch -= (t.clientY - ly) * MOUSE_SENS;
-      pitch = Math.max(-1, Math.min(1, pitch));
+      // Keep the drag anchor current even while suppressed, so lifting suppression
+      // does not apply one giant accumulated delta (would snap the view).
+      if (!_lookSuppressed) {
+        yaw -= (t.clientX - lx) * MOUSE_SENS;
+        pitch -= (t.clientY - ly) * MOUSE_SENS;
+        pitch = Math.max(-1, Math.min(1, pitch));
+      }
       lx = t.clientX; ly = t.clientY;
     }
   }

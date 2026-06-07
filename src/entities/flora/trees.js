@@ -113,14 +113,8 @@ function getBarkTexture() {
   return _barkTexture;
 }
 
-// Bioluminescent color palettes for canopy variety
-const GLOW_PALETTES = [
-  { leaf: 0x145528, glow: 0x22cc77, core: 0x44ffaa },  // emerald
-  { leaf: 0x0e3828, glow: 0x33bbaa, core: 0x55ffcc },  // teal
-  { leaf: 0x1a4420, glow: 0x44cc55, core: 0x77ff88 },  // lime-green
-  { leaf: 0x103030, glow: 0x2299aa, core: 0x44ddee },  // cyan
-  { leaf: 0x182844, glow: 0x3388cc, core: 0x55bbff },  // blue (rare)
-];
+// Bioluminescent color palettes for canopy variety — sourced from C.treeGlowPalettes
+const GLOW_PALETTES = C.treeGlowPalettes;
 export { GLOW_PALETTES };
 
 // ================================================================
@@ -199,7 +193,7 @@ function getCanopyAlphaMap() {
 export function makeTreeImpostor(treeH, groundY) {
   const mat = new SpriteMaterial({
     map: getGlowTexture(),
-    color: 0x33cc88,
+    color: C.treeGlowImpostor,
     transparent: true,
     opacity: 0.65,
     depthWrite: false,
@@ -226,7 +220,7 @@ function generateTemplateTree(palIdx) {
   // Trunk — wider flared base tapering upward (like the reference image)
   const baseFlare = r * 1.8; // wide buttress base
   const trunk = new Mesh(new CylinderGeometry(r * 0.4, baseFlare, h, 8));
-  trunk.material = new MeshStandardMaterial({ color: 0x7a5840 });
+  trunk.material = new MeshStandardMaterial({ color: C.barkTrunk });
   trunk.position.y = h / 2;
   trunk.userData._cat = 'trunk';
   g.add(trunk);
@@ -237,7 +231,7 @@ function generateTemplateTree(palIdx) {
     const va = vi / veinN * 6.28 + sr() * 0.5;
     const vH = h * 0.4 + sr() * h * 0.4;
     const vein = new Mesh(new CylinderGeometry(0.008, 0.015, vH, 3));
-    vein.material = new MeshStandardMaterial({ color: 0x228855 });
+    vein.material = new MeshStandardMaterial({ color: C.barkVein });
     vein.position.set(Math.cos(va) * r * 0.74, h * 0.15 + vH / 2, Math.sin(va) * r * 0.74);
     vein.userData._cat = 'detail';
     g.add(vein);
@@ -261,7 +255,7 @@ function generateTemplateTree(palIdx) {
 
     const rootGeo = new CylinderGeometry(rTipR, rBaseR, rLen, 5);
     rootGeo.translate(0, rLen / 2, 0); // base at origin
-    const rootMesh = new Mesh(rootGeo, new MeshStandardMaterial({ color: 0x6a5038 }));
+    const rootMesh = new Mesh(rootGeo, new MeshStandardMaterial({ color: C.barkRoot }));
     rootMesh.position.set(Math.cos(ra) * baseFlare * 0.6, 0.05, Math.sin(ra) * baseFlare * 0.6);
     const rq = new Quaternion().setFromUnitVectors(_rootUp, rootDir);
     rootMesh.quaternion.copy(rq);
@@ -280,7 +274,7 @@ function generateTemplateTree(palIdx) {
       ).normalize();
       const subGeo = new CylinderGeometry(0.02, rBaseR * 0.3, subLen, 4);
       subGeo.translate(0, subLen / 2, 0);
-      const subMesh = new Mesh(subGeo, new MeshStandardMaterial({ color: 0x6a5038 }));
+      const subMesh = new Mesh(subGeo, new MeshStandardMaterial({ color: C.barkRoot }));
       const sBase = new Vector3(
         Math.cos(ra) * baseFlare * 0.6 + rdx * rLen * subT,
         0.05 + rdy * rLen * subT,
@@ -297,8 +291,8 @@ function generateTemplateTree(palIdx) {
   // ---- Realistic branching system ----
   // Lower scaffold branches + crown branches with sub-branching + canopy at tips
   const pal = GLOW_PALETTES[palIdx % GLOW_PALETTES.length];
-  const _branchMat = new MeshStandardMaterial({ color: 0x7a5840 });
-  const _branchMatDark = new MeshStandardMaterial({ color: 0x6a4835 });
+  const _branchMat = new MeshStandardMaterial({ color: C.barkTrunk });
+  const _branchMatDark = new MeshStandardMaterial({ color: C.barkBranchDark });
   const _up = new Vector3(0, 1, 0);
 
   // Helper: create a tapered branch cylinder oriented from base toward direction
@@ -376,7 +370,7 @@ function generateTemplateTree(palIdx) {
     if (sr() < 0.4) {
       const mLen = 0.4 + sr() * 0.8;
       const moss = new Mesh(new CylinderGeometry(0.008, 0.003, mLen, 3));
-      moss.material = new MeshStandardMaterial({ color: 0x2a5030 });
+      moss.material = new MeshStandardMaterial({ color: C.barkMoss });
       const mT = 0.4 + sr() * 0.4; // along branch
       moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
       moss.userData._cat = 'detail';
@@ -438,7 +432,7 @@ function generateTemplateTree(palIdx) {
     if (sr() < 0.3) {
       const mLen = 0.3 + sr() * 0.7;
       const moss = new Mesh(new CylinderGeometry(0.008, 0.003, mLen, 3));
-      moss.material = new MeshStandardMaterial({ color: 0x2a5030 });
+      moss.material = new MeshStandardMaterial({ color: C.barkMoss });
       const mT = 0.5 + sr() * 0.3;
       moss.position.set(base.x + dx * len * mT, base.y + dy * len * mT - mLen / 2, base.z + dz * len * mT);
       moss.userData._cat = 'detail';
@@ -453,7 +447,7 @@ function generateTemplateTree(palIdx) {
     const fa = sr() * 6.28;
     const fungR = 0.08 + sr() * 0.08;
     const fung = new Mesh(new SphereGeometry(fungR, 5, 3));
-    fung.material = new MeshStandardMaterial({ color: 0x5a3520 });
+    fung.material = new MeshStandardMaterial({ color: C.barkFungi });
     fung.scale.set(1.5, 0.3, 1);
     fung.position.set(Math.cos(fa) * r * 0.8, fy, Math.sin(fa) * r * 0.8);
     fung.rotation.y = -fa;
@@ -514,7 +508,7 @@ function bakeTemplate(palIdx, seedOffset) {
     // (vertexColor × textureColor — brown × brown = too dark; white × brown = correct)
     const cat = mesh.userData._cat || 'trunk';
     if (cat === 'trunk') {
-      color.set(0xffffff);
+      color.set(C.white);
     } else {
       color.copy(mesh.material.color);
     }
@@ -641,7 +635,7 @@ export function createTreeInstances(templates, positions, maxPerTemplate) {
       vertexColors: true,
       map: barkTex,
       roughness: 0.75,
-      emissive: 0x553318,
+      emissive: C.barkEmissive,
       emissiveIntensity: 0.6
     });
     const trunkMesh = tmpl.trunkGeo ? new InstancedMesh(tmpl.trunkGeo, trunkMat, maxPerTemplate) : null;

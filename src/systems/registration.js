@@ -110,8 +110,8 @@ export function registerAllSystems(deps) {
     if (deps.discoveriesUpdate) deps.discoveriesUpdate(dt, t, ctx);
   });
 
-  // --- HUD ---
-  addSystem('hud', Phase.HUD, (dt, t, ctx) => {
-    if (deps.hudUpdate) deps.hudUpdate(dt, t, ctx);
+  // --- Perf Report ---
+  addSystem('perfReport', Phase.HUD, (dt, t, ctx) => {
+    if (deps.perfReportUpdate) deps.perfReportUpdate(dt, t, ctx);
   });
 }

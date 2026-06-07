@@ -269,8 +269,6 @@ function director(dt, t) {
   // self-stretching breath-beat window the slow-mo produced).
   decayAttuneFlash(worldDt);
   decayEchoTimer(worldDt);
-
-  reportTimings(renderer);
 }
 
 // ================================================================
@@ -832,7 +830,7 @@ try {
     footprintUpdate: (dt, t, ctx) => _directorFootprints(dt, t, ctx),
     audioUpdate: (dt, t, ctx) => _directorAudio(dt, t, ctx),
     discoveriesUpdate: (dt, t, ctx) => _directorDiscoveries(dt, t, ctx),
-    hudUpdate: (dt, t, ctx) => reportTimings(renderer),
+    perfReportUpdate: (dt, t, ctx) => reportTimings(renderer),
   });
 
   // Seed initial fireflies

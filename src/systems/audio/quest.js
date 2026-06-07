@@ -114,6 +114,61 @@ export function playFairyBounce() {
   osc.start(); osc.stop(now + 0.6);
 }
 
+// Finale / world-transform sting: a rising major chord swell.
+// Triggered once when WORLD_TRANSFORMED fires (TRANSFORM phase, ~6s in).
+export function playWorldTransform() {
+  if (!initialized || muted) return;
+  const now = ctx.currentTime;
+
+  // C major triad + octave + fifth above — a bright, resolved chord.
+  // Each voice swells in slowly and rings out long, like the world blooming.
+  const freqs = [261.63, 329.63, 392.0, 523.25, 783.99];
+  for (let i = 0; i < freqs.length; i++) {
+    const stagger = i * 0.18;
+    const start = now + stagger;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freqs[i], start);
+    // Gentle upward bend into pitch for a shimmering "blooming" feel.
+    osc.frequency.setValueAtTime(freqs[i] * 0.985, start);
+    osc.frequency.linearRampToValueAtTime(freqs[i], start + 0.6);
+
+    // Detuned partial for warmth/chorus.
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(freqs[i] * 2.002, start);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.06, start + 0.8);
+    gain.gain.setValueAtTime(0.06, start + 2.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 4.5);
+
+    const partialGain = ctx.createGain();
+    partialGain.gain.value = 0.35;
+    osc2.connect(partialGain).connect(gain);
+
+    osc.connect(gain);
+    connectWithReverb(gain, masterGain, 0.7);
+    osc.start(start); osc2.start(start);
+    osc.stop(start + 5.0); osc2.stop(start + 5.0);
+  }
+
+  // Shimmer sweep over the top — a slow rising sparkle.
+  const sweep = ctx.createOscillator();
+  sweep.type = 'sine';
+  sweep.frequency.setValueAtTime(523.25, now);
+  sweep.frequency.exponentialRampToValueAtTime(1568.0, now + 3.0);
+  const sweepGain = ctx.createGain();
+  sweepGain.gain.setValueAtTime(0, now);
+  sweepGain.gain.linearRampToValueAtTime(0.04, now + 1.2);
+  sweepGain.gain.exponentialRampToValueAtTime(0.001, now + 3.6);
+  sweep.connect(sweepGain);
+  connectWithReverb(sweepGain, masterGain, 0.8);
+  sweep.start(now); sweep.stop(now + 4.0);
+}
+
 export function playCrystalChime(intensity = 1.0) {
   if (!initialized || muted) return;
   const now = ctx.currentTime;

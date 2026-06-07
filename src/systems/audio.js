@@ -18,7 +18,7 @@ import { stopResonanceDrone } from './audio/spiritHum.js';
 
 // Wire up event bus subscriptions + mute-stop coupling
 // This runs after AudioContext initializes (called by core.js initAudio)
-import { playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playBubblePop } from './audio/quest.js';
+import { playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playBubblePop, playWorldTransform } from './audio/quest.js';
 import { playFootstep, playJumpSound, playLandSound } from './audio/player.js';
 import { playCreatureSound, playAttunementFlash } from './audio/creatures.js';
 import { playPitchLockSound } from './audio/spiritHum.js';
@@ -35,6 +35,7 @@ setEventSubscriber(() => {
   on(Events.CREATURE_SOUND, (d) => { playCreatureSound(d.type, d.position, d.playerPos); });
   on(Events.CREATURE_ATTUNED, (d) => { playAttunementFlash(d.pos, d.playerPos, d.type); });
   on(Events.PITCH_LOCKED, (d) => { playPitchLockSound(d.type); });
+  on(Events.WORLD_TRANSFORMED, () => { playWorldTransform(); });
 });
 
 // Override toggleMute to also stop drone
@@ -52,7 +53,7 @@ export {
   playCreatureSound, playPufflingSinging, playAttunementFlash, playPufflingVocal, playWizardApproachLaLa
 } from './audio/creatures.js';
 export { playFootstep, playJumpSound, playLandSound, updateStepCooldown } from './audio/player.js';
-export { playBubblePop, playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playCrystalChime } from './audio/quest.js';
+export { playBubblePop, playOrbCollect, playOrbWarble, playOrbReject, playFairyBounce, playCrystalChime, playWorldTransform } from './audio/quest.js';
 export { playLaserZap, playLaserHum, updateLaserHums, stopLaserHums } from './audio/laser.js';
 export { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound, startResonanceDrone } from './audio/spiritHum.js';
 export { initAmbientSounds, updateAmbientSounds } from './audio/ambientCreatures.js';

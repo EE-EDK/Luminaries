@@ -77,7 +77,7 @@ export function makePuff(x, z, opts = {}) {
   let crownMat = null;
   if (wizardHat) {
     crownMat = new MeshStandardMaterial({
-      color: 0x2a1658, emissive: 0x5533aa, emissiveIntensity: 0.35, roughness: 0.45, metalness: 0.1
+      color: C.puffHatBody, emissive: C.puffHatEmissive, emissiveIntensity: 0.35, roughness: 0.45, metalness: 0.1
     });
     const brim = new Mesh(new CylinderGeometry(0.16, 0.2, 0.02, 16), crownMat);
     brim.position.set(0, 0.86, 0);
@@ -86,7 +86,7 @@ export function makePuff(x, z, opts = {}) {
     cone.position.set(0, 1.02, 0);
     cone.rotation.z = -0.18;
     shell.add(cone);
-    const starMat = new MeshBasicMaterial({ color: 0x88ccff });
+    const starMat = new MeshBasicMaterial({ color: C.puffHatStar });
     for (let si = 0; si < 3; si++) {
       const star = new Mesh(new SphereGeometry(0.012, 6, 5), starMat);
       star.position.set((sr() - 0.5) * 0.08, 0.94 + sr() * 0.12, 0.08 + sr() * 0.06);

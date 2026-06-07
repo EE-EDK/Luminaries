@@ -147,7 +147,7 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
   const sz = playerPos.z + Math.cos(spawnAng) * spawnDist;
   _wizard = makePuff(sx, sz, {
     wizardHat: true,
-    eyeColor: 0x66bbff,
+    eyeColor: C.wizardEye,
     skipSceneAdd: true
   });
   const gy = _getGroundY(sx, sz);
@@ -177,20 +177,20 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
   });
   /** Strong read in moonlight / fog — applies to all builds (not only debug-only mode). */
   if (_wizard.bodyMat) {
-    _wizard.bodyMat.emissive.setHex(0xffaa66);
+    _wizard.bodyMat.emissive.setHex(C.wizardBodyEmissive);
     _wizard.bodyMat.emissiveIntensity = 2.4;
-    _wizard.bodyMat.color.setHex(0xffeee6);
+    _wizard.bodyMat.color.setHex(C.wizardBody);
     if (_wizard.bellyMat) {
       _wizard.bellyMat.emissiveIntensity = 1.2;
-      _wizard.bellyMat.emissive.setHex(0xffcc99);
+      _wizard.bellyMat.emissive.setHex(C.wizardBelly);
     }
     if (_wizard.crownMat) {
-      _wizard.crownMat.emissive.setHex(0xaa77ff);
+      _wizard.crownMat.emissive.setHex(C.wizardCrown);
       _wizard.crownMat.emissiveIntensity = 2.2;
     }
     if (_wizard.core && _wizard.core.material) {
       _wizard.core.material.opacity = 1;
-      _wizard.core.material.color.setHex(0xffddaa);
+      _wizard.core.material.color.setHex(C.wizardCore);
     }
   }
   _wizard.group.updateMatrixWorld(true);
@@ -239,7 +239,7 @@ function cleanupLaser() {
 function spawnSmokePuff(x, y, z) {
   const particles = [];
   const mat = new MeshStandardMaterial({
-    color: 0xb8a3cf, emissive: 0xff88dd, emissiveIntensity: 0.25, transparent: true, opacity: 0.9, roughness: 1.0
+    color: C.smokeBody, emissive: C.smokeGlow, emissiveIntensity: 0.25, transparent: true, opacity: 0.9, roughness: 1.0
   });
   for (let i = 0; i < 18; i++) {
     const m = new Mesh(new SphereGeometry(0.05 + Math.random() * 0.03, 8, 6), mat.clone());

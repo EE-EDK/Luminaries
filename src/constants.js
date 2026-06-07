@@ -251,5 +251,34 @@ export const C = {
   nightSky: 0x050a18, nightFog: 0x081018, nightMoon: 0xbbccee, nightAmbSky: 0x334466, nightAmbGnd: 0x183820,
   deepSky: 0x030610, deepFog: 0x061014, deepMoon: 0x8899bb, deepAmbSky: 0x1a2244, deepAmbGnd: 0x122418,
   dawnSky: 0x122030, dawnFog: 0x0e1828, dawnMoon: 0xccbbaa, dawnAmbSky: 0x332e55, dawnAmbGnd: 0x1c2018,
-  mistColor: 0x556677
+  mistColor: 0x556677,
+  // Wizard puffling encounter palette
+  wizardEye: 0x66bbff,
+  wizardBody: 0xffeee6, wizardBodyEmissive: 0xffaa66,
+  wizardBelly: 0xffcc99, wizardCrown: 0xaa77ff,
+  wizardCore: 0xffddaa,
+  smokeBody: 0xb8a3cf, smokeGlow: 0xff88dd,
+  // Jelly attunement-red palette (color shift during attunement encounter)
+  jellyNearPink: 0xff4fd2,
+  jellyAttuneRed: 0xff2a28, jellyEmitRed: 0xff0a14, jellyInnerRed: 0xff3528,
+  jellyTipRed: 0xff6058, jellySpotRed: 0xff7078, jellyOrganRed: 0xff6a72,
+  jellyMucusRed: 0xff8588, jellyNerveRed: 0xff4548,
+  // Orb activation pink (shared: questVisuals + jellies ritual orb)
+  orbActivatedPink: 0xff4fd2,
+  // Tree bark palette
+  barkTrunk: 0x7a5840, barkRoot: 0x6a5038, barkBranchDark: 0x6a4835,
+  barkMoss: 0x2a5030, barkFungi: 0x5a3520, barkVein: 0x228855,
+  barkEmissive: 0x553318,
+  // Tree glow impostor
+  treeGlowImpostor: 0x33cc88,
+  // Tree canopy glow palette (5 entries: emerald/teal/lime/cyan/blue)
+  treeGlowPalettes: [
+    { leaf: 0x145528, glow: 0x22cc77, core: 0x44ffaa },  // emerald
+    { leaf: 0x0e3828, glow: 0x33bbaa, core: 0x55ffcc },  // teal
+    { leaf: 0x1a4420, glow: 0x44cc55, core: 0x77ff88 },  // lime-green
+    { leaf: 0x103030, glow: 0x2299aa, core: 0x44ddee },  // cyan
+    { leaf: 0x182844, glow: 0x3388cc, core: 0x55bbff },  // blue (rare)
+  ],
+  // Puffling wizard hat palette
+  puffHatBody: 0x2a1658, puffHatEmissive: 0x5533aa, puffHatStar: 0x88ccff
 };

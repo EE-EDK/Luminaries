@@ -453,6 +453,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _state = 'waitHum';
       _waitHumT = 0;
       _humWasArmed = humFreqArmed;
+      if (_showNarrativeText) _showNarrativeText('Hum to answer it… (press F)', 4);
     }
 
     focusVec.x = g.position.x;

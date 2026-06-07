@@ -181,8 +181,8 @@ const IDLE_HINTS_CHILD = [
   [
     'Between silence and song the wood leans closer—what if you almost sang?',
     'The creatures know a breath that isn’t quite speech—stillness helps them hear you.',
-    'Hold RIGHT-CLICK to hum softly; the grove listens for that thin thread of sound.',
-    'Hold RIGHT-CLICK near friends—pufflings and others teach hums the gold will answer.',
+    'Press F to hum softly, then Q or E to sweep the pitch — the grove listens for that thin thread of sound.',
+    'Press F near friends and sweep pitch with Q or E — pufflings and others teach hums the gold will answer.',
   ],
   [
     'What fell from the gray needle as five sleeping coals, and wakes only for stolen voices?',
@@ -207,8 +207,8 @@ const IDLE_HINTS_ADULT = [
   [
     'Sub-vocal carrier may couple to local fauna—test near-field harmonic injection.',
     'Fauna interface favors sustained sub-threshold tone—stillness improves SNR.',
-    'RIGHT-CLICK: resonance tuning; maintain carrier until coupling locks.',
-    'RIGHT-CLICK near micro-fauna to sample teachable frequencies for anchor handshake.',
+    'F: carrier injection; Q/E: sweep pitch; maintain carrier until coupling locks.',
+    'F near micro-fauna to sample teachable frequencies; Q/E for anchor-frequency sweep handshake.',
   ],
   [
     'Lattice log: five dormant ignitions; each demands a specific borrowed bio-key.',

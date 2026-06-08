@@ -45,7 +45,7 @@ Implemented:
 2b. **Spirit Hum + Resonance Tuning** — DONE: Two-phase creature unlock; F key/Q-E (or slider) pitch control, 4 creature frequency bands, resonance glow, ring particles (`systems/spiritHum.js`, `particles/resonanceRings.js`)
 3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questState.js`, `quest/questVisuals.js`)
 4. **Stillness/Curiosity** — DONE: Jelly drift, deer flee shrink, moth orbit shift, puffling follow (`main.js`)
-5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`core/player.js`)
+5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`updates/magicalEntities.js`)
 6. **Audio Sync Progression** — DONE: Creature cooldowns halved at 2+ orbs (`systems/audio.js`)
 7. **Player Light Evolution** — DONE: 6-level color/intensity/range + attunement color overlay
 8. **Wisp Guides** — DONE: Midpoint targeting, frequency-aware guide fraction (`main.js`)

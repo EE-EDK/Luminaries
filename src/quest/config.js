@@ -14,8 +14,12 @@ export const QuestPhases = {
 export const QUEST_CONFIG = {
   ORBS_REQUIRED: 5,
   OBELISK_RISE_SPEED: 0.8, // From constants, but configurable here
-  FINALE_DURATION: 15.0,
-  TRANSFORM_DURATION: 10.0,
+  // NOTE: Phase transition timings are hardcoded in questState.js (not driven from here):
+  //   COMPLETE → FINALE:   12 s  (_finaleTimer > 12)
+  //   FINALE   → TRANSFORM: 30 s  (_finalePhaseTimer > 30)
+  //   TRANSFORM world-bloom: 6 s  (_transformTimer >= 6)
+  //   TRANSFORM → FREE_ROAM: 20 s  (_transformTimer >= 20)
+  // FINALE_DURATION and TRANSFORM_DURATION were removed — they were never wired in.
 };
 
 // Required carried creature frequency per orb index (0-based).

@@ -67,8 +67,10 @@ describe('quest/config', () => {
     }
   });
 
-  it('QUEST_CONFIG durations are ordered sensibly for tuning', () => {
-    expect(QUEST_CONFIG.FINALE_DURATION).toBeGreaterThan(0);
-    expect(QUEST_CONFIG.TRANSFORM_DURATION).toBeGreaterThan(0);
+  it('QUEST_CONFIG does not expose stale duration shims (timings live in questState.js)', () => {
+    // FINALE_DURATION and TRANSFORM_DURATION were deleted — they were never wired into
+    // questState.js and held values that didn't match the real hardcoded thresholds.
+    expect(QUEST_CONFIG.FINALE_DURATION).toBeUndefined();
+    expect(QUEST_CONFIG.TRANSFORM_DURATION).toBeUndefined();
   });
 });

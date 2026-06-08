@@ -8,7 +8,7 @@
 |----------|--------|---------------|----------|
 | **Frame rate** | 20 FPS minimum | ~30-60 FPS desktop | Moderate |
 | **Draw calls** | < 200 total | ~80-120 (varies by LOD) | Good |
-| **Real-time lights** | 8 max | 8 (1 hemi + 2 dir + 1 player + 1 orb + 5 crystal) | **None** |
+| **Real-time lights** | 8 max | 7 (1 hemi + 2 dir + 1 player + 1 orb + 3 crystal) | 1 spare |
 | **Particle systems** | < 500 per system | Fireflies ~120, others < 100 | Good |
 | **Texture memory** | Reasonable | Ground 2048², sky 2048x1024, bark 512² | Moderate |
 
@@ -20,9 +20,9 @@
 1  DirectionalLight    (moon2, secondary)        — always on
 1  PointLight          (playerLight)             — follows camera
 1  PointLight          (orbLight)                — quest progression
-5  PointLight          (crystalLights[0-4])      — proximity-sorted, nearest 5 crystals
+3  PointLight          (crystalLights[0-2])      — proximity-sorted, nearest 3 crystals (MAX_CRYSTAL_LIGHTS=3)
 ─────────────────────────────────────────────────────────
-9  total               BUT only 8 active at once (orbLight off until quest progress)
+8  total               BUT only 7 active at once (orbLight off until quest progress)
 ```
 
 **Rule:** To add a new light, you must REMOVE one from the budget. Crystal lights are the flex pool — reduce `MAX_CRYSTAL_LIGHTS` if needed. Never add ambient/directional lights.

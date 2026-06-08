@@ -32,6 +32,11 @@ const colors = {
 };
 
 let sampleTimer = 0;
+// Tracks whether the trace lines/waypoints are currently shown, so the
+// per-frame hide pass (a 4-type forEach) is skipped once everything is already
+// hidden — which is the overwhelmingly common case (echo-visions only appear
+// during a storm + sprint + lightning peak in a dimmed zone).
+let _echoShown = false;
 
 export function initEchoVisions() {
   const types = ['jelly', 'puff', 'deer', 'moth'];
@@ -90,11 +95,17 @@ export function updateEchoVisions(dt, t, sprinting) {
     }
   }
 
-  const inDimmed = !isRestored(player.pos.x, player.pos.z);
-  
-  // Trigger: isStorming && lightningFlash > 0.5 && sprinting && inDimmedZone
-  // Visible only during the peak of a lightning flash
-  const active = isStorming && lightningFlash > 0.5 && sprinting && inDimmed;
+  // Trigger: isStorming && lightningFlash > 0.5 && sprinting && inDimmedZone.
+  // Visible only during the peak of a lightning flash. Order the cheap boolean
+  // gates first so the (non-trivial) isRestored() lookup is skipped on the
+  // common no-storm / not-sprinting frames.
+  const mayActivate = isStorming && lightningFlash > 0.5 && sprinting;
+  const active = mayActivate && !isRestored(player.pos.x, player.pos.z);
+
+  // Fast path: nothing active and nothing currently shown → skip the entire
+  // per-frame visibility/geometry pass (a 4-type forEach). This is the
+  // overwhelmingly common case during normal play.
+  if (!active && !_echoShown) return;
 
   // Wayfinding: Find nearest unfound orb
   let nearestOrb = null;
@@ -169,4 +180,8 @@ export function updateEchoVisions(dt, t, sprinting) {
       wp.pts.visible = false;
     }
   });
+
+  // Remember whether anything is shown so the next frame can take the fast path
+  // out (skip this whole pass) once everything is hidden again.
+  _echoShown = active;
 }

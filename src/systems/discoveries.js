@@ -292,14 +292,21 @@ export function getSeekHudLabel() {
   return rows[tier];
 }
 
-export function checkIdleHints(idleTime) {
+/**
+ * @param {number} idleTime seconds since last movement
+ * @param {number} [dt=0.016] wall-clock seconds elapsed since the last call.
+ *   Passed explicitly so this check can run on a throttled (N-frame) cadence
+ *   without its hint/cooldown timers drifting — the caller accumulates dt across
+ *   skipped frames. Defaults to a 60 FPS frame so existing call sites are unchanged.
+ */
+export function checkIdleHints(idleTime, dt = 0.016) {
   const orbCount = getOrbsFound();
   if (orbCount !== lastStageHintOrbCount) {
     stageHintTimer = 0;
     lastStageHintOrbCount = orbCount;
   }
   if (orbCount < 5) {
-    stageHintTimer += 0.016;
+    stageHintTimer += dt;
     if (stageHintTimer >= 300) {
       const perspective = getPerspective();
       const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
@@ -310,7 +317,7 @@ export function checkIdleHints(idleTime) {
       return;
     }
   }
-  if (hintCooldown > 0) { hintCooldown -= 0.016; return; }
+  if (hintCooldown > 0) { hintCooldown -= dt; return; }
   if (idleTime < 15) return;
   const perspective = getPerspective();
   const table = perspective === 'child' ? IDLE_HINTS_CHILD : IDLE_HINTS_ADULT;

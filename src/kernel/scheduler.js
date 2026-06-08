@@ -5,6 +5,9 @@ import * as Context from './context.js';
 
 const _systems = [];
 let _sorted = true;
+// Monotonic frame counter — drives N-frame cadence + index-staggered offsets so
+// throttled (non-critical) systems don't all fire on the same frame.
+let _frame = 0;
 
 // Pre-allocated context snapshot to avoid per-frame allocations.
 // attune/quest slices were removed: those values live in state/* stores and are
@@ -38,11 +41,30 @@ export const Phase = {
   FOOTPRINTS:         130,
   AUDIO:              140,
   DISCOVERIES:        150,
+  // Non-critical proximity/idle/glyph checks — throttled to a reduced cadence
+  // (see registration.js). Runs just after the full-rate discovery slice.
+  DISCOVERY_CHECKS:   152,
   HUD:                160,
 };
 
-export const addSystem = (name, phase, updateFn) => {
-  _systems.push({ name, phase, update: updateFn, enabled: true });
+/**
+ * Register a system.
+ * @param {string} name
+ * @param {number} phase  ordering key (lower runs first)
+ * @param {(dt:number, t:number, ctx:object)=>void} updateFn
+ * @param {{everyN?:number, offset?:number}} [opts]
+ *   everyN — run only every Nth frame (1 = every frame, the default). Use > 1
+ *            ONLY for non-critical work (HUD/discovery checks) — never player
+ *            physics, camera, or nearby fauna.
+ *   offset — frame-phase stagger so throttled systems don't all fire on the same
+ *            frame. Defaults to 0; pick distinct offsets per throttled system.
+ *   When a throttled system runs, it receives the ACCUMULATED dt since its last
+ *   run (not a single-frame dt), so time-based timers advance at the correct rate.
+ */
+export const addSystem = (name, phase, updateFn, opts) => {
+  const everyN = opts && opts.everyN > 1 ? (opts.everyN | 0) : 1;
+  const offset = opts && opts.offset ? ((opts.offset | 0) % everyN + everyN) % everyN : 0;
+  _systems.push({ name, phase, update: updateFn, enabled: true, everyN, offset, _accDt: 0 });
   _sorted = false;
 };
 
@@ -62,20 +84,32 @@ export const run = (dt, t) => {
     _sorted = true;
   }
 
+  const frame = _frame++;
   for (let i = 0; i < _systems.length; i++) {
-    if (!_systems[i].enabled) continue;
+    const s = _systems[i];
+    if (!s.enabled) continue;
+    // N-frame cadence + staggered offset for throttled (non-critical) systems.
+    // Full-rate systems (everyN === 1) always run with the raw frame dt.
+    if (s.everyN > 1) {
+      s._accDt += dt;
+      if (frame % s.everyN !== s.offset) continue;
+    }
+    const stepDt = s.everyN > 1 ? s._accDt : dt;
+    if (s.everyN > 1) s._accDt = 0;
     try {
-      // Systems now receive (dt, t, contextSlices)
-      _systems[i].update(dt, t, _contextSnapshot);
+      // Systems receive (dt, t, contextSlices). For throttled systems, dt is the
+      // accumulated time since their last run so timers stay wall-clock correct.
+      s.update(stepDt, t, _contextSnapshot);
     } catch (e) {
-      if (import.meta.env?.DEV) console.error('scheduler: ' + _systems[i].name + ' threw:', e);
+      if (import.meta.env?.DEV) console.error('scheduler: ' + s.name + ' threw:', e);
     }
   }
 };
 
-export const list = () => _systems.map((s) => ({ name: s.name, phase: s.phase, enabled: s.enabled }));
+export const list = () => _systems.map((s) => ({ name: s.name, phase: s.phase, enabled: s.enabled, everyN: s.everyN, offset: s.offset }));
 
 export const reset = () => {
   _systems.length = 0;
   _sorted = true;
+  _frame = 0;
 };

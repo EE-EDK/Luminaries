@@ -131,4 +131,100 @@ describe('scheduler', () => {
     expect(() => removeSystem('ghost')).not.toThrow();
     expect(list()).toHaveLength(1);
   });
+
+  // ── Throttle / stagger (Task 11.3) ─────────────────────────────────────────
+  describe('cadence (everyN) + stagger (offset)', () => {
+    it('default cadence runs every frame', () => {
+      let count = 0;
+      addSystem('a', 10, () => { count++; });
+      for (let i = 0; i < 8; i++) run(0.016, i * 0.016);
+      expect(count).toBe(8);
+    });
+
+    it('everyN:4 runs once per 4 frames', () => {
+      let count = 0;
+      addSystem('a', 10, () => { count++; }, { everyN: 4 });
+      for (let i = 0; i < 12; i++) run(0.016, i * 0.016);
+      expect(count).toBe(3); // frames 0, 4, 8
+    });
+
+    it('offset shifts which frame a throttled system fires on', () => {
+      const fired = [];
+      addSystem('a', 10, () => fired.push('hit'), { everyN: 4, offset: 2 });
+      for (let i = 0; i < 8; i++) run(0.016, i * 0.016);
+      // frame % 4 === 2 → frames 2 and 6
+      expect(fired).toHaveLength(2);
+    });
+
+    it('staggers two throttled systems onto different frames (no shared-frame spike)', () => {
+      const byFrame = [];
+      let frame = 0;
+      addSystem('a', 10, () => { byFrame[frame] = (byFrame[frame] || 0) + 1; }, { everyN: 4, offset: 0 });
+      addSystem('b', 20, () => { byFrame[frame] = (byFrame[frame] || 0) + 1; }, { everyN: 4, offset: 2 });
+      for (frame = 0; frame < 8; frame++) run(0.016, frame * 0.016);
+      // Each fires on its own frame: a on 0,4 ; b on 2,6 — never the same frame.
+      expect(byFrame.every((c) => c === undefined || c === 1)).toBe(true);
+    });
+
+    it('passes ACCUMULATED dt to a throttled system (timers stay wall-clock correct)', () => {
+      let lastDt = 0;
+      let calls = 0;
+      addSystem('a', 10, (dt) => { lastDt = dt; calls++; }, { everyN: 4, offset: 0 });
+      // 4 frames of 0.01s each → on the 4th-frame run the system should see ~0.04s.
+      run(0.01, 0); // fires (frame 0) — first run, accDt was 0.01 at that point
+      run(0.01, 0); // accumulate
+      run(0.01, 0); // accumulate
+      run(0.01, 0); // accumulate (frame 3, no fire)
+      run(0.01, 0); // fires (frame 4): accDt = 0.01*4 = 0.04
+      expect(calls).toBe(2);
+      expect(lastDt).toBeCloseTo(0.04, 6);
+    });
+
+    it('full-rate system always receives the single-frame dt', () => {
+      let lastDt = -1;
+      addSystem('a', 10, (dt) => { lastDt = dt; });
+      run(0.016, 0);
+      run(0.016, 0);
+      expect(lastDt).toBe(0.016);
+    });
+
+    it('offset is normalized into [0, everyN)', () => {
+      let count = 0;
+      // offset 6 with everyN 4 → effective offset 2
+      addSystem('a', 10, () => { count++; }, { everyN: 4, offset: 6 });
+      const items = list();
+      expect(items[0].everyN).toBe(4);
+      expect(items[0].offset).toBe(2);
+      for (let i = 0; i < 8; i++) run(0.016, 0);
+      expect(count).toBe(2); // frames 2, 6
+    });
+
+    it('everyN <= 1 is treated as full-rate (no throttle)', () => {
+      let count = 0;
+      addSystem('a', 10, () => { count++; }, { everyN: 1, offset: 3 });
+      for (let i = 0; i < 5; i++) run(0.016, 0);
+      expect(count).toBe(5);
+      expect(list()[0].offset).toBe(0); // offset ignored when not throttled
+    });
+
+    it('list() exposes cadence metadata', () => {
+      addSystem('full', 10, () => {});
+      addSystem('slow', 20, () => {}, { everyN: 3, offset: 1 });
+      const items = list();
+      expect(items[0]).toMatchObject({ name: 'full', everyN: 1, offset: 0 });
+      expect(items[1]).toMatchObject({ name: 'slow', everyN: 3, offset: 1 });
+    });
+
+    it('reset() restores the frame counter so cadence is deterministic per scene', () => {
+      let count = 0;
+      addSystem('a', 10, () => { count++; }, { everyN: 2, offset: 0 });
+      run(0.016, 0); // frame 0 → fires
+      run(0.016, 0); // frame 1 → skip
+      expect(count).toBe(1);
+      reset();
+      addSystem('a', 10, () => { count++; }, { everyN: 2, offset: 0 });
+      run(0.016, 0); // frame 0 again → fires (not frame 2)
+      expect(count).toBe(2);
+    });
+  });
 });

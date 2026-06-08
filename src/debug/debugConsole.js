@@ -23,6 +23,7 @@ import { unlockTruthControlHint } from '../core/input.js';
 import { revealTruth } from '../state/narrativeState.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
+import { list as listSystems } from '../kernel/scheduler.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -144,6 +145,19 @@ export function debugPerfSnapshot(topN = 6) {
       'Max ms': t.maxMs.toFixed(3)
     })));
   }
+
+  // Throttled (reduced-cadence) systems — so the owner can confirm which
+  // non-critical work is staggered off the hot path (Task 11.3). Full-rate
+  // systems (everyN === 1: player physics, fauna, camera, particles) are omitted.
+  const throttled = listSystems()
+    .filter((s) => s.everyN > 1)
+    .map((s) => ({ system: s.name, everyN: s.everyN, offset: s.offset }));
+  snap.throttled = throttled;
+  if (throttled.length) {
+    console.log('[perf] throttled systems (everyN>1): ' +
+      throttled.map((s) => `${s.system}×${s.everyN}@${s.offset}`).join('  '));
+  }
+
   return snap;
 }
 

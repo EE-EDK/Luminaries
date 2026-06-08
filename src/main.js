@@ -450,13 +450,27 @@ function _directorAudio(dt, t, ctx) {
 }
 
 function _directorDiscoveries(dt, t, ctx) {
+  // Full-rate slice: the puffling speech-bubble re-projects a MOVING entity to
+  // screen space every frame, so it must stay at 60 Hz or the bubble visibly
+  // lags the puffling. (The heavy discovery/idle/glyph checks are throttled in
+  // _directorDiscoveryChecks below.)
   timeStart('discoveries');
-  const p = ctx.player;
-  checkDiscoveries(p.pos, deers, puffs, jellies, moths, fairyRings, ponds, 0);
-  checkIdleHints(p.idleTime);
-  updateDiscoveries(dt, t);
   updatePufflingChat(dt, renderer.domElement);
   timeEnd('discoveries');
+}
+
+function _directorDiscoveryChecks(dt, t, ctx) {
+  // Throttled system (registered everyN>1 in registration.js): dt is the
+  // ACCUMULATED time since the last run, so the fade/idle/glyph timers below
+  // stay wall-clock correct even though this runs at a reduced cadence. None of
+  // this work affects motion (proximity-discovery text + idle hints + glyph
+  // reveal), so a few-frame latency is imperceptible.
+  timeStart('discoveryChecks');
+  const p = ctx.player;
+  checkDiscoveries(p.pos, deers, puffs, jellies, moths, fairyRings, ponds, 0);
+  checkIdleHints(p.idleTime, dt);
+  updateDiscoveries(dt, t);
+  timeEnd('discoveryChecks');
 }
 
 // ================================================================
@@ -833,6 +847,7 @@ try {
     footprintUpdate: (dt, t, ctx) => _directorFootprints(dt, t, ctx),
     audioUpdate: (dt, t, ctx) => _directorAudio(dt, t, ctx),
     discoveriesUpdate: (dt, t, ctx) => _directorDiscoveries(dt, t, ctx),
+    discoveryChecksUpdate: (dt, t, ctx) => _directorDiscoveryChecks(dt, t, ctx),
     perfReportUpdate: (dt, t, ctx) => reportTimings(renderer),
   });
 

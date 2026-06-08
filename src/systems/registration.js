@@ -105,10 +105,21 @@ export function registerAllSystems(deps) {
     if (deps.audioUpdate) deps.audioUpdate(dt, t, ctx);
   });
 
-  // --- Discoveries ---
+  // --- Discoveries (full-rate slice: puffling speech-bubble screen projection) ---
   addSystem('discoveries', Phase.DISCOVERIES, (dt, t, ctx) => {
     if (deps.discoveriesUpdate) deps.discoveriesUpdate(dt, t, ctx);
   });
+
+  // --- Discovery checks (THROTTLED: proximity-discovery + idle hints + glyph
+  // reveal). These don't affect motion, so they run every 4th frame. The
+  // scheduler hands them the ACCUMULATED dt since their last run, so their
+  // fade/idle/glyph timers stay wall-clock correct. offset:2 staggers them
+  // away from any other future throttled system (e.g. the spawned discovery
+  // text fade never collides with another reduced-cadence batch on the same
+  // frame), so no single frame does all the throttled work at once. ---
+  addSystem('discoveryChecks', Phase.DISCOVERY_CHECKS, (dt, t, ctx) => {
+    if (deps.discoveryChecksUpdate) deps.discoveryChecksUpdate(dt, t, ctx);
+  }, { everyN: 4, offset: 2 });
 
   // --- Perf Report ---
   addSystem('perfReport', Phase.HUD, (dt, t, ctx) => {

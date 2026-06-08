@@ -157,13 +157,19 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     const radius = H.baseRadius * (1 - t) + H.topRadius * t;
     const y = i * brickH + brickH / 2;
     const angleOffset = (i % 2 === 0) ? 0 : Math.PI / H.bricksPerRow;
-    const brickWidth = ((Math.PI * 2 * radius) / H.bricksPerRow) * 0.95;
+    // Tighter mortar: near-zero tangential/vertical gaps so the shell reads as a
+    // continuous, smooth brick wall (was 0.95 / 0.9 — visibly loose). Slightly
+    // deeper, proud bricks (0.92 was 0.8) catch the rim light for a soft bevel.
+    const brickWidth = ((Math.PI * 2 * radius) / H.bricksPerRow) * 0.99;
     for (let j = 0; j < H.bricksPerRow; j++) {
       const angle = j * ((Math.PI * 2) / H.bricksPerRow) + angleOffset;
-      const bx = Math.cos(angle) * radius;
-      const bz = Math.sin(angle) * radius;
+      // Push bricks a hair outward so each course slightly overlaps the next,
+      // hiding seams and giving a smoother, tighter silhouette.
+      const br = radius + 0.06;
+      const bx = Math.cos(angle) * br;
+      const bz = Math.sin(angle) * br;
       _q.setFromAxisAngle(new Vector3(0, 1, 0), angle + Math.PI / 2);
-      _m.compose(new Vector3(bx, y, bz), _q, new Vector3(brickWidth, brickH * 0.9, 0.8));
+      _m.compose(new Vector3(bx, y, bz), _q, new Vector3(brickWidth, brickH * 0.97, 0.92));
       const g = brickTemplate.clone();
       g.applyMatrix4(_m);
       if (brickVertexColored && hueR && satR && lumR) {
@@ -288,6 +294,63 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   win.rotation.y = 0.9;
   root.add(win);
 
+  // --- Glowing accent mushrooms ringing the base (matches the glow-decor in
+  // mushroom-house-puffling-home.html). Merged to two draw calls (stems + caps),
+  // emissive only — NO point lights (light budget) and NO per-frame work. Bio
+  // theme only; the whole group is hidden under the cottage theme swap. ---
+  const decorStemMat = new MeshStandardMaterial({
+    color: theme.decorStem ?? C.puffDecorStem,
+    roughness: 0.95,
+    fog: false
+  });
+  const decorCapMat = new MeshStandardMaterial({
+    color: theme.decorCap ?? C.puffDecorCap,
+    emissive: theme.decorEmissive ?? C.puffDecorEmissive,
+    emissiveIntensity: theme.decorEmissiveInt ?? 1.4,
+    roughness: 0.4,
+    fog: false
+  });
+  const decorGroup = new Group();
+  const decorStemGeos = [];
+  const decorCapGeos = [];
+  const stemTemplate = new CylinderGeometry(0.06, 0.08, 0.3, 8);
+  const capTemplate = new SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  capTemplate.scale(1, 0.6, 1);
+  const ringInner = H.capRadius - 1.0;
+  const ringSpan = 3.5;
+  const _s = new Vector3(1, 1, 1);
+  for (let i = 0; i < 16; i++) {
+    const angle = rng() * Math.PI * 2;
+    // Keep the front doorway clear (door faces +Z).
+    if (angle > Math.PI / 2 - 0.4 && angle < Math.PI / 2 + 0.4) continue;
+    const rad = ringInner + rng() * ringSpan;
+    const cx = Math.cos(angle) * rad;
+    const cz = Math.sin(angle) * rad;
+    const lean = 0.85 + rng() * 0.4;
+    _s.set(lean, lean, lean);
+    _q.identity();
+    _m.compose(new Vector3(cx, 0.15 * lean, cz), _q, _s);
+    const sg = stemTemplate.clone();
+    sg.applyMatrix4(_m);
+    decorStemGeos.push(sg);
+    _m.compose(new Vector3(cx, 0.30 * lean, cz), _q, _s);
+    const cg = capTemplate.clone();
+    cg.applyMatrix4(_m);
+    decorCapGeos.push(cg);
+  }
+  if (decorStemGeos.length) {
+    const mStems = mergeGeometries(decorStemGeos);
+    if (mStems) decorGroup.add(new Mesh(mStems, decorStemMat));
+  }
+  if (decorCapGeos.length) {
+    const mCaps = mergeGeometries(decorCapGeos);
+    if (mCaps) decorGroup.add(new Mesh(mCaps, decorCapMat));
+  }
+  // Decor lives at the home's base plane; visibility toggles with theme (glow accents
+  // only make sense in the bioluminescent state).
+  decorGroup.visible = theme.showDecor !== false;
+  root.add(decorGroup);
+
   root.traverse((ch) => {
     if (ch.isMesh) {
       ch.castShadow = true;
@@ -307,8 +370,12 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     doorFrameMat,
     doorGrooveMat,
     knobMat,
-    glassMat
+    glassMat,
+    decorStemMat,
+    decorCapMat
   };
+  /** Glow-accent group reference so the theme swap can hide it in cottage mode. */
+  root.userData.pufflingDecor = decorGroup;
 
   return root;
 }
@@ -342,7 +409,13 @@ export function themePayloadBioluminescent() {
     knobEmissiveInt: 1.55,
     glass: 0x88ffcc,
     glassEmissive: 0x00ffaa,
-    glassEmissiveInt: 1.4
+    glassEmissiveInt: 1.4,
+    // Glowing accent mushrooms ringing the home (visible at night).
+    showDecor: true,
+    decorStem: C.puffDecorStem,
+    decorCap: C.puffDecorCap,
+    decorEmissive: C.puffDecorEmissive,
+    decorEmissiveInt: 1.4
   };
 }
 
@@ -369,7 +442,10 @@ export function themePayloadCottage() {
     knobEmissiveInt: 0,
     glass: 0xe6c8ff,
     glassEmissive: 0xb088ff,
-    glassEmissiveInt: 0.55
+    glassEmissiveInt: 0.55,
+    // Glow accents are a bioluminescent-night feature; the cottage finale uses
+    // real flower gardens (Task 12.5) instead, so hide the glow mushrooms here.
+    showDecor: false
   };
 }
 
@@ -410,4 +486,14 @@ export function applyThemeToDetailedHouse(root, cottage) {
   m.glassMat.color.setHex(p.glass);
   m.glassMat.emissive.setHex(p.glassEmissive);
   m.glassMat.emissiveIntensity = p.glassEmissiveInt;
+  // Glow-accent mushrooms: recolor + toggle visibility for the active theme.
+  if (m.decorStemMat && p.decorStem !== undefined) m.decorStemMat.color.setHex(p.decorStem);
+  if (m.decorCapMat && p.decorCap !== undefined) {
+    m.decorCapMat.color.setHex(p.decorCap);
+    if (p.decorEmissive !== undefined) m.decorCapMat.emissive.setHex(p.decorEmissive);
+    if (p.decorEmissiveInt !== undefined) m.decorCapMat.emissiveIntensity = p.decorEmissiveInt;
+  }
+  if (root.userData.pufflingDecor) {
+    root.userData.pufflingDecor.visible = p.showDecor !== false;
+  }
 }

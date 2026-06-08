@@ -208,6 +208,9 @@ export const C = {
   // emissive so the brick shell reads as detail (not a black silhouette) at night.
   // HSL variation ranges match mushroom-house-puffling-home.html BIOLUMINESCENT.
   puffBrick: 0x3c4b4b, puffBrickEmissive: 0x18584a,
+  // Glowing accent mushroom clusters ringing each home (matches the glow-decor in
+  // mushroom-house-puffling-home.html). Stem is dark, cap glows teal-green.
+  puffDecorStem: 0x554444, puffDecorCap: 0xeafff5, puffDecorEmissive: 0x00ffaa,
   // Jelly detail palette
   jellyOrgan: 0xbbddff, jellySpot: 0xeeffff, jellyTip: 0xddeeff, jellyMucus: 0xddffff,
   // Moth detail palette

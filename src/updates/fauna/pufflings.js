@@ -19,13 +19,29 @@ import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../../systems/audio.js';
 import { triggerPufflingChat } from '../../systems/pufflingChat.js';
 
+// ================================================================
+// Module-scope allocation-free buffers (no per-frame GC)
+// ================================================================
+const _puffPos = { x: 0, z: 0 };
+const _puffNearestPos = { x: 0, z: 0 };
+const _puffZero2 = { x: 0, z: 0 };
+
+// Pre-allocated neighbor slots (PUFF_N=40 worst case)
+const _PUFF_MAX = 48;
+const _puffNeighborSlots = Array.from({ length: _PUFF_MAX }, () => ({ x: 0, z: 0 }));
+const _puffNeighbors = [];
+
+// Pre-allocated return value
+const _puffsResult = { nearestDist2: Infinity, nearestPos: _puffNearestPos };
+
 export function updatePuffs(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
 
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
   let nearestDist2 = Infinity;
-  let nearestPos = { x: 0, z: 0 };
+  const nearestPos = _puffNearestPos;
+  nearestPos.x = 0; nearestPos.z = 0;
   const curAttune = getAttunement();
 
   for (let i = 0; i < puffs.length; i++) {
@@ -106,17 +122,21 @@ export function updatePuffs(dt, t) {
     if (p._targetY === undefined) p._targetY = p._baseY;
     p._baseY += (p._targetY - p._baseY) * Math.min(dt * 14, 1);
 
-    // Flocking
-    const puffPos = { x: px, z: pz };
-    const puffNeighbors = [];
+    // Flocking (reuse pre-allocated slots, clear with .length = 0)
+    _puffPos.x = px; _puffPos.z = pz;
+    _puffNeighbors.length = 0;
     for (let j = 0; j < puffs.length; j++) {
       if (j === i) continue;
       const ox = puffs[j].group.position.x, oz = puffs[j].group.position.z;
       const d2 = (ox - px) * (ox - px) + (oz - pz) * (oz - pz);
-      if (d2 < 100) puffNeighbors.push({ x: ox, z: oz });
+      if (d2 < 100) {
+        const slot = _puffNeighborSlots[_puffNeighbors.length];
+        slot.x = ox; slot.z = oz;
+        _puffNeighbors.push(slot);
+      }
     }
-    const sep = separation(puffPos, puffNeighbors, 1.5);
-    const coh = puffNeighbors.length > 0 ? cohesion(puffPos, puffNeighbors) : { x: 0, z: 0 };
+    const sep = separation(_puffPos, _puffNeighbors, 1.5);
+    const coh = _puffNeighbors.length > 0 ? cohesion(_puffPos, _puffNeighbors) : _puffZero2;
     const flockX = sep.x * 2.0 + coh.x * 0.3;
     const flockZ = sep.z * 2.0 + coh.z * 0.3;
     const flockMag = Math.sqrt(flockX * flockX + flockZ * flockZ);
@@ -154,7 +174,8 @@ export function updatePuffs(dt, t) {
           const flockAng = flockMag > 0.2 ? Math.atan2(flockX, flockZ) : 0;
           p.state = 'hop'; p.wanderAng += (Math.random() - 0.5) * 1.5 + flockAng * 0.3; p.hopTimer = 0;
           const _puffNear = queryNearTrees(px, pz, 4);
-          const avF = avoidObstacles({ x: px, z: pz }, p.wanderAng, _puffNear.items, 2, 0.8, _puffNear.length);
+          _puffPos.x = px; _puffPos.z = pz;
+          const avF = avoidObstacles(_puffPos, p.wanderAng, _puffNear.items, 2, 0.8, _puffNear.length);
           if (avF.x * avF.x + avF.z * avF.z > 0.01) {
             p.wanderAng += Math.atan2(avF.z, avF.x) * 0.5;
           }
@@ -379,5 +400,7 @@ export function updatePuffs(dt, t) {
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
   }
 
-  return { nearestDist2, nearestPos };
+  _puffsResult.nearestDist2 = nearestDist2;
+  // _puffsResult.nearestPos is already _puffNearestPos (mutated in place)
+  return _puffsResult;
 }

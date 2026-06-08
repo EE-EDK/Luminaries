@@ -70,7 +70,7 @@ import { makePond } from './entities/magical/ponds.js';
 import { makeOrb } from './entities/magical/orbs.js';
 
 // Entities — World
-import { initProceduralRocks, placeProceduralRock, finalizeProceduralRocks, updateProceduralRocks, initPebbles, addPebble, finalizePebbles } from './entities/world/rocks.js';
+import { initProceduralRocks, placeProceduralRock, finalizeProceduralRocks, regroundProceduralRocks, updateProceduralRocks, initPebbles, addPebble, finalizePebbles, regroundPebbles } from './entities/world/rocks.js';
 import { makeObelisk, getObeliskGroup, getObeliskMat, getObeliskGlowMat, getPinnacleOrb, getPinnacleRings, getRuneFaces } from './entities/world/obelisk.js';
 import { makeMoat, getMoatMesh, getMoatMat } from './entities/world/moat.js';
 import { makeRainbows, rainbowArcs, updateRainbowSparkles } from './entities/world/rainbows.js';
@@ -682,8 +682,8 @@ try {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
     makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth, makeLuminid,
     makeGrassPatch, makeFern, makeFlower, makeReed,
-    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
-    initPebbles, addPebble, finalizePebbles,
+    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks, regroundProceduralRocks,
+    initPebbles, addPebble, finalizePebbles, regroundPebbles,
     makeWisp, makeDandelion, makeFairyRing, makeBubble, makePond, makeOrb,
     makeThornbloom, makeHelixvine, makeSnapthorn, makeSpiralFrond,
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss

@@ -18,6 +18,7 @@ import {
   ROCK_SDF_CUTS_MIN, ROCK_SDF_CUTS_MAX, ROCK_GROUND_SINK
 } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
+import { getGroundY } from '../../world/terrain.js';
 
 // ================================================================
 // Rock type definitions
@@ -403,10 +404,9 @@ export function placeProceduralRock(x, z, groundY, isBoulder) {
   return { colR, groundY, scale: baseScale, squash, isBoulder };
 }
 
-export function finalizeProceduralRocks() {
-  // Pre-compute all instance matrices
-  _allMatrices = new Float32Array(_instanceCount * 16);
-
+// Rebuild all instance matrices from current _instanceData (positions, groundY,
+// scale, etc). Shared by finalize + reground so the sink math stays in one place.
+function rebuildRockMatrices() {
   for (let i = 0; i < _instanceCount; i++) {
     const idx = i * FLOATS_PER;
     const x = _instanceData[idx + 0];
@@ -426,6 +426,35 @@ export function finalizeProceduralRocks() {
     _tempObj.updateMatrix();
     _tempObj.matrix.toArray(_allMatrices, i * 16);
   }
+}
+
+export function finalizeProceduralRocks() {
+  // Pre-compute all instance matrices
+  _allMatrices = new Float32Array(_instanceCount * 16);
+  rebuildRockMatrices();
+}
+
+// Re-sample terrain height for every placed rock and rebuild matrices.
+// Call after the height cache is rebuilt (e.g. puffling-home plateaus) so rocks
+// near graded pads don't float above / sink below the re-leveled ground.
+// Returns updated per-instance { x, z, topY } so callers can refresh collision data.
+export function regroundProceduralRocks() {
+  if (!_allMatrices || _instanceCount === 0) return [];
+  const out = [];
+  for (let i = 0; i < _instanceCount; i++) {
+    const idx = i * FLOATS_PER;
+    const x = _instanceData[idx + 0];
+    const z = _instanceData[idx + 1];
+    const gy = getGroundY(x, z);
+    _instanceData[idx + 2] = gy;
+    const scale = _instanceData[idx + 3];
+    const squash = _instanceData[idx + 6];
+    out.push({ x, z, topY: gy + scale * squash * (1 - ROCK_GROUND_SINK) });
+  }
+  rebuildRockMatrices();
+  // Force the LOD update to re-upload matrices next frame.
+  _rockLastPx = NaN;
+  return out;
 }
 
 // Working counts for LOD assignment (pre-allocated)
@@ -586,4 +615,20 @@ export function finalizePebbles() {
   if (!pebbleMesh) return;
   pebbleMesh.instanceMatrix.needsUpdate = true;
   if (pebbleMesh.instanceColor) pebbleMesh.instanceColor.needsUpdate = true;
+}
+
+// Re-snap each pebble's vertical position to the (possibly re-graded) terrain.
+// Preserves the pebble's seeded rotation/scale by only rewriting matrix.elements[13]
+// (the Y translation) — avoids re-running sr() and desyncing world-gen determinism.
+const _pebMat = new Matrix4();
+export function regroundPebbles() {
+  if (!pebbleMesh) return;
+  for (let i = 0; i < pebbleMesh.count; i++) {
+    pebbleMesh.getMatrixAt(i, _pebMat);
+    const x = _pebMat.elements[12];
+    const z = _pebMat.elements[14];
+    _pebMat.elements[13] = getGroundY(x, z) + 0.01; // slight embed so pebbles rest on ground
+    pebbleMesh.setMatrixAt(i, _pebMat);
+  }
+  pebbleMesh.instanceMatrix.needsUpdate = true;
 }

@@ -96,8 +96,8 @@ export function populate(arrays, builders, scene) {
     makeTreeImpostor, createTreeTemplates, createTreeInstances,
     makeMush, makeCrystal, makeJelly, makePuff, makeDeer, makeMoth, makeLuminid,
     makeGrassPatch, makeFern, makeFlower, makeReed,
-    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks,
-    initPebbles, addPebble, finalizePebbles,
+    initProceduralRocks, placeProceduralRock, finalizeProceduralRocks, regroundProceduralRocks,
+    initPebbles, addPebble, finalizePebbles, regroundPebbles,
     makeWisp, makeDandelion, makeFairyRing, makeBubble, makePond, makeOrb,
     makeThornbloom, makeHelixvine, makeSnapthorn, makeSpiralFrond,
     makeCorpseBloom, makeOrbBush, makeLanternPod, makeVeilMoss
@@ -735,8 +735,16 @@ export function populate(arrays, builders, scene) {
     o.group.position.y = getGroundY(o.x, o.z) + 1.0;
     o.flyY = getGroundY(o.x, o.z) + 1.0;
   }
-  // NOTE: rocks_data are already finalized as InstancedMesh (finalizeProceduralRocks)
-  // before this pass runs, so individual re-grounding is not feasible.
+  // Rocks/boulders + pebbles: re-sample terrain and rebuild instanced matrices so
+  // they don't float above (or sink below) the house-plateau-graded ground. The
+  // instanced systems retain per-instance x/z, so re-grounding IS feasible — it just
+  // re-snaps Y and rebuilds the matrices (no sr() re-roll, world-gen stays deterministic).
+  const regroundedRocks = regroundProceduralRocks();
+  // regroundedRocks is in placement order, matching rocks_data; refresh collision topY.
+  for (let i = 0; i < regroundedRocks.length && i < rocks_data.length; i++) {
+    rocks_data[i].topY = regroundedRocks[i].topY;
+  }
+  regroundPebbles();
   // Flying entities (jellies, moths, wisps, bubbles) skipped — height
   // difference from plateaus is negligible for entities 2-5m above ground.
 

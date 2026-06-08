@@ -199,18 +199,22 @@ You are an **Autonomic Diagnostic Routine** within a decaying biological hard dr
 
 ---
 
+## What's In The Game (Phase 2 Complete)
+
+All 20 of 21 planned Phase 2 features are now implemented:
+
+- **Weather Attunement Modifiers** — Fog calms deer (easier attunement), rain energizes pufflings, storms excite moths ✓
+- **Day/Night Phase Gating** — bioGlow scales attunement rate; orb proximity also scales by bioGlow ✓
+- **Bubble Pop Micro-Rewards** — Zone-aware bubble behavior: pulse in restored zones, repulsion in dimmed zones ✓
+- **Crystal Resonance Chains** — Chain 3+ crystal interactions for harmonic tones and sequential light pulses ✓
+- **Dandelion Seed Wayfinding** — Seeds drift subtly toward nearest unfound orb ✓
+- **Obelisk Rune Reveal** — One creature-colored rune face revealed per orb ✓
+- **Ground Glyphs** — Hidden discovery markers revealed by standing still within 3m for ~3.5 seconds ✓
+- **Echo-Visions** — Sprint through a storm to see ghostly traces of recent creature paths ✓
+
 ## What's Coming Next
 
-The following features are planned but not yet implemented:
-
-- **Weather Attunement Modifiers** — Fog calms deer (easier attunement), rain energizes pufflings, storms excite moths
-- **Day/Night Phase Gating** — bioGlow scales attunement rate; some discoveries only visible at certain times
-- **Bubble Pop Micro-Rewards** — Zone-aware bubble behavior with small bonuses
-- **Crystal Resonance Chains** — Chain 3+ crystal interactions for harmonic tones and bioGlow corridors
-- **Dandelion Seed Wayfinding** — Seeds drift subtly toward unfound orbs
-- **Obelisk Rune Reveal** — One creature-colored rune face revealed per orb
-- **Ground Glyphs** — Hidden discovery markers revealed by standing still in the right places
-- **Echo-Visions** — Sprint through a storm to see ghostly traces of creature paths
+Future work focuses on FPS hardening, performance optimization, and polish.
 
 ---
 

@@ -37,7 +37,7 @@ npm test             # Run unit tests (kernel modules)
 
 **Phase 1 (Foundation): COMPLETE.** Core forest, 29 entity types, 11 particle systems, procedural audio + generative music, 6-state weather, 4-phase day/night, 5-orb quest with laser/rainbow/transform finale.
 
-**Phase 2 (Symbiotic Attunement): 17/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
+**Phase 2 (Symbiotic Attunement): 20/21 FEATURES DONE.** See `reference/MANIFESTO.md` for full design.
 
 Implemented:
 1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
@@ -58,8 +58,11 @@ Implemented:
 15. **Bubble Pop Rewards** — DONE: Restored zone pulse; dimmed zone repulsion (`updates/magicalEntities.js`)
 16. **Dandelion Wayfinding** — DONE: Gentle bias toward nearest unfound orb (`particles/seeds.js`)
 17. **Obelisk Rune Reveal** — DONE: Colored runes per orb creature type (`quest/questVisuals.js`)
+18. **Ground Glyphs** — DONE: Hidden discovery markers revealed by stillness within 3m + 2s idle (`populate.js`, `systems/discoveries.js`)
+19. **Crystal Resonance Chains** — DONE: CRYSTAL_CHAIN event drives sequential wave pulse on clustered crystals (`updates/crystalVisuals.js`, `systems/audio/crystals.js`)
+20. **Echo-Visions** — DONE: Storm-sprint creature path traces as glowing LineSegments (`systems/echoVisions.js`)
 
-Remaining (4 features): Crystal resonance chains, ground glyphs, echo-visions, and deferred optimizations. See `reference/phase-2-roadmap.md`.
+Remaining (1 feature): Deferred optimizations / FPS hardening. See `reference/phase-2-roadmap.md`.
 
 ## Critical Rules
 
@@ -118,11 +121,11 @@ These are non-negotiable. Every session must follow them.
 4. Export from audio.js. Either import in main.js and pass as callback, or subscribe to an eventBus event in `audio.js` `initAudio()`
 
 ### Implementing Remaining Phase 2 Features
-1. Read `reference/phase-2-roadmap.md` for remaining items (8 of 21)
+1. Read `reference/phase-2-roadmap.md` for remaining items (20 of 21 done)
 2. Read `reference/MANIFESTO.md` for detailed design per feature
 3. Tier 1 is COMPLETE — core gameplay loop works end-to-end
-4. Remaining Tier 2 items (9-14) are independent of each other
-5. Remaining Tier 3 items: ground glyphs (18) and echo-visions (21)
+4. All Tier 2 items (9-14) are DONE
+5. All Tier 3 items are DONE (including ground glyphs (18) and echo-visions (21))
 
 ## Key File Locations
 
@@ -188,9 +191,9 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - [ ] **Puffling houses (readability)** — Still reading as basic black silhouettes in night; improve materials (env, tone map parity, emissive) vs `mushroom-house-puffling-home.html` reference; verify not culled (see `entities/world/pufflingHomeDetailed.js`, `pufflingHomes.js`).
 - [ ] **2nd phase / quest progression unlock** — Cannot advance past first-phase gate: audit orb count, quest state, `FREE_ROAM` / `getQuestState`, frequency gate, and any blockers in `quest/questState.js` + `quest/questVisuals.js` (repro with save-less refresh).
 - [ ] **In-game debug UI** — Debug terminal (`Esc`×2) not obvious / not discoverable: add brief HUD hint in dev, optional persistent affordance, ensure `initDebugConsole()` + `LumiDebug` surface in `docs` build; verify not stripped by `import.meta.env` on GH Pages (`src/debug/debugConsole.js`, `index.html` / HUD copy).
-- [ ] crystal resonance chains (Remaining Phase 2 feature)
-- [ ] ground glyphs (Remaining Phase 2 feature)
-- [ ] echo-visions (Remaining Phase 2 feature)
+- [x] crystal resonance chains (Phase 2 feature — wired via CRYSTAL_CHAIN event + `updates/crystalVisuals.js`)
+- [x] ground glyphs (Phase 2 feature — wired in `populate.js` + `systems/discoveries.js`)
+- [x] echo-visions (Phase 2 feature — wired in `systems/echoVisions.js` + `main.js`)
 - [ ] Refactor `main.js` to extract subsystems (Debt)
 - [ ] Implement save/load system (Debt)
 - [ ] Add accessibility support (Debt)

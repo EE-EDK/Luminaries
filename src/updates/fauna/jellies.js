@@ -20,7 +20,10 @@ import {
 import { jellies } from '../../state/entityStore.js';
 import { playCreatureSound } from '../../systems/audio.js';
 import { scene } from '../../core/renderer.js';
-import { C } from '../../constants.js';
+import { C, OBELISK_H } from '../../constants.js';
+import { getObeliskGroup } from '../../entities/world/obelisk.js';
+import { getQuestPhase } from '../../quest/questState.js';
+import { QuestPhases } from '../../quest/config.js';
 import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
 import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
 import { nearest } from '../../systems/registration.js';
@@ -87,13 +90,43 @@ const CRIMSON_BURST_DECAY = 1.05;
 const CRIMSON_MAX_AGE = 52;
 let _crimsonListenerOn = false;
 
-/** Linked / ritual formation — one horizontal ring 25 m Ø, ≥10 m above player, evenly spaced, rotating. */
+/** Linked / ritual formation — one horizontal ring 25 m Ø, evenly spaced, rotating, anchored over the obelisk. */
 const FORMATION_RING_R = 12.5;
-const FORMATION_Y_ABOVE_PLAYER = 10;
+/** Ring hovers this far below the risen obelisk tip so the crimson ritual reads as orbiting the monolith. */
+const FORMATION_Y_BELOW_TIP = 4;
+/** Fallback ring height (obelisk world Y + this) if the obelisk group isn't available yet. */
+const FORMATION_Y_ABOVE_OBELISK = 18;
 /** Carousel rad/s — whole ring drifts so slots orbit together until everyone is linked. */
 const FORMATION_SPIN = 0.38;
 const FORMATION_LERP = 2.35;
 const FORMATION_BOB = 0.32;
+
+/**
+ * World anchor for the jelly ritual / crimson ring: the obelisk at world center (0,0).
+ * Reads the live group Y (questVisuals raises it as orbs return), so the ring rides up with it.
+ * Returns the same buffer each call — no per-frame allocation.
+ */
+const _obeliskAnchor = { x: 0, z: 0, ringY: 18 };
+function getObeliskAnchor() {
+  const og = getObeliskGroup();
+  if (og) {
+    _obeliskAnchor.x = og.position.x;
+    _obeliskAnchor.z = og.position.z;
+    // Tip world Y = group Y + OBELISK_H + 3 (capstone/pinnacle). Hover the ring just below the tip.
+    _obeliskAnchor.ringY = og.position.y + OBELISK_H + 3 - FORMATION_Y_BELOW_TIP;
+  } else {
+    _obeliskAnchor.x = 0;
+    _obeliskAnchor.z = 0;
+    _obeliskAnchor.ringY = FORMATION_Y_ABOVE_OBELISK;
+  }
+  return _obeliskAnchor;
+}
+
+/** Quest is in its endgame — jellies should disperse from the ritual ring back to free drift. */
+function questAtEndgame() {
+  const p = getQuestPhase();
+  return p === QuestPhases.FINALE || p === QuestPhases.TRANSFORM || p === QuestPhases.FREE_ROAM;
+}
 
 function ensureJellyCrimsonListener() {
   if (_crimsonListenerOn) return;
@@ -127,14 +160,18 @@ function ensureJellyRitualOrb() {
 export function updateJellies(dt, t) {
   ensureJellyRitualOrb();
   ensureJellyCrimsonListener();
+  const obeliskAnchor = getObeliskAnchor();
+  // At quest endgame (FINALE/TRANSFORM/FREE_ROAM) the ritual disperses — jellies return to free drift.
+  const endgame = questAtEndgame();
   const pitchLockedJellyPre = isLocked() && getLockType() === 'jelly';
   const nearJellyRitual = nearest.jellyDist2 < 100;
-  const wantsJellyRitual = getAttunementTarget() === 'jelly' || (pitchLockedJellyPre && nearJellyRitual);
+  const wantsJellyRitual = !endgame && (getAttunementTarget() === 'jelly' || (pitchLockedJellyPre && nearJellyRitual));
   const attune = getAttunement();
   if (wantsJellyRitual && !jellyRitual.active && (attune > 0.01 || pitchLockedJellyPre)) {
     jellyRitual.active = true;
-    jellyRitual.centerX = player.pos.x;
-    jellyRitual.centerZ = player.pos.z;
+    // Anchor the ritual centroid to the obelisk (world center), not the player.
+    jellyRitual.centerX = obeliskAnchor.x;
+    jellyRitual.centerZ = obeliskAnchor.z;
     jellyRitual.progress = 0;
     jellyRitual.flash = 0.18;
   } else if (!wantsJellyRitual) {
@@ -142,6 +179,12 @@ export function updateJellies(dt, t) {
     jellyRitual.progress = 0;
     jellyRitual.flash = 0;
     if (jellyRitual.orbMesh) jellyRitual.orbMesh.visible = false;
+  }
+  // Crimson harmony also disperses at endgame so the flock free-drifts during the finale bloom.
+  if (endgame && jellyCrimson.active) {
+    jellyCrimson.active = false;
+    jellyCrimson.burst = 0;
+    for (let ji = 0; ji < jellies.length; ji++) jellies[ji]._crimsonJoined = false;
   }
   if (attune > jellyRitual.lastAttune + 0.03) jellyRitual.flash = 0.28;
   jellyRitual.lastAttune = attune;
@@ -228,8 +271,9 @@ export function updateJellies(dt, t) {
     const _jdx = _jg.position.x - player.pos.x, _jdz = _jg.position.z - player.pos.z;
     const _jdy = _jg.position.y - player.pos.y;
     const _dist3Sq = _jdx * _jdx + _jdy * _jdy + _jdz * _jdz;
-    // During crimson harmony, draw distant jellies so the wave + red read on the whole flock.
-    if (_dist3Sq > 3025 && !jellyCrimson.active) {
+    // During crimson harmony OR the obelisk ritual, draw distant jellies so the
+    // ring reads even when the player has wandered away from the obelisk center.
+    if (_dist3Sq > 3025 && !jellyCrimson.active && !jellyRitual.active) {
       _jg.visible = false;
       continue;
     }
@@ -284,11 +328,11 @@ export function updateJellies(dt, t) {
       }
       const base = t * FORMATION_SPIN;
       const ang = base + (rank / M) * Math.PI * 2;
-      const tx = player.pos.x + Math.cos(ang) * FORMATION_RING_R;
-      const tz = player.pos.z + Math.sin(ang) * FORMATION_RING_R;
+      // Orbit the OBELISK (world center), not the player.
+      const tx = obeliskAnchor.x + Math.cos(ang) * FORMATION_RING_R;
+      const tz = obeliskAnchor.z + Math.sin(ang) * FORMATION_RING_R;
       const tgtY =
-        player.pos.y +
-        FORMATION_Y_ABOVE_PLAYER +
+        obeliskAnchor.ringY +
         Math.sin(t * 1.05 + rank * 0.41) * FORMATION_BOB;
       g.position.x += (tx - g.position.x) * Math.min(1, dt * FORMATION_LERP);
       g.position.z += (tz - g.position.z) * Math.min(1, dt * FORMATION_LERP);
@@ -343,8 +387,9 @@ export function updateJellies(dt, t) {
     }
 
     if (jellyRitual.active && !jellyCrimson.active && !crimsonOrbit) {
-      jellyRitual.centerX += (player.pos.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
-      jellyRitual.centerZ += (player.pos.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
+      // Ease the ritual centroid toward the obelisk (world center), not the player.
+      jellyRitual.centerX += (obeliskAnchor.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
+      jellyRitual.centerZ += (obeliskAnchor.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
       const cx = jellyRitual.centerX;
       const cz = jellyRitual.centerZ;
       const n = Math.max(1, jellies.length);
@@ -353,8 +398,7 @@ export function updateJellies(dt, t) {
       const tx = cx + Math.cos(ang) * FORMATION_RING_R;
       const tz = cz + Math.sin(ang) * FORMATION_RING_R;
       const ty =
-        player.pos.y +
-        FORMATION_Y_ABOVE_PLAYER +
+        obeliskAnchor.ringY +
         Math.sin(t * 2.05 + i * 0.55) * FORMATION_BOB;
       g.position.x += (tx - g.position.x) * Math.min(1, dt * FORMATION_LERP);
       g.position.z += (tz - g.position.z) * Math.min(1, dt * FORMATION_LERP);
@@ -569,9 +613,10 @@ export function updateJellies(dt, t) {
       const ritualProg = Math.min(1, jellyRitual.progress);
       const glowScale = 0.35 + ritualProg * 1.5 + (jellyRitual.flash > 0 ? jellyRitual.flash * 1.8 : 0);
       jellyRitual.orbMesh.visible = true;
+      // Glow focus sits at the center of the ring — over the obelisk, at ring height.
       jellyRitual.orbMesh.position.set(
         jellyRitual.centerX,
-        player.pos.y + FORMATION_Y_ABOVE_PLAYER * 0.72,
+        obeliskAnchor.ringY,
         jellyRitual.centerZ
       );
       jellyRitual.orbMesh.scale.setScalar(glowScale);

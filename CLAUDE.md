@@ -133,7 +133,9 @@ These are non-negotiable. Every session must follow them.
 | Player physics | `src/core/player.js` |
 | Terrain height | `src/world/terrain.js` → `getGroundY()` |
 | Audio system | `src/systems/audio.js` (32KB) |
-| Quest state machine | `src/quest/questManager.js` |
+| Quest state machine | `src/quest/questState.js` → `initQuest()`, `updateQuest()`, `getQuestState()` |
+| Quest visuals + effects | `src/quest/questVisuals.js` → Three.js orb/obelisk/laser rendering |
+| Quest config | `src/quest/config.js` → `QuestPhases`, `QUEST_CONFIG`, `ORB_CREATURE_SEQUENCE` |
 | Weather states | `src/systems/weather.js` |
 | Day/night + bioGlow | `src/systems/dayNightCycle.js` |
 | Sector dimming | `src/systems/dimming.js` → `getLocalGlow()`, `initDimming()` |
@@ -146,7 +148,6 @@ These are non-negotiable. Every session must follow them.
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |
 | Game guide | `reference/GAME_GUIDE.md` (player-facing, update as features change) |
 | Kernel event bus | `src/kernel/eventBus.js` → `Events`, `on()`, `emit()` |
-| Kernel registry | `src/kernel/registry.js` → `register()`, `get()`, `EntityType` |
 | Kernel scheduler | `src/kernel/scheduler.js` → `addSystem()`, `Phase`, `run()` |
 | Kernel frame context | `src/kernel/context.js` → `update()`, `ctx` |
 | System registration | `src/systems/registration.js` → `registerAllSystems()`, `nearest` |

@@ -44,7 +44,9 @@ index.html
         │   └── systems/ai/           → senses.js + steering.js (used by fauna)
         │
         ├── QUEST INIT ────────────────────────────────────────
-        │   ├── quest/questManager.js → initQuest() → 5-phase state machine
+        │   ├── quest/questState.js   → initQuest(), updateQuest() → 5-phase state machine
+        │   ├── quest/questVisuals.js → Three.js rendering + effects for orbs/obelisk/lasers
+        │   ├── quest/config.js       → QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE
         │   └── quest/lasers.js       → makeLaser() → beam + glitter effects
         │
         └── ANIMATION LOOP ────────────────────────────────────
@@ -66,17 +68,18 @@ constants.js ──→ Entity counts, physics values, colors (C object)
      │
 kernel/ ───────→ Modular infrastructure layer
      │   eventBus.js   → Typed pub/sub (Events.ORB_COLLECTED, etc.)
-     │   registry.js   → Entity storage (EntityType.JELLIES → live array)
      │   scheduler.js  → Ordered phase runner (Phase.FAUNA_UPDATE, etc.)
      │   context.js    → Pre-allocated per-frame snapshot (dt, player, bioGlow...)
      │
-main.js ───────→ Bootstrap + entity arrays (still module-scoped, also in registry)
+main.js ───────→ Bootstrap + entity arrays (module-scoped; entity state lives in state/)
      │           director() calls runScheduler() which runs all systems in phase order.
      │
-     ├─→ Systems registered with scheduler:
-     │     crystalProximity → particleSpawn → floraGlow → fauna → spiritHum →
-     │     attunement → sky → vegetation → rocks → magical → particles →
-     │     quest → footprints → audio → discoveries
+     ├─→ Systems registered with scheduler (phase order):
+     │     crystalProximity(10) → particleSpawn(20) → floraGlow(30) →
+     │     crystalVisuals(32) → spatialHashUpdate(35) → spiritHum(38) →
+     │     fauna(40) → attunement(60) → sky(70) → vegetation(80) →
+     │     rocks(90) → magical(100) → particles(110) → quest(120) →
+     │     footprints(130) → audio(140) → discoveries(150) → perfReport(160)
      │
      ├─→ Event bus: cross-cutting concerns flow through eventBus
      │     Quest emits ORB_COLLECTED → audio, dimming, discoveries subscribe
@@ -160,14 +163,15 @@ initQuest({
 | Directory | Files | Lines | Purpose |
 |-----------|-------|-------|---------|
 | `main.js` | 1 | ~1,100 | Bootstrap + director subsystem functions |
-| `kernel/` | 4 (+tests) | ~300 | Event bus, registry, scheduler, context |
+| `kernel/` | 3 (+tests) | ~250 | Event bus, scheduler, context |
 | `core/` | 6 | ~450 | Engine infrastructure |
 | `world/` | 4 | ~1,200 | World generation |
 | `entities/` | 29 | ~5,500 | Entity builders |
-| `particles/` | 10 | ~1,000 | Particle systems |
-| `systems/` | 9 | ~2,200 | Audio, weather, day/night, AI, spiritHum, registration |
-| `quest/` | 2 | ~900 | Quest state machine |
+| `particles/` | 12 | ~1,200 | Particle systems |
+| `systems/` | 14 | ~3,000 | Audio, weather, day/night, AI, spiritHum, echoes, wizard, pufflingChat, registration |
+| `quest/` | 4 | ~1,100 | Quest state, visuals, config, lasers |
+| `state/` | 8 | ~400 | Game state stores (orbStore, playerStore, etc.) |
 | `updates/` | 5 | ~800 | Extracted fauna/vegetation/magical/spawning |
 | `ui/` | 2 | ~100 | HUD elements |
-| `utils/` | 2 | ~50 | RNG, math helpers |
-| **Total** | **~86** | **~14,000** | |
+| `utils/` | 3 | ~80 | RNG, math helpers, spatial hash |
+| **Total** | **~91** | **~15,000** | |

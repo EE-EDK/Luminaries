@@ -75,6 +75,12 @@ export function updateVegetation(dt, t) {
     if (fd2 > 1600) { if (f.group.visible) f.group.visible = false; continue; }
     if (!f.group.visible) f.group.visible = true;
     if (fd2 > 900) continue;
+    // Sector-restoration glow: fronds + fiddlehead emissive scaled by local glow.
+    if (f.glowMat) {
+      const fGlow = getLocalGlow(f.group.position.x, f.group.position.z, bioGlow * orbBoost);
+      f.glowMat.emissiveIntensity = f.glowBase * fGlow;
+      if (f.curlMat) f.curlMat.emissiveIntensity = f.curlBase * fGlow;
+    }
     if (f.slopeQ) {
       f.group.quaternion.copy(f.slopeQ);
       _slopeSwayQuat.set(
@@ -119,6 +125,12 @@ export function updateVegetation(dt, t) {
     if (rd2 > 1600) { if (r.group.visible) r.group.visible = false; continue; }
     if (!r.group.visible) r.group.visible = true;
     if (rd2 > 900) continue;
+    // Sector-restoration glow: stalk + seed-plume tip emissive scaled by local glow.
+    if (r.stalkMat) {
+      const rGlow = getLocalGlow(r.group.position.x, r.group.position.z, bioGlow * orbBoost);
+      r.stalkMat.emissiveIntensity = r.stalkBase * rGlow;
+      r.tipMat.emissiveIntensity = r.tipBase * rGlow;
+    }
     if (r.slopeQ) {
       r.group.quaternion.copy(r.slopeQ);
       _slopeSwayQuat.set(

@@ -31,6 +31,13 @@ const _stainMat = new MeshStandardMaterial({
 export function makeReed(x, z) {
   const g = new Group();
 
+  // Per-instance clones of the two emissive materials so each reed cluster can
+  // be driven through getLocalGlow() (sector restoration glow) without writing
+  // to the shared module material (which all reeds reference). Non-emissive
+  // parts stay on the shared materials. Base emissive intensities preserved.
+  const reedMat = _reedMat.clone();   // stalk (emissive C.reedTip, base 0.15)
+  const tipMat = _tipMat.clone();     // seed-plume tip (emissive C.reedTip, base 0.35)
+
   // Base mud clump
   const mud = new Mesh(new SphereGeometry(0.08, 5, 3), _mudMat);
   mud.scale.set(1.5, 0.4, 1.5); mud.position.y = 0.02; g.add(mud);
@@ -56,7 +63,7 @@ export function makeReed(x, z) {
       ));
     }
     const curve = new CatmullRomCurve3(pts);
-    const stalk = new Mesh(new TubeGeometry(curve, 8, 0.012, 4, false), _reedMat);
+    const stalk = new Mesh(new TubeGeometry(curve, 8, 0.012, 4, false), reedMat);
     g.add(stalk);
 
     // Joint nodes (2-3 per stalk) — placed along the curve
@@ -87,7 +94,7 @@ export function makeReed(x, z) {
     // Tip tuft (seed plume) — placed at curve tip
     const tipPos = curve.getPoint(1);
     const tipTang = curve.getTangent(1);
-    const tip = new Mesh(new SphereGeometry(0.025, 4, 3), _tipMat);
+    const tip = new Mesh(new SphereGeometry(0.025, 4, 3), tipMat);
     tip.scale.set(0.8, 1.5, 0.8);
     tip.position.copy(tipPos);
     tip.position.y += 0.02;
@@ -129,5 +136,9 @@ export function makeReed(x, z) {
   const stain = new Mesh(new TorusGeometry(0.1, 0.008, 4, 8), _stainMat);
   stain.rotation.x = Math.PI / 2; stain.position.y = 0.03; g.add(stain);
 
-  return { group: g, phase: sr() * 6.28, swayAmp: 0.03 + sr() * 0.04 };
+  return {
+    group: g, phase: sr() * 6.28, swayAmp: 0.03 + sr() * 0.04,
+    // Per-instance emissive materials for sector-restoration glow modulation.
+    stalkMat: reedMat, stalkBase: 0.15, tipMat, tipBase: 0.35
+  };
 }

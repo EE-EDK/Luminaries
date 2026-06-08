@@ -108,5 +108,9 @@ export function makeFern(x, z) {
   g.scale.setScalar(scale);
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, phase: sr() * 6.28 };
+  // Return per-instance emissive materials + their base intensities so the
+  // updater can drive them through getLocalGlow() (sector restoration glow),
+  // matching the flower/mushroom/crystal path. fMat (fronds+leaflets) and
+  // curlMat (fiddlehead) are per-fern instances, safe to modulate individually.
+  return { group: g, phase: sr() * 6.28, glowMat: fMat, glowBase: 0.2, curlMat, curlBase: 0.3 };
 }

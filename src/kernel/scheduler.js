@@ -20,6 +20,9 @@ const _contextSnapshot = {
 };
 
 export const Phase = {
+  // Adaptive quality runs first so its notch/knobs are current before the
+  // particle-spawn and LOD systems read them this same frame.
+  ADAPTIVE_QUALITY:    5,
   CRYSTAL_PROXIMITY:  10,
   PARTICLE_SPAWN:     20,
   FLORA_GLOW:         30,

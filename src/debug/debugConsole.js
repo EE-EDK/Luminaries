@@ -24,6 +24,7 @@ import { revealTruth } from '../state/narrativeState.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
 import { list as listSystems } from '../kernel/scheduler.js';
+import { getQualityReport, setAdaptiveQualityEnabled } from '../systems/adaptiveQuality.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -104,6 +105,8 @@ function buildHelpText() {
   phases                                        — QuestPhases enum (SEEK, RISING, COMPLETE, FINALE, TRANSFORM)
   spawnWizard()                                  — start wizard encounter immediately (camera tracks him)
   perf(topN?)                                    — FPS (avg/1%-low/min) + draw calls + hottest subsystems
+  quality()                                      — adaptive-quality notch + smoothed FPS + active knobs
+  quality(false|true)                            — disable/enable the adaptive scaler (A/B FPS testing)
   unlockTruth()                                 — TAB discovery hint in control bar
   resetAttune()                                  — consumeFrequency + resetLock
   stopSequence()                                 — cancel pending unlockSequence`;
@@ -213,6 +216,26 @@ export function attachLumiDebugApi() {
     /** Perf snapshot: rolling FPS + renderer.info + hottest subsystems. */
     perf(topN = 6) {
       return debugPerfSnapshot(topN);
+    },
+
+    /**
+     * Adaptive-quality state, or toggle the scaler for A/B FPS testing.
+     *   quality()       → snapshot { notch, notchName, smoothedFps, knobs… }
+     *   quality(false)  → disable the scaler (pin quality at the current notch)
+     *   quality(true)   → re-enable the scaler
+     */
+    quality(enable) {
+      if (enable !== undefined) {
+        setAdaptiveQualityEnabled(!!enable);
+      }
+      const snap = getQualityReport();
+      console.log(
+        `[quality] notch ${snap.notch} (${snap.notchName})  ` +
+        `smoothedFps ${snap.smoothedFps}  enabled ${snap.enabled}  ` +
+        `particle×${snap.particleScale} bloom${snap.bloomStrength} ` +
+        `lod×${snap.lodScale} density×${snap.densityScale}`
+      );
+      return snap;
     },
 
     unlockTruth() {

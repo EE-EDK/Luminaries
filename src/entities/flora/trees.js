@@ -6,6 +6,7 @@ import { sr } from '../../utils/rng.js';
 import { saveSeed, restoreSeed } from '../../utils/rng.js';
 import { lerp } from '../../utils/math.js';
 import { getGroundNormal } from '../../world/terrain.js';
+import { getLodScale } from '../../systems/adaptiveQuality.js';
 
 // ================================================================
 // Procedural bark texture — generated once, shared by all trunk InstancedMeshes
@@ -804,6 +805,14 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
     _frustum.setFromProjectionMatrix(_projScreenMatrix);
   }
 
+  // Adaptive-quality far-cull pull-in: at lower quality notches the outermost
+  // "hide entirely" radius shrinks so distant impostor sprites cull sooner
+  // (strictly fewer visible draws). lodScale is 1.0 at notch ≤ 2, so the band
+  // and all cross-fade thresholds below are byte-for-byte unchanged in normal
+  // play. Squared once here (lodScale² × radius²) — no per-instance sqrt/mult.
+  const _lodS = getLodScale();
+  const _hideD2 = 13225 * _lodS * _lodS; // (115m)² scaled
+
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const mesh = treeMeshes[ti];
     let trunkCount = 0, canopyCount = 0, glowCount = 0, detailCount = 0;
@@ -816,8 +825,9 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       const posIdx = inst.posIdx;
       const impostor = treeImpostors[posIdx];
 
-      // Tier 3 (>115m): hidden entirely
-      if (d2 > 13225) {
+      // Tier 3 (>115m): hidden entirely. Radius pulls in at lower quality
+      // notches (_hideD2); at full quality _hideD2 === 13225 (no behavior change).
+      if (d2 > _hideD2) {
         if (impostor) impostor.visible = false;
         continue;
       }

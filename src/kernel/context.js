@@ -6,6 +6,11 @@
 
 const _time = {
   dt: 0,
+  // Raw (un-dilated) frame delta. _time.dt is fed the dilated worldDt during the
+  // attunement slow-mo beat; frameDt is always the true requestAnimationFrame
+  // delta so wall-clock systems (e.g. adaptive quality FPS sampling) react to
+  // real frame time, not the breath-beat time scale.
+  frameDt: 0,
   t: 0,
 };
 
@@ -52,6 +57,7 @@ export const update = (values) => {
   if (!values) return;
   
   if (values.dt !== undefined) _time.dt = values.dt;
+  if (values.frameDt !== undefined) _time.frameDt = values.frameDt;
   if (values.t !== undefined) _time.t = values.t;
 
   if (values.player !== undefined) {
@@ -103,6 +109,7 @@ export const ctx = {
 
 export const reset = () => {
   _time.dt = 0;
+  _time.frameDt = 0;
   _time.t = 0;
   _player.body = null;
   _player.camera = null;

@@ -226,7 +226,7 @@ function syncContext(dt, t) {
   // longer mirrored into the kernel ctx — consumers read them directly from the
   // state/* stores via live bindings (same-frame, no stale copy).
   updateContext({
-    dt, t,
+    dt, frameDt: dt, t,
     player, camera,
     sprinting: keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint,
     playerIdleTime,

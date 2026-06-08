@@ -5,6 +5,7 @@
 // Handles firefly spawning, spore emission, dandelion wind dispersal, leaf fall.
 
 import { getGroundY } from '../world/terrain.js';
+import { getParticleScale, getDensityScale } from '../systems/adaptiveQuality.js';
 
 // Timers (module-scoped, persistent across frames)
 let ffTimer = 0;
@@ -18,7 +19,11 @@ export function spawnFireflies(dt, t, ctx) {
   ffTimer += dt;
   const rainDamper = Math.max(0.2, 1.0 - curRain * 0.8);
   const ffRate = (dirState === 'NEAR_CRYSTAL' ? 0.08 : 0.25) / rainDamper;
-  const ffMax = Math.floor((dirState === 'NEAR_CRYSTAL' ? 120 : 100) * rainDamper);
+  // Adaptive-quality far-particle cap: at lower notches the firefly ceiling is
+  // scaled down so the InstancedMesh updates fewer live instances per frame
+  // (strictly less per-frame work — see systems/adaptiveQuality.js).
+  const qScale = getParticleScale();
+  const ffMax = Math.floor((dirState === 'NEAR_CRYSTAL' ? 120 : 100) * rainDamper * qScale);
   if (ffTimer > ffRate) {
     ffTimer = 0;
     const flyCount = updateFlies(0, t);
@@ -52,10 +57,12 @@ export function spawnSpores(dt, ctx) {
   spTimer += dt;
   if (spTimer > 0.2) {
     spTimer = 0;
+    // Adaptive-quality density: thin spore emission at the lowest notch.
+    const spChance = 0.15 * getDensityScale();
     for (let i = 0; i < mush_data.length; i++) {
       const m = mush_data[i];
       const dx = m.x - player.pos.x, dz = m.z - player.pos.z;
-      if (dx * dx + dz * dz < 200 && Math.random() < 0.15)
+      if (dx * dx + dz * dz < 200 && Math.random() < spChance)
         spawnSpore(m.x, 0.6 * m.group.scale.x, m.z);
     }
   }

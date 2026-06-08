@@ -7,6 +7,7 @@
 
 import { addSystem, Phase } from '../kernel/scheduler.js';
 import { updateDynamicEntityHash } from '../state/entityStore.js';
+import { updateAdaptiveQuality } from './adaptiveQuality.js';
 
 // ================================================================
 // Nearest-creature tracking
@@ -24,6 +25,17 @@ export const nearest = {
 // ================================================================
 export function registerAllSystems(deps) {
   // deps contains references that can't come from registry/context
+
+  // --- Adaptive Quality (FPS safety net) ---
+  // Runs first (Phase.ADAPTIVE_QUALITY) so the quality notch + knobs are current
+  // before the particle-spawn and tree-LOD systems read them this frame. Uses
+  // ctx.time.frameDt — the RAW requestAnimationFrame delta — not the dilated
+  // worldDt, so FPS sampling reflects real frame time during the slow-mo beat.
+  // This is the production safety net (not a dev probe), so it is NOT gated by
+  // import.meta.env.DEV.
+  addSystem('adaptiveQuality', Phase.ADAPTIVE_QUALITY, (dt, t, ctx) => {
+    updateAdaptiveQuality(ctx.time.frameDt);
+  });
 
   // --- Spatial Hash Update ---
   addSystem('spatialHashUpdate', Phase.SPATIAL_HASH_UPDATE, () => {

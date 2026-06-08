@@ -43,6 +43,16 @@ export function makeSpiralFrond(x, z) {
   const h = 1.2 + sr() * 0.8; // 1.2-2.0m
   const frondN = 3 + Math.floor(sr() * 3); // 3-5 fronds
 
+  // Per-instance body materials so each spiralfrond's spiky silhouette can be
+  // brightened by ITS OWN sector glow (shared module material can't carry
+  // per-sector emissive). These are the "spiky blade" parts the owner saw dark.
+  const bodyMat = _frondMat.clone();      // spiral frond tubes
+  const leafletMatInst = _leafletMat.clone(); // small leaflets
+  const leafMatInst = _leafMat.clone();   // base rosette leaves
+  const bodyBase = bodyMat.emissiveIntensity;
+  const leafletBase = leafletMatInst.emissiveIntensity;
+  const leafBase = leafMatInst.emissiveIntensity;
+
   // --- Central stem ---
   const stem = new Mesh(
     new CylinderGeometry(0.02, 0.05, h, 5), _stemMat
@@ -53,7 +63,7 @@ export function makeSpiralFrond(x, z) {
   // --- Base rosette leaves ---
   for (let i = 0; i < 3; i++) {
     const la = sr() * 6.28;
-    const leaf = new Mesh(new PlaneGeometry(0.12, 0.2), _leafMat);
+    const leaf = new Mesh(new PlaneGeometry(0.12, 0.2), leafMatInst);
     leaf.position.set(Math.cos(la) * 0.1, h * 0.12, Math.sin(la) * 0.1);
     leaf.rotation.y = -la;
     leaf.rotation.x = -0.7;
@@ -87,7 +97,7 @@ export function makeSpiralFrond(x, z) {
 
     // Frond tube
     const tube = new Mesh(
-      new TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), _frondMat
+      new TubeGeometry(curve, 16, 0.012 + sr() * 0.006, 4, false), bodyMat
     );
     g.add(tube);
 
@@ -97,7 +107,7 @@ export function makeSpiralFrond(x, z) {
       const lt = 0.2 + (li / leafletN) * 0.6;
       const lPt = curve.getPoint(lt);
       const leaflet = new Mesh(
-        new PlaneGeometry(0.04, 0.06), _leafletMat
+        new PlaneGeometry(0.04, 0.06), leafletMatInst
       );
       leaflet.position.copy(lPt);
       leaflet.rotation.set(sr() * 1.5, sr() * 3, sr() * 1.5);
@@ -139,5 +149,10 @@ export function makeSpiralFrond(x, z) {
 
   g.position.set(x, 0, z);
   scene.add(g);
-  return { group: g, tipMats, tipMeshes, phase: sr() * 6.28, x, z };
+  return {
+    group: g, tipMats, tipMeshes,
+    bodyMat, leafletMat: leafletMatInst, leafMat: leafMatInst,
+    bodyBase, leafletBase, leafBase,
+    phase: sr() * 6.28, x, z
+  };
 }

@@ -185,9 +185,19 @@ export function updateVegetation(dt, t) {
     if (sd2 > 1600) { if (sf.group.visible) sf.group.visible = false; continue; }
     if (!sf.group.visible) sf.group.visible = true;
     if (sd2 < 900) {
+      const sfGlow = getLocalGlow(sf.x, sf.z, bioGlow * orbBoost);
       for (let j = 0; j < sf.tipMats.length; j++) {
         const p = Math.sin(t * 1.8 + sf.phase + j * 1.5) * 0.5 + 0.5;
-        sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * getLocalGlow(sf.x, sf.z, bioGlow * orbBoost);
+        sf.tipMats[j].emissiveIntensity = (0.5 + p * 0.7) * sfGlow;
+      }
+      // Spiral frond bodies + leaflets + rosette leaves (the spiky blades):
+      // brighten with the sector so the silhouette is no longer dark in
+      // restored / FREE_ROAM zones (was fixed dim emissive).
+      if (sf.bodyMat) {
+        const sfBody = 0.85 + Math.sin(t * 1.2 + sf.phase) * 0.15;
+        sf.bodyMat.emissiveIntensity = sf.bodyBase * 4.0 * sfBody * sfGlow;
+        sf.leafletMat.emissiveIntensity = sf.leafletBase * 4.0 * sfBody * sfGlow;
+        sf.leafMat.emissiveIntensity = sf.leafBase * 5.0 * sfGlow;
       }
       if (sf.tipMeshes) {
         for (let ti = 0; ti < sf.tipMeshes.length; ti++) {

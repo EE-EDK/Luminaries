@@ -81,6 +81,10 @@ export function makeSnapthorn(x, z) {
   const frondN = 5 + Math.floor(sr() * 3);
   const fronds = [];
   const tipMats = [];
+  // Frond (tentacle blade) segment materials — collected so the sector
+  // restoration / FREE_ROAM wave can brighten the body silhouette, not just tips.
+  const frondMats = [];
+  const frondBases = [];
 
   for (let fi = 0; fi < frondN; fi++) {
     const baseAngle = (fi / frondN) * 6.28 + sr() * 0.3;
@@ -105,11 +109,14 @@ export function makeSnapthorn(x, z) {
       const segR = 0.02 * (1 - frac * 0.6); // taper toward tip
       const outwardBow = 0.015 + sr() * 0.01; // gentle organic bow
 
+      const frondEmBase = 0.08 + frac * 0.15;
       const frondMat = new MeshStandardMaterial({
         color: C.snapFrond, emissive: C.snapBodyGlow,
-        emissiveIntensity: 0.08 + frac * 0.15,
+        emissiveIntensity: frondEmBase,
         roughness: 0.6
       });
+      frondMats.push(frondMat);
+      frondBases.push(frondEmBase);
 
       // Each segment: short curved TubeGeometry instead of straight cylinder
       // 3-point curve from origin upward with outward bow
@@ -164,6 +171,8 @@ export function makeSnapthorn(x, z) {
     body,
     bodyMat,
     tipMats,
+    frondMats,
+    frondBases,
     fronds,
     phase: sr() * 6.28,
     x, z
@@ -203,6 +212,16 @@ export function updateSnapthorns(snapthorns, dt, t, bioGlow, getLocalGlowFn) {
     for (let ti = 0; ti < s.tipMats.length; ti++) {
       const p = Math.sin(t * 2.5 + s.phase + ti * 1.2) * 0.5 + 0.5;
       s.tipMats[ti].emissiveIntensity = (0.5 + p * 0.6) * localGlow;
+    }
+
+    // Frond (tentacle blade) body glow — scaled by local glow so the
+    // spiky silhouette brightens when its sector restores / in FREE_ROAM
+    // (was previously a fixed dim emissive that read as dark blades).
+    if (s.frondMats) {
+      const frondBody = 0.85 + Math.sin(t * 1.5 + s.phase) * 0.15;
+      for (let fmi = 0; fmi < s.frondMats.length; fmi++) {
+        s.frondMats[fmi].emissiveIntensity = s.frondBases[fmi] * 4.0 * frondBody * localGlow;
+      }
     }
   }
 }

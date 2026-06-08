@@ -159,7 +159,7 @@ import { initPufflingChat, updatePufflingChat } from './systems/pufflingChat.js'
 import { initWizardPufflingEvent, updateWizardPufflingEvent, resetWizardEncounter } from './systems/wizardPufflingEvent.js';
 
 // Performance Monitor
-import { reportTimings, timeStart, timeEnd } from './systems/perfMonitor.js';
+import { reportTimings, timeStart, timeEnd, sampleFrame, setRenderer } from './systems/perfMonitor.js';
 
 // Visual subsystems (extracted from main.js)
 import { updateSpiritHumVisuals } from './updates/spiritHumVisuals.js';
@@ -476,6 +476,9 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
   elapsed += dt;
+
+  // Dev-only rolling FPS sampler (no-op + tree-shaken in production).
+  sampleFrame(dt);
 
   const { orbsFound } = getQuestState();
 
@@ -848,6 +851,7 @@ try {
     ' ponds=' + ponds.length +
     ' scene=' + scene.children.length);
 
+  setRenderer(renderer); // dev-only: lets LumiDebug.perf() read renderer.info early
   initDebugConsole();
   initDevSkipPanel();
 

@@ -22,6 +22,7 @@ import { QuestPhases } from '../quest/config.js';
 import { unlockTruthControlHint } from '../core/input.js';
 import { revealTruth } from '../state/narrativeState.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
+import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -101,9 +102,49 @@ function buildHelpText() {
   pauseTimers() / resumeTimers()                — freeze/unfreeze quest phase timers
   phases                                        — QuestPhases enum (SEEK, RISING, COMPLETE, FINALE, TRANSFORM)
   spawnWizard()                                  — start wizard encounter immediately (camera tracks him)
+  perf(topN?)                                    — FPS (avg/1%-low/min) + draw calls + hottest subsystems
   unlockTruth()                                 — TAB discovery hint in control bar
   resetAttune()                                  — consumeFrequency + resetLock
   stopSequence()                                 — cancel pending unlockSequence`;
+}
+
+/**
+ * Performance snapshot — rolling FPS (avg / 1%-low / min over the perfMonitor
+ * window), renderer.info draw stats, and the top subsystems by EMA ms.
+ * Logs a readable summary and returns the structured object.
+ *
+ * Target (owner, measured on real hardware): avg >= 20, 1%-low >= 15.
+ * @param {number} [topN=6] how many hottest subsystems to include.
+ */
+export function debugPerfSnapshot(topN = 6) {
+  const fps = getFpsStats();
+  const info = getRendererInfo();
+  const top = getTopTimings(topN);
+  const snap = { fps, renderer: info, top };
+
+  const fpsLine = fps.frames > 0
+    ? `avg ${fps.fpsAvg.toFixed(1)}  1%-low ${fps.fps1pctLow.toFixed(1)}  ` +
+      `min ${fps.fpsMin.toFixed(1)}  (over ${fps.frames} frames)`
+    : 'no frames sampled yet (move around for a few seconds, then re-run)';
+  console.log('[perf] FPS  ' + fpsLine + '   target: avg>=20, 1%-low>=15');
+
+  if (info) {
+    console.log(
+      `[perf] draws ${info.drawCalls}  tris ${info.triangles}  ` +
+      `programs ${info.programs}  geos ${info.geometries}  texs ${info.textures}`
+    );
+  } else {
+    console.log('[perf] renderer.info unavailable (renderer not wired yet)');
+  }
+
+  if (top.length) {
+    console.table(top.map((t) => ({
+      System: t.system,
+      'Avg ms': t.avgMs.toFixed(3),
+      'Max ms': t.maxMs.toFixed(3)
+    })));
+  }
+  return snap;
 }
 
 /** Idempotent — safe to call when opening the in-game terminal or on boot (dev). */
@@ -153,6 +194,11 @@ export function attachLumiDebugApi() {
 
     spawnWizard() {
       return debugSpawnWizardEncounter();
+    },
+
+    /** Perf snapshot: rolling FPS + renderer.info + hottest subsystems. */
+    perf(topN = 6) {
+      return debugPerfSnapshot(topN);
     },
 
     unlockTruth() {

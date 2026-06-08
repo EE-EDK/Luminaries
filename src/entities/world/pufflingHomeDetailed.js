@@ -546,16 +546,18 @@ export function themePayloadCottage() {
     brickEmissive: 0x000000,
     brickEmissiveInt: 0,
     innerWall: 0x3a1f10,
-    // Storybook toadstool: bright red cap with crisp white spots.
+    // Storybook toadstool: bright red cap with crisp white spots. Local emissive
+    // (warm red cap, warm white spots/gill) so the toadstool reads bright & cheerful
+    // against the dim pink finale world without raising global exposure (12.7 cap).
     cap: C.puffCottageCap,
-    capEmissive: 0x000000,
-    capEmissiveInt: 0,
+    capEmissive: C.puffCottageCapEmissive,
+    capEmissiveInt: 0.55,
     gill: 0xfff0f5,
-    gillEmissive: 0x000000,
-    gillEmissiveInt: 0,
+    gillEmissive: C.puffCottageGillEmissive,
+    gillEmissiveInt: 0.4,
     spot: C.puffCottageSpot,
-    spotEmissive: 0x000000,
-    spotEmissiveInt: 0,
+    spotEmissive: C.puffCottageSpotEmissive,
+    spotEmissiveInt: 0.75,
     door: 0x5a3a1f,
     doorFrame: 0x7a5a3c,
     doorGroove: 0x2e1a0a,

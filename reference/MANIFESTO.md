@@ -101,7 +101,7 @@ The 4 existing creature types already have distinct, rhythmic behavior patterns 
 ### Jelly — The Pulse Metronome
 **File:** `entities/fauna/jellies.js`
 **Existing behavior:** Drift state with wobble oscillation (0.5–1.0 amplitude), synchronized pulse with other jellies (`_pulseSync`), vertical bob via `sin()` at variable frequencies. Bell opacity + glow modulation.
-**Rhythm:** Slow, meditative, ~0.5Hz vertical pulse. The player attunes by **standing still** near a jelly and matching its pulse by **tapping SPACE** in rhythm with its vertical bob.
+**Rhythm:** Slow, meditative, ~0.5Hz vertical pulse. The player attunes by **standing still** near a jelly and matching its pulse by **left-click (PULSE)** in rhythm with its vertical bob.
 **Audio signature:** Glass harmonica (dual detuned sines, 360–420Hz, 4Hz vibrato, 1.2s glide). Already in `playCreatureSound('jelly')`.
 
 ### Puffling — The Bounce Metronome
@@ -127,7 +127,7 @@ The 4 existing creature types already have distinct, rhythmic behavior patterns 
 **Implementation approach:**
 - Each creature gets an `attunement` float (0.0–1.0), stored on its data object.
 - Per frame, the AI senses module (`canSee`, `canHear`, `isNear`) already detects player proximity. Add a **behavior matching** check:
-  - **Jelly:** Player within 6m AND `keys['Space']` pressed at rhythm matching jelly's bob phase (±0.3s tolerance).
+  - **Jelly:** Player within 6m AND `mouseDown` (left-click/PULSE) pressed at rhythm matching jelly's bob phase (±0.3s tolerance).
   - **Puffling:** Player within 8m AND sprinting (`keys['ShiftLeft']`).
   - **Deer:** Player within 12m (but > 8m flee radius) AND walking (WASD active, no SHIFT) AND facing similar direction (yaw within ±45° of deer heading).
   - **Moth:** Player within 8m AND moving laterally (WASD active) AND looking toward moth (pitch/yaw alignment check).
@@ -219,7 +219,7 @@ The world is **one continuous forest** (no hard biome boundaries), but each Orb 
 **Dominant features:** Ponds (`entities/magical/ponds.js`), reeds, lily pads, tadpoles, water grass
 **Creature:** Jelly (drifts near water)
 **Attunement:** Pulse-match with a jelly → carry Jelly frequency → perform pulse rhythm near dormant Orb
-**Orb activation:** Standing within `ORB_TOUCH_R` while carrying Jelly frequency and tapping SPACE in pulse rhythm
+**Orb activation:** Standing within `ORB_TOUCH_R` while carrying Jelly frequency and left-click (PULSE) in pulse rhythm
 **Restored effect:** Pond ripple rings intensify, frog ambient layer (`updateAmbientSounds`) volume doubles, water surface emissive increases
 
 ### Zone 2: The Deep Roots (Mushroom Zone)

@@ -34,7 +34,7 @@
 
 ### Creature Resonance Bands (Spirit Hum)
 
-Each creature type has a pitch band. The player must hold right-click to hum and match the creature's frequency within ±tolerance for 2 seconds to "lock" before behavior-based attunement can begin. Creatures within 20m glow brighter when their band is matched. See `src/systems/spiritHum.js` for the state machine and `src/particles/resonanceRings.js` for visual feedback.
+Each creature type has a pitch band. The player must press F to hum and match the creature's frequency (Q/E to sweep pitch) within ±tolerance for 2 seconds to "lock" before behavior-based attunement can begin. Creatures within 20m glow brighter when their band is matched. See `src/systems/spiritHum.js` for the state machine and `src/particles/resonanceRings.js` for visual feedback.
 
 ### Deer AI Detail
 - **Flee radius:** 8m (`DEER_FLEE_R`)

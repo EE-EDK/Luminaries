@@ -14,8 +14,8 @@ Replace orb "collection" with **Symbiotic Attunement** — the player learns cre
 | # | System | Files to Touch | Complexity | Status |
 |---|--------|---------------|------------|--------|
 | 1 | **The Dimming** — Sector-based bioGlow suppression | `systems/dimming.js`, `main.js`, `constants.js` | Low | **DONE** |
-| 2 | **Creature Attunement** — Behavior matching + frequency carry | `systems/attunement.js`, `main.js` | Medium | **DONE** — All 4 types: jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by Spirit Hum pitch-lock (Phase 1: right-click + match frequency → Phase 2: behavior) |
-| 2b | **Spirit Hum + Resonance Tuning** — Two-phase unlock gate | `systems/spiritHum.js`, `particles/resonanceRings.js`, `input.js`, `audio.js` | Medium | **DONE** — Right-click/mobile slider pitch control (80-700Hz), 4 creature resonance bands (deer 120Hz, moth 240Hz, jelly 390Hz, puffling 550Hz), visual resonance rings, creature glow feedback, pitch-lock chime |
+| 2 | **Creature Attunement** — Behavior matching + frequency carry | `systems/attunement.js`, `main.js` | Medium | **DONE** — All 4 types: jelly (left-click/PULSE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by Spirit Hum pitch-lock (Phase 1: F + Q/E pitch sweep → Phase 2: behavior) |
+| 2b | **Spirit Hum + Resonance Tuning** — Two-phase unlock gate | `systems/spiritHum.js`, `particles/resonanceRings.js`, `input.js`, `audio.js` | Medium | **DONE** — F/mobile-HUM button + Q/E pitch control (80-700Hz), 4 creature resonance bands (deer 120Hz, moth 240Hz, jelly 390Hz, puffling 550Hz), visual resonance rings, creature glow feedback, pitch-lock chime |
 | 3 | **Orb Activation Gate** — Require carried frequency | `quest/questManager.js` | Low | **DONE** — Frequency check + reject hint + 3s cooldown |
 | 4 | **Stillness/Curiosity** — Creatures approach stationary player | `main.js` | Low | **DONE** — Jelly drift toward idle player, deer flee radius 8→4m, moth orbit shift, puffling follow |
 
@@ -80,7 +80,7 @@ export const FAIRY_BOUNCE = 6;             // Fairy ring bounce impulse
 
 | Creature | Detection | Player Must | Rate | Audio Feedback |
 |----------|-----------|-------------|------|----------------|
-| Jelly | < 6m | Stand still + tap SPACE in rhythm (±0.3s) | 0.15/s | Glass harmonica brightens |
+| Jelly | < 6m | Stand still + left-click (PULSE) in rhythm (±0.3s) | 0.15/s | Glass harmonica brightens |
 | Puffling | < 8m | Sprint (SHIFT held) | 0.15/s | Chirp arpeggio quickens |
 | Deer | 8-12m | Walk (WASD, no SHIFT) same direction (±45°) | 0.15/s | Horn tone rises |
 | Moth | < 8m | Move laterally + look toward moth | 0.15/s | Flutter intensifies |

@@ -67,7 +67,8 @@ function grantOrbWithCreature(targetCount) {
 
 export function initDevSkipPanel() {
   if (typeof document === 'undefined') return;
-  if (!import.meta.env?.DEV) return;
+  // TEMPORARY (owner request 2026-06-07): shown in PRODUCTION builds too, not just dev.
+  // To restrict back to dev-only, re-add: if (!import.meta.env?.DEV) return;
   if (panel) return;
 
   panel = document.createElement('div');

@@ -26,7 +26,6 @@ import { getQuestPhase } from '../../quest/questState.js';
 import { QuestPhases } from '../../quest/config.js';
 import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
 import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
-import { nearest } from '../../systems/registration.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 
@@ -164,10 +163,18 @@ export function updateJellies(dt, t) {
   // At quest endgame (FINALE/TRANSFORM/FREE_ROAM) the ritual disperses — jellies return to free drift.
   const endgame = questAtEndgame();
   const pitchLockedJellyPre = isLocked() && getLockType() === 'jelly';
-  const nearJellyRitual = nearest.jellyDist2 < 100;
-  const wantsJellyRitual = !endgame && (getAttunementTarget() === 'jelly' || (pitchLockedJellyPre && nearJellyRitual));
+  // CELEBRATION GATE: the obelisk-anchored ritual ring is a POST-attunement
+  // celebration — NOT part of the attune phase. During the attune phase the
+  // target jelly must stay near the player so it can be pulse-attuned (it would
+  // be impossible to fill the meter if the formation yanked every jelly to the
+  // obelisk at world center). So the ritual only forms once the player actually
+  // carries the jelly frequency (getPlayerFrequency() === 'jelly'), or while the
+  // crimson harmony wave is sweeping. Pitch-lock / attune-target alone no longer
+  // pull jellies to the obelisk.
+  const jellyAttuned = getPlayerFrequency() === 'jelly';
+  const wantsJellyRitual = !endgame && (jellyAttuned || jellyCrimson.active);
   const attune = getAttunement();
-  if (wantsJellyRitual && !jellyRitual.active && (attune > 0.01 || pitchLockedJellyPre)) {
+  if (wantsJellyRitual && !jellyRitual.active) {
     jellyRitual.active = true;
     // Anchor the ritual centroid to the obelisk (world center), not the player.
     jellyRitual.centerX = obeliskAnchor.x;
@@ -258,6 +265,14 @@ export function updateJellies(dt, t) {
     hummingJelly ||
     humBandJelly ||
     jellyCrimson.active;
+
+  // RECEPTIVE (attune phase): while pitch-locked to jelly and building the meter
+  // (target is jelly but not yet attuned), nearby jellies drift toward the player
+  // and hold there so they stay inside the 10 m pulse radius. This is the phase the
+  // player needs to fill the attunement meter — it must NOT pull jellies to the
+  // obelisk (the celebration ritual handles that only AFTER attunement completes).
+  const jellyReceptive =
+    pitchLockedJelly && jellyAttuneTarget === 'jelly' && jellyFreq !== 'jelly';
 
   for (let i = 0; i < jellies.length; i++) {
     const _jg = jellies[i].group;
@@ -408,8 +423,28 @@ export function updateJellies(dt, t) {
       }
     }
 
+    // RECEPTIVE drift (attune phase): while the player is pitch-locked + building
+    // the jelly meter, ease nearby jellies toward the player and settle them at a
+    // comfortable ~6.5 m so they stay inside the 10 m pulse radius and the player
+    // can fill the meter. This replaces the obelisk pull during the attune phase.
+    let didReceptive = false;
+    if (jellyReceptive && !jellyRitual.active && j._state !== 'display' && _jhd2 < 324) {
+      const SETTLE_R = 6.5;
+      const SETTLE_R2 = SETTLE_R * SETTLE_R;
+      // Only pull inward when farther than the settle ring; let it hover otherwise.
+      if (_jhd2 > SETTLE_R2 && _jhd2 > 0.0001) {
+        const d = Math.sqrt(_jhd2);
+        const want = (d - SETTLE_R) / d; // fraction of the gap to close toward settle ring
+        const ease = Math.min(1, dt * 0.9);
+        g.position.x += (player.pos.x - g.position.x) * want * ease;
+        g.position.z += (player.pos.z - g.position.z) * want * ease;
+      }
+      g.position.y = jFloatY + Math.sin(t * j.wobble + j.phase) * 0.45;
+      didReceptive = true;
+    }
+
     // Curiosity: jelly drifts toward idle player (ease strength so crossing the idle threshold isn’t a step change).
-    if (!(jellyCrimson.active && j._crimsonJoined) && !jellyRitual.active) {
+    if (!didReceptive && !(jellyCrimson.active && j._crimsonJoined) && !jellyRitual.active) {
       const rawPull =
         playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display'
           ? Math.min((playerIdleTime - 5) / 5, 0.4)

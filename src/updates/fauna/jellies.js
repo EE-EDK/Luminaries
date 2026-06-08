@@ -26,6 +26,11 @@ import { queryNearTrees } from '../../utils/spatialHash.js';
 import { nearest } from '../../systems/registration.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
+
+// ================================================================
+// Module-scope sync-phase spatial bucket Map (cleared in place each sync frame)
+// ================================================================
+const _syncBuckets = new Map();
 const _jellyNearColor = new Color(C.jellyNearPink);
 const _jellyAttuneRed = new Color(C.jellyAttuneRed);
 const _jellyFarColor = new Color(C.jellyBell);
@@ -158,16 +163,17 @@ export function updateJellies(dt, t) {
   updateJellies._syncFrame++;
   if (updateJellies._syncFrame % 12 === 0) {
     const cell = 15;
-    const buckets = new Map();
+    // Clear existing buckets in place (reuse arrays, avoid new Map() + new [] each sync)
+    for (const bucket of _syncBuckets.values()) bucket.length = 0;
     for (let i = 0; i < jellies.length; i++) {
       const g = jellies[i].group;
       const bx = Math.floor(g.position.x / cell);
       const bz = Math.floor(g.position.z / cell);
       const key = bx + ',' + bz;
-      let arr = buckets.get(key);
+      let arr = _syncBuckets.get(key);
       if (!arr) {
         arr = [];
-        buckets.set(key, arr);
+        _syncBuckets.set(key, arr);
       }
       arr.push(jellies[i]);
     }
@@ -185,7 +191,7 @@ export function updateJellies(dt, t) {
       const bz = Math.floor(jz / cell);
       for (let ox = -1; ox <= 1; ox++) {
         for (let oz = -1; oz <= 1; oz++) {
-          const arr = buckets.get(`${bx + ox},${bz + oz}`);
+          const arr = _syncBuckets.get((bx + ox) + ',' + (bz + oz));
           if (!arr) continue;
           for (let b = 0; b < arr.length; b++) {
             const o = arr[b];
@@ -412,24 +418,27 @@ export function updateJellies(dt, t) {
     }
 
     // Tree avoidance — keep jellies from clipping through trunks at any distance.
-    const nearby = inLinkedFormation ? [] : queryNearTrees(g.position.x, g.position.z, 2.2);
-    for (let ti = 0; ti < nearby.length; ti++) {
-      const tr = nearby.items[ti];
-      const tdx = g.position.x - tr.x;
-      const tdz = g.position.z - tr.z;
-      const td2 = tdx * tdx + tdz * tdz;
-      const treeR = (tr.scale || 1) * 0.75 + 0.5;
-      const jellyR = 0.62;
-      const minR = treeR + jellyR;
-      if (td2 < minR * minR && td2 > 0.0001) {
-        const td = Math.sqrt(td2);
-        const penetration = minR - td;
-        // Resolve overlap over several frames — full correction in one step when td→0 caused large jumps.
-        const nx = tdx / td;
-        const nz = tdz / td;
-        const step = penetration * Math.min(1, dt * 14);
-        g.position.x += nx * step;
-        g.position.z += nz * step;
+    // Guard: skip the query entirely when in formation (orbit math owns position).
+    if (!inLinkedFormation) {
+      const nearby = queryNearTrees(g.position.x, g.position.z, 2.2);
+      for (let ti = 0; ti < nearby.length; ti++) {
+        const tr = nearby.items[ti];
+        const tdx = g.position.x - tr.x;
+        const tdz = g.position.z - tr.z;
+        const td2 = tdx * tdx + tdz * tdz;
+        const treeR = (tr.scale || 1) * 0.75 + 0.5;
+        const jellyR = 0.62;
+        const minR = treeR + jellyR;
+        if (td2 < minR * minR && td2 > 0.0001) {
+          const td = Math.sqrt(td2);
+          const penetration = minR - td;
+          // Resolve overlap over several frames — full correction in one step when td→0 caused large jumps.
+          const nx = tdx / td;
+          const nz = tdz / td;
+          const step = penetration * Math.min(1, dt * 14);
+          g.position.x += nx * step;
+          g.position.z += nz * step;
+        }
       }
     }
 

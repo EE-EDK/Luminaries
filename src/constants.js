@@ -76,6 +76,22 @@ export const FAIRY_RING_R = 2.5;
 export const FAIRY_BOUNCE = 6;
 export const BUBBLE_POP_R = 1.5;
 
+// Fairy-ring SKY super-jump (restored zones only) — carries the player up near the
+// dome top (SKY_R=280; constellations sit at ~SKY_R*0.84*cos(phi) ≈ 210-230m) to soar
+// among the constellations, then eases gently back down. Asymmetric arc so the rise is
+// exhilarating but the descent is a slow magical feather-float, not a slam.
+//   Launch:  v0 = FAIRY_SKY_IMPULSE                       = 72 m/s
+//   Ascent:  g' = GRAVITY * FAIRY_SKY_GRAV_UP = 15*0.83   = 12.45 m/s^2
+//            apex H = v0^2 / (2 g') = 72^2 / 24.9          ≈ 208 m (in constellation band)
+//            time up = v0 / g' = 72 / 12.45                ≈ 5.8 s
+//   Descent: g' = GRAVITY * FAIRY_SKY_GRAV_DOWN = 15*0.16  = 2.4 m/s^2
+//            time down = sqrt(2H/g') = sqrt(2*208/2.4)     ≈ 13.2 s (gentle drift)
+//   Total arc ≈ 19 s — feather window (FAIRY_SKY_FEATHER_S) covers the whole flight.
+export const FAIRY_SKY_IMPULSE = JUMP_IMPULSE * 9; // 72 m/s launch
+export const FAIRY_SKY_GRAV_UP = 0.83;             // ascent gravity scale (reach apex fast)
+export const FAIRY_SKY_GRAV_DOWN = 0.16;           // descent gravity scale (gentle feather-float)
+export const FAIRY_SKY_FEATHER_S = 20.0;           // feather-fall window covering full up+down arc
+
 // Quest
 export const ORB_N = 5;
 export const ORB_TOUCH_R = 2.5;

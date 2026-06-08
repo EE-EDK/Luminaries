@@ -3,7 +3,7 @@
 // ================================================================
 // Extracted from main.js.
 
-import { EYE_H, WISP_N, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, WORLD_R } from '../constants.js';
+import { EYE_H, WISP_N, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, FAIRY_SKY_IMPULSE, WORLD_R } from '../constants.js';
 import { sr } from '../utils/rng.js';
 import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
@@ -107,7 +107,10 @@ export function updateFairyRings(dt, t) {
     if (inRing && jumpEdgeThisFrame) {
       const ringRestored = isRestored(fr.x, fr.z);
       if (ringRestored) {
-        player.vel.y = JUMP_IMPULSE * 3.5;
+        // Sky-dome super-jump: strong launch toward the constellation band. The
+        // asymmetric feather-fall (ascent vs descent gravity) is applied in main.js;
+        // here we just set the launch velocity and arm the long feather window.
+        player.vel.y = FAIRY_SKY_IMPULSE;
         featherFallTriggered = true;
       } else {
         player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;

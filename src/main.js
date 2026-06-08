@@ -24,6 +24,7 @@ import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setLookSuppre
 // Constants
 import {
   WORLD_R, EYE_H, STARMOTE_N,
+  FAIRY_SKY_GRAV_UP, FAIRY_SKY_GRAV_DOWN, FAIRY_SKY_FEATHER_S,
   C
 } from './constants.js';
 
@@ -214,7 +215,7 @@ function updateLuminids(dt, t) {
 
 function updateFairyRings(dt, t) {
   const result = _updateFairyRings(dt, t);
-  if (result.featherFallTriggered) setFeatherFallTimer(4.0);
+  if (result.featherFallTriggered) setFeatherFallTimer(FAIRY_SKY_FEATHER_S);
 }
 
 // ================================================================
@@ -592,10 +593,20 @@ function animate() {
   }
 
   // Active game loop
-  // Feather fall — reduced gravity after fairy ring super-jump
+  // Feather fall — reduced gravity after fairy-ring sky super-jump.
+  // Asymmetric arc: lighter gravity on the way up (reach the constellation band fast),
+  // much lighter on the way down (slow magical feather-float, not a slam). Phase keyed
+  // on vertical velocity sign: rising (>=0) uses the ascent scale, falling uses descent.
+  // End the float the moment the player touches back down (one-shot per super-jump) so a
+  // lingering timer can't leave low-gravity active on the ground for a later normal jump.
   if (_featherFallTimer > 0) {
-    decayFeatherFall(dt);
-    setGravityMult(0.3); // 30% gravity during feather fall
+    if (player.onGround && player.vel.y <= 0) {
+      setFeatherFallTimer(0);
+      setGravityMult(1.0);
+    } else {
+      decayFeatherFall(dt);
+      setGravityMult(player.vel.y >= 0 ? FAIRY_SKY_GRAV_UP : FAIRY_SKY_GRAV_DOWN);
+    }
   } else {
     setGravityMult(1.0);
   }

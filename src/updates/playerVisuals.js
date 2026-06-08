@@ -48,6 +48,9 @@ const CAM_PAN_TOTAL = CAM_PAN_LERP_IN + CAM_PAN_HOLD + CAM_PAN_LERP_OUT;
 /** True while a constellation pan owns the camera (read by the main.js arbiter). */
 export function isCameraPanActive() { return _camPanActive; }
 
+// Pre-allocated result for updateCameraPan — avoids a per-frame object literal
+const _camPanResult = { active: false, yaw: 0, pitch: 0 };
+
 /**
  * Trigger camera pan toward constellation when a new orb is collected.
  * Called once per frame from animate().
@@ -81,12 +84,20 @@ export function triggerCameraPan(orbsFound, yaw, pitch, getConstellationDir) {
  * Reading live each frame keeps the ease-back correct even if something nudges the look.
  */
 export function updateCameraPan(dt, liveYaw, livePitch) {
-  if (!_camPanActive) return { active: false, yaw: liveYaw, pitch: livePitch };
+  if (!_camPanActive) {
+    _camPanResult.active = false;
+    _camPanResult.yaw = liveYaw;
+    _camPanResult.pitch = livePitch;
+    return _camPanResult;
+  }
 
   _camPanTimer += dt;
   if (_camPanTimer >= CAM_PAN_TOTAL) {
     _camPanActive = false;
-    return { active: false, yaw: liveYaw, pitch: livePitch };
+    _camPanResult.active = false;
+    _camPanResult.yaw = liveYaw;
+    _camPanResult.pitch = livePitch;
+    return _camPanResult;
   }
 
   let t;
@@ -112,7 +123,10 @@ export function updateCameraPan(dt, liveYaw, livePitch) {
     finalPitch = _camPanTargetPitch + (livePitch - _camPanTargetPitch) * ease;
   }
 
-  return { active: true, yaw: finalYaw, pitch: finalPitch };
+  _camPanResult.active = true;
+  _camPanResult.yaw = finalYaw;
+  _camPanResult.pitch = finalPitch;
+  return _camPanResult;
 }
 
 /**

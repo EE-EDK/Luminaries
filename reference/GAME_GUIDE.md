@@ -31,12 +31,13 @@ You are a small light in a vast dark forest. The forest once sang. Now it is qui
 | Input | Action |
 |-------|--------|
 | **W A S D** | Move |
-| **SPACE** | Jump (or tap rhythm near jellyfish to attune) |
+| **SPACE** | Jump |
 | **SHIFT** | Sprint |
+| **Left-click** | PULSE (jelly rhythm tap) |
 | **TAB** | Toggle narrative perspective (Child / Adult) |
 | **F** | Toggle Spirit Hum (continuous tone while on) |
 | **Q / E** (hold) | Lower / raise hum pitch |
-| **Click + Drag** | Look around |
+| **Mouse** | Look around (click to lock pointer · Esc to unlock) |
 
 On mobile, a virtual joystick appears on the left, jump/sprint buttons on the right, and a vertical **HUM slider** on the left edge for pitch control (drag up/down).
 
@@ -44,7 +45,7 @@ On mobile, a virtual joystick appears on the left, jump/sprint buttons on the ri
 
 - **Walk, don't sprint.** The forest reveals itself to those who move slowly. Sprint past a crystal and you miss its hum. Walk near a deer and it may not flee.
 - **Stand still.** Pause near creatures. Watch their rhythms. After a few seconds, they may approach you. The forest rewards patience.
-- **Match their rhythms.** Each creature has a unique attunement method. Sprint with pufflings, walk with deer, stand still and tap SPACE near jellyfish, circle around moths. When you're in sync, your light changes color.
+- **Match their rhythms.** Each creature has a unique attunement method. Sprint with pufflings, walk with deer, left-click (PULSE) in rhythm near jellyfish, circle around moths. When you're in sync, your light changes color.
 - **Carry the frequency.** Once attuned, hurry to an orb before the frequency fades. Orbs won't activate without a carried frequency.
 - **Follow the wisps.** When you're carrying a frequency or standing still long enough, your companion wisps drift toward the nearest unfound orb.
 - **Jump in fairy rings.** In restored zones, fairy ring mushroom circles grant super-jumps with a slow feather-fall descent.
@@ -127,7 +128,7 @@ The forest dims in five angular sectors radiating from the center. Each sector i
 Five golden orbs are hidden across the forest. But orbs won't activate for just anyone — you must carry a creature's frequency to unlock them. Each creature requires a **two-phase unlock**:
 
 **Phase 1 — Spirit Hum (Discover their frequency):**
-Hold right-click to hum, then move your mouse up/down to sweep pitch. When you're near a creature's frequency, you'll see glowing rings and hear resonance. Sustain the match for 2 seconds to lock the pitch.
+Press **F** to hum, then use **Q/E** (or drag the on-screen slider) to sweep pitch. When you're near a creature's frequency, you'll see glowing rings and hear resonance. Sustain the match for 2 seconds to lock the pitch.
 
 | Creature | Pitch Hint | Character |
 |----------|-----------|-----------|
@@ -141,7 +142,7 @@ With pitch locked, perform the creature-specific action to build attunement. Nei
 
 | Creature | How to Attune | What Happens |
 |----------|---------------|--------------|
-| **Jellyfish** | Stand still within 6m, tap SPACE in their rhythm (~2s) | Glass-harmonica voice brightens |
+| **Jellyfish** | Stand still within 6m, left-click (PULSE) in their rhythm (~2s) | Glass-harmonica voice brightens |
 | **Puffling** | Sprint (SHIFT) within 8m | Chirp arpeggio quickens |
 | **Deer** | Walk (no sprint) within 8-12m, same direction | Horn tone rises |
 | **Moth** | Move within 8m, look toward the moth | Flutter intensifies |

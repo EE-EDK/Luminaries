@@ -41,8 +41,8 @@ npm test             # Run unit tests (kernel modules)
 
 Implemented:
 1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
-2. **Creature Attunement** — DONE: All 4 types — jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by spirit hum pitch-lock (`systems/attunement.js`)
-2b. **Spirit Hum + Resonance Tuning** — DONE: Two-phase creature unlock; right-click/slider pitch control, 4 creature frequency bands, resonance glow, ring particles (`systems/spiritHum.js`, `particles/resonanceRings.js`)
+2. **Creature Attunement** — DONE: All 4 types — jelly (left-click/PULSE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by spirit hum pitch-lock (`systems/attunement.js`)
+2b. **Spirit Hum + Resonance Tuning** — DONE: Two-phase creature unlock; F key/Q-E (or slider) pitch control, 4 creature frequency bands, resonance glow, ring particles (`systems/spiritHum.js`, `particles/resonanceRings.js`)
 3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questState.js`, `quest/questVisuals.js`)
 4. **Stillness/Curiosity** — DONE: Jelly drift, deer flee shrink, moth orbit shift, puffling follow (`main.js`)
 5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`core/player.js`)

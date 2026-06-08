@@ -72,9 +72,23 @@ The forest floor is carpeted with life:
 Four creature types inhabit the forest, each with distinct behavior and voice:
 
 - **Spirit Deer** — Graceful walkers with IK-driven legs. They flee if you approach too fast, but walk slowly nearby and they may tolerate your presence. Their call is a warm, distant horn.
-- **Pufflings** — Small round creatures that hop through the undergrowth with chirping arpeggios. Energetic and curious, they scatter when startled but return quickly.
+- **Pufflings** — Small round creatures that hop through the undergrowth with chirping arpeggios. Energetic and curious, they scatter when startled but return quickly. When one comes close, a cryptic speech bubble floats above its head — their language is half-song, half-data.
 - **Luminous Jellyfish** — Translucent drifters that pulse with a slow, meditative rhythm. Their glass-harmonica voices echo through the canopy.
 - **Moon Moths** — Orbital creatures that circle crystal formations with soft, fluttering whispers.
+
+#### Puffling Speech
+
+Pufflings speak in short, context-sensitive fragments. The language shifts based on what's happening around you:
+
+| Situation | What They Say |
+|-----------|---------------|
+| Dimmed sector | Mournful fragments: *"something drank the light"* / *"Chronophage influence: HIGH"* |
+| Restored sector | Joyful calls: *"the roots are singing again"* / *"Harmonic alignment: 98%"* |
+| Near an unfound orb | Directional hints: *"nesh oravi… close!"* / *"Orbital Anchor detected"* |
+| You're attuning to a creature | Encouraging: *"you feel like us now"* / *"Bio-rhythm alignment: 65%"* |
+| You're carrying a frequency | Urgent: *"go — sing to the gold!"* / *"Carry integrity: 100%"* |
+
+Toggle **Tab** to shift their speech between the child's lyrical fragments and the adult's clinical readouts.
 
 ### Sky
 
@@ -139,6 +153,21 @@ When attuned, your player light shifts color (cyan for jelly, seafoam for puffli
 When you collect an orb, it fires a laser beam to the central obelisk. The obelisk rises with each connection. A constellation appears in the sky — one per orb, shaped after the creature types. Discovery text marks each moment in your chosen narrative perspective.
 
 The fifth orb triggers a finale: glitter explosions, rainbow arcs across the sky, creatures migrating to the center, and a world-wide color transformation. After the transformation, the world enters **Free Roam** — the dimming is gone, all fairy rings are active, and the forest is at peace.
+
+### The Wizard-Puffling Encounter
+
+After you have walked long enough (~18 seconds of cumulative movement), a mysterious puffling in a wizard's hat appears at the forest's edge. The encounter unfolds as a cinematic sequence:
+
+1. **Approach** — A hint appears: *"A wizard approaches?"* The camera locks onto the wizard as it hop-runs toward you, vocalizing in cryptic la-la phrases.
+2. **Confront** — The wizard arrives and studies you, then declares: *"Another dead soul."*
+3. **Hum** — You are prompted: *"Hum to answer it… (press F)."* Press **F** to activate your spirit hum. The wizard waits.
+4. **Proclaim** — The wizard cries: *"NOW you see BOTH worlds at once!"*
+5. **Smite** — A pink sky beam descends. The wizard glows, shouts *"AhhhhHHHH!"*, and vanishes in a puff of smoke.
+6. **Truth Revealed** — From this point on, all discovery text in the world shows **both the child's and adult's voices simultaneously**: the child's line in full, the adult's line as a smaller subtitle beneath it.
+
+The encounter happens once per session. Press **Tab** after the encounter to see how the dual narrative now applies to everything you discover.
+
+*Developer note: trigger instantly with `LumiDebug.spawnWizard()` in the debug console (`Esc`×2).*
 
 ### Player Light Evolution
 

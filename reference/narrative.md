@@ -74,6 +74,65 @@ The Architect who built the Archive was a parent preserving the world as their c
 - Affects only discovery text display, not gameplay
 - Default: `'child'` (accessible, universal)
 
+## Wizard-Puffling Encounter
+
+The wizard encounter is the narrative's central "truth reveal" moment — a cinematic boss-less event that unlocks the dual-narrative payoff. Implemented in `src/systems/wizardPufflingEvent.js`.
+
+### Trigger
+Fires once per session after the player has accumulated **~18 seconds of cumulative walking** (`TRIGGER_WANDER_SECONDS = 18`, wall-clock time where `speed² > 0.06`). Resets automatically on game restart via `resetWizardEncounter()` called from `go()`.
+
+### Beat Sequence
+
+| Beat | State | Key Action |
+|------|-------|-----------|
+| Trigger fires | `idle → approach` | Wizard puffling (purple, wizard hat) spawns 16–24 m from player. Hint: *"A wizard approaches?"* |
+| Approach | `approach` | Wizard hop-runs toward standoff point (3–5 m from player). Camera locks onto wizard. La-la vocalizations every ~2.35s. |
+| Confront | `confront` | Wizard arrives, bobs inspecting the player. At ~0.85s: speaks *"Another dead soul"*. |
+| Wait hum | `waitHum` | After ~6.8s of confront: prompt *"Hum to answer it… (press F)"* appears. Wizard waits for the player to press **F** to arm spirit hum. |
+| Proclaim | `proclaim` | Once hum is armed: wizard declares *"NOW you see BOTH worlds at once!"*. Camera stays locked. |
+| Pre-beam | `prebeam` | Brief 2.5s pause before the sky beam fires. |
+| Smite | `smite` | Pink sky laser descends onto the wizard (1.25s fade-in, hold, 2.1s fade-out). Wizard glows, shouts *"AhhhhHHHH!"*, then despawns in a smoke puff. |
+| Hand-back | `handBack` | 0.6s smooth eased return of camera to the player's saved look angles. |
+| Done | `done` | Encounter complete; state is `'done'` for the rest of the session. |
+
+### Truth Reveal Payoff
+
+When the encounter ends (after smite), `revealTruth()` fires:
+- Sets `_truthRevealed = true` in `src/state/narrativeState.js` (one-way, permanent for session).
+- Emits `Events.PERSPECTIVE_CHANGED` with `{ truthRevealed: true }`.
+- From this point on, `dualLine()` in `discoveries.js` returns **both** the child line (primary) and the adult line (smaller subtitle) for all discovery text, regardless of which Tab perspective is active.
+- The HUD controls hint updates to include *"TAB: the truth · the veil is lifted"* via `unlockTruthControlHint()`.
+
+### Debug Access
+`LumiDebug.spawnWizard()` — triggers a fresh approach encounter immediately regardless of walk timer. `LumiDebug.unlockTruth()` — fires the truth reveal directly without the encounter.
+
+---
+
+## Puffling Cryptic Chat
+
+Pufflings speak in short, context-sensitive cryptic lines displayed as speech bubbles positioned above the speaking puffling's head. Implemented in `src/systems/pufflingChat.js`.
+
+### Message Pools
+
+| Context | Condition | Flavor |
+|---------|-----------|--------|
+| `MESSAGES_CARRYING` | Player carries a creature frequency | Urging, celebratory ("carry our voice to the orbs!") |
+| `MESSAGES_ATTUNING` | Attunement > 0.5 | Encouraging, movement-themed |
+| `MESSAGES_NEAR_ORB` | Within 20 m of an unfound orb | Directional hints in puffling language |
+| `MESSAGES_GENERAL` | 25% random override | Ambient lore, forest observations |
+| `MESSAGES_RESTORED` | Sector restored, no higher-priority match | Joyful, celebratory |
+| `MESSAGES_DIMMED` | Sector dimmed, fallback | Melancholic fragments |
+
+Each pool has `child` and `adult` variants. The active variant is chosen via `getPerspective()` from `src/state/narrativeState.js`, so toggling Tab changes puffling speech language too.
+
+### Timing
+- Display duration: **5 seconds** (× `READ_DWELL_MULT = 1.5`)
+- Cooldown between chats: **8–14 seconds**
+- Bubble fades out during the last 0.8s of its display
+
+### Rendering
+`initPufflingChat()` creates a fixed DOM element (`#puffling-chat`). Each frame, `updatePufflingChat(dt, rendererDom)` projects the speaking puffling's 3D position to screen NDC coordinates and positions the bubble above its head. If the puffling is behind the camera (`z > 1`), the bubble is hidden.
+
 ## Narrative Constraints
 - No exposition dumps — all story through brief discovery text + environmental clues
 - No dialogue — the player is alone (or is accompanied by the world itself)

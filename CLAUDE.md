@@ -145,7 +145,9 @@ These are non-negotiable. Every session must follow them.
 | Creature attunement | `src/systems/attunement.js` → `updateAttunement()`, `getPlayerFrequency()`, `consumeFrequency()` |
 | Spirit hum system | `src/systems/spiritHum.js` → `startHum()`, `updateHum()`, `isLocked()`, `getLockType()` |
 | Resonance ring particles | `src/particles/resonanceRings.js` → `initResonanceRings()`, `spawnResonanceRing()` |
-| Discovery text + narrative | `src/systems/discoveries.js` → `togglePerspective()`, `getPerspective()`, dual child/adult labels |
+| Discovery text + narrative | `src/systems/discoveries.js` → `showNarrativeText()`, `dualLine()`, dual child/adult labels; `src/state/narrativeState.js` → `togglePerspective()`, `getPerspective()`, `revealTruth()`, `isTruthRevealed()` |
+| Wizard-puffling encounter | `src/systems/wizardPufflingEvent.js` → `initWizardPufflingEvent()`, `updateWizardPufflingEvent()`, `resetWizardEncounter()`, `debugSpawnWizardEncounter()`; FSM: idle→approach→confront→waitHum→proclaim→prebeam→smite→handBack→done; trigger: ~18s cumulative walk; payoff: `revealTruth()` + `unlockTruthControlHint()` |
+| Puffling cryptic chat | `src/systems/pufflingChat.js` → `initPufflingChat()`, `triggerPufflingChat()`, `updatePufflingChat()`; context pools: dimmed/restored/nearOrb/attuning/carrying/general; dual perspective; DOM bubble above puffling head |
 | Intro sequence | `src/systems/intro.js` (title, narration, pixie, mushrooms, puffling) |
 | Perf monitor (dev) | `src/systems/perfMonitor.js` → `timeStart()`, `timeEnd()`, `reportTimings()` |
 | AI senses/steering | `src/systems/ai/senses.js`, `steering.js` |

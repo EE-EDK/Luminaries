@@ -47,6 +47,8 @@ const SMITE_GLOW_BUILD_END = 4.2;
 const SMITE_SMOKE_AT = 4.45;
 const SMITE_BEAM_FADE_OUT = 2.1;
 const SMITE_TOTAL = SMITE_SMOKE_AT + SMITE_BEAM_FADE_OUT;
+/** How high (m) the wizard rises up into the sky-beam before the smoke puff. */
+const SMITE_RISE_H = 2.6;
 
 let _showNarrativeText = null;
 let _playPufflingVocal = null;
@@ -116,9 +118,14 @@ function lookAngles(fromPos, toPos) {
   const dx = toPos.x - fromPos.x;
   const dy = toPos.y - fromPos.y;
   const dz = toPos.z - fromPos.z;
-  const yaw = Math.atan2(dx, dz);
+  // Camera uses YXZ Euler where camera.rotation.y = yaw means forward = (-sin yaw, -cos yaw)
+  // (same convention as the live player look / movement in input.js). Aiming AT a target
+  // therefore needs atan2(-dx, -dz); the prior atan2(dx, dz) was 180° off, which pointed the
+  // forced cinematic camera directly AWAY from the wizard (mesh + sky beam always behind the
+  // camera → "invisible wizard"). Likewise pitch is +atan2(dy, horiz): positive pitch looks up.
+  const yaw = Math.atan2(-dx, -dz);
   const horiz = Math.sqrt(dx * dx + dz * dz) || 0.001;
-  const pitch = -Math.atan2(dy, horiz);
+  const pitch = Math.atan2(dy, horiz);
   return { yaw, pitch };
 }
 
@@ -543,7 +550,8 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _phaseTimer = 0;
       spawnSkyLaser(g.position.x, baseY, g.position.z);
       _smiteFocus.x = g.position.x;
-      _smiteFocus.y = baseY + 0.38;
+      // Hold on the elevated vanish point (where the wizard rises to) after he despawns.
+      _smiteFocus.y = baseY + SMITE_RISE_H + 0.38;
       _smiteFocus.z = g.position.z;
       if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 2.2);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.6);
@@ -580,19 +588,22 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     if (_wizard) {
       const g = _wizard.group;
       const baseY = _getGroundY(g.position.x, g.position.z);
-      g.position.y = baseY + Math.sin(t * 22) * 0.04;
       enforceWizardStandoff(g, ctx.player.pos, _wizard._standoffR);
       let glowT = 0;
       if (pt < SMITE_BEAM_FADE_IN) glowT = pt / SMITE_BEAM_FADE_IN;
       else if (pt < SMITE_GLOW_BUILD_END) glowT = 0.55 + (pt - SMITE_BEAM_FADE_IN) / (SMITE_GLOW_BUILD_END - SMITE_BEAM_FADE_IN) * 0.45;
       else glowT = 1;
+      // Visibly LIFT the wizard up into the pink sky-beam as the smite builds (owner reported
+      // "no rise-into-laser"). Ascends along the glow ramp from ground up to ~SMITE_RISE_H.
+      const riseU = smoothstep01(pt / SMITE_SMOKE_AT);
+      g.position.y = baseY + riseU * SMITE_RISE_H + Math.sin(t * 22) * 0.04;
       const glowMul = 0.5 + glowT * 3.8;
       if (_wizard.bodyMat) _wizard.bodyMat.emissiveIntensity = glowMul;
       if (_wizard.bellyMat) _wizard.bellyMat.emissiveIntensity = 0.15 + glowT * 2.2;
       if (_wizard.crownMat) _wizard.crownMat.emissiveIntensity = 0.35 + glowT * 2.8;
       if (_wizard.core && _wizard.core.material) _wizard.core.material.opacity = 0.55 + glowT * 0.45;
       if (pt >= SMITE_SMOKE_AT) {
-        spawnSmokePuff(g.position.x, baseY, g.position.z);
+        spawnSmokePuff(g.position.x, g.position.y, g.position.z);
         removeWizard();
       }
     }
@@ -607,8 +618,9 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       // Continue this frame into the ease-back below (no early return).
     } else {
       focusVec.x = _wizard ? _wizard.group.position.x : _smiteFocus.x;
+      // Track the wizard's ACTUAL (rising) Y so the camera tilts up to follow him into the beam.
       focusVec.y = _wizard
-        ? _getGroundY(_wizard.group.position.x, _wizard.group.position.z) + 0.38
+        ? _wizard.group.position.y + 0.38
         : _smiteFocus.y;
       focusVec.z = _wizard ? _wizard.group.position.z : _smiteFocus.z;
       return forceLookAt(dt, ctx.cameraPos, stabilizeCameraFocus(ctx.cameraPos, focusVec), ctx.yaw, ctx.pitch);

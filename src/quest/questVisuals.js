@@ -346,13 +346,19 @@ export function updateQuestVisuals(dt, t, ctx) {
     // Shake logic could be added here if rising
   }
 
-  // Obelisk subtle rotation
+  // Obelisk subtle rotation + dramatic rise glow.
+  // The glow reuses the pooled `orbLight` (no dedicated 9th light): by the time
+  // the obelisk rises all orbs are found, so the orb-proximity block above has
+  // already set orbLight.intensity = 0 this frame. We position it at the rising
+  // obelisk and ramp intensity with the rise. Once fully risen, riseT stays 1.
   if (obeliskGroup) {
     obeliskGroup.rotation.y += dt * 0.03;
-    const oLight = obeliskGroup.children[obeliskGroup.children.length - 1];
-    if (oLight && oLight.isLight) {
-      const riseT = Math.max(0, Math.min(1, (state.obeliskY + OBELISK_H) / OBELISK_H));
-      oLight.intensity = riseT * 1.5 * (0.8 + Math.sin(t * 1.5) * 0.2);
+    const riseT = Math.max(0, Math.min(1, (state.obeliskY + OBELISK_H) / OBELISK_H));
+    if (riseT > 0) {
+      orbLight.position.set(0, state.obeliskY + OBELISK_H + 1, 0);
+      orbLight.intensity = riseT * 1.5 * (0.8 + Math.sin(t * 1.5) * 0.2);
+      orbLight.distance = 30;
+      orbLight.color.set(C.obeliskLight); // preserve the purple rise glow
     }
   }
 

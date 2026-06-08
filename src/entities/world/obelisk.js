@@ -5,7 +5,7 @@
 //   geometric center of the forest's boundary. The probability of
 //   that being natural is 0. It rises when the orbs return to it.
 //   We think it's waiting for something. Or someone.
-import { AdditiveBlending, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PointLight, SphereGeometry, TorusGeometry } from 'three';
+import { AdditiveBlending, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, OBELISK_H, ORB_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -242,8 +242,8 @@ export function makeObelisk() {
   g.position.set(0, -OBELISK_H, 0); // starts buried
   scene.add(g);
   obeliskGroup = g;
-  // Dramatic obelisk light (rises with obelisk, casts colored glow)
-  const obeliskLight = new PointLight(C.obeliskLight, 0, 30);
-  g.add(obeliskLight);
-  obeliskLight.position.set(0, OBELISK_H + 1, 0);
+  // NOTE: no dedicated obelisk PointLight — that would be a 9th real-time light
+  // (1 hemi + 2 dir + 1 player + 1 orb + 3 crystal = 8 = budget). The dramatic
+  // rise glow reuses the pooled `orbLight` (idle once all orbs are found, which
+  // is exactly when the obelisk rises). Driven in questVisuals.updateQuestVisuals.
 }

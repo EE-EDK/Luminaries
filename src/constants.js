@@ -15,6 +15,13 @@ export const MOUSE_SENS = 0.003;
 export const WORLD_R = 90;
 export const EYE_H = 1.7;
 
+// Terrain render mesh — ground PlaneGeometry resolution (ground.js createGround).
+// Exported so flora can sample the SAME piecewise-linear surface the GPU renders
+// (getMeshGroundY), instead of the finer 1m height cache that bulges above the
+// coarse mesh chords on convex hill crowns (which made grass float).
+export const TERRAIN_PLANE_SIZE = WORLD_R * 3; // 270m
+export const TERRAIN_PLANE_SEGS = 200;         // 1.35m per quad
+
 // Entity counts — all entities use visibility culling + distance-based LOD
 export const TREE_N = 500;         // Template instanced (10 templates × InstancedMesh)
 export const MUSH_N = 370;         // +120 mixed plant density pass

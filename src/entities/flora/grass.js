@@ -1,7 +1,7 @@
 import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, MeshStandardMaterial } from 'three';
 import { scene } from '../../core/renderer.js';
 import { sr } from '../../utils/rng.js';
-import { getGroundY } from '../../world/terrain.js';
+import { getMeshGroundY } from '../../world/terrain.js';
 
 // ================================================================
 // Grass Patch — GPU vertex shader sway (zero CPU per-frame cost)
@@ -45,13 +45,16 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   const colTip2 = new Color(palette ? palette[4] : 0x77ffcc);
   const colTip3 = new Color(palette ? palette[5] : 0xddff66);
   const tmpC = new Color();
-  // Ground height at patch center — blade offsets are relative to this
-  const centerY = getGroundY(cx, cz);
+  // Ground height at patch center — blade offsets are relative to this.
+  // Sample the RENDERED mesh surface (getMeshGroundY), not the finer 1m cache,
+  // so blade bases sit on the terrain chords the GPU actually draws. On convex
+  // hill crowns the 1m cache bulges above the coarse mesh, which made grass float.
+  const centerY = getMeshGroundY(cx, cz);
   for (let i = 0; i < count; i++) {
     const ang = sr() * 6.28, dist = sr() * radius;
     const lx = Math.cos(ang) * dist, lz = Math.sin(ang) * dist;
-    // Height offset so each blade follows terrain contour
-    const dy = getGroundY(cx + lx, cz + lz) - centerY;
+    // Height offset so each blade follows terrain contour (rendered surface)
+    const dy = getMeshGroundY(cx + lx, cz + lz) - centerY;
     const h = 0.25 + sr() * 0.65;
     const w = 0.03 + sr() * 0.05;
     const lean = (sr() - 0.5) * 0.2;
@@ -113,7 +116,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   for (let ci = 0; ci < cloverN; ci++) {
     const ca = sr() * 6.28, cd = sr() * radius * 0.9;
     const clx = Math.cos(ca) * cd, clz = Math.sin(ca) * cd;
-    const cdy = getGroundY(cx + clx, cz + clz) - centerY;
+    const cdy = getMeshGroundY(cx + clx, cz + clz) - centerY;
     const csz = 0.02 + sr() * 0.03;
     verts.push(clx - csz, cdy, clz);
     verts.push(clx + csz, cdy, clz);

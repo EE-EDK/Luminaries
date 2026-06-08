@@ -16,7 +16,7 @@ import {
 } from './constants.js';
 
 import { sr } from './utils/rng.js';
-import { getGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
+import { getGroundY, getMeshGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
 import { placePufflingHomeClusters, getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
 
 // ================================================================
@@ -342,7 +342,9 @@ export function populate(arrays, builders, scene) {
     const rad = 2 + sr() * 2.5, cnt = 38 + Math.floor(sr() * 30);
     if (inKeepOut(gx, gz)) continue;
     const gp = makeGrassPatch(gx, gz, rad, cnt, pal);
-    gp.mesh.position.y = getGroundY(gx, gz) - 0.08;
+    // Anchor to the RENDERED mesh surface (matches per-blade getMeshGroundY in
+    // grass.js); small bury keeps bases just inside the terrain on slopes.
+    gp.mesh.position.y = getMeshGroundY(gx, gz) - 0.03;
     grassPatches.push(gp);
     keepOutZones.push({ x: gx, z: gz, r2: rad * rad });
   }
@@ -630,7 +632,8 @@ export function populate(arrays, builders, scene) {
       gp.mesh.material.dispose();
       grassPatches.splice(i, 1);
     } else {
-      gp.mesh.position.y = getGroundY(gpx, gpz) - 0.08;
+      // Re-ground after house plateaus changed terrain; match per-blade surface.
+      gp.mesh.position.y = getMeshGroundY(gpx, gpz) - 0.03;
     }
   }
   const floraArrays = [ferns, flowers, reeds, thornblooms, helixvines, snapthorns,

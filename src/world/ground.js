@@ -1,5 +1,5 @@
 import { BufferAttribute, CanvasTexture, Mesh, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, SRGBColorSpace } from 'three';
-import { WORLD_R, C } from '../constants.js';
+import { WORLD_R, TERRAIN_PLANE_SIZE, TERRAIN_PLANE_SEGS, C } from '../constants.js';
 import { scene } from '../core/renderer.js';
 import { getGroundY } from './terrain.js';
 import { smoothstep as gsmooth } from '../utils/math.js';
@@ -285,8 +285,8 @@ function gfbm(x, y, oct) {
 
 export function createGround() {
   const groundTex = makeGroundTexture();
-  const size = WORLD_R * 3;
-  const segs = 200;
+  const size = TERRAIN_PLANE_SIZE;
+  const segs = TERRAIN_PLANE_SEGS;
   const geo = new PlaneGeometry(size, size, segs, segs);
   const posAttr = geo.attributes.position;
 

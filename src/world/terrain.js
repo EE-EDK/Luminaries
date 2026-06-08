@@ -1,4 +1,4 @@
-import { WORLD_R } from '../constants.js';
+import { WORLD_R, TERRAIN_PLANE_SIZE, TERRAIN_PLANE_SEGS } from '../constants.js';
 
 // ================================================================
 // Procedural terrain heightmap — gentle rolling hills
@@ -357,6 +357,50 @@ export function getGroundY(x, z) {
   const row1 = row0 + _cacheW;
   return (_cache[row0] * (1 - _fx) + _cache[row0 + 1] * _fx) * (1 - _fz)
        + (_cache[row1] * (1 - _fx) + _cache[row1 + 1] * _fx) * _fz;
+}
+
+// ================================================================
+// Rendered-mesh ground height — matches the ground PlaneGeometry's
+// piecewise-linear surface (ground.js createGround), NOT the finer 1m
+// height cache. The plane samples getGroundY at its vertices (spacing
+// = TERRAIN_PLANE_SIZE / TERRAIN_PLANE_SEGS) and the GPU bilinearly
+// interpolates across each quad. On convex hill crowns the 1m cache
+// bulges ABOVE these coarse chords, so flora placed via getGroundY
+// floats above the rendered terrain. Sampling getMeshGroundY reproduces
+// the exact rendered surface, so blade bases meet the ground on slopes.
+//
+// World-space lattice (after the mesh's -PI/2 X rotation): regular grid
+// with spacing _meshCell, corner at world (wx,wz) = (-size/2, +size/2).
+const _meshCell = TERRAIN_PLANE_SIZE / TERRAIN_PLANE_SEGS; // 1.35m
+const _meshCellInv = 1 / _meshCell;
+const _meshHalf = TERRAIN_PLANE_SIZE * 0.5;                // 135m
+
+export function getMeshGroundY(x, z) {
+  // Grid coords along the plane's world-space lattice.
+  // wx = -half + gx*cell  → gx = (x + half) / cell
+  // wz =  half - gy*cell  → gy = (half - z) / cell
+  const fgx = (x + _meshHalf) * _meshCellInv;
+  const fgy = (_meshHalf - z) * _meshCellInv;
+  const gx = Math.floor(fgx);
+  const gy = Math.floor(fgy);
+  const tx = fgx - gx;
+  const tz = fgy - gy;
+
+  // World coords of the 4 surrounding lattice vertices
+  const x0 = -_meshHalf + gx * _meshCell;
+  const x1 = x0 + _meshCell;
+  const z0 = _meshHalf - gy * _meshCell;
+  const z1 = z0 - _meshCell;
+
+  // Heights at the lattice corners (same getGroundY the plane vertices use)
+  const h00 = getGroundY(x0, z0);
+  const h10 = getGroundY(x1, z0);
+  const h01 = getGroundY(x0, z1);
+  const h11 = getGroundY(x1, z1);
+
+  // Bilinear blend — reproduces the GPU's per-quad interpolation
+  return (h00 * (1 - tx) + h10 * tx) * (1 - tz)
+       + (h01 * (1 - tx) + h11 * tx) * tz;
 }
 
 // Get terrain normal at a point (for entity alignment)

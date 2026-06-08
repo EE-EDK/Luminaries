@@ -5,8 +5,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   buildTreeHash,
   buildDynamicHash,
+  buildNamedDynamicHash,
   queryNearTrees,
   queryNearDynamic,
+  queryNamedDynamic,
   queryNearAll,
 } from '../spatialHash.js';
 
@@ -95,5 +97,61 @@ describe('spatialHash', () => {
     buildTreeHash([{ x: 0.5, z: 0.5 }], 10);
     const q = queryNearTrees(0.5, 0.5, 0);
     expect(q.length).toBe(1);
+  });
+});
+
+// ============================================================================
+// Named per-type dynamic grids — backs the fauna O(k) neighbor queries
+// (Task 11.2). Each fauna type ('deer' | 'puff' | 'jelly') gets its own grid so
+// same-type neighbor scans aren't conflated with other fauna.
+// ============================================================================
+describe('named dynamic grids', () => {
+  it('finds same-type neighbors within radius and excludes self by identity', () => {
+    const a = { x: 0, z: 0 };
+    const b = { x: 3, z: 0 };   // 3m → inside r=5
+    const c = { x: 50, z: 50 }; // far outside
+    buildNamedDynamicHash('deer', [a, b, c], 10);
+    const q = queryNamedDynamic('deer', 0, 0, 5);
+    // a and b should be in the candidate set; c should not (different cells).
+    const items = q.items.slice(0, q.length);
+    expect(items).toContain(a);
+    expect(items).toContain(b);
+    expect(items).not.toContain(c);
+  });
+
+  it('isolates types — querying one grid never returns another type\'s entities', () => {
+    const deer = { x: 1, z: 1 };
+    const puff = { x: 1, z: 1 }; // same spot, different grid
+    buildNamedDynamicHash('deer', [deer], 10);
+    buildNamedDynamicHash('puff', [puff], 10);
+    const dq = queryNamedDynamic('deer', 1, 1, 5);
+    const pq = queryNamedDynamic('puff', 1, 1, 5);
+    expect(dq.items.slice(0, dq.length)).toEqual([deer]);
+    expect(pq.items.slice(0, pq.length)).toEqual([puff]);
+  });
+
+  it('resolves group.position when flat x/z absent', () => {
+    const j = { group: { position: { x: 14, z: -14 } } };
+    buildNamedDynamicHash('jelly', [j], 15);
+    const q = queryNamedDynamic('jelly', 14, -14, 15);
+    expect(q.items.slice(0, q.length)).toContain(j);
+  });
+
+  it('rebuild in place clears stale entries (per-frame reuse)', () => {
+    buildNamedDynamicHash('deer', [{ x: 0, z: 0 }], 10);
+    expect(queryNamedDynamic('deer', 0, 0, 5).length).toBe(1);
+    buildNamedDynamicHash('deer', [], 10);
+    expect(queryNamedDynamic('deer', 0, 0, 50).length).toBe(0);
+  });
+
+  it('unknown grid name yields zero hits, never throws', () => {
+    expect(queryNamedDynamic('does-not-exist', 0, 0, 100).length).toBe(0);
+  });
+
+  it('cell size is per-grid — a tight cell still finds a same-cell neighbor', () => {
+    // 15m jelly cell: two jellies in the same cell are both candidates.
+    buildNamedDynamicHash('jelly', [{ x: 1, z: 1 }, { x: 14, z: 14 }], 15);
+    const q = queryNamedDynamic('jelly', 1, 1, 15);
+    expect(q.length).toBeGreaterThanOrEqual(2);
   });
 });

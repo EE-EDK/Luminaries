@@ -14,7 +14,7 @@ import { keys, touchSprint } from '../../core/input.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
 import { deers, ponds } from '../../state/entityStore.js';
-import { queryNearTrees } from '../../utils/spatialHash.js';
+import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
 // ================================================================
@@ -33,8 +33,18 @@ const _deerNeighbors = [];
 // Pre-allocated return value reused by every updateDeers call
 const _deersResult = { nearestDist2: Infinity, nearestPos: _nearestPos, nearestWanderAng: 0 };
 
+// Neighbor radius for cascade-flee + herd cohesion (d2 < 400 → r = 20).
+const _DEER_NEIGHBOR_R = 20;
+const _DEER_NEIGHBOR_R2 = _DEER_NEIGHBOR_R * _DEER_NEIGHBOR_R;
+
 export function updateDeers(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+
+  // Spatial hash over deer positions — O(k) same-type neighbor queries replace
+  // the former O(n²) inner scans. Cell ≈ neighbor radius so each query touches
+  // ~2×2 cells. Self-sufficient: rebuilt here so behavior is identical whether
+  // or not the scheduler's combined hash ran this frame.
+  buildNamedDynamicHash('deer', deers, _DEER_NEIGHBOR_R);
 
   let nearestDist2 = Infinity;
   const nearestPos = _nearestPos;
@@ -91,26 +101,29 @@ export function updateDeers(dt, t) {
       }
     }
 
-    // Cascade flee
-    if (d.state !== 'flee') {
-      for (let di = 0; di < deers.length; di++) {
-        if (di === i || deers[di].state !== 'flee') continue;
-        const odx = deers[di].group.position.x - gx, odz = deers[di].group.position.z - gz;
-        if (odx * odx + odz * odz < 400) {
-          d.state = 'flee'; d.wanderAng = deers[di].wanderAng + (Math.random() - 0.5) * 0.4;
-          d.fleeTimer = 2 + Math.random() * 1.5; d._zigTimer = 0;
-          break;
-        }
-      }
-    }
-
-    // Herd neighbor data (reuse pre-allocated slots, clear with .length = 0)
+    // Cascade flee + herd neighbor data in one spatial-hash query.
+    // Query the 'deer' grid once at radius 20 (d2 < 400), consume the shared
+    // result buffer immediately (copy into pre-allocated slots) so a later
+    // queryNearTrees can't clobber it. Squared-distance filter is identical to
+    // the old O(n²) scan; only the candidate set is pre-filtered.
     _deerNeighbors.length = 0;
-    for (let di = 0; di < deers.length; di++) {
-      if (di === i) continue;
-      const ox = deers[di].group.position.x, oz = deers[di].group.position.z;
-      const d2 = (ox - gx) * (ox - gx) + (oz - gz) * (oz - gz);
-      if (d2 < 400) {
+    const _deerQ = queryNamedDynamic('deer', gx, gz, _DEER_NEIGHBOR_R);
+    const _deerQn = _deerQ.length;
+    for (let qi = 0; qi < _deerQn; qi++) {
+      const od = _deerQ.items[qi];
+      if (od === d) continue;
+      const og = od.group;
+      const ox = og.position.x, oz = og.position.z;
+      const dx2 = ox - gx, dz2 = oz - gz;
+      const d2 = dx2 * dx2 + dz2 * dz2;
+      if (d2 >= _DEER_NEIGHBOR_R2) continue;
+      // Cascade flee: adopt a fleeing neighbor's heading (first one wins, as before).
+      if (d.state !== 'flee' && od.state === 'flee') {
+        d.state = 'flee'; d.wanderAng = od.wanderAng + (Math.random() - 0.5) * 0.4;
+        d.fleeTimer = 2 + Math.random() * 1.5; d._zigTimer = 0;
+      }
+      // Herd cohesion/separation neighbor (reuse pre-allocated slot).
+      if (_deerNeighbors.length < _DEER_MAX) {
         const slot = _deerNeighborSlots[_deerNeighbors.length];
         slot.x = ox; slot.z = oz;
         _deerNeighbors.push(slot);

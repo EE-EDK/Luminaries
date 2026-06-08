@@ -15,7 +15,7 @@ import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashTimer, attuneFlashType } from '../../state/gameState.js';
 import { puffs, deers, orbs } from '../../state/entityStore.js';
-import { queryNearTrees } from '../../utils/spatialHash.js';
+import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
 import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../../systems/audio.js';
 import { triggerPufflingChat } from '../../systems/pufflingChat.js';
 
@@ -34,8 +34,24 @@ const _puffNeighbors = [];
 // Pre-allocated return value
 const _puffsResult = { nearestDist2: Infinity, nearestPos: _puffNearestPos };
 
+// Neighbor radii: flocking d2 < 100 → r = 10; collision r = 0.6.
+// Cell = flocking radius so the common query touches ~2×2 cells.
+const _PUFF_FLOCK_R = 10;
+const _PUFF_FLOCK_R2 = _PUFF_FLOCK_R * _PUFF_FLOCK_R;
+const _PUFF_COLLIDE_R = 0.6;
+// Huddle picks the globally-nearest puff; with PUFF_FLOCK clustering and a 40 m
+// player cull, a 30 m query reliably contains the nearest neighbor.
+const _PUFF_HUDDLE_R = 30;
+
 export function updatePuffs(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+
+  // Spatial hash over puff positions — O(k) same-type neighbor queries replace
+  // the former O(n²) flocking / huddle / collision inner scans. Stamp a frame
+  // ordinal on each puff so the pairwise collision pass still resolves each
+  // pair exactly once (replaces the old j = i+1 iteration order).
+  for (let k = 0; k < puffs.length; k++) puffs[k]._hashIdx = k;
+  buildNamedDynamicHash('puff', puffs, _PUFF_FLOCK_R);
 
   const puffSpeedMult = dayPhase === 'DAWN' ? 0.6 : (dayPhase === 'NIGHT' ? 1.3 : 1.0);
   const puffIdleMult = dayPhase === 'DAWN' ? 2.0 : (dayPhase === 'NIGHT' ? 0.6 : 1.0);
@@ -79,14 +95,17 @@ export function updatePuffs(dt, t) {
       }
     }
 
-    // Huddle in storms
+    // Huddle in storms — find the nearest other puff via spatial hash.
     if (isStorming && p.state !== 'startled' && p.state !== 'huddle') {
       let closest = Infinity, closestIdx = -1;
-      for (let j = 0; j < puffs.length; j++) {
-        if (j === i) continue;
-        const odx = puffs[j].group.position.x - px, odz = puffs[j].group.position.z - pz;
+      const _huddleQ = queryNamedDynamic('puff', px, pz, _PUFF_HUDDLE_R);
+      const _huddleQn = _huddleQ.length;
+      for (let q = 0; q < _huddleQn; q++) {
+        const op = _huddleQ.items[q];
+        if (op === p) continue;
+        const odx = op.group.position.x - px, odz = op.group.position.z - pz;
         const od2 = odx * odx + odz * odz;
-        if (od2 < closest) { closest = od2; closestIdx = j; }
+        if (od2 < closest) { closest = od2; closestIdx = op._hashIdx; }
       }
       if (closestIdx >= 0 && closest > 1) {
         p.state = 'huddle'; p._huddleTarget = closestIdx;
@@ -122,14 +141,19 @@ export function updatePuffs(dt, t) {
     if (p._targetY === undefined) p._targetY = p._baseY;
     p._baseY += (p._targetY - p._baseY) * Math.min(dt * 14, 1);
 
-    // Flocking (reuse pre-allocated slots, clear with .length = 0)
+    // Flocking — spatial-hash neighbors within r = 10 (d2 < 100). Consume the
+    // shared result buffer immediately into pre-allocated slots so the later
+    // queryNearTrees call can't clobber it. Squared-distance filter unchanged.
     _puffPos.x = px; _puffPos.z = pz;
     _puffNeighbors.length = 0;
-    for (let j = 0; j < puffs.length; j++) {
-      if (j === i) continue;
-      const ox = puffs[j].group.position.x, oz = puffs[j].group.position.z;
+    const _flockQ = queryNamedDynamic('puff', px, pz, _PUFF_FLOCK_R);
+    const _flockQn = _flockQ.length;
+    for (let q = 0; q < _flockQn; q++) {
+      const op = _flockQ.items[q];
+      if (op === p) continue;
+      const ox = op.group.position.x, oz = op.group.position.z;
       const d2 = (ox - px) * (ox - px) + (oz - pz) * (oz - pz);
-      if (d2 < 100) {
+      if (d2 < _PUFF_FLOCK_R2 && _puffNeighbors.length < _PUFF_MAX) {
         const slot = _puffNeighborSlots[_puffNeighbors.length];
         slot.x = ox; slot.z = oz;
         _puffNeighbors.push(slot);
@@ -321,13 +345,21 @@ export function updatePuffs(dt, t) {
       }
     }
 
-    // Puffling-puffling collision
-    for (let j = i + 1; j < puffs.length; j++) {
-      const og = puffs[j].group;
+    // Puffling-puffling collision — spatial-hash candidates within a padded
+    // radius (collision r = 0.6 plus per-frame movement slack). Resolve each
+    // pair exactly once by only acting on neighbors with a higher frame ordinal
+    // (replaces the old j = i+1 ordering); both bodies are pushed symmetrically.
+    const _collQ = queryNamedDynamic('puff', g.position.x, g.position.z, 2);
+    const _collQn = _collQ.length;
+    const minR = _PUFF_COLLIDE_R;
+    const minR2 = minR * minR;
+    for (let q = 0; q < _collQn; q++) {
+      const op = _collQ.items[q];
+      if (op._hashIdx <= i) continue; // each pair once; also skips self (idx === i)
+      const og = op.group;
       const odx = g.position.x - og.position.x, odz = g.position.z - og.position.z;
       const od2 = odx * odx + odz * odz;
-      const minR = 0.6;
-      if (od2 < minR * minR && od2 > 0.001) {
+      if (od2 < minR2 && od2 > 0.001) {
         const od = Math.sqrt(od2);
         const push = (minR - od) * 0.5 / od;
         g.position.x += odx * push;

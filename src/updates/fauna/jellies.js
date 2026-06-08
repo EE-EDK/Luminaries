@@ -22,15 +22,14 @@ import { playCreatureSound } from '../../systems/audio.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { AdditiveBlending, Color, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
-import { queryNearTrees } from '../../utils/spatialHash.js';
+import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
 import { nearest } from '../../systems/registration.js';
 
 const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
 
-// ================================================================
-// Module-scope sync-phase spatial bucket Map (cleared in place each sync frame)
-// ================================================================
-const _syncBuckets = new Map();
+// Sync-phase neighbor grid: 15 m cell, neighbor radius 15 (R2 = 225).
+const _JELLY_SYNC_CELL = 15;
+const _JELLY_SYNC_R2 = 225;
 const _jellyNearColor = new Color(C.jellyNearPink);
 const _jellyAttuneRed = new Color(C.jellyAttuneRed);
 const _jellyFarColor = new Color(C.jellyBell);
@@ -158,26 +157,12 @@ export function updateJellies(dt, t) {
     }
   }
 
-  // Batch 2 Item 1: Nearby jellies sync glow phase (~5Hz), O(n) via 15m grid (was O(n²)).
+  // Batch 2 Item 1: Nearby jellies sync glow phase (~5Hz), O(k) via shared
+  // spatial hash (utils/spatialHash.js) over a 15 m grid (was O(n²)).
   if (!updateJellies._syncFrame) updateJellies._syncFrame = 0;
   updateJellies._syncFrame++;
   if (updateJellies._syncFrame % 12 === 0) {
-    const cell = 15;
-    // Clear existing buckets in place (reuse arrays, avoid new Map() + new [] each sync)
-    for (const bucket of _syncBuckets.values()) bucket.length = 0;
-    for (let i = 0; i < jellies.length; i++) {
-      const g = jellies[i].group;
-      const bx = Math.floor(g.position.x / cell);
-      const bz = Math.floor(g.position.z / cell);
-      const key = bx + ',' + bz;
-      let arr = _syncBuckets.get(key);
-      if (!arr) {
-        arr = [];
-        _syncBuckets.set(key, arr);
-      }
-      arr.push(jellies[i]);
-    }
-    const R2 = 225;
+    buildNamedDynamicHash('jelly', jellies, _JELLY_SYNC_CELL);
     for (let i = 0; i < jellies.length; i++) {
       const j = jellies[i];
       const g = j.group;
@@ -187,23 +172,19 @@ export function updateJellies(dt, t) {
 
       let syncSum = 0;
       let syncCount = 0;
-      const bx = Math.floor(jx / cell);
-      const bz = Math.floor(jz / cell);
-      for (let ox = -1; ox <= 1; ox++) {
-        for (let oz = -1; oz <= 1; oz++) {
-          const arr = _syncBuckets.get((bx + ox) + ',' + (bz + oz));
-          if (!arr) continue;
-          for (let b = 0; b < arr.length; b++) {
-            const o = arr[b];
-            if (o === j) continue;
-            const og = o.group;
-            const odx = og.position.x - jx;
-            const odz = og.position.z - jz;
-            if (odx * odx + odz * odz < R2) {
-              syncSum += o._syncPhase ?? o.phase;
-              syncCount++;
-            }
-          }
+      // Query consumed immediately into running sums — the shared result buffer
+      // is reused by the next iteration's query, so no nested queries here.
+      const _jq = queryNamedDynamic('jelly', jx, jz, _JELLY_SYNC_CELL);
+      const _jqn = _jq.length;
+      for (let b = 0; b < _jqn; b++) {
+        const o = _jq.items[b];
+        if (o === j) continue;
+        const og = o.group;
+        const odx = og.position.x - jx;
+        const odz = og.position.z - jz;
+        if (odx * odx + odz * odz < _JELLY_SYNC_R2) {
+          syncSum += o._syncPhase ?? o.phase;
+          syncCount++;
         }
       }
       if (syncCount > 0) {

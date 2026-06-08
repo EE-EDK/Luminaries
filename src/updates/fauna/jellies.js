@@ -244,13 +244,6 @@ export function updateJellies(dt, t) {
   const nearestPos = _result.nearestPos;
   nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
 
-  let jellyJoinedCount = 0;
-  if (jellyCrimson.active) {
-    for (let jj = 0; jj < jellies.length; jj++) {
-      if (jellies[jj]._crimsonJoined) jellyJoinedCount++;
-    }
-  }
-
   const jellyAttuneTarget = getAttunementTarget();
   const jellyFreq = getPlayerFrequency();
   const pitchLockedJelly = pitchLockedJellyPre;
@@ -318,22 +311,27 @@ export function updateJellies(dt, t) {
     }
 
     let crimsonOrbit = false;
-    /** Shared ring — start as soon as each jelly is swept by crimson wave; rank/M updates as more link. */
+    /**
+     * Shared ring — start as soon as each jelly is swept by crimson wave.
+     * Slot is the jelly's STABLE flock index (i / jellies.length), identical to
+     * the ritual ring below. Earlier this used a dense rank/M re-pack that shifted
+     * every jelly's angular slot each time a new jelly joined the expanding wave —
+     * over the ~2.4s sweep that reshuffle ran every frame, teleporting each target
+     * a chunk around the ring and yanking the lerp, which read as jagged orbit
+     * motion. A fixed per-jelly slot makes the target move continuously so the
+     * dt-scaled ease produces a smooth orbit.
+     */
     if (jellyCrimson.active && j._crimsonJoined) {
       crimsonOrbit = true;
-      const M = Math.max(1, jellyJoinedCount);
-      let rank = 0;
-      for (let ji = 0; ji < i; ji++) {
-        if (jellies[ji]._crimsonJoined) rank++;
-      }
+      const M = Math.max(1, jellies.length);
       const base = t * FORMATION_SPIN;
-      const ang = base + (rank / M) * Math.PI * 2;
+      const ang = base + (i / M) * Math.PI * 2;
       // Orbit the OBELISK (world center), not the player.
       const tx = obeliskAnchor.x + Math.cos(ang) * FORMATION_RING_R;
       const tz = obeliskAnchor.z + Math.sin(ang) * FORMATION_RING_R;
       const tgtY =
         obeliskAnchor.ringY +
-        Math.sin(t * 1.05 + rank * 0.41) * FORMATION_BOB;
+        Math.sin(t * 1.05 + i * 0.41) * FORMATION_BOB;
       g.position.x += (tx - g.position.x) * Math.min(1, dt * FORMATION_LERP);
       g.position.z += (tz - g.position.z) * Math.min(1, dt * FORMATION_LERP);
       g.position.y += (tgtY - g.position.y) * Math.min(1, dt * FORMATION_LERP * 0.95);

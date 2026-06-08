@@ -43,7 +43,7 @@ Implemented:
 1. **The Dimming** — DONE: 5 angular sectors, restoration waves, edge blending (`systems/dimming.js`)
 2. **Creature Attunement** — DONE: All 4 types — jelly (SPACE rhythm), puffling (sprint), deer (stride-match), moth (orbit+look). Now gated by spirit hum pitch-lock (`systems/attunement.js`)
 2b. **Spirit Hum + Resonance Tuning** — DONE: Two-phase creature unlock; right-click/slider pitch control, 4 creature frequency bands, resonance glow, ring particles (`systems/spiritHum.js`, `particles/resonanceRings.js`)
-3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questManager.js`)
+3. **Orb Activation Gate** — DONE: Frequency check + reject hint + cooldown (`quest/questState.js`, `quest/questVisuals.js`)
 4. **Stillness/Curiosity** — DONE: Jelly drift, deer flee shrink, moth orbit shift, puffling follow (`main.js`)
 5. **Fairy Ring Boost** — DONE: 3.5× super-jump + 4s feather fall in restored zones (`core/player.js`)
 6. **Audio Sync Progression** — DONE: Creature cooldowns halved at 2+ orbs (`systems/audio.js`)
@@ -54,10 +54,10 @@ Implemented:
 11. **Shooting Star Wishes** — DONE: 5 wish levels gated by orbs, dual perspective (`world/sky.js`)
 12. **Finale/Transform/Free Roam** — DONE: Overlay text + FREE_ROAM endgame state
 13. **Weather Attunement Modifiers** — DONE: Multipliers based on creature type/weather state (`constants.js`, `systems/attunement.js`)
-14. **Day/Night Gating** — DONE: Attunement rate scaled by bioGlow; orb proximity scaled by bioGlow (`systems/attunement.js`, `quest/questManager.js`)
+14. **Day/Night Gating** — DONE: Attunement rate scaled by bioGlow; orb proximity scaled by bioGlow (`systems/attunement.js`, `quest/questState.js`)
 15. **Bubble Pop Rewards** — DONE: Restored zone pulse; dimmed zone repulsion (`updates/magicalEntities.js`)
 16. **Dandelion Wayfinding** — DONE: Gentle bias toward nearest unfound orb (`particles/seeds.js`)
-17. **Obelisk Rune Reveal** — DONE: Colored runes per orb creature type (`quest/questManager.js`)
+17. **Obelisk Rune Reveal** — DONE: Colored runes per orb creature type (`quest/questVisuals.js`)
 
 Remaining (4 features): Crystal resonance chains, ground glyphs, echo-visions, and deferred optimizations. See `reference/phase-2-roadmap.md`.
 
@@ -133,7 +133,7 @@ These are non-negotiable. Every session must follow them.
 | Player physics | `src/core/player.js` |
 | Terrain height | `src/world/terrain.js` → `getGroundY()` |
 | Audio system | `src/systems/audio.js` (32KB) |
-| Quest state machine | `src/quest/questState.js` → `initQuest()`, `updateQuest()`, `getQuestState()` |
+| Quest state machine | `src/quest/questState.js` → `initQuestState()`, `updateQuestState()`, `getQuestState()` |
 | Quest visuals + effects | `src/quest/questVisuals.js` → Three.js orb/obelisk/laser rendering |
 | Quest config | `src/quest/config.js` → `QuestPhases`, `QUEST_CONFIG`, `ORB_CREATURE_SEQUENCE` |
 | Weather states | `src/systems/weather.js` |
@@ -184,9 +184,9 @@ Performance pass based on WebGL FPS Guide v2 analysis:
 - [x] dandelion wayfinding (Remaining Phase 2 feature)
 - [x] obelisk runes (Remaining Phase 2 feature)
 - [ ] **Jellies (formation + encounter)** — Further visual/behavior pass: ritual + crimson ring still needs tuning; verify encounter feels cohesive in play (see `src/updates/fauna/jellies.js`).
-- [ ] **Jelly / attunement encounter** — "Receptive" flow still not reliably working end-to-end: trace attunement + `CREATURE_ATTUNED` + spirit hum gating; confirm narrative/camera/UX (see `systems/attunement.js`, `spiritHum.js`, `quest/questManager.js`).
+- [ ] **Jelly / attunement encounter** — "Receptive" flow still not reliably working end-to-end: trace attunement + `CREATURE_ATTUNED` + spirit hum gating; confirm narrative/camera/UX (see `systems/attunement.js`, `spiritHum.js`, `quest/questState.js`, `quest/questVisuals.js`).
 - [ ] **Puffling houses (readability)** — Still reading as basic black silhouettes in night; improve materials (env, tone map parity, emissive) vs `mushroom-house-puffling-home.html` reference; verify not culled (see `entities/world/pufflingHomeDetailed.js`, `pufflingHomes.js`).
-- [ ] **2nd phase / quest progression unlock** — Cannot advance past first-phase gate: audit orb count, quest state, `FREE_ROAM` / `getQuestState`, frequency gate, and any blockers in `quest/questState.js` + `quest/questManager.js` (repro with save-less refresh).
+- [ ] **2nd phase / quest progression unlock** — Cannot advance past first-phase gate: audit orb count, quest state, `FREE_ROAM` / `getQuestState`, frequency gate, and any blockers in `quest/questState.js` + `quest/questVisuals.js` (repro with save-less refresh).
 - [ ] **In-game debug UI** — Debug terminal (`Esc`×2) not obvious / not discoverable: add brief HUD hint in dev, optional persistent affordance, ensure `initDebugConsole()` + `LumiDebug` surface in `docs` build; verify not stripped by `import.meta.env` on GH Pages (`src/debug/debugConsole.js`, `index.html` / HUD copy).
 - [ ] crystal resonance chains (Remaining Phase 2 feature)
 - [ ] ground glyphs (Remaining Phase 2 feature)

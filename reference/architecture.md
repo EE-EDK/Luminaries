@@ -44,7 +44,7 @@ index.html
         │   └── systems/ai/           → senses.js + steering.js (used by fauna)
         │
         ├── QUEST INIT ────────────────────────────────────────
-        │   ├── quest/questState.js   → initQuest(), updateQuest() → 5-phase state machine
+        │   ├── quest/questState.js   → initQuestState(), updateQuestState() → 5-phase state machine
         │   ├── quest/questVisuals.js → Three.js rendering + effects for orbs/obelisk/lasers
         │   ├── quest/config.js       → QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE
         │   └── quest/lasers.js       → makeLaser() → beam + glitter effects
@@ -54,8 +54,7 @@ index.html
               dt = clock.getDelta()
               updatePlayer(dt)           → physics, collision, camera bob
               updateDimming(dt)          → advance sector restoration waves
-              director(dt, t)            → ALL per-frame entity/system updates
-              updateQuest(dt, t, player) → quest state progression
+              director(dt, t)            → ALL per-frame entity/system updates (includes _directorQuest → updateQuestState(dt) + updateQuestVisuals(dt, t))
               global dimming effects     → exposure, fog, saturation, lights
               postRender()               → bloom compose + render
 ```
@@ -151,7 +150,7 @@ updateFlies(dt, t);            // Advance all active particles
 ```js
 // audio.js is never imported by entity files
 // Instead, callbacks are passed through main.js:
-initQuest({
+initQuestVisuals({
   onCollect: playOrbCollect,
   onLaser: playLaserZap,
   // ...

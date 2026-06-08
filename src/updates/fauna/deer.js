@@ -17,11 +17,28 @@ import { deers, ponds } from '../../state/entityStore.js';
 import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
+// ================================================================
+// Module-scope allocation-free buffers (no per-frame GC)
+// ================================================================
+const _deerPos = { x: 0, z: 0 };
+const _playerTarget = { x: 0, z: 0 };
+const _nearestPos = { x: 0, z: 0 };
+const _zero2 = { x: 0, z: 0 };
+
+// Pre-allocated neighbor slots (deer count ≤ ~12, 24 slots is safe headroom)
+const _DEER_MAX = 24;
+const _deerNeighborSlots = Array.from({ length: _DEER_MAX }, () => ({ x: 0, z: 0 }));
+const _deerNeighbors = [];
+
+// Pre-allocated return value reused by every updateDeers call
+const _deersResult = { nearestDist2: Infinity, nearestPos: _nearestPos, nearestWanderAng: 0 };
+
 export function updateDeers(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
 
   let nearestDist2 = Infinity;
-  let nearestPos = { x: 0, z: 0 };
+  const nearestPos = _nearestPos;
+  nearestPos.x = 0; nearestPos.z = 0;
   let nearestWanderAng = 0;
 
   for (let i = 0; i < deers.length; i++) {
@@ -60,17 +77,17 @@ export function updateDeers(dt, t) {
 
     // Threat detection
     if (d.state !== 'flee' && d.state !== 'alert' && d.state !== 'watching') {
-      const deerPos = { x: gx, z: gz };
-      const playerTarget = { x: player.pos.x, z: player.pos.z };
-      if (pDist2 < fleeR2 || canHear(deerPos, playerTarget, fleeR, sprinting)) {
+      _deerPos.x = gx; _deerPos.z = gz;
+      _playerTarget.x = player.pos.x; _playerTarget.z = player.pos.z;
+      if (pDist2 < fleeR2 || canHear(_deerPos, _playerTarget, fleeR, sprinting)) {
         d.state = 'flee'; d.wanderAng = pAng;
         d.fleeTimer = 2.5 + Math.random() * 2; d._zigTimer = 0;
-        playCreatureSound('deer', deerPos, player.pos);
-        emit(Events.CREATURE_SOUND, { type: 'deer', position: deerPos, playerPos: player.pos });
-      } else if (pDist2 < alertR2 || canSee(deerPos, d.wanderAng, playerTarget, alertR, Math.PI * 0.5)) {
+        playCreatureSound('deer', _deerPos, player.pos);
+        emit(Events.CREATURE_SOUND, { type: 'deer', position: { x: gx, z: gz }, playerPos: player.pos });
+      } else if (pDist2 < alertR2 || canSee(_deerPos, d.wanderAng, _playerTarget, alertR, Math.PI * 0.5)) {
         d.state = 'alert'; d._stT = 1.0 + Math.random() * 1.5;
-        playCreatureSound('deer', deerPos, player.pos);
-        emit(Events.CREATURE_SOUND, { type: 'deer', position: deerPos, playerPos: player.pos });
+        playCreatureSound('deer', _deerPos, player.pos);
+        emit(Events.CREATURE_SOUND, { type: 'deer', position: { x: gx, z: gz }, playerPos: player.pos });
       }
     }
 
@@ -87,16 +104,21 @@ export function updateDeers(dt, t) {
       }
     }
 
-    // Herd neighbor data
-    const deerNeighbors = [];
+    // Herd neighbor data (reuse pre-allocated slots, clear with .length = 0)
+    _deerNeighbors.length = 0;
     for (let di = 0; di < deers.length; di++) {
       if (di === i) continue;
       const ox = deers[di].group.position.x, oz = deers[di].group.position.z;
       const d2 = (ox - gx) * (ox - gx) + (oz - gz) * (oz - gz);
-      if (d2 < 400) deerNeighbors.push({ x: ox, z: oz });
+      if (d2 < 400) {
+        const slot = _deerNeighborSlots[_deerNeighbors.length];
+        slot.x = ox; slot.z = oz;
+        _deerNeighbors.push(slot);
+      }
     }
-    const deerSep = separation({ x: gx, z: gz }, deerNeighbors, 3);
-    const deerCoh = deerNeighbors.length > 0 ? cohesion({ x: gx, z: gz }, deerNeighbors) : { x: 0, z: 0 };
+    _deerPos.x = gx; _deerPos.z = gz;
+    const deerSep = separation(_deerPos, _deerNeighbors, 3);
+    const deerCoh = _deerNeighbors.length > 0 ? cohesion(_deerPos, _deerNeighbors) : _zero2;
     if (d.state === 'alert' || d.state === 'watching') {
       d.headLook += (pAng - d.wanderAng) * 0.3 * dt;
     }
@@ -130,12 +152,13 @@ export function updateDeers(dt, t) {
           const homeAng = Math.atan2(d.homeX - gx, d.homeZ - gz);
           d.wanderAng += (homeAng - d.wanderAng) * dt * 0.5;
         }
-        if (deerNeighbors.length > 0) {
+        if (_deerNeighbors.length > 0) {
           const herdAng = Math.atan2(deerCoh.x * 0.15 + deerSep.x * 0.8, deerCoh.z * 0.15 + deerSep.z * 0.8);
           d.wanderAng += (herdAng - d.wanderAng) * dt * 0.3;
         }
         const _walkNear = queryNearTrees(gx, gz, 5);
-        const walkAvoid = avoidObstacles({ x: gx, z: gz }, d.wanderAng, _walkNear.items, 2.5, 1.2, _walkNear.length);
+        _deerPos.x = gx; _deerPos.z = gz;
+        const walkAvoid = avoidObstacles(_deerPos, d.wanderAng, _walkNear.items, 2.5, 1.2, _walkNear.length);
         if (walkAvoid.x * walkAvoid.x + walkAvoid.z * walkAvoid.z > 0.01) {
           d.wanderAng += Math.atan2(walkAvoid.z, walkAvoid.x) * 0.4;
         }
@@ -202,11 +225,13 @@ export function updateDeers(dt, t) {
         if (d._zigTimer <= 0) { d._zigDir *= -1; d._zigTimer = 0.4 + Math.random() * 0.4; }
         d.wanderAng = pAng + d._zigDir * 0.3;
         const _fleeNear = queryNearTrees(gx, gz, 5);
-        const avoidF = avoidObstacles({ x: gx, z: gz }, d.wanderAng, _fleeNear.items, 3, 1.5, _fleeNear.length);
+        _deerPos.x = gx; _deerPos.z = gz;
+        const avoidF = avoidObstacles(_deerPos, d.wanderAng, _fleeNear.items, 3, 1.5, _fleeNear.length);
         if (avoidF.x * avoidF.x + avoidF.z * avoidF.z > 0.01) {
           d.wanderAng += Math.atan2(avoidF.z, avoidF.x) * 0.3;
         }
-        const bnd = worldBounds({ x: gx, z: gz }, 8);
+        _deerPos.x = gx; _deerPos.z = gz;
+        const bnd = worldBounds(_deerPos, 8);
         if (bnd.x !== 0 || bnd.z !== 0) {
           d.wanderAng = Math.atan2(bnd.z, bnd.x);
         }
@@ -371,5 +396,8 @@ export function updateDeers(dt, t) {
     }
   }
 
-  return { nearestDist2, nearestPos, nearestWanderAng };
+  _deersResult.nearestDist2 = nearestDist2;
+  _deersResult.nearestWanderAng = nearestWanderAng;
+  // _deersResult.nearestPos is already the same _nearestPos object (mutated in place)
+  return _deersResult;
 }

@@ -12,6 +12,7 @@ import { player } from '../core/player.js';
 import { renderer, scene } from '../core/renderer.js';
 import { smoothstep } from '../utils/math.js';
 import { setSaturation, bloomPass } from '../core/postprocessing.js';
+import { bloomStrengthFor, getQualityNotch } from '../systems/adaptiveQuality.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { attuneFlashTimer, attuneFlashType } from '../state/gameState.js';
@@ -175,6 +176,11 @@ export function updatePlayerVisuals(dt, elapsed) {
   // restoration which caused harsh white/pink wash-out. Dimmed floor stays at 0.7, contrast
   // range is now 0.7→1.6 (vs 0.7→2.8), keeping the dimmed↔restored feel meaningful.
   renderer.toneMappingExposure = 0.7 + 0.9 * dimF;
+  // Adaptive-quality bloom ceiling: the FPS safety net (adaptiveQuality.js) lowers
+  // bloom strength under load (notch 2 → 0.3, notch 3-4 → 0.0). playerVisuals runs
+  // AFTER the scaler each frame, so we must clamp our desired strength to that ceiling
+  // instead of overwriting it — otherwise the perf lever is defeated.
+  const bloomCeil = bloomStrengthFor(getQualityNotch());
   if (dimF < 1.0) {
     const desatT = 1.0 - dimF;
     const fogFlashMult = flashActive ? (1.0 - flashEaseDim * 0.3) : 1.0;
@@ -184,15 +190,16 @@ export function updatePlayerVisuals(dt, elapsed) {
     playerLight.distance *= (0.25 + 0.75 * dimF);
     const bloomBase = 0.85 + desatT * 0.35;
     if (bloomPass) bloomPass.threshold = bloomBase - (flashActive ? flashEaseDim * 0.55 : 0);
-    // Bloom strength stays at default (0.6) in dimmed/mid states
-    if (bloomPass) bloomPass.strength = 0.6;
+    // Dimmed/mid states want full strength (0.6), but never exceed the adaptive ceiling.
+    if (bloomPass) bloomPass.strength = Math.min(0.6, bloomCeil);
   } else {
     if (flashActive) {
       scene.fog.density *= (1.0 - flashEaseDim * 0.3);
     }
     if (bloomPass) bloomPass.threshold = 0.85 - (flashActive ? flashEaseDim * 0.55 : 0);
-    // Ease bloom strength down in fully-restored/finale state to prevent glow over-saturation
-    if (bloomPass) bloomPass.strength = flashActive ? 0.6 + flashEaseDim * 0.15 : 0.45;
+    // Ease bloom strength down in fully-restored/finale state to prevent glow over-saturation,
+    // clamped to the adaptive ceiling so the FPS safety net still wins under load.
+    if (bloomPass) bloomPass.strength = Math.min(flashActive ? 0.6 + flashEaseDim * 0.15 : 0.45, bloomCeil);
   }
 
   // Lightning flash

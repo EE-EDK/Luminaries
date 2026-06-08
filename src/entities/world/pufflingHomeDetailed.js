@@ -59,6 +59,117 @@ function mulberry32(seed) {
 }
 
 /**
+ * Build a small flower garden ringing a cottage home. Merged to 4 draw calls
+ * (stems, leaves, flower heads, centers) — static decor, no per-frame work.
+ * Returns a Group positioned at the home base; caller toggles visibility.
+ * @param {() => number} rng deterministic per-home RNG
+ * @param {{ baseRadius: number }} H house footprint
+ */
+function makeCottageGarden(rng, H) {
+  const group = new Group();
+  const stemGeos = [];
+  const leafGeos = [];
+  const headGeos = [];
+  const centerGeos = [];
+
+  const stemTmpl = new CylinderGeometry(0.025, 0.04, 1, 5);
+  const leafTmpl = new SphereGeometry(0.14, 6, 4);
+  leafTmpl.scale(1, 0.28, 0.55);
+  const headTmpl = new SphereGeometry(0.18, 8, 6);
+  headTmpl.scale(1, 0.55, 1);
+  const centerTmpl = new SphereGeometry(0.07, 6, 5);
+
+  // Per-flower head color baked into vertex colors so one material covers the
+  // whole ring (cottage palette: gold / pink / lavender garden blooms).
+  const _hc = new Color();
+  const palette = [C.puffGardenFlowerA, C.puffGardenFlowerB, C.puffGardenFlowerC];
+  const headVCount = headTmpl.attributes.position.count;
+
+  const ringInner = H.baseRadius + 0.6;
+  const ringSpan = 2.6;
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const s = new Vector3();
+  const yAxis = new Vector3(0, 1, 0);
+
+  for (let i = 0; i < 22; i++) {
+    const angle = rng() * Math.PI * 2;
+    // Keep the doorway approach (door faces +Z) clear so the path stays open.
+    if (angle > Math.PI / 2 - 0.5 && angle < Math.PI / 2 + 0.5) continue;
+    const rad = ringInner + rng() * ringSpan;
+    const fx = Math.cos(angle) * rad;
+    const fz = Math.sin(angle) * rad;
+    const stemH = 0.5 + rng() * 0.7;
+    const lean = (rng() - 0.5) * 0.18;
+
+    q.setFromAxisAngle(new Vector3(0, 0, 1), lean);
+    // Stem (unit cyl scaled to height).
+    s.set(1, stemH, 1);
+    m.compose(new Vector3(fx, stemH * 0.5, fz), q, s);
+    const sg = stemTmpl.clone();
+    sg.applyMatrix4(m);
+    stemGeos.push(sg);
+
+    // Two leaves partway up the stem.
+    for (let l = 0; l < 2; l++) {
+      const la = angle + (l === 0 ? 0.9 : -0.9);
+      const ly = stemH * (0.35 + l * 0.18);
+      q.setFromAxisAngle(yAxis, la);
+      s.set(1, 1, 1);
+      m.compose(new Vector3(fx + Math.cos(la) * 0.12, ly, fz + Math.sin(la) * 0.12), q, s);
+      const lg = leafTmpl.clone();
+      lg.applyMatrix4(m);
+      leafGeos.push(lg);
+    }
+
+    // Flower head with baked color.
+    q.setFromAxisAngle(yAxis, rng() * Math.PI * 2);
+    s.set(1, 1, 1);
+    m.compose(new Vector3(fx, stemH + 0.05, fz), q, s);
+    const hg = headTmpl.clone();
+    hg.applyMatrix4(m);
+    _hc.setHex(palette[Math.floor(rng() * palette.length)]);
+    const colors = new Float32Array(headVCount * 3);
+    for (let v = 0; v < headVCount; v++) {
+      colors[v * 3] = _hc.r;
+      colors[v * 3 + 1] = _hc.g;
+      colors[v * 3 + 2] = _hc.b;
+    }
+    hg.setAttribute('color', new BufferAttribute(colors, 3));
+    headGeos.push(hg);
+
+    // Bright center pip.
+    m.compose(new Vector3(fx, stemH + 0.11, fz), q, new Vector3(1, 1, 1));
+    const cg = centerTmpl.clone();
+    cg.applyMatrix4(m);
+    centerGeos.push(cg);
+  }
+
+  const stemMat = new MeshStandardMaterial({ color: C.puffGardenStem, roughness: 0.9, fog: false });
+  const leafMat = new MeshStandardMaterial({ color: C.puffGardenLeaf, roughness: 0.85, fog: false });
+  const headMat = new MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.55, emissive: 0x331111, emissiveIntensity: 0.25, fog: false
+  });
+  const centerMat = new MeshStandardMaterial({
+    color: C.puffGardenCenter, emissive: C.puffGardenCenter, emissiveIntensity: 0.35, roughness: 0.6, fog: false
+  });
+
+  if (stemGeos.length) group.add(new Mesh(mergeGeometries(stemGeos), stemMat));
+  if (leafGeos.length) group.add(new Mesh(mergeGeometries(leafGeos), leafMat));
+  if (headGeos.length) group.add(new Mesh(mergeGeometries(headGeos), headMat));
+  if (centerGeos.length) group.add(new Mesh(mergeGeometries(centerGeos), centerMat));
+
+  group.traverse((ch) => {
+    if (ch.isMesh) {
+      ch.castShadow = false;
+      ch.receiveShadow = true;
+      ch.frustumCulled = false;
+    }
+  });
+  return group;
+}
+
+/**
  * @param {{ brickHueRange: number[], brickSatRange: number[], brickLumRange: number[],
  *   innerWall: number, cap: number, capEmissive: number, capEmissiveInt: number,
  *   gill: number, gillEmissive: number, gillEmissiveInt: number,
@@ -351,6 +462,14 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   decorGroup.visible = theme.showDecor !== false;
   root.add(decorGroup);
 
+  // --- Cottage flower garden (finale only). Tiny non-glowing flowers ringing the
+  // home; built once (merged to 4 draw calls), hidden until the cottage theme swap.
+  // Static decor — no per-frame work; culls/transforms with the parent house. ---
+  const gardenGroup = makeCottageGarden(rng, H);
+  gardenGroup.visible = theme.showGarden === true;
+  root.add(gardenGroup);
+  root.userData.pufflingGarden = gardenGroup;
+
   root.traverse((ch) => {
     if (ch.isMesh) {
       ch.castShadow = true;
@@ -421,17 +540,20 @@ export function themePayloadBioluminescent() {
 
 export function themePayloadCottage() {
   return {
-    stalk: 0xb8a890,
+    // Warm brown brick (normal masonry) — flat color, no vertex variation. The
+    // baked teal vertex colors are ignored once vertexColors is toggled off.
+    stalk: C.puffCottageBrick,
     brickEmissive: 0x000000,
     brickEmissiveInt: 0,
     innerWall: 0x3a1f10,
-    cap: 0xff7aa8,
+    // Storybook toadstool: bright red cap with crisp white spots.
+    cap: C.puffCottageCap,
     capEmissive: 0x000000,
     capEmissiveInt: 0,
     gill: 0xfff0f5,
     gillEmissive: 0x000000,
     gillEmissiveInt: 0,
-    spot: 0xffffff,
+    spot: C.puffCottageSpot,
     spotEmissive: 0x000000,
     spotEmissiveInt: 0,
     door: 0x5a3a1f,
@@ -444,8 +566,10 @@ export function themePayloadCottage() {
     glassEmissive: 0xb088ff,
     glassEmissiveInt: 0.55,
     // Glow accents are a bioluminescent-night feature; the cottage finale uses
-    // real flower gardens (Task 12.5) instead, so hide the glow mushrooms here.
-    showDecor: false
+    // real flower gardens (Task 12.5) instead, so hide the glow mushrooms here
+    // and reveal the garden ring.
+    showDecor: false,
+    showGarden: true
   };
 }
 
@@ -495,5 +619,9 @@ export function applyThemeToDetailedHouse(root, cottage) {
   }
   if (root.userData.pufflingDecor) {
     root.userData.pufflingDecor.visible = p.showDecor !== false;
+  }
+  // Flower garden ring: revealed only in the cottage (finale) theme.
+  if (root.userData.pufflingGarden) {
+    root.userData.pufflingGarden.visible = p.showGarden === true;
   }
 }

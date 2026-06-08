@@ -22,9 +22,8 @@ import {
   clearHousePlateaus,
   buildHeightCache
 } from '../../world/terrain.js';
-import { WORLD_R, ORB_N } from '../../constants.js';
+import { WORLD_R } from '../../constants.js';
 import { on, Events } from '../../kernel/eventBus.js';
-import { getQuestState } from '../../quest/questState.js';
 import { getLocalGlow } from '../../systems/dimming.js';
 import { bioGlow } from '../../systems/dayNightCycle.js';
 import { orbBoost } from '../../state/gameState.js';
@@ -60,6 +59,12 @@ const _qIdent = new Quaternion();
 let _detailedRoots = [];
 
 let _themeListenerRegistered = false;
+/**
+ * Cottage (red/white toadstool + garden) theme is gated on WORLD_TRANSFORMED so it
+ * appears exactly when the world turns pink in the TRANSFORM phase — not early at
+ * the last orb. Persists for the FREE_ROAM endgame.
+ */
+let _worldTransformed = false;
 
 function applyPufflingHomeTheme(cottage) {
   for (let i = 0; i < _detailedRoots.length; i++) {
@@ -68,13 +73,18 @@ function applyPufflingHomeTheme(cottage) {
 }
 
 function syncThemeFromQuest() {
-  applyPufflingHomeTheme(getQuestState().orbsFound >= ORB_N);
+  applyPufflingHomeTheme(_worldTransformed);
+}
+
+function onWorldTransformed() {
+  _worldTransformed = true;
+  syncThemeFromQuest();
 }
 
 function registerThemeListener() {
   if (_themeListenerRegistered) return;
   _themeListenerRegistered = true;
-  on(Events.ORB_COLLECTED, syncThemeFromQuest);
+  on(Events.WORLD_TRANSFORMED, onWorldTransformed);
 }
 
 /** Bias settlements toward outer rim / foothills; some midslope for variety. */

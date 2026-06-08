@@ -211,6 +211,12 @@ export const C = {
   // Glowing accent mushroom clusters ringing each home (matches the glow-decor in
   // mushroom-house-puffling-home.html). Stem is dark, cap glows teal-green.
   puffDecorStem: 0x554444, puffDecorCap: 0xeafff5, puffDecorEmissive: 0x00ffaa,
+  // Cottage (finale / world-transformed) palette: storybook red-and-white toadstool
+  // caps over warm brown bricks, plus a little flower garden ring per home.
+  puffCottageBrick: 0x9a6a44, puffCottageCap: 0xe23838, puffCottageSpot: 0xfff4ec,
+  puffGardenStem: 0x4a7a2e, puffGardenLeaf: 0x3e7a2a,
+  puffGardenFlowerA: 0xffd24a, puffGardenFlowerB: 0xff7ab0, puffGardenFlowerC: 0xb98aff,
+  puffGardenCenter: 0xfff0b0,
   // Jelly detail palette
   jellyOrgan: 0xbbddff, jellySpot: 0xeeffff, jellyTip: 0xddeeff, jellyMucus: 0xddffff,
   // Moth detail palette

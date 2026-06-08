@@ -266,6 +266,7 @@ export const C = {
   wizardBody: 0xffeee6, wizardBodyEmissive: 0xffaa66,
   wizardBelly: 0xffcc99, wizardCrown: 0xaa77ff,
   wizardCore: 0xffddaa,
+  wizardStaff: 0x6b4a2b, wizardStaffEmissive: 0x3a2412,
   smokeBody: 0xb8a3cf, smokeGlow: 0xff88dd,
   // Jelly attunement-red palette (color shift during attunement encounter)
   jellyNearPink: 0xff4fd2,

@@ -175,28 +175,34 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
     ch.renderOrder = 14;
     const mat = ch.material;
     mat.fog = false;
+    // Gentle emissive floor only — keeps the silhouette readable in the dim sector
+    // without washing the body/hat into a featureless white blob (owner: "blown-out blob").
     if (mat.emissiveIntensity !== undefined) {
-      mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 1.15);
+      mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 0.35);
     }
     if (mat.opacity !== undefined && mat.transparent) {
       mat.opacity = Math.max(mat.opacity, 0.92);
     }
   });
-  /** Strong read in moonlight / fog — applies to all builds (not only debug-only mode). */
+  /**
+   * Readable in moonlight / fog without over-glowing — applies to all builds (not only debug-only).
+   * Tuned DOWN from the previous blown-out values (body 2.4 / belly 1.2 / crown 2.2 / core opacity 1)
+   * so the body shape, belly, eyes and purple hat cone all read instead of a glowing ball.
+   */
   if (_wizard.bodyMat) {
     _wizard.bodyMat.emissive.setHex(C.wizardBodyEmissive);
-    _wizard.bodyMat.emissiveIntensity = 2.4;
+    _wizard.bodyMat.emissiveIntensity = 0.7;
     _wizard.bodyMat.color.setHex(C.wizardBody);
     if (_wizard.bellyMat) {
-      _wizard.bellyMat.emissiveIntensity = 1.2;
+      _wizard.bellyMat.emissiveIntensity = 0.4;
       _wizard.bellyMat.emissive.setHex(C.wizardBelly);
     }
     if (_wizard.crownMat) {
       _wizard.crownMat.emissive.setHex(C.wizardCrown);
-      _wizard.crownMat.emissiveIntensity = 2.2;
+      _wizard.crownMat.emissiveIntensity = 0.55;
     }
     if (_wizard.core && _wizard.core.material) {
-      _wizard.core.material.opacity = 1;
+      _wizard.core.material.opacity = 0.55;
       _wizard.core.material.color.setHex(C.wizardCore);
     }
   }

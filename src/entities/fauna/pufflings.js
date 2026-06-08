@@ -1,5 +1,5 @@
 // --- Puffling (round hopping creature — enhanced detail) ---
-import { ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
+import { ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
@@ -92,6 +92,25 @@ export function makePuff(x, z, opts = {}) {
       star.position.set((sr() - 0.5) * 0.08, 0.94 + sr() * 0.12, 0.08 + sr() * 0.06);
       shell.add(star);
     }
+
+    // --- WOODEN STAFF (shepherd's-crook): straight shaft + curved hook, held to one side ---
+    // Faintly emissive brown wood so it stays readable in the dim sector without glowing.
+    const staffMat = new MeshStandardMaterial({
+      color: C.wizardStaff, emissive: C.wizardStaffEmissive, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.0
+    });
+    const staffGroup = new Group();
+    // Held at the wizard's right side, slightly forward, leaning out a touch from the body.
+    staffGroup.position.set(0.28, 0, 0.05);
+    staffGroup.rotation.z = 0.12;
+    const shaft = new Mesh(new CylinderGeometry(0.018, 0.022, 0.92, 8), staffMat);
+    shaft.position.y = 0.46;
+    staffGroup.add(shaft);
+    // Curved crook at the top — a half-torus arcing over to form the hook.
+    const crook = new Mesh(new TorusGeometry(0.06, 0.018, 8, 12, Math.PI), staffMat);
+    crook.position.set(-0.06, 0.92, 0);
+    crook.rotation.z = Math.PI; // open side faces down/back to read as a hook
+    staffGroup.add(crook);
+    shell.add(staffGroup);
   }
 
   // Feet

@@ -171,7 +171,10 @@ export function updatePlayerVisuals(dt, elapsed) {
   const flashEaseDim = flashNormDim * flashNormDim;
 
   setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0));
-  renderer.toneMappingExposure = 0.7 + 2.1 * dimF;
+  // Cap max exposure at 1.6 (comfortable luminous bright) — was 0.7 + 2.1*dimF = 2.8 at full
+  // restoration which caused harsh white/pink wash-out. Dimmed floor stays at 0.7, contrast
+  // range is now 0.7→1.6 (vs 0.7→2.8), keeping the dimmed↔restored feel meaningful.
+  renderer.toneMappingExposure = 0.7 + 0.9 * dimF;
   if (dimF < 1.0) {
     const desatT = 1.0 - dimF;
     const fogFlashMult = flashActive ? (1.0 - flashEaseDim * 0.3) : 1.0;
@@ -181,11 +184,15 @@ export function updatePlayerVisuals(dt, elapsed) {
     playerLight.distance *= (0.25 + 0.75 * dimF);
     const bloomBase = 0.85 + desatT * 0.35;
     if (bloomPass) bloomPass.threshold = bloomBase - (flashActive ? flashEaseDim * 0.55 : 0);
+    // Bloom strength stays at default (0.6) in dimmed/mid states
+    if (bloomPass) bloomPass.strength = 0.6;
   } else {
     if (flashActive) {
       scene.fog.density *= (1.0 - flashEaseDim * 0.3);
     }
     if (bloomPass) bloomPass.threshold = 0.85 - (flashActive ? flashEaseDim * 0.55 : 0);
+    // Ease bloom strength down in fully-restored/finale state to prevent glow over-saturation
+    if (bloomPass) bloomPass.strength = flashActive ? 0.6 + flashEaseDim * 0.15 : 0.45;
   }
 
   // Lightning flash

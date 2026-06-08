@@ -146,7 +146,7 @@ export function updatePuffs(dt, t) {
         p.idleTimer -= dt;
         g.position.y = p._baseY + Math.sin(t * 2 + p.phase) * 0.02;
         g.rotation.y += Math.sin(t * 0.5 + p.phase) * dt * 0.3;
-        if (puffNeighbors.length > 0) {
+        if (_puffNeighbors.length > 0) {
           g.position.x += (sep.x * 0.8 + coh.x * 0.05) * dt;
           g.position.z += (sep.z * 0.8 + coh.z * 0.05) * dt;
         }

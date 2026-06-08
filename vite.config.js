@@ -11,7 +11,17 @@ export default defineConfig({
     target: 'es2020',
     rolldownOptions: {
       output: {
-        codeSplitting: false
+        // Split three.js into its own vendor chunk to reduce TTI on GH Pages.
+        // Uses rolldown's native codeSplitting.groups API (manualChunks is
+        // deprecated in rolldown and ignored when codeSplitting is also set).
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-three',
+              test: /[\\/]node_modules[\\/]three[\\/]/,
+            },
+          ],
+        },
       }
     }
   },

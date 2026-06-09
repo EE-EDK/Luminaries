@@ -15,6 +15,7 @@ import { setSaturation, bloomPass } from '../core/postprocessing.js';
 import { bloomStrengthFor, getQualityNotch } from '../systems/adaptiveQuality.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
 import { getOrbsFound } from '../quest/questState.js';
+import { isSkyTransformed } from '../world/sky.js';
 import { attuneFlashTimer, attuneFlashType } from '../state/gameState.js';
 import { lightningFlash } from '../systems/weather.js';
 
@@ -172,10 +173,11 @@ export function updatePlayerVisuals(dt, elapsed) {
   const flashEaseDim = flashNormDim * flashNormDim;
 
   setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0));
-  // Cap max exposure at 1.6 (comfortable luminous bright) — was 0.7 + 2.1*dimF = 2.8 at full
-  // restoration which caused harsh white/pink wash-out. Dimmed floor stays at 0.7, contrast
-  // range is now 0.7→1.6 (vs 0.7→2.8), keeping the dimmed↔restored feel meaningful.
-  renderer.toneMappingExposure = 0.7 + 0.9 * dimF;
+  // Physical daytime sky (Three.js Sky shader) outputs HDR values — needs lower exposure
+  // than the night forest (0.7→1.6). Day range 0.55→0.82 keeps sky natural without wash-out.
+  renderer.toneMappingExposure = isSkyTransformed()
+    ? 0.55 + 0.27 * dimF
+    : 0.7 + 0.9 * dimF;
   // Adaptive-quality bloom ceiling: the FPS safety net (adaptiveQuality.js) lowers
   // bloom strength under load (notch 2 → 0.3, notch 3-4 → 0.0). playerVisuals runs
   // AFTER the scaler each frame, so we must clamp our desired strength to that ceiling

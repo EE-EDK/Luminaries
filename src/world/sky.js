@@ -1,4 +1,5 @@
-import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry } from 'three';
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, MathUtils, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry, Vector3 } from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { SKY_R, C } from '../constants.js';
 import { saveSeed, restoreSeed, sr } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
@@ -10,6 +11,7 @@ import { scene } from '../core/renderer.js';
 
 export const skyGroup = new Group();
 let skyDomeMat = null;
+let skyDomeMesh = null;
 
 // Twinkling star layer data
 const TWINKLE_COUNT = 120;
@@ -273,8 +275,8 @@ export function createSkyDome() {
     map: tex, side: BackSide, fog: false,
     transparent: false
   });
-  const dome = new Mesh(geo, skyDomeMat);
-  skyGroup.add(dome);
+  skyDomeMesh = new Mesh(geo, skyDomeMat);
+  skyGroup.add(skyDomeMesh);
 
   // Zenith cap — covers the pole convergence hole with a flat disc
   const capRadius = SKY_R * Math.sin(thetaStart) * 1.05; // slightly oversized to ensure overlap
@@ -499,21 +501,12 @@ export function isSkyTransformed() {
   return _skyTransformed;
 }
 
-function paintDaySkyCanvas() {
+function _removedPaintDaySkyCanvas_unused() {
+  // Replaced by Three.js Sky shader in transformSky()
   const W = 2048, H = 1024;
   const cvs = document.createElement('canvas');
   cvs.width = W; cvs.height = H;
   const ctx = cvs.getContext('2d');
-
-  // Sky gradient — lighter near horizon, deeper blue at zenith
-  const bgGrad = ctx.createLinearGradient(0, H, 0, 0);
-  bgGrad.addColorStop(0.00, '#daeefa');
-  bgGrad.addColorStop(0.18, '#b2d8f4');
-  bgGrad.addColorStop(0.45, '#7cbce8');
-  bgGrad.addColorStop(0.80, '#4890d4');
-  bgGrad.addColorStop(1.00, '#2060b8');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, W, H);
 
   // Sun — slightly left of centre, high in sky
   const sunX = W * 0.58, sunY = H * 0.19;
@@ -638,15 +631,25 @@ function paintDaySkyCanvas() {
 export function transformSky() {
   if (_skyTransformed || !skyDomeMat) return;
   _skyTransformed = true;
-  // Replace night star texture with a daytime sky canvas
-  const dayTex = paintDaySkyCanvas();
-  if (skyDomeMat.map) skyDomeMat.map.dispose();
-  skyDomeMat.map = dayTex;
-  skyDomeMat.map.needsUpdate = true;
-  skyDomeMat.color.setRGB(1, 1, 1); // no tint — let the texture show true
-  skyDomeMat.needsUpdate = true;
-  // Hide twinkling star points — they look wrong against daylight
+
+  // Hide night sky dome and twinkling stars
+  if (skyDomeMesh) skyDomeMesh.visible = false;
   if (twinklePoints) twinklePoints.visible = false;
+
+  // Physical sky via Three.js Preetham/Mie scattering model
+  const sky = new Sky();
+  sky.scale.setScalar(450000);
+  sky.material.uniforms['turbidity'].value = 3.5;
+  sky.material.uniforms['rayleigh'].value = 1.8;
+  sky.material.uniforms['mieCoefficient'].value = 0.003;
+  sky.material.uniforms['mieDirectionalG'].value = 0.96; // tight sun disk
+  // Sun at elevation 58°, azimuth 220° (south-southwest — visible from spawn)
+  const sun = new Vector3();
+  const phi = MathUtils.degToRad(90 - 58);
+  const theta = MathUtils.degToRad(220);
+  sun.setFromSphericalCoords(1, phi, theta);
+  sky.material.uniforms['sunPosition'].value.copy(sun);
+  scene.add(sky);
 }
 
 // ================================================================

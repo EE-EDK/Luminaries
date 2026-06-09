@@ -1,5 +1,6 @@
-import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, MathUtils, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry, Vector3 } from 'three';
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, MathUtils, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare.js';
 import { SKY_R, C } from '../constants.js';
 import { saveSeed, restoreSeed, sr } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
@@ -628,6 +629,98 @@ function _removedPaintDaySkyCanvas_unused() {
   return tex;
 }
 
+// Build a soft fluffy cloud canvas texture (reused for all cloud sprites)
+function _makeCloudTexture() {
+  const W = 256, H = 128;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  function puff(x, y, r, a) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0,   `rgba(255,255,255,${a})`);
+    g.addColorStop(0.45,`rgba(250,253,255,${(a * 0.55).toFixed(2)})`);
+    g.addColorStop(0.8, `rgba(240,248,255,${(a * 0.15).toFixed(2)})`);
+    g.addColorStop(1,   'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  }
+  puff( 75, 72, 68, 0.88); puff(128, 58, 58, 0.78); puff(180, 70, 62, 0.82);
+  puff(100, 86, 50, 0.72); puff(158, 82, 45, 0.68); puff(50,  90, 38, 0.60);
+  return new CanvasTexture(cv);
+}
+
+// Build a radial starburst texture for god rays
+function _makeSunRayTexture() {
+  const S = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  const cx = S / 2;
+  // 12 thin rays
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const g = ctx.createLinearGradient(cx, cx, cx + Math.cos(a) * cx, cx + Math.sin(a) * cx);
+    g.addColorStop(0,   'rgba(255,245,200,0.9)');
+    g.addColorStop(0.5, 'rgba(255,230,160,0.4)');
+    g.addColorStop(1,   'rgba(255,220,120,0)');
+    ctx.save(); ctx.translate(cx, cx); ctx.rotate(a);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(cx, 0); ctx.lineTo(0, 2); ctx.closePath();
+    ctx.fill(); ctx.restore();
+  }
+  return new CanvasTexture(cv);
+}
+
+// Scatter cloud sprites across the daytime sky at altitude ~150-200 units
+function _addDayClouds() {
+  const tex = _makeCloudTexture();
+  // Clouds well above the treeline (~35 m), spread wide so they appear as
+  // distant sky objects rather than objects directly overhead.
+  const defs = [
+    { x:  350, y: 340, z:  420, sx: 500, sy: 200 },
+    { x: -280, y: 310, z:  500, sx: 420, sy: 175 },
+    { x:  550, y: 360, z: -200, sx: 480, sy: 195 },
+    { x: -480, y: 325, z: -280, sx: 450, sy: 180 },
+    { x:   60, y: 295, z: -550, sx: 380, sy: 158 },
+    { x:  420, y: 345, z:  180, sx: 360, sy: 148 },
+    { x: -120, y: 380, z:  -90, sx: 320, sy: 138 },
+    { x:  260, y: 315, z: -400, sx: 410, sy: 168 },
+  ];
+  defs.forEach(d => {
+    const mat = new SpriteMaterial({ map: tex, transparent: true, fog: false, depthWrite: false, opacity: 0.82 });
+    const sprite = new Sprite(mat);
+    sprite.position.set(d.x, d.y, d.z);
+    sprite.scale.set(d.sx, d.sy, 1);
+    scene.add(sprite);
+  });
+}
+
+// Sun lensflare + god-ray glow at the sun's sky position
+function _addSunLensflare(sunDir) {
+  const texGlow = (() => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0,    'rgba(255,250,220,1)');
+    g.addColorStop(0.12, 'rgba(255,240,180,0.85)');
+    g.addColorStop(0.4,  'rgba(255,220,140,0.30)');
+    g.addColorStop(1,    'rgba(255,200,100,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+    return new CanvasTexture(cv);
+  })();
+  const texRay = _makeSunRayTexture();
+
+  const lensflare = new Lensflare();
+  // Position just inside the sky sphere so occlusion testing works
+  lensflare.position.copy(sunDir).multiplyScalar(400000);
+  lensflare.addElement(new LensflareElement(texGlow, 800, 0,   new Color(1.0, 0.95, 0.80)));
+  lensflare.addElement(new LensflareElement(texRay,  600, 0,   new Color(1.0, 0.92, 0.72)));
+  lensflare.addElement(new LensflareElement(texGlow,  80, 0,   new Color(1.0, 1.0,  0.95)));
+  lensflare.addElement(new LensflareElement(texGlow,  50, 0.6, new Color(0.8, 0.9,  1.0)));
+  lensflare.addElement(new LensflareElement(texGlow,  30, 0.9, new Color(0.9, 0.8,  1.0)));
+  scene.add(lensflare);
+}
+
 export function transformSky() {
   if (_skyTransformed || !skyDomeMat) return;
   _skyTransformed = true;
@@ -662,6 +755,8 @@ export function transformSky() {
   };
 
   scene.add(sky);
+  _addDayClouds();
+  _addSunLensflare(sun);
 }
 
 // ================================================================

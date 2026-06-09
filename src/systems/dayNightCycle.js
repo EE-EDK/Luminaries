@@ -154,6 +154,20 @@ export function updateDayNight(dt) {
     sceneRef.background.setRGB(0.48, 0.72, 0.96);
     sceneRef.fog.color.setRGB(0.60, 0.76, 0.92);
     sceneRef.fog.density = 0.004;
+    // Override night-cycle lights with daytime values
+    if (hemiRef) {
+      hemiRef.color.setRGB(0.53, 0.81, 0.98);       // sky blue ambient
+      hemiRef.groundColor.setRGB(0.30, 0.36, 0.22); // warm green-ground
+      hemiRef.intensity = 1.4;
+    }
+    if (moonRef) {
+      // Repurpose the directional moon light as the sun
+      moonRef.color.setRGB(1.0, 0.95, 0.82);
+      moonRef.intensity = 2.5;
+      // Sun direction: elevation 34.1°, azimuth 155.6° — hardcoded unit vector × 60
+      moonRef.position.set(-45.1, 33.6, 20.8);
+    }
+    if (moon2Ref) moon2Ref.intensity = 0.5;
   } else {
     _c1.copy(a.sky).lerp(b.sky, t);
     _c1.multiplyScalar(orbSkyMult);

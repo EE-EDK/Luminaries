@@ -180,41 +180,43 @@ export function updateDayNight(dt) {
     sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
   }
 
-  // --- Primary moon light ---
-  if (moonRef) {
-    _c1.copy(a.moonCol).lerp(b.moonCol, t);
-    moonRef.color.copy(_c1);
-    moonRef.intensity = lerp(a.moonInt, b.moonInt, t);
-    // Moon traverses sky arc over the cycle
-    const azimuth = worldTime * Math.PI * 2;
-    const elev = lerp(a.moonElev, b.moonElev, t) * Math.PI / 180;
-    const dist = 60;
-    moonRef.position.set(
-      Math.cos(azimuth) * Math.cos(elev) * dist,
-      Math.sin(elev) * dist,
-      Math.sin(azimuth) * Math.cos(elev) * dist
-    );
-    // Throttle shadow map re-render to ~1 Hz (moon moves slowly)
-    _shadowTimer += dt;
-    if (_shadowTimer >= SHADOW_UPDATE_INTERVAL) {
-      _shadowTimer = 0;
-      moonRef.shadow.needsUpdate = true;
+  if (!isSkyTransformed()) {
+    // --- Primary moon light ---
+    if (moonRef) {
+      _c1.copy(a.moonCol).lerp(b.moonCol, t);
+      moonRef.color.copy(_c1);
+      moonRef.intensity = lerp(a.moonInt, b.moonInt, t);
+      // Moon traverses sky arc over the cycle
+      const azimuth = worldTime * Math.PI * 2;
+      const elev = lerp(a.moonElev, b.moonElev, t) * Math.PI / 180;
+      const dist = 60;
+      moonRef.position.set(
+        Math.cos(azimuth) * Math.cos(elev) * dist,
+        Math.sin(elev) * dist,
+        Math.sin(azimuth) * Math.cos(elev) * dist
+      );
+      // Throttle shadow map re-render to ~1 Hz (moon moves slowly)
+      _shadowTimer += dt;
+      if (_shadowTimer >= SHADOW_UPDATE_INTERVAL) {
+        _shadowTimer = 0;
+        moonRef.shadow.needsUpdate = true;
+      }
     }
-  }
 
-  // --- Secondary moon (scales proportionally, baseline 0.3 at NIGHT) ---
-  if (moon2Ref) {
-    const moonScale = lerp(a.moonInt, b.moonInt, t) / 0.85;
-    moon2Ref.intensity = 0.3 * moonScale;
-  }
+    // --- Secondary moon (scales proportionally, baseline 0.3 at NIGHT) ---
+    if (moon2Ref) {
+      const moonScale = lerp(a.moonInt, b.moonInt, t) / 0.85;
+      moon2Ref.intensity = 0.3 * moonScale;
+    }
 
-  // --- Hemisphere ambient ---
-  if (hemiRef) {
-    _c1.copy(a.ambSky).lerp(b.ambSky, t);
-    _c2.copy(a.ambGnd).lerp(b.ambGnd, t);
-    hemiRef.color.copy(_c1);
-    hemiRef.groundColor.copy(_c2);
-    hemiRef.intensity = lerp(a.ambInt, b.ambInt, t);
+    // --- Hemisphere ambient ---
+    if (hemiRef) {
+      _c1.copy(a.ambSky).lerp(b.ambSky, t);
+      _c2.copy(a.ambGnd).lerp(b.ambGnd, t);
+      hemiRef.color.copy(_c1);
+      hemiRef.groundColor.copy(_c2);
+      hemiRef.intensity = lerp(a.ambInt, b.ambInt, t);
+    }
   }
 
   // --- Player light ---

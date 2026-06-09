@@ -513,9 +513,9 @@ export function createGround() {
       float ringN = gNoise(wp * 0.06 + 10.0);
       float ring = sin(ringN * 25.0) * 0.5 + 0.5;
       ring = smoothstep(0.85, 1.0, ring) * mix(0.88, 1.1, tF);
-      // Forest: brighter green | Finale: dim teal-cyan
+      // Forest: brighter green | Finale: pink growth rings
       vec3 ringColForest = vec3(0.12, 0.40, 0.20);
-      vec3 ringColFinale = vec3(0.10, 0.48, 0.58) * 0.50;
+      vec3 ringColFinale = vec3(0.70, 0.22, 0.50) * 0.42;
       totalEmissiveRadiance += ring * mix(ringColForest, ringColFinale, tF);
 
       // --- Scattered fairy ring glows ---
@@ -524,15 +524,19 @@ export function createGround() {
       float rd = length(wp - cellCenter);
       float ringR = 3.0 + gHash(cell + 200.0) * 4.0;
       float fRing = smoothstep(0.4, 0.0, abs(rd - ringR)) * step(0.75, gHash(cell + 300.0));
-      // Forest: brighter green | Finale: dim cyan
+      // Forest: brighter green | Finale: soft pink fairy rings
       vec3 fRingColForest = vec3(0.18, 0.48, 0.25) * 1.2;
-      vec3 fRingColFinale = vec3(0.10, 0.52, 0.65) * 0.50;
+      vec3 fRingColFinale = vec3(0.68, 0.18, 0.48) * 0.45;
       totalEmissiveRadiance += fRing * mix(fRingColForest, fRingColFinale, tF);
 
-      // --- Fine noise for per-pixel detail ---
+      // --- Fine noise for per-pixel detail (spatial cyan/pink patches fill black areas) ---
       float fineN = gNoise(wp * 1.5) * 0.18;
       vec3 fineForest = vec3(0.088, 0.22, 0.12);
-      vec3 fineFinale = vec3(0.04, 0.16, 0.22);
+      // Spatial hash for large cyan/pink patches so dark fill isn't pure black
+      float baseBlend = gHash(floor(wp * 0.04));
+      vec3 fineCyan = vec3(0.03, 0.14, 0.20);
+      vec3 finePink = vec3(0.18, 0.04, 0.11);
+      vec3 fineFinale = mix(fineCyan, finePink, step(0.5, baseBlend));
       totalEmissiveRadiance += fineN * mix(fineForest, fineFinale, tF);
 
       // --- Player proximity ground glow (15m radius) ---
@@ -540,13 +544,13 @@ export function createGround() {
         float pDist = sqrt(vPlayerDist2);
         float pGlow = (1.0 - pDist / 15.0);
         pGlow = pGlow * pGlow * pGlow;
-        // Forest: brighter green glow | Finale: dim cyan glow
+        // Forest: brighter green glow | Finale: warm pink glow
         vec3 pGlowForest = vec3(0.22, 0.55, 0.32) * 1.1;
-        vec3 pGlowFinale = vec3(0.08, 0.48, 0.62) * 0.45;
+        vec3 pGlowFinale = vec3(0.58, 0.12, 0.40) * 0.42;
         totalEmissiveRadiance += pGlow * mix(pGlowForest, pGlowFinale, tF);
       }
 
-      // --- Finale: additional dim cyan secondary veins ---
+      // --- Finale: pink secondary veins + cyan shimmer ---
       if (tF > 0.01) {
         float fv1 = gFbm(wp * 0.35 + 55.0);
         float fv2 = gFbm(wp * 0.20 + 120.0);
@@ -554,9 +558,9 @@ export function createGround() {
         float fVein2 = smoothstep(0.44, 0.48, fv2) * smoothstep(0.56, 0.48, fv2);
         float fVeins = max(fVein1, fVein2 * 0.6);
         float fvPulse = 0.6 + 0.4 * sin(uTime * 0.6 + fv1 * 10.0);
-        // Dim cyan secondary veins, only visible when transformed
-        totalEmissiveRadiance += fVeins * vec3(0.10, 0.72, 0.88) * fvPulse * tF * 0.35;
-        // Subtle cyan shimmer spots
+        // Pink secondary veins
+        totalEmissiveRadiance += fVeins * vec3(0.78, 0.18, 0.55) * fvPulse * tF * 0.32;
+        // Cyan shimmer spots
         float shimmer = gNoise(wp * 0.8 + uTime * 0.05) * gNoise(wp * 0.4 + 20.0);
         shimmer = smoothstep(0.15, 0.25, shimmer) * 0.5;
         totalEmissiveRadiance += shimmer * vec3(0.05, 0.50, 0.62) * tF * 0.20;

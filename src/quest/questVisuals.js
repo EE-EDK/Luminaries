@@ -634,48 +634,66 @@ function transformTreesAndGround() {
     groundMesh.material.emissive.set(C.transformGroundGlow);
     groundMesh.material.emissiveIntensity = 0.25;
     const colorAttr = groundMesh.geometry.attributes.color;
+    const posAttr = groundMesh.geometry.attributes.position;
     if (colorAttr) {
       const arr = colorAttr.array;
       for (let i = 0; i < arr.length; i += 3) {
+        const vi = i / 3;
         const r = arr[i], g = arr[i+1], b = arr[i+2];
-        arr[i] = r * 0.06 + g * 0.04 + b * 0.06;
-        arr[i+1] = g * 0.25 + b * 0.15 + 0.04;
-        arr[i+2] = b * 0.48 + g * 0.28 + r * 0.04 + 0.06;
+        // Spatial blend: large patches of dark-cyan vs dark-pink fill
+        const px = posAttr ? posAttr.getX(vi) : 0;
+        const pz = posAttr ? posAttr.getZ(vi) : 0;
+        const t = (Math.sin(px * 0.05 + 1.3) * Math.cos(pz * 0.07 + 0.9) + 1.0) * 0.5;
+        // t≈0 → cyan base, t≈1 → pink base
+        const baseR = 0.03 + t * 0.15;
+        const baseG = 0.03 + (1 - t) * 0.07;
+        const baseB = 0.06 + (1 - t) * 0.14;
+        arr[i]   = r * 0.05 + baseR;
+        arr[i+1] = g * 0.06 + baseG;
+        arr[i+2] = b * 0.18 + baseB;
       }
       colorAttr.needsUpdate = true;
     }
   }
 
-  // Transform grass patches — shift vertex colors + emissive to dim cyan
+  // Transform grass patches — alternate cyan/pink patches
   for (let gi = 0; gi < grassPatchesRef.length; gi++) {
     const gp = grassPatchesRef[gi];
     if (!gp.mesh?.material) continue;
-    gp.mesh.material.emissive.setHex(0x22ccee);
-    gp.mesh.material.emissiveIntensity = 0.40;
+    const isPink = gi % 3 !== 2; // 2/3 pink, 1/3 cyan
+    gp.mesh.material.emissive.setHex(isPink ? 0xcc44aa : 0x22ccee);
+    gp.mesh.material.emissiveIntensity = 0.38;
     const colorAttr = gp.mesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;
       for (let i = 0; i < arr.length; i += 3) {
         const r = arr[i], g = arr[i + 1], b = arr[i + 2];
-        arr[i] = r * 0.06 + g * 0.05 + 0.02;
-        arr[i + 1] = g * 0.32 + b * 0.18 + 0.04;
-        arr[i + 2] = b * 0.52 + g * 0.28 + 0.06;
+        if (isPink) {
+          arr[i]     = r * 0.12 + g * 0.04 + 0.06;
+          arr[i + 1] = g * 0.08 + b * 0.04 + 0.02;
+          arr[i + 2] = b * 0.14 + r * 0.06 + 0.04;
+        } else {
+          arr[i]     = r * 0.06 + g * 0.05 + 0.02;
+          arr[i + 1] = g * 0.32 + b * 0.18 + 0.04;
+          arr[i + 2] = b * 0.52 + g * 0.28 + 0.06;
+        }
       }
       colorAttr.needsUpdate = true;
     }
   }
 
-  // Transform ferns, flowers, reeds — traverse groups and shift materials to cyan
+  // Transform ferns, flowers, reeds — alternate cyan/pink
   const floraGroups = [];
-  for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push(fernsRef[i].group);
-  for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push(flowersRef[i].group);
-  for (let i = 0; i < reedsRef.length; i++) if (reedsRef[i].group) floraGroups.push(reedsRef[i].group);
+  for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push({ group: fernsRef[i].group, idx: i });
+  for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push({ group: flowersRef[i].group, idx: fernsRef.length + i });
+  for (let i = 0; i < reedsRef.length; i++) if (reedsRef[i].group) floraGroups.push({ group: reedsRef[i].group, idx: fernsRef.length + flowersRef.length + i });
   for (let i = 0; i < floraGroups.length; i++) {
-    floraGroups[i].traverse((ch) => {
+    const floraIsPink = floraGroups[i].idx % 2 === 0;
+    floraGroups[i].group.traverse((ch) => {
       if (!ch.isMesh || !ch.material) return;
       const m = ch.material;
       if (m.emissive) {
-        m.emissive.setHex(0x22aacc);
+        m.emissive.setHex(floraIsPink ? 0xcc44aa : 0x22aacc);
         m.emissiveIntensity = Math.max(m.emissiveIntensity || 0, 0.35);
       }
       if (m.color) {

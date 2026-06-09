@@ -200,7 +200,10 @@ export function updatePlayerVisuals(dt, elapsed) {
     if (flashActive) {
       scene.fog.density *= (1.0 - flashEaseDim * 0.3);
     }
-    if (bloomPass) bloomPass.threshold = 0.85 - (flashActive ? flashEaseDim * 0.55 : 0);
+    // In daytime sky state raise bloom threshold so the sun disk doesn't spread into a
+    // white mass — the sky shader already handles its own brightness via onBeforeCompile.
+    const skyThresh = isSkyTransformed() ? 0.95 : 0.85;
+    if (bloomPass) bloomPass.threshold = skyThresh - (flashActive ? flashEaseDim * 0.55 : 0);
     // Ease bloom strength down in fully-restored/finale state to prevent glow over-saturation,
     // clamped to the adaptive ceiling so the FPS safety net still wins under load.
     if (bloomPass) bloomPass.strength = Math.min(flashActive ? 0.6 + flashEaseDim * 0.15 : 0.45, bloomCeil);

@@ -642,7 +642,9 @@ export function transformSky() {
   sky.material.uniforms['turbidity'].value = 1.9;
   sky.material.uniforms['rayleigh'].value = 1.369;
   sky.material.uniforms['mieCoefficient'].value = 0.005;
-  sky.material.uniforms['mieDirectionalG'].value = 0.441;
+  // 0.96 = tight forward-scatter (small sun disk + narrow halo). 0.441 was too broad —
+  // it lit a 120°-wide cone that the bloom pass merged into a white mass.
+  sky.material.uniforms['mieDirectionalG'].value = 0.96;
   // Elevation 34.1°, azimuth 155.6° (matching reference screenshot)
   const sun = new Vector3();
   const phi = MathUtils.degToRad(90 - 34.1);

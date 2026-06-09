@@ -505,99 +505,130 @@ function paintDaySkyCanvas() {
   cvs.width = W; cvs.height = H;
   const ctx = cvs.getContext('2d');
 
-  // Blue sky gradient: bright at horizon, deeper at zenith
+  // Sky gradient — lighter near horizon, deeper blue at zenith
   const bgGrad = ctx.createLinearGradient(0, H, 0, 0);
-  bgGrad.addColorStop(0.0, '#c8e4fa');
-  bgGrad.addColorStop(0.25, '#94c8f0');
-  bgGrad.addColorStop(0.55, '#5aa4e0');
-  bgGrad.addColorStop(1.0, '#2868b8');
+  bgGrad.addColorStop(0.00, '#daeefa');
+  bgGrad.addColorStop(0.18, '#b2d8f4');
+  bgGrad.addColorStop(0.45, '#7cbce8');
+  bgGrad.addColorStop(0.80, '#4890d4');
+  bgGrad.addColorStop(1.00, '#2060b8');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Sun position (upper right of sky)
-  const sunX = W * 0.66, sunY = H * 0.22;
+  // Sun — slightly left of centre, high in sky
+  const sunX = W * 0.58, sunY = H * 0.19;
 
-  // Volumetric light rays emanating from sun (drawn behind clouds)
-  ctx.save();
-  const rayCount = 18;
-  for (let i = 0; i < rayCount; i++) {
-    const angle = (i / rayCount) * Math.PI * 2;
-    const rayLen = W * 0.7;
-    const x1 = sunX + Math.cos(angle) * 18;
-    const y1 = sunY + Math.sin(angle) * 18;
-    const x2 = sunX + Math.cos(angle) * rayLen;
-    const y2 = sunY + Math.sin(angle) * rayLen;
-    const w = 22 + Math.sin(i * 1.7) * 14;
-    const rayGrad = ctx.createLinearGradient(x1, y1, x2, y2);
-    rayGrad.addColorStop(0.0, 'rgba(255,245,190,0.28)');
-    rayGrad.addColorStop(0.3, 'rgba(255,240,170,0.10)');
-    rayGrad.addColorStop(0.7, 'rgba(255,235,150,0.03)');
-    rayGrad.addColorStop(1.0, 'rgba(255,235,150,0)');
-    ctx.strokeStyle = rayGrad;
-    ctx.lineWidth = w;
+  // Atmospheric sun glow (drawn before everything)
+  const atmo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, W * 0.28);
+  atmo.addColorStop(0.00, 'rgba(255,255,210,0.80)');
+  atmo.addColorStop(0.12, 'rgba(255,248,180,0.45)');
+  atmo.addColorStop(0.30, 'rgba(255,235,150,0.18)');
+  atmo.addColorStop(0.60, 'rgba(255,220,120,0.05)');
+  atmo.addColorStop(1.00, 'rgba(255,210,100,0)');
+  ctx.fillStyle = atmo;
+  ctx.fillRect(0, 0, W, H);
+
+  // God rays — asymmetric wedge shapes fanning from sun, NOT a uniform starburst
+  // Only fan ~200° downward so they look like light spilling below cloud cover
+  const rayDefs = [
+    { a: -0.80, hw: 0.045, b: 0.15 },
+    { a: -0.48, hw: 0.095, b: 0.26 },
+    { a: -0.18, hw: 0.130, b: 0.34 },
+    { a:  0.12, hw: 0.075, b: 0.22 },
+    { a:  0.42, hw: 0.110, b: 0.28 },
+    { a:  0.72, hw: 0.055, b: 0.16 },
+    { a:  1.00, hw: 0.080, b: 0.12 },
+  ];
+  const fanBase = Math.PI * 0.55; // aim rays mostly downward
+  for (const rd of rayDefs) {
+    const mid = fanBase + rd.a;
+    const a1 = mid - rd.hw;
+    const a2 = mid + rd.hw;
+    const len = W * 0.85;
+    const rg = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, len);
+    rg.addColorStop(0.00, `rgba(255,248,195,${rd.b})`);
+    rg.addColorStop(0.12, `rgba(255,244,175,${(rd.b * 0.58).toFixed(3)})`);
+    rg.addColorStop(0.35, `rgba(255,238,155,${(rd.b * 0.22).toFixed(3)})`);
+    rg.addColorStop(0.70, `rgba(255,232,140,${(rd.b * 0.06).toFixed(3)})`);
+    rg.addColorStop(1.00, 'rgba(255,228,130,0)');
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+    ctx.moveTo(sunX, sunY);
+    ctx.lineTo(sunX + Math.cos(a1) * len, sunY + Math.sin(a1) * len);
+    ctx.lineTo(sunX + Math.cos(a2) * len, sunY + Math.sin(a2) * len);
+    ctx.closePath();
+    ctx.fill();
   }
-  ctx.restore();
 
-  // Sun outer halo
-  const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, W * 0.20);
-  halo.addColorStop(0.0, 'rgba(255,252,220,0.70)');
-  halo.addColorStop(0.20, 'rgba(255,242,180,0.28)');
-  halo.addColorStop(0.55, 'rgba(255,228,140,0.07)');
-  halo.addColorStop(1.0, 'rgba(255,220,120,0)');
-  ctx.fillStyle = halo;
+  // Sun disk — will be mostly hidden behind cloud layer
+  const sunDisk = ctx.createRadialGradient(sunX, sunY - 6, 0, sunX, sunY, 55);
+  sunDisk.addColorStop(0.00, 'rgba(255,255,252,1.0)');
+  sunDisk.addColorStop(0.38, 'rgba(255,252,210,1.0)');
+  sunDisk.addColorStop(0.72, 'rgba(255,238,150,0.80)');
+  sunDisk.addColorStop(1.00, 'rgba(255,222,100,0)');
+  ctx.fillStyle = sunDisk;
   ctx.beginPath();
-  ctx.arc(sunX, sunY, W * 0.20, 0, Math.PI * 2);
+  ctx.arc(sunX, sunY, 55, 0, Math.PI * 2);
   ctx.fill();
 
-  // Sun disk
-  const sunGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 36);
-  sunGrad.addColorStop(0.0, 'rgba(255,255,245,1.0)');
-  sunGrad.addColorStop(0.45, 'rgba(255,248,190,0.95)');
-  sunGrad.addColorStop(1.0, 'rgba(255,232,130,0.65)');
-  ctx.fillStyle = sunGrad;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, 36, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Paint a fluffy cloud puff
-  function cloudPuff(cx, cy, rx, ry, alpha) {
+  // Fluffy cumulus cloud — each cloud is many overlapping gradient circles
+  function drawCloud(cx, cy, scale, alpha) {
+    // Relative bubble positions (dx, dy in units of scale/100, r in same units)
+    const bubbles = [
+      { dx:   0, dy:   0, r: 100 },
+      { dx:  88, dy:  12, r:  84 },
+      { dx: -82, dy:   8, r:  76 },
+      { dx:  44, dy: -48, r:  70 },
+      { dx: -38, dy: -44, r:  63 },
+      { dx: 155, dy:   4, r:  56 },
+      { dx:-140, dy:   6, r:  50 },
+      { dx:  98, dy: -58, r:  46 },
+      { dx: -90, dy: -56, r:  42 },
+      { dx:  22, dy: -85, r:  40 },
+      { dx: 180, dy:  18, r:  36 },
+      { dx:-168, dy:  14, r:  32 },
+    ];
+    const s = scale / 100;
     ctx.save();
     ctx.globalAlpha = alpha;
-    const g = ctx.createRadialGradient(cx, cy - ry * 0.15, 0, cx, cy, Math.max(rx, ry));
-    g.addColorStop(0.0, 'rgba(255,255,255,0.96)');
-    g.addColorStop(0.35, 'rgba(242,248,255,0.78)');
-    g.addColorStop(0.68, 'rgba(225,238,255,0.38)');
-    g.addColorStop(1.0, 'rgba(210,230,255,0)');
-    ctx.fillStyle = g;
-    ctx.scale(1, ry / rx);
-    ctx.beginPath();
-    ctx.arc(cx, cy * (rx / ry), rx, 0, Math.PI * 2);
-    ctx.fill();
+    // Subtle shadow pass — slightly below and grey
+    for (const b of bubbles) {
+      const px = cx + b.dx * s, py = cy + b.dy * s + b.r * s * 0.55;
+      const r = b.r * s * 1.05;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+      g.addColorStop(0.0, 'rgba(165,190,215,0.28)');
+      g.addColorStop(1.0, 'rgba(150,178,205,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // White puff pass
+    for (const b of bubbles) {
+      const px = cx + b.dx * s, py = cy + b.dy * s;
+      const r = b.r * s;
+      const g = ctx.createRadialGradient(px, py - r * 0.18, 0, px, py, r);
+      g.addColorStop(0.00, 'rgba(255,255,255,0.96)');
+      g.addColorStop(0.38, 'rgba(248,252,255,0.82)');
+      g.addColorStop(0.68, 'rgba(238,248,255,0.42)');
+      g.addColorStop(1.00, 'rgba(220,238,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 
-  // Cluster of puffs around the sun (partially obscuring it)
-  cloudPuff(W * 0.59, H * 0.24, 130, 58, 0.72);
-  cloudPuff(W * 0.64, H * 0.18, 100, 44, 0.65);
-  cloudPuff(W * 0.70, H * 0.26, 88, 40, 0.60);
-  cloudPuff(W * 0.53, H * 0.30, 90, 38, 0.55);
-  // Wide clouds across the sky
-  cloudPuff(W * 0.14, H * 0.28, 195, 70, 0.78);
-  cloudPuff(W * 0.20, H * 0.20, 140, 52, 0.68);
-  cloudPuff(W * 0.08, H * 0.35, 110, 45, 0.55);
-  cloudPuff(W * 0.84, H * 0.32, 175, 65, 0.72);
-  cloudPuff(W * 0.90, H * 0.24, 110, 46, 0.58);
-  cloudPuff(W * 0.38, H * 0.14, 160, 58, 0.62);
-  cloudPuff(W * 0.44, H * 0.09, 120, 48, 0.52);
-  cloudPuff(W * 0.32, H * 0.20, 95, 40, 0.48);
-  // Low horizon clouds (softer)
-  cloudPuff(W * 0.08, H * 0.60, 260, 62, 0.38);
-  cloudPuff(W * 0.48, H * 0.58, 320, 68, 0.32);
-  cloudPuff(W * 0.82, H * 0.62, 240, 58, 0.40);
+  // Big cloud bank partially covering the sun
+  drawCloud(sunX - 40,  sunY + 55,  330, 0.90);
+  drawCloud(sunX + 180, sunY + 80,  280, 0.85);
+  // Spread clouds across the sky
+  drawCloud(W * 0.15, H * 0.24, 370, 0.86);
+  drawCloud(W * 0.82, H * 0.22, 310, 0.82);
+  drawCloud(W * 0.44, H * 0.10, 280, 0.78);
+  drawCloud(W * 0.70, H * 0.32, 240, 0.75);
+  drawCloud(W * 0.28, H * 0.32, 220, 0.70);
+  // Soft horizon clouds
+  drawCloud(W * 0.07, H * 0.56, 300, 0.42);
+  drawCloud(W * 0.52, H * 0.54, 360, 0.36);
+  drawCloud(W * 0.88, H * 0.58, 260, 0.44);
 
   const tex = new CanvasTexture(cvs);
   tex.colorSpace = SRGBColorSpace;

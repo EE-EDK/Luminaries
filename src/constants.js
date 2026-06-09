@@ -190,7 +190,7 @@ export const C = {
   echoBloom: 0xaaffcc, echoWave: 0x88ffbb,
   // Rock palette — varied rock types with realistic lighter greys
   rockBase: 0x9a9aa0, rockLight: 0xaaaaae, rockMoss: 0x1a4422,
-  rockEmissive: 0x1a2a1c,
+  rockEmissive: 0x2a3c28,
   rockGranite:   [0x9a9aa0, 0xaaaaae, 0x8a8a92, 0xb0b0b8],
   rockSandstone: [0xaa9a80, 0xc0b098, 0x9a8a75, 0xd0c0a8],
   rockLimestone: [0xb0b0a8, 0xc0c0b8, 0x909088, 0xd8d8d0],

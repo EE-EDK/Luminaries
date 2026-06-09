@@ -14,6 +14,7 @@ import { player } from '../core/player.js';
 import { camera } from '../core/renderer.js';
 import { windStrength, windX, windZ, isStorming, weatherState, getRainRate } from '../systems/weather.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
+import { isSkyTransformed } from '../world/sky.js';
 import { orbBoost, addVisitedCrystal, lastVisitedCrystals, setCrystalChainBoost } from '../state/gameState.js';
 import { getSmoothedDimFactor } from './playerVisuals.js';
 import {
@@ -61,7 +62,7 @@ export function updateVegetation(dt, t) {
       tm.glowMat.opacity = _TREE_GLOW_BASE_OP * pulse.op;
     }
     if (tm.detailMat) tm.detailMat.emissiveIntensity = 0.5 * treeDim * (0.92 + 0.08 * pulse.em) * bioGlow;
-    if (tm.trunkMat) tm.trunkMat.emissiveIntensity = 0.6 * treeDim;
+    if (tm.trunkMat) tm.trunkMat.emissiveIntensity = (isSkyTransformed() ? 0.28 : 0.6) * treeDim;
   }
 
   updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, smoothedDimFactor * orbBoost);

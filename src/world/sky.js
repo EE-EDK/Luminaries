@@ -675,15 +675,17 @@ function _addDayClouds() {
   const tex = _makeCloudTexture();
   // Clouds well above the treeline (~35 m), spread wide so they appear as
   // distant sky objects rather than objects directly overhead.
+  // Positions normalized to radius 265 (inside sky sphere 275, camera far 300).
+  // Sprite scales halved proportionally (was ~600 units away, now ~265).
   const defs = [
-    { x:  350, y: 340, z:  420, sx: 500, sy: 200 },
-    { x: -280, y: 310, z:  500, sx: 420, sy: 175 },
-    { x:  550, y: 360, z: -200, sx: 480, sy: 195 },
-    { x: -480, y: 325, z: -280, sx: 450, sy: 180 },
-    { x:   60, y: 295, z: -550, sx: 380, sy: 158 },
-    { x:  420, y: 345, z:  180, sx: 360, sy: 148 },
-    { x: -120, y: 380, z:  -90, sx: 320, sy: 138 },
-    { x:  260, y: 315, z: -400, sx: 410, sy: 168 },
+    { x:  144, y: 140, z:  173, sx: 206, sy:  82 },
+    { x: -114, y: 126, z:  203, sx: 173, sy:  72 },
+    { x:  212, y: 139, z:  -77, sx: 197, sy:  80 },
+    { x: -197, y: 134, z: -115, sx: 185, sy:  74 },
+    { x:   25, y: 125, z: -232, sx: 156, sy:  65 },
+    { x:  194, y: 160, z:   83, sx: 148, sy:  61 },
+    { x:  -78, y: 246, z:  -58, sx: 132, sy:  57 },
+    { x:  121, y: 146, z: -185, sx: 169, sy:  69 },
   ];
   defs.forEach(d => {
     const mat = new SpriteMaterial({ map: tex, transparent: true, fog: false, depthWrite: false, opacity: 0.82 });
@@ -711,8 +713,8 @@ function _addSunLensflare(sunDir) {
   const texRay = _makeSunRayTexture();
 
   const lensflare = new Lensflare();
-  // Position just inside the sky sphere so occlusion testing works
-  lensflare.position.copy(sunDir).multiplyScalar(400000);
+  // Must be within camera far plane (300) — position just inside sky sphere (275)
+  lensflare.position.copy(sunDir).multiplyScalar(260);
   lensflare.addElement(new LensflareElement(texGlow, 800, 0,   new Color(1.0, 0.95, 0.80)));
   lensflare.addElement(new LensflareElement(texRay,  600, 0,   new Color(1.0, 0.92, 0.72)));
   lensflare.addElement(new LensflareElement(texGlow,  80, 0,   new Color(1.0, 1.0,  0.95)));
@@ -730,8 +732,9 @@ export function transformSky() {
   if (twinklePoints) twinklePoints.visible = false;
 
   // Physical sky via Three.js Preetham/Mie scattering model
+  // Scale must match SKY_R (280) so the sphere fits within the camera far plane (300).
   const sky = new Sky();
-  sky.scale.setScalar(450000);
+  sky.scale.setScalar(275);
   sky.material.uniforms['turbidity'].value = 1.9;
   sky.material.uniforms['rayleigh'].value = 1.369;
   sky.material.uniforms['mieCoefficient'].value = 0.005;

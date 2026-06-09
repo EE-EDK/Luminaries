@@ -316,7 +316,7 @@ const _rockMat = new MeshStandardMaterial({
   roughness: 0.65,
   metalness: 0.05,
   emissive: C.rockEmissive,
-  emissiveIntensity: 1.5,
+  emissiveIntensity: 1.0,
   fog: false,
 });
 
@@ -577,7 +577,7 @@ export function initPebbles() {
   displaceSmooth(geo, 0.08, 42.7);
   const mat = new MeshStandardMaterial({
     color: C.rockBase, roughness: 0.65, metalness: 0.05,
-    emissive: C.rockEmissive, emissiveIntensity: 1.2,
+    emissive: C.rockEmissive, emissiveIntensity: 0.85,
   });
   pebbleMesh = new InstancedMesh(geo, mat, PEBBLE_N);
   pebbleMesh.instanceMatrix.setUsage(StaticDrawUsage);

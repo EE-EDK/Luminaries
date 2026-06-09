@@ -3,7 +3,7 @@
 // ================================================================
 // Extracted from main.js.
 
-import { EYE_H, WISP_N, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, FAIRY_SKY_IMPULSE, WORLD_R } from '../constants.js';
+import { EYE_H, WISP_N, FAIRY_RING_R, FAIRY_BOUNCE, BUBBLE_POP_R, JUMP_IMPULSE, FAIRY_SKY_IMPULSE, FAIRY_SKY_HALF, WORLD_R } from '../constants.js';
 import { sr } from '../utils/rng.js';
 import { getLocalGlow, isRestored } from '../systems/dimming.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
@@ -92,6 +92,10 @@ export function updateFairyRings(dt, t) {
   // in the same frame and sets it). The player can only be inside one ring at a time, so
   // reading it before the loop is correct and avoids a later ring "stealing" the edge.
   const jumpEdgeThisFrame = consumeJumpEdge();
+  // Orb-count gate for the sky super-jump magnitude (computed once per frame, only used
+  // on the jump edge). 0 orbs → small bounce, 1 orb → halfway to the stars, 2+ → full launch.
+  let orbsFound = 0;
+  for (let oi = 0; oi < orbs.length; oi++) if (orbs[oi].found) orbsFound++;
   for (let i = 0; i < fairyRings.length; i++) {
     const fr = fairyRings[i];
     const dx = fr.x - player.pos.x, dz = fr.z - player.pos.z;
@@ -106,14 +110,19 @@ export function updateFairyRings(dt, t) {
     // which could miss frames at varying dt or after the impulse was modified.
     if (inRing && jumpEdgeThisFrame) {
       const ringRestored = isRestored(fr.x, fr.z);
-      if (ringRestored) {
-        // Sky-dome super-jump: strong launch toward the constellation band. The
-        // asymmetric feather-fall (ascent vs descent gravity) is applied in main.js;
-        // here we just set the launch velocity and arm the long feather window.
-        player.vel.y = FAIRY_SKY_IMPULSE;
+      // Sky-dome super-jump gated on orbs collected, NOT on sector restoration: the player
+      // can experience the soar as soon as they hold the first orb. Apex scales with v0^2,
+      // so the half-height launch uses FAIRY_SKY_HALF (≈0.707). The asymmetric feather-fall
+      // (ascent vs descent gravity) is applied in main.js; here we set launch velocity and
+      // arm the long feather window for any sky launch.
+      if (orbsFound >= 2) {
+        player.vel.y = FAIRY_SKY_IMPULSE;             // full — soars into the constellation band
+        featherFallTriggered = true;
+      } else if (orbsFound >= 1) {
+        player.vel.y = FAIRY_SKY_IMPULSE * FAIRY_SKY_HALF; // halfway to the top of the dome
         featherFallTriggered = true;
       } else {
-        player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;
+        player.vel.y = JUMP_IMPULSE + FAIRY_BOUNCE;   // no orbs yet — gentle bounce
       }
       fr.glowIntensity = 1.5;
       playFairyBounce();

@@ -635,8 +635,26 @@ export function populate(arrays, builders, scene) {
       gp.mesh.material.dispose();
       grassPatches.splice(i, 1);
     } else {
-      // Re-ground after house plateaus changed terrain; match per-blade surface.
-      gp.mesh.position.y = getMeshGroundY(gpx, gpz) - 0.03;
+      // Re-bake each blade's contour against the FINAL mesh surface. Grass geometry is built
+      // (populate line ~347) BEFORE puffling-home plateaus reshape the terrain and rebuild the
+      // height cache, so the baked per-blade offsets (baseContour) no longer match the ground —
+      // leaving blades floating/sunk by up to ~3 m. Swap the stale contour for the current one
+      // vertex-by-vertex so every blade meets the rendered surface again.
+      const centerY = getMeshGroundY(gpx, gpz);
+      const geo = gp.mesh.geometry;
+      const pos = geo.attributes.position;
+      const con = geo.attributes.baseContour;
+      if (con) {
+        for (let v = 0; v < pos.count; v++) {
+          const newDy = getMeshGroundY(gpx + pos.getX(v), gpz + pos.getZ(v)) - centerY;
+          pos.setY(v, pos.getY(v) - con.getX(v) + newDy);
+          con.setX(v, newDy);
+        }
+        pos.needsUpdate = true;
+        con.needsUpdate = true;
+        geo.computeVertexNormals();
+      }
+      gp.mesh.position.y = centerY - 0.03;
     }
   }
   const floraArrays = [ferns, flowers, reeds, thornblooms, helixvines, snapthorns,

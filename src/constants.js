@@ -91,6 +91,9 @@ export const FAIRY_SKY_IMPULSE = JUMP_IMPULSE * 9; // 72 m/s launch
 export const FAIRY_SKY_GRAV_UP = 0.83;             // ascent gravity scale (reach apex fast)
 export const FAIRY_SKY_GRAV_DOWN = 0.16;           // descent gravity scale (gentle feather-float)
 export const FAIRY_SKY_FEATHER_S = 20.0;           // feather-fall window covering full up+down arc
+// Orb-gated super-jump height. Apex height scales with v0^2, so reaching HALF the dome
+// height needs v0 * sqrt(0.5). One orb → halfway to the stars; two+ orbs → full launch.
+export const FAIRY_SKY_HALF = Math.SQRT1_2;        // ≈0.707 → apex ≈ 104 m (half the dome)
 
 // Quest
 export const ORB_N = 5;

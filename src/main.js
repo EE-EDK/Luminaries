@@ -20,7 +20,7 @@
 import { renderer, camera, clock, scene } from './core/renderer.js';
 import { render as postRender } from './core/postprocessing.js';
 import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLight, moon2 } from './core/lighting.js';
-import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setLookSuppressed, unlockTruthControlHint } from './core/input.js';
+import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setLookSuppressed, setMoveSuppressed, unlockTruthControlHint } from './core/input.js';
 // Constants
 import {
   WORLD_R, EYE_H, STARMOTE_N,
@@ -649,6 +649,10 @@ function animate() {
   // write-back into yaw/pitch needed. (Writing cinematic angles into the live look here would
   // poison the ease-back target on the next frame.)
   setLookSuppressed(cinematicOwns);
+  // Full lock during the wizard encounter: freeze locomotion (not just look) so the
+  // force-aimed camera can hold on the wizard without WASD feeling reversed. Movement
+  // resumes automatically when the wizard ascends and the cinematic releases.
+  setMoveSuppressed(wizardOwns);
 
   let finalYaw, finalPitch;
   if (wizardOwns) {

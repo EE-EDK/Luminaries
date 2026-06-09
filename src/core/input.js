@@ -49,6 +49,14 @@ let _lookSuppressed = false;
 export function setLookSuppressed(val) { _lookSuppressed = val; }
 export function isLookSuppressed() { return _lookSuppressed; }
 
+// When a full cinematic LOCK owns the player (wizard encounter), freeze locomotion too.
+// The camera is force-aimed at the wizard while movement direction is derived from the
+// frozen live yaw — letting the player still walk makes WASD feel reversed/disconnected.
+// Freezing movement turns it into a clean "watch until he ascends" lock.
+let _moveSuppressed = false;
+export function setMoveSuppressed(val) { _moveSuppressed = val; }
+export function isMoveSuppressed() { return _moveSuppressed; }
+
 function triggerGo() {
   if (!started && goCallback) goCallback();
 }
@@ -301,6 +309,8 @@ renderer.domElement.addEventListener('touchcancel', (e) => {
 
 const _input = { x: 0, z: 0 };
 export function getInput() {
+  // Cinematic lock (wizard): freeze locomotion so the player just watches the encounter.
+  if (_moveSuppressed) { _input.x = 0; _input.z = 0; return _input; }
   let fx = 0, fz = 0;
   if (keys['KeyW']) fz -= 1;
   if (keys['KeyS']) fz += 1;

@@ -37,6 +37,10 @@ export function updateGrassGlobals(t, wAmp, wLeanX, wLeanZ, playerX, playerZ, gl
 export function makeGrassPatch(cx, cz, radius, density, palette) {
   const geo = new BufferGeometry();
   const verts = [], colors = [], heights = [];
+  // Per-vertex baked terrain-contour offset (dy). Stored so populate.js can re-ground each
+  // blade against the FINAL mesh surface after puffling-home plateaus reshape the terrain
+  // (those are registered AFTER grass is built, which otherwise leaves blades floating/sunk).
+  const contours = [];
   const count = density || 20;
   const colBase1 = new Color(palette ? palette[0] : 0x0a2010);
   const colBase2 = new Color(palette ? palette[1] : 0x152e18);
@@ -108,6 +112,8 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     tmpC.copy(colMid).lerp(tc, 0.3);
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
     colors.push(tc.r, tc.g, tc.b);
+    // One contour entry per vertex pushed for this blade (count-agnostic — backfills to match).
+    while (contours.length < verts.length / 3) contours.push(dy);
   }
   // Ground cover: clover-like triangles
   const cloverCol = new Color(palette ? palette[6] : 0x1a5528);
@@ -125,11 +131,14 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverBr.r, cloverBr.g, cloverBr.b);
+    while (contours.length < verts.length / 3) contours.push(cdy);
   }
   // Static geometry — no DynamicDrawUsage, no origPos needed
   geo.setAttribute('position', new Float32BufferAttribute(verts, 3));
   geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
   geo.setAttribute('bladeHeight', new Float32BufferAttribute(heights, 1));
+  // Contour offset per vertex (relative to the patch-center ground). Re-grounded in populate.js.
+  geo.setAttribute('baseContour', new Float32BufferAttribute(contours, 1));
   geo.computeVertexNormals();
 
   const mat = new MeshStandardMaterial({

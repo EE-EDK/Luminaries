@@ -151,9 +151,9 @@ export function updateDayNight(dt) {
 
   // --- Scene background (+ orb progression: brighter sky each orb found) ---
   if (isSkyTransformed()) {
-    sceneRef.background.setRGB(0.06, 0.22, 0.19);
-    sceneRef.fog.color.setRGB(0.08, 0.24, 0.20);
-    sceneRef.fog.density = 0.007;
+    sceneRef.background.setRGB(0.48, 0.72, 0.96);
+    sceneRef.fog.color.setRGB(0.60, 0.76, 0.92);
+    sceneRef.fog.density = 0.004;
   } else {
     _c1.copy(a.sky).lerp(b.sky, t);
     _c1.multiplyScalar(orbSkyMult);

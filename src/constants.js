@@ -239,11 +239,10 @@ export const C = {
   puffDecorStem: 0x554444, puffDecorCap: 0xeafff5, puffDecorEmissive: 0x00ffaa,
   // Cottage (finale / world-transformed) palette: storybook red-and-white toadstool
   // caps over warm brown bricks, plus a little flower garden ring per home.
-  puffCottageBrick: 0x9a6a44, puffCottageCap: 0xe23838, puffCottageSpot: 0xfff4ec,
-  // Local emissive for the finale cottage so the red/white toadstool reads bright &
-  // cheerful against the dim pink world WITHOUT raising global finale exposure (12.7
-  // cap stays). Warm red cap glow + warm white spot/gill glow — tuned to pop, not blow out.
-  puffCottageCapEmissive: 0xc22020, puffCottageSpotEmissive: 0xffe8d8,
+  puffCottageBrick: 0x9a6a44, puffCottageCap: 0xf08090, puffCottageSpot: 0xfff4ec,
+  // Local emissive for the finale cottage — lighter rose-pink cap reads bright & cheerful
+  // against the cyan finale world. Softer rose glow (not deep red) matches the lighter cap.
+  puffCottageCapEmissive: 0xd06070, puffCottageSpotEmissive: 0xffe8d8,
   puffCottageGillEmissive: 0xffd8c0,
   puffGardenStem: 0x4a7a2e, puffGardenLeaf: 0x3e7a2a,
   puffGardenFlowerA: 0xffd24a, puffGardenFlowerB: 0xff7ab0, puffGardenFlowerC: 0xb98aff,

@@ -490,11 +490,7 @@ let _skyTransformed = false;
 // Modulate sky brightness via color tint (called by day/night cycle)
 export function setSkyBrightness(brightness) {
   if (!skyDomeMat) return;
-  if (_skyTransformed) {
-    const v = Math.max(0.55, brightness);
-    skyDomeMat.color.setRGB(v * 0.45, v * 1.0, v * 0.75);
-    return;
-  }
+  if (_skyTransformed) return; // daytime sky — let the canvas texture drive color
   const v = Math.max(0.15, brightness); // never fully black
   skyDomeMat.color.setRGB(v, v, v);
 }
@@ -503,10 +499,123 @@ export function isSkyTransformed() {
   return _skyTransformed;
 }
 
+function paintDaySkyCanvas() {
+  const W = 2048, H = 1024;
+  const cvs = document.createElement('canvas');
+  cvs.width = W; cvs.height = H;
+  const ctx = cvs.getContext('2d');
+
+  // Blue sky gradient: bright at horizon, deeper at zenith
+  const bgGrad = ctx.createLinearGradient(0, H, 0, 0);
+  bgGrad.addColorStop(0.0, '#c8e4fa');
+  bgGrad.addColorStop(0.25, '#94c8f0');
+  bgGrad.addColorStop(0.55, '#5aa4e0');
+  bgGrad.addColorStop(1.0, '#2868b8');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Sun position (upper right of sky)
+  const sunX = W * 0.66, sunY = H * 0.22;
+
+  // Volumetric light rays emanating from sun (drawn behind clouds)
+  ctx.save();
+  const rayCount = 18;
+  for (let i = 0; i < rayCount; i++) {
+    const angle = (i / rayCount) * Math.PI * 2;
+    const rayLen = W * 0.7;
+    const x1 = sunX + Math.cos(angle) * 18;
+    const y1 = sunY + Math.sin(angle) * 18;
+    const x2 = sunX + Math.cos(angle) * rayLen;
+    const y2 = sunY + Math.sin(angle) * rayLen;
+    const w = 22 + Math.sin(i * 1.7) * 14;
+    const rayGrad = ctx.createLinearGradient(x1, y1, x2, y2);
+    rayGrad.addColorStop(0.0, 'rgba(255,245,190,0.28)');
+    rayGrad.addColorStop(0.3, 'rgba(255,240,170,0.10)');
+    rayGrad.addColorStop(0.7, 'rgba(255,235,150,0.03)');
+    rayGrad.addColorStop(1.0, 'rgba(255,235,150,0)');
+    ctx.strokeStyle = rayGrad;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Sun outer halo
+  const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, W * 0.20);
+  halo.addColorStop(0.0, 'rgba(255,252,220,0.70)');
+  halo.addColorStop(0.20, 'rgba(255,242,180,0.28)');
+  halo.addColorStop(0.55, 'rgba(255,228,140,0.07)');
+  halo.addColorStop(1.0, 'rgba(255,220,120,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, W * 0.20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sun disk
+  const sunGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 36);
+  sunGrad.addColorStop(0.0, 'rgba(255,255,245,1.0)');
+  sunGrad.addColorStop(0.45, 'rgba(255,248,190,0.95)');
+  sunGrad.addColorStop(1.0, 'rgba(255,232,130,0.65)');
+  ctx.fillStyle = sunGrad;
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 36, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Paint a fluffy cloud puff
+  function cloudPuff(cx, cy, rx, ry, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const g = ctx.createRadialGradient(cx, cy - ry * 0.15, 0, cx, cy, Math.max(rx, ry));
+    g.addColorStop(0.0, 'rgba(255,255,255,0.96)');
+    g.addColorStop(0.35, 'rgba(242,248,255,0.78)');
+    g.addColorStop(0.68, 'rgba(225,238,255,0.38)');
+    g.addColorStop(1.0, 'rgba(210,230,255,0)');
+    ctx.fillStyle = g;
+    ctx.scale(1, ry / rx);
+    ctx.beginPath();
+    ctx.arc(cx, cy * (rx / ry), rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Cluster of puffs around the sun (partially obscuring it)
+  cloudPuff(W * 0.59, H * 0.24, 130, 58, 0.72);
+  cloudPuff(W * 0.64, H * 0.18, 100, 44, 0.65);
+  cloudPuff(W * 0.70, H * 0.26, 88, 40, 0.60);
+  cloudPuff(W * 0.53, H * 0.30, 90, 38, 0.55);
+  // Wide clouds across the sky
+  cloudPuff(W * 0.14, H * 0.28, 195, 70, 0.78);
+  cloudPuff(W * 0.20, H * 0.20, 140, 52, 0.68);
+  cloudPuff(W * 0.08, H * 0.35, 110, 45, 0.55);
+  cloudPuff(W * 0.84, H * 0.32, 175, 65, 0.72);
+  cloudPuff(W * 0.90, H * 0.24, 110, 46, 0.58);
+  cloudPuff(W * 0.38, H * 0.14, 160, 58, 0.62);
+  cloudPuff(W * 0.44, H * 0.09, 120, 48, 0.52);
+  cloudPuff(W * 0.32, H * 0.20, 95, 40, 0.48);
+  // Low horizon clouds (softer)
+  cloudPuff(W * 0.08, H * 0.60, 260, 62, 0.38);
+  cloudPuff(W * 0.48, H * 0.58, 320, 68, 0.32);
+  cloudPuff(W * 0.82, H * 0.62, 240, 58, 0.40);
+
+  const tex = new CanvasTexture(cvs);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
+
 export function transformSky() {
   if (_skyTransformed || !skyDomeMat) return;
   _skyTransformed = true;
-  skyDomeMat.color.setRGB(0.35, 0.75, 0.6);
+  // Replace night star texture with a daytime sky canvas
+  const dayTex = paintDaySkyCanvas();
+  if (skyDomeMat.map) skyDomeMat.map.dispose();
+  skyDomeMat.map = dayTex;
+  skyDomeMat.map.needsUpdate = true;
+  skyDomeMat.color.setRGB(1, 1, 1); // no tint — let the texture show true
+  skyDomeMat.needsUpdate = true;
+  // Hide twinkling star points — they look wrong against daylight
+  if (twinklePoints) twinklePoints.visible = false;
 }
 
 // ================================================================

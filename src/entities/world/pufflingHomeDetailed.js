@@ -170,6 +170,39 @@ function makeCottageGarden(rng, H) {
 }
 
 /**
+ * Stepping-stone path leading from the cottage front door along +Z.
+ * 5 flat irregular stones, merged to 1 draw call. Revealed only in cottage mode.
+ */
+function makeCottageStones(rng, H) {
+  const group = new Group();
+  const stoneGeos = [];
+  const startZ = H.baseRadius + 0.45;
+  const stoneMat = new MeshStandardMaterial({ color: 0x8a8272, roughness: 0.88, metalness: 0, fog: false });
+
+  for (let i = 0; i < 5; i++) {
+    const r = 0.26 + rng() * 0.14;
+    const h = 0.07 + rng() * 0.03;
+    const segs = 5 + Math.round(rng() * 2);
+    const geo = new CylinderGeometry(r * (0.88 + rng() * 0.18), r, h, segs);
+    const xOff = (rng() - 0.5) * 0.42;
+    const zOff = startZ + i * 0.52 + (rng() - 0.5) * 0.10;
+    const m4 = new Matrix4();
+    m4.makeRotationY(rng() * Math.PI * 2);
+    m4.setPosition(xOff, -h * 0.5, zOff);
+    geo.applyMatrix4(m4);
+    stoneGeos.push(geo);
+  }
+
+  if (stoneGeos.length) {
+    const mesh = new Mesh(mergeGeometries(stoneGeos), stoneMat);
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    group.add(mesh);
+  }
+  return group;
+}
+
+/**
  * @param {{ brickHueRange: number[], brickSatRange: number[], brickLumRange: number[],
  *   innerWall: number, cap: number, capEmissive: number, capEmissiveInt: number,
  *   gill: number, gillEmissive: number, gillEmissiveInt: number,
@@ -224,7 +257,7 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     roughness: 0.35,
     fog: false
   });
-  const doorMat = new MeshStandardMaterial({ color: theme.door, roughness: 0.9, fog: false });
+  const doorMat = new MeshStandardMaterial({ color: theme.door, roughness: theme.doorRoughness ?? 0.9, metalness: theme.doorRoughness !== undefined ? 0.08 : 0, fog: false });
   const doorFrameMat = new MeshStandardMaterial({ color: theme.doorFrame ?? 0x4b4038, roughness: 1.0, fog: false });
   const doorGrooveMat = new MeshStandardMaterial({ color: theme.doorGroove ?? 0x150805, roughness: 0.95, fog: false });
   const knobMat = new MeshStandardMaterial({
@@ -300,8 +333,9 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     }
   }
   const mergedBricks = mergeGeometries(brickGeos);
+  let brickMesh = null;
   if (mergedBricks) {
-    const brickMesh = new Mesh(mergedBricks, brickMat);
+    brickMesh = new Mesh(mergedBricks, brickMat);
     brickMesh.castShadow = true;
     brickMesh.receiveShadow = true;
     root.add(brickMesh);
@@ -470,6 +504,11 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   root.add(gardenGroup);
   root.userData.pufflingGarden = gardenGroup;
 
+  const stonesGroup = makeCottageStones(rng, H);
+  stonesGroup.visible = theme.showStones === true;
+  root.add(stonesGroup);
+  root.userData.pufflingStones = stonesGroup;
+
   root.traverse((ch) => {
     if (ch.isMesh) {
       ch.castShadow = true;
@@ -480,19 +519,14 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
 
   /** Materials for theme swapping (orb completion) */
   root.userData.pufflingMats = {
-    brickMat,
-    innerMat,
-    capMat,
-    gillMat,
-    spotMat,
-    doorMat,
-    doorFrameMat,
-    doorGrooveMat,
-    knobMat,
-    glassMat,
-    decorStemMat,
-    decorCapMat
+    brickMat, brickMesh,
+    innerMat, capMat, gillMat, spotMat,
+    doorMat, doorFrameMat, doorGrooveMat,
+    knobMat, glassMat,
+    decorStemMat, decorCapMat
   };
+  /** Seed stored for per-brick vertex color re-baking on theme switch */
+  root.userData.brickRngSeed = seed;
   /** Glow-accent group reference so the theme swap can hide it in cottage mode. */
   root.userData.pufflingDecor = decorGroup;
 
@@ -540,38 +574,39 @@ export function themePayloadBioluminescent() {
 
 export function themePayloadCottage() {
   return {
-    // Warm brown brick (normal masonry) — flat color, no vertex variation. The
-    // baked teal vertex colors are ignored once vertexColors is toggled off.
+    // Earthy brick with per-brick HSL variation — warm orange-tan to reddish-brown.
+    // brickHueRange triggers vertex-color mode; colors re-baked on theme switch.
     stalk: C.puffCottageBrick,
-    brickEmissive: 0xc09060,
-    brickEmissiveInt: 0.85,
+    brickHueRange: [0.04, 0.09],
+    brickSatRange: [0.32, 0.58],
+    brickLumRange: [0.28, 0.54],
+    brickEmissive: 0xb08050,
+    brickEmissiveInt: 0.55,
     innerWall: 0x3a1f10,
-    // Storybook toadstool: bright red cap with crisp white spots. Local emissive
-    // (warm red cap, warm white spots/gill) so the toadstool reads bright & cheerful
-    // against the dim pink finale world without raising global exposure (12.7 cap).
+    // Storybook toadstool: light pink-rose cap with crisp white spots.
     cap: C.puffCottageCap,
     capEmissive: C.puffCottageCapEmissive,
-    capEmissiveInt: 0.55,
+    capEmissiveInt: 0.45,
     gill: 0xfff0f5,
     gillEmissive: C.puffCottageGillEmissive,
     gillEmissiveInt: 0.4,
     spot: C.puffCottageSpot,
     spotEmissive: C.puffCottageSpotEmissive,
     spotEmissiveInt: 0.75,
-    door: 0x5a3a1f,
-    doorFrame: 0x7a5a3c,
-    doorGroove: 0x2e1a0a,
+    // Shiny warm-brown door: lower roughness + slight metalness gives a polished wood feel
+    door: 0x7a4a22,
+    doorRoughness: 0.32,
+    doorFrame: 0x5a3818,
+    doorGroove: 0x2a1408,
     knob: 0xb87333,
     knobEmissive: 0x000000,
     knobEmissiveInt: 0,
     glass: 0xe6c8ff,
     glassEmissive: 0xb088ff,
     glassEmissiveInt: 0.55,
-    // Glow accents are a bioluminescent-night feature; the cottage finale uses
-    // real flower gardens (Task 12.5) instead, so hide the glow mushrooms here
-    // and reveal the garden ring.
     showDecor: false,
-    showGarden: true
+    showGarden: true,
+    showStones: true
   };
 }
 
@@ -580,14 +615,31 @@ export function applyThemeToDetailedHouse(root, cottage) {
   const m = root.userData.pufflingMats;
   if (!m) return;
 
-  // Bio theme renders baked per-brick vertex colors (white base); cottage theme is a
-  // uniform stalk color (vertex colors ignored). Toggle the flag so both read right.
-  const vc = !!p.brickHueRange;
-  if (m.brickMat.vertexColors !== vc) {
-    m.brickMat.vertexColors = vc;
-    m.brickMat.needsUpdate = true;
+  // Both themes now use vertex colors — bio uses teal HSL, cottage uses earthy HSL.
+  // Re-bake brick vertex colors with theme-appropriate ranges on every theme switch.
+  m.brickMat.color.setHex(0xffffff); // always white base; vertex colors carry the palette
+  if (m.brickMat.vertexColors !== true) { m.brickMat.vertexColors = true; m.brickMat.needsUpdate = true; }
+  if (p.brickHueRange && m.brickMesh) {
+    const colorAttr = m.brickMesh.geometry.attributes.color;
+    if (colorAttr) {
+      const VERTS_PER_BRICK = 24; // BoxGeometry(1,1,1) vertex count
+      // Offset seed so cottage gets a different palette than the bio theme bake
+      const rng = mulberry32((root.userData.brickRngSeed ?? 1) + 0x4e4f);
+      const arr = colorAttr.array;
+      const _c = new Color();
+      for (let vi = 0; vi < arr.length / 3; vi += VERTS_PER_BRICK) {
+        const h = p.brickHueRange[0] + rng() * (p.brickHueRange[1] - p.brickHueRange[0]);
+        const s = p.brickSatRange[0] + rng() * (p.brickSatRange[1] - p.brickSatRange[0]);
+        const l = p.brickLumRange[0] + rng() * (p.brickLumRange[1] - p.brickLumRange[0]);
+        _c.setHSL(h, s, l);
+        for (let k = 0; k < VERTS_PER_BRICK; k++) {
+          const b = (vi + k) * 3;
+          arr[b] = _c.r; arr[b + 1] = _c.g; arr[b + 2] = _c.b;
+        }
+      }
+      colorAttr.needsUpdate = true;
+    }
   }
-  m.brickMat.color.setHex(vc ? 0xffffff : p.stalk);
   if (p.brickEmissive !== undefined) {
     m.brickMat.emissive.setHex(p.brickEmissive);
     m.brickMat.emissiveIntensity = p.brickEmissiveInt ?? 0;
@@ -604,6 +656,7 @@ export function applyThemeToDetailedHouse(root, cottage) {
   m.spotMat.emissive.setHex(p.spotEmissive);
   m.spotMat.emissiveIntensity = p.spotEmissiveInt;
   m.doorMat.color.setHex(p.door);
+  if (p.doorRoughness !== undefined) { m.doorMat.roughness = p.doorRoughness; m.doorMat.metalness = 0.08; }
   m.doorFrameMat.color.setHex(p.doorFrame);
   m.doorGrooveMat.color.setHex(p.doorGroove);
   m.knobMat.color.setHex(p.knob);
@@ -619,11 +672,7 @@ export function applyThemeToDetailedHouse(root, cottage) {
     if (p.decorEmissive !== undefined) m.decorCapMat.emissive.setHex(p.decorEmissive);
     if (p.decorEmissiveInt !== undefined) m.decorCapMat.emissiveIntensity = p.decorEmissiveInt;
   }
-  if (root.userData.pufflingDecor) {
-    root.userData.pufflingDecor.visible = p.showDecor !== false;
-  }
-  // Flower garden ring: revealed only in the cottage (finale) theme.
-  if (root.userData.pufflingGarden) {
-    root.userData.pufflingGarden.visible = p.showGarden === true;
-  }
+  if (root.userData.pufflingDecor) root.userData.pufflingDecor.visible = p.showDecor !== false;
+  if (root.userData.pufflingGarden) root.userData.pufflingGarden.visible = p.showGarden === true;
+  if (root.userData.pufflingStones) root.userData.pufflingStones.visible = p.showStones === true;
 }

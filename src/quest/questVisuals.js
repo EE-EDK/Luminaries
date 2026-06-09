@@ -624,10 +624,10 @@ function transformTreesAndGround() {
   for (let i = 0; i < treeMeshesRef.length; i++) {
     const mesh = treeMeshesRef[i];
     const shade = pinkShades[i % pinkShades.length];
-    if (mesh.trunkMat) { mesh.trunkMat.emissive.set(0x884466); mesh.trunkMat.emissiveIntensity = 0.35; }
-    if (mesh.canopyMat) { mesh.canopyMat.color.set(shade.core); mesh.canopyMat.emissive.set(shade.glow); mesh.canopyMat.emissiveIntensity = 2.0; }
-    if (mesh.glowMat) { mesh.glowMat.color.set(shade.glow); mesh.glowMat.emissive.set(shade.glow); mesh.glowMat.emissiveIntensity = 0.9; }
-    if (mesh.detailMat) { mesh.detailMat.color.set(shade.color); mesh.detailMat.emissive.set(shade.glow); mesh.detailMat.emissiveIntensity = 1.0; }
+    if (mesh.trunkMat) { mesh.trunkMat.emissive.set(0x884466); mesh.trunkMat.emissiveIntensity = 0.20; }
+    if (mesh.canopyMat) { mesh.canopyMat.color.set(shade.core); mesh.canopyMat.emissive.set(shade.glow); mesh.canopyMat.emissiveIntensity = 0.55; }
+    if (mesh.glowMat) { mesh.glowMat.color.set(shade.glow); mesh.glowMat.emissive.set(shade.glow); mesh.glowMat.emissiveIntensity = 0.45; }
+    if (mesh.detailMat) { mesh.detailMat.color.set(shade.color); mesh.detailMat.emissive.set(shade.glow); mesh.detailMat.emissiveIntensity = 0.50; }
   }
   setGroundTransform(1.0);
   if (groundMesh?.material) {
@@ -638,34 +638,34 @@ function transformTreesAndGround() {
       const arr = colorAttr.array;
       for (let i = 0; i < arr.length; i += 3) {
         const r = arr[i], g = arr[i+1], b = arr[i+2];
-        arr[i] = r * 0.45 + b * 0.25 + g * 0.10;
-        arr[i+1] = g * 0.10;
-        arr[i+2] = b * 0.6 + g * 0.45 + r * 0.10;
+        arr[i] = r * 0.06 + g * 0.04 + b * 0.06;
+        arr[i+1] = g * 0.25 + b * 0.15 + 0.04;
+        arr[i+2] = b * 0.48 + g * 0.28 + r * 0.04 + 0.06;
       }
       colorAttr.needsUpdate = true;
     }
   }
 
-  // Transform grass patches — shift vertex colors + emissive to pink/purple
+  // Transform grass patches — shift vertex colors + emissive to dim cyan
   for (let gi = 0; gi < grassPatchesRef.length; gi++) {
     const gp = grassPatchesRef[gi];
     if (!gp.mesh?.material) continue;
-    gp.mesh.material.emissive.setHex(0xff55aa);
-    gp.mesh.material.emissiveIntensity = 0.5;
+    gp.mesh.material.emissive.setHex(0x22ccee);
+    gp.mesh.material.emissiveIntensity = 0.40;
     const colorAttr = gp.mesh.geometry.attributes.color;
     if (colorAttr) {
       const arr = colorAttr.array;
       for (let i = 0; i < arr.length; i += 3) {
         const r = arr[i], g = arr[i + 1], b = arr[i + 2];
-        arr[i] = r * 0.3 + g * 0.2 + 0.35;
-        arr[i + 1] = g * 0.08;
-        arr[i + 2] = b * 0.4 + g * 0.35 + 0.15;
+        arr[i] = r * 0.06 + g * 0.05 + 0.02;
+        arr[i + 1] = g * 0.32 + b * 0.18 + 0.04;
+        arr[i + 2] = b * 0.52 + g * 0.28 + 0.06;
       }
       colorAttr.needsUpdate = true;
     }
   }
 
-  // Transform ferns, flowers, reeds — traverse groups and shift materials
+  // Transform ferns, flowers, reeds — traverse groups and shift materials to cyan
   const floraGroups = [];
   for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push(fernsRef[i].group);
   for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push(flowersRef[i].group);
@@ -675,15 +675,15 @@ function transformTreesAndGround() {
       if (!ch.isMesh || !ch.material) return;
       const m = ch.material;
       if (m.emissive) {
-        m.emissive.setHex(0xdd44aa);
-        m.emissiveIntensity = Math.max(m.emissiveIntensity || 0, 0.6);
+        m.emissive.setHex(0x22aacc);
+        m.emissiveIntensity = Math.max(m.emissiveIntensity || 0, 0.35);
       }
       if (m.color) {
         const r = m.color.r, g = m.color.g, b = m.color.b;
         m.color.setRGB(
-          r * 0.4 + g * 0.15 + 0.3,
-          g * 0.1,
-          b * 0.5 + g * 0.3 + 0.15
+          r * 0.12 + g * 0.08,
+          g * 0.28 + b * 0.14 + 0.04,
+          b * 0.50 + g * 0.25 + 0.06
         );
       }
     });

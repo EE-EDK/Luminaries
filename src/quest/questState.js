@@ -258,6 +258,11 @@ export function debugForcePhase(phase) {
   _transformDone = false;
   _freeRoamTimer = 0;
   emit(Events.QUEST_PHASE, { phase, orbsFound: _orbsFound });
+  // Fire world transform for phases that expect it so visuals/sky apply immediately
+  if (phase === QuestPhases.TRANSFORM || phase === QuestPhases.FREE_ROAM) {
+    _transformDone = true;
+    emit(Events.WORLD_TRANSFORMED);
+  }
 }
 
 export function debugPauseTimers(paused) {

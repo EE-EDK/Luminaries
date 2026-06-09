@@ -333,10 +333,10 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   root.add(cap);
 
   const gill = new Mesh(
-    new CylinderGeometry(H.capRadius - 0.1, H.capRadius * 0.6, 0.5, 36, 1, false),
+    new CylinderGeometry(H.capRadius + 0.1, H.topRadius - 0.2, 0.55, 36, 1, false),
     gillMat
   );
-  gill.position.y = H.baseHeight - 0.25;
+  gill.position.y = H.baseHeight - 0.22;
   gill.receiveShadow = true;
   root.add(gill);
 
@@ -543,8 +543,8 @@ export function themePayloadCottage() {
     // Warm brown brick (normal masonry) — flat color, no vertex variation. The
     // baked teal vertex colors are ignored once vertexColors is toggled off.
     stalk: C.puffCottageBrick,
-    brickEmissive: 0x000000,
-    brickEmissiveInt: 0,
+    brickEmissive: 0xc09060,
+    brickEmissiveInt: 0.85,
     innerWall: 0x3a1f10,
     // Storybook toadstool: bright red cap with crisp white spots. Local emissive
     // (warm red cap, warm white spots/gill) so the toadstool reads bright & cheerful

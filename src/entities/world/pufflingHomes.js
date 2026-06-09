@@ -4,7 +4,7 @@
 // Detailed brick/cap/door/window meshes (see pufflingHomeDetailed.js), same art as
 // public/assets/mushroom-house-puffling-home.html.
 
-import { Quaternion, Vector3 } from 'three';
+import { AdditiveBlending, CanvasTexture, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { player } from '../../core/player.js';
 import {
   createPufflingHomeDetailedGroup,
@@ -29,7 +29,11 @@ import { bioGlow } from '../../systems/dayNightCycle.js';
 import { orbBoost } from '../../state/gameState.js';
 
 const CLUSTER_N = 20;
-const HOUSE_CULL_DIST2 = 2025; // 45 m — roughly half the max placement range
+const HOUSE_CULL_DIST2 = 2025;  // 45 m — full 3D mesh visible inside this radius
+const HOUSE_XFADE2      = 1600;  // 40 m — impostor begins fading in
+const IMP_FULL_OP       = 0.72;
+const IMP_FADE_START    = 80;    // m — impostor begins fading out
+const IMP_FAR2          = 9025;  // 95 m — impostor fully invisible beyond this
 const OBELISK_EXCLUSION_R2 = 400; // 20 m from origin
 const MIN_CLUSTER_SEP2 = 324; // 18 m between cluster centers
 /** Minimum horizontal distance between house centers (collision disks ~10 m Ø). */
@@ -57,6 +61,38 @@ const _qIdent = new Quaternion();
 
 /** @type {import('three').Group[]} */
 let _detailedRoots = [];
+/** @type {import('three').Sprite[]} */
+let _houseImpostors = [];
+
+// Shared impostor texture — mushroom silhouette: wide dome (cap) + thin stalk
+let _impTexture = null;
+function getPufflingImpostorTexture() {
+  if (_impTexture) return _impTexture;
+  const S = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  // Cap dome
+  const cg = ctx.createRadialGradient(S * 0.5, S * 0.36, 0, S * 0.5, S * 0.36, S * 0.36);
+  cg.addColorStop(0,   'rgba(255,255,255,0.90)');
+  cg.addColorStop(0.4, 'rgba(220,255,235,0.55)');
+  cg.addColorStop(0.75,'rgba(120,200,165,0.20)');
+  cg.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(0, 0, S, S);
+  // Stalk
+  const sg = ctx.createRadialGradient(S * 0.5, S * 0.74, 0, S * 0.5, S * 0.74, S * 0.10);
+  sg.addColorStop(0,   'rgba(255,255,255,0.55)');
+  sg.addColorStop(0.7, 'rgba(180,230,210,0.18)');
+  sg.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, 0, S, S);
+  _impTexture = new CanvasTexture(canvas);
+  return _impTexture;
+}
+
+const _IMP_COLOR_BIO     = 0x00ffaa;
+const _IMP_COLOR_COTTAGE = 0xff9988;
 
 let _themeListenerRegistered = false;
 /**
@@ -69,6 +105,10 @@ let _worldTransformed = false;
 function applyPufflingHomeTheme(cottage) {
   for (let i = 0; i < _detailedRoots.length; i++) {
     applyThemeToDetailedHouse(_detailedRoots[i], cottage);
+  }
+  const impColor = cottage ? _IMP_COLOR_COTTAGE : _IMP_COLOR_BIO;
+  for (let i = 0; i < _houseImpostors.length; i++) {
+    _houseImpostors[i].material.color.setHex(impColor);
   }
 }
 
@@ -319,6 +359,12 @@ export function placePufflingHomeClusters(ctx) {
     _pufflingHouseCollision.push({ x: pl.x, z: pl.z, colR: houseColR });
   }
 
+  _houseImpostors = [];
+  // Impostor sprite dimensions in world units (scaled house)
+  const _impW = PUFF_HOUSE.capRadius * PUFF_HOME_WORLD_SCALE * 2.4;  // ~10.6
+  const _impH = (PUFF_HOUSE.baseHeight + PUFF_HOUSE.capRadius * PUFF_HOUSE.capFlatten) * PUFF_HOME_WORLD_SCALE * 1.15;
+  const _impYOff = _impH * 0.48;
+
   const themeStart = themePayloadBioluminescent();
   for (let i = 0; i < nInst; i++) {
     const { x, z, y, yaw } = placements[i];
@@ -333,6 +379,21 @@ export function placePufflingHomeClusters(ctx) {
     house.position.set(x, y, z);
     scene.add(house);
     _detailedRoots.push(house);
+
+    // Billboard impostor — visible beyond HOUSE_CULL_DIST2 to prevent hard pop-out
+    const imp = new Sprite(new SpriteMaterial({
+      map: getPufflingImpostorTexture(),
+      color: _IMP_COLOR_BIO,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: AdditiveBlending
+    }));
+    imp.scale.set(_impW, _impH, 1);
+    imp.position.set(x, y + _impYOff, z);
+    imp.visible = false;
+    scene.add(imp);
+    _houseImpostors.push(imp);
   }
 
   registerThemeListener();
@@ -353,17 +414,42 @@ export function updatePufflingHomes() {
     const h = _detailedRoots[i];
     const dx = h.position.x - px;
     const dz = h.position.z - pz;
-    const visible = (dx * dx + dz * dz) < HOUSE_CULL_DIST2;
+    const d2 = dx * dx + dz * dz;
+    const visible = d2 < HOUSE_CULL_DIST2;
     h.visible = visible;
-    if (!visible) continue;
-    // Feed brick emissive through getLocalGlow so houses brighten in restored
-    // sectors, with a floor that survives the dimmed-sector saturation crush.
-    const mats = h.userData.pufflingMats;
-    if (mats && mats.brickMat) {
-      const base = mats.brickMat.userData.baseEmissiveInt ?? 0;
-      if (base > 0) {
-        const localGlow = getLocalGlow(h.position.x, h.position.z, glowBase);
-        mats.brickMat.emissiveIntensity = Math.max(BRICK_EMISSIVE_FLOOR, base * localGlow);
+    if (visible) {
+      // Feed brick emissive through getLocalGlow so houses brighten in restored
+      // sectors, with a floor that survives the dimmed-sector saturation crush.
+      const mats = h.userData.pufflingMats;
+      if (mats && mats.brickMat) {
+        const base = mats.brickMat.userData.baseEmissiveInt ?? 0;
+        if (base > 0) {
+          const localGlow = getLocalGlow(h.position.x, h.position.z, glowBase);
+          mats.brickMat.emissiveIntensity = Math.max(BRICK_EMISSIVE_FLOOR, base * localGlow);
+        }
+      }
+    }
+
+    // Impostor LOD: billboard sprite fills the gap between cull and full-invisible
+    const imp = _houseImpostors[i];
+    if (!imp) continue;
+    if (d2 > IMP_FAR2) {
+      imp.visible = false;
+    } else {
+      const d = Math.sqrt(d2);
+      if (d >= 45) {
+        // Beyond mesh cull: full impostor zone, fading out past IMP_FADE_START
+        imp.visible = true;
+        const op = d > IMP_FADE_START
+          ? Math.max(0, 1 - (d - IMP_FADE_START) / (Math.sqrt(IMP_FAR2) - IMP_FADE_START)) * IMP_FULL_OP
+          : IMP_FULL_OP;
+        imp.material.opacity = op * (0.7 + 0.3 * glowBase);
+      } else if (d > 40) {
+        // Cross-fade 40-45m: impostor fades in as house is still visible
+        imp.visible = true;
+        imp.material.opacity = ((d - 40) / 5) * IMP_FULL_OP * (0.7 + 0.3 * glowBase);
+      } else {
+        imp.visible = false;
       }
     }
   }

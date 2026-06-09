@@ -173,8 +173,10 @@ export function updatePlayerVisuals(dt, elapsed) {
   const flashEaseDim = flashNormDim * flashNormDim;
 
   setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0));
-  // Physical daytime sky (Three.js Sky shader) outputs HDR values — needs lower exposure
-  // than the night forest (0.7→1.6). Day range 0.55→0.82 keeps sky natural without wash-out.
+  // Physical daytime sky needs much lower exposure — mieDirectionalG ~0.44 spreads
+  // sun glow broadly; at night-forest levels (0.7–1.6) the sky blows out to white.
+  // Sky shader output is pre-scaled by 0.086 (onBeforeCompile), so game exposure
+  // 0.55–0.82 keeps emissives readable while sky matches reference brightness.
   renderer.toneMappingExposure = isSkyTransformed()
     ? 0.55 + 0.27 * dimF
     : 0.7 + 0.9 * dimF;

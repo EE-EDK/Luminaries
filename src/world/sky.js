@@ -639,16 +639,26 @@ export function transformSky() {
   // Physical sky via Three.js Preetham/Mie scattering model
   const sky = new Sky();
   sky.scale.setScalar(450000);
-  sky.material.uniforms['turbidity'].value = 3.5;
-  sky.material.uniforms['rayleigh'].value = 1.8;
-  sky.material.uniforms['mieCoefficient'].value = 0.003;
-  sky.material.uniforms['mieDirectionalG'].value = 0.96; // tight sun disk
-  // Sun at elevation 58°, azimuth 220° (south-southwest — visible from spawn)
+  sky.material.uniforms['turbidity'].value = 1.9;
+  sky.material.uniforms['rayleigh'].value = 1.369;
+  sky.material.uniforms['mieCoefficient'].value = 0.005;
+  sky.material.uniforms['mieDirectionalG'].value = 0.441;
+  // Elevation 34.1°, azimuth 155.6° (matching reference screenshot)
   const sun = new Vector3();
-  const phi = MathUtils.degToRad(90 - 58);
-  const theta = MathUtils.degToRad(220);
+  const phi = MathUtils.degToRad(90 - 34.1);
+  const theta = MathUtils.degToRad(155.6);
   sun.setFromSphericalCoords(1, phi, theta);
   sky.material.uniforms['sunPosition'].value.copy(sun);
+
+  // Scale sky output down so it matches reference exposure (~0.06) while the
+  // game runs at its calibrated emissive exposure (~0.7). Factor = 0.06/0.7 ≈ 0.086.
+  sky.material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'gl_FragColor = vec4( retColor, 1.0 );',
+      'gl_FragColor = vec4( retColor * 0.086, 1.0 );'
+    );
+  };
+
   scene.add(sky);
 }
 

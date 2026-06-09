@@ -336,7 +336,10 @@ export function populate(arrays, builders, scene) {
   // Grass patches (4 varieties: original green, purple, blue, teal)
   const grassPalettes = [null, C.grassPurple, C.grassBlue, C.grassTeal];
   for (let i = 0; i < GRASS_PATCHES; i++) {
-    const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.9);
+    // Keep grass in the reachable interior — the perimeter mountain ring rises
+    // steeply from ~0.68*WORLD_R (terrain.js rimT/wall), and a flat disc of blades
+    // can't conform to that near-vertical go/no-go wall (reads as floating grass).
+    const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.62);
     const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
     const pal = grassPalettes[Math.floor(sr() * grassPalettes.length)];
     const rad = 2 + sr() * 2.5, cnt = 38 + Math.floor(sr() * 30);

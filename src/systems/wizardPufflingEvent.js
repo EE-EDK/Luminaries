@@ -178,7 +178,7 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
     // Gentle emissive floor only — keeps the silhouette readable in the dim sector
     // without washing the body/hat into a featureless white blob (owner: "blown-out blob").
     if (mat.emissiveIntensity !== undefined) {
-      mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 0.35);
+      mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 0.18);
     }
     if (mat.opacity !== undefined && mat.transparent) {
       mat.opacity = Math.max(mat.opacity, 0.92);
@@ -191,18 +191,18 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
    */
   if (_wizard.bodyMat) {
     _wizard.bodyMat.emissive.setHex(C.wizardBodyEmissive);
-    _wizard.bodyMat.emissiveIntensity = 0.7;
+    _wizard.bodyMat.emissiveIntensity = 0.35;
     _wizard.bodyMat.color.setHex(C.wizardBody);
     if (_wizard.bellyMat) {
-      _wizard.bellyMat.emissiveIntensity = 0.4;
+      _wizard.bellyMat.emissiveIntensity = 0.2;
       _wizard.bellyMat.emissive.setHex(C.wizardBelly);
     }
     if (_wizard.crownMat) {
       _wizard.crownMat.emissive.setHex(C.wizardCrown);
-      _wizard.crownMat.emissiveIntensity = 0.55;
+      _wizard.crownMat.emissiveIntensity = 0.28;
     }
     if (_wizard.core && _wizard.core.material) {
-      _wizard.core.material.opacity = 0.55;
+      _wizard.core.material.opacity = 0.3;
       _wizard.core.material.color.setHex(C.wizardCore);
     }
   }

@@ -1,5 +1,4 @@
 import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, MathUtils, Mesh, MeshBasicMaterial, Points, PointsMaterial, SRGBColorSpace, SphereGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
-import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare.js';
 import { SKY_R, C } from '../constants.js';
 import { saveSeed, restoreSeed, sr } from '../utils/rng.js';
@@ -13,6 +12,7 @@ import { scene } from '../core/renderer.js';
 export const skyGroup = new Group();
 let skyDomeMat = null;
 let skyDomeMesh = null;
+let skyZenithCapMat = null;
 
 // Twinkling star layer data
 const TWINKLE_COUNT = 120;
@@ -282,10 +282,10 @@ export function createSkyDome() {
   // Zenith cap — covers the pole convergence hole with a flat disc
   const capRadius = SKY_R * Math.sin(thetaStart) * 1.05; // slightly oversized to ensure overlap
   const capGeo = new CircleGeometry(capRadius, 32);
-  const capMat = new MeshBasicMaterial({
+  skyZenithCapMat = new MeshBasicMaterial({
     color: C.skyZenithCap, side: BackSide, fog: false
   });
-  const cap = new Mesh(capGeo, capMat);
+  const cap = new Mesh(capGeo, skyZenithCapMat);
   cap.position.y = SKY_R * Math.cos(thetaStart);
   cap.rotation.x = Math.PI / 2; // face downward (seen from inside as BackSide)
   skyGroup.add(cap);
@@ -502,12 +502,21 @@ export function isSkyTransformed() {
   return _skyTransformed;
 }
 
-function _removedPaintDaySkyCanvas_unused() {
-  // Replaced by Three.js Sky shader in transformSky()
+function _paintDaySkyCanvas() {
   const W = 2048, H = 1024;
   const cvs = document.createElement('canvas');
   cvs.width = W; cvs.height = H;
   const ctx = cvs.getContext('2d');
+
+  // ---- 0. Sky gradient — full background fill so dome never shows black ----
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0.00, '#1455c8'); // deep blue zenith
+  skyGrad.addColorStop(0.30, '#2878e0'); // vivid upper blue
+  skyGrad.addColorStop(0.60, '#5aafe8'); // mid blue
+  skyGrad.addColorStop(0.80, '#90ccf0'); // pale lower blue
+  skyGrad.addColorStop(1.00, '#d0eaf8'); // near-white horizon
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
 
   // Sun — slightly left of centre, high in sky
   const sunX = W * 0.58, sunY = H * 0.19;
@@ -727,38 +736,25 @@ export function transformSky() {
   if (_skyTransformed || !skyDomeMat) return;
   _skyTransformed = true;
 
-  // Hide night sky dome and twinkling stars
-  if (skyDomeMesh) skyDomeMesh.visible = false;
+  // Swap dome texture to canvas-painted daytime sky — same MeshBasicMaterial +
+  // CanvasTexture mechanism as the night sky (proven to render correctly within
+  // the camera far plane of 300 units). Three.Sky shader approach was abandoned
+  // because its HDR Preetham output requires calibration against ACES exposure
+  // that's fragile across different toneMappingExposure values.
+  const dayTex = _paintDaySkyCanvas();
+  skyDomeMat.map = dayTex;
+  skyDomeMat.map.needsUpdate = true;
+  skyDomeMat.color.setRGB(1, 1, 1); // clear the night brightness tint
+  if (skyZenithCapMat) skyZenithCapMat.color.setHex(0x1455c8); // daytime blue zenith cap
+
+  // Hide night-only elements
   if (twinklePoints) twinklePoints.visible = false;
 
-  // Physical sky via Three.js Preetham/Mie scattering model
-  // Scale must match SKY_R (280) so the sphere fits within the camera far plane (300).
-  const sky = new Sky();
-  sky.scale.setScalar(275);
-  sky.material.uniforms['turbidity'].value = 1.9;
-  sky.material.uniforms['rayleigh'].value = 1.369;
-  sky.material.uniforms['mieCoefficient'].value = 0.005;
-  // 0.96 = tight forward-scatter (small sun disk + narrow halo). 0.441 was too broad —
-  // it lit a 120°-wide cone that the bloom pass merged into a white mass.
-  sky.material.uniforms['mieDirectionalG'].value = 0.96;
-  // Elevation 34.1°, azimuth 155.6° (matching reference screenshot)
+  // Sun lensflare — matches sky canvas sun position (elevation 34.1°, azimuth 155.6°)
   const sun = new Vector3();
   const phi = MathUtils.degToRad(90 - 34.1);
   const theta = MathUtils.degToRad(155.6);
   sun.setFromSphericalCoords(1, phi, theta);
-  sky.material.uniforms['sunPosition'].value.copy(sun);
-
-  // Scale sky output down so it matches reference exposure (~0.06) while the
-  // game runs at its calibrated emissive exposure (~0.7). Factor = 0.06/0.7 ≈ 0.086.
-  sky.material.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      'gl_FragColor = vec4( retColor, 1.0 );',
-      'gl_FragColor = vec4( retColor * 0.086, 1.0 );'
-    );
-  };
-
-  scene.add(sky);
-  _addDayClouds();
   _addSunLensflare(sun);
 }
 

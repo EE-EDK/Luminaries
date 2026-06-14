@@ -31,7 +31,10 @@ const MOTH_R2 = 64;         // 8m squared — must be within 8m
 const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
 const JELLY_TOLERANCE = 0.42; // ± tolerance (s) — rhythm clicks are forgiving on keyboard/mouse
 const JELLY_PRIME_CAP = 0.34; // slow build while locked+near so ritual/gather can start before full cadence
-const JELLY_POST_ATTUNE_WINDOW = 9.5; // must pulse every ~9.5s once jelly-attuned; auto-refreshes near jelly
+// Jelly carry / escort window: after syncing, the player carries the jelly key for this
+// long to reach the jelly sun-seed orb (synced jellies escort overhead). Exported so the
+// HUD countdown bar can normalize against it. Elapse → bond fades, player must re-sync.
+export const JELLY_POST_ATTUNE_WINDOW = 60;
 const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
 
 // ================================================================
@@ -88,23 +91,16 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     refreshLock();
   }
 
-  // Jelly post-attune mode: once attuned, player only needs pulse cadence (no lock hold).
+  // Jelly carry / escort window: once synced, the player carries the jelly key for up to
+  // JELLY_POST_ATTUNE_WINDOW seconds to reach the jelly sun-seed orb. Synced jellies escort
+  // overhead (see updates/fauna/jellies.js). No pulse is required to hold it; if the window
+  // elapses the bond fades and the player must re-sync.
   if (playerFrequency === 'jelly') {
     _jellyPostTimer -= dt;
     _jellySyncFlash = Math.max(0, _jellySyncFlash - dt);
-    if (pulseEdge) {
-      _jellyPostTimer = JELLY_POST_ATTUNE_WINDOW;
-      _jellySyncFlash = 0.35;
-    } else {
-      // Auto-refresh: player carrying jelly frequency near any jelly (~12m) keeps the window alive
-      // so they aren't punished for walking carefully to an orb through the forest.
-      const _jellyNearby = nearestJellyDist2 < 144 && nearestJellyDist2 < Infinity; // 12m squared
-      if (_jellyNearby && _jellyPostTimer < JELLY_POST_ATTUNE_WINDOW) {
-        _jellyPostTimer = Math.min(JELLY_POST_ATTUNE_WINDOW, _jellyPostTimer + dt);
-      }
-    }
+    if (pulseEdge) _jellySyncFlash = 0.35; // pulse still flares the bells, but no longer gates the window
     if (_jellyPostTimer <= 0) {
-      // Missed beat: frequency collapses and player must re-attune from scratch.
+      // Window elapsed without reaching the orb: bond fades, player must re-sync.
       playerFrequency = null;
       attunement = 0;
       attunementTarget = null;

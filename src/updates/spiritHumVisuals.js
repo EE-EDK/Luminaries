@@ -14,7 +14,7 @@ import { getPerspective } from '../state/narrativeState.js';
 import { showNarrativeText } from '../systems/discoveries.js';
 import { setAttuneFlash, setHumResonance } from '../state/gameState.js';
 import { nearest } from '../systems/registration.js';
-import { getJellyPostTimer } from '../systems/attunement.js';
+import { getJellyPostTimer, JELLY_POST_ATTUNE_WINDOW } from '../systems/attunement.js';
 
 // ================================================================
 // Local state (narrowest scope — only this module reads/writes)
@@ -256,17 +256,17 @@ export function updateSpiritHumVisuals(dt) {
   if (_humJellyBarEl && _humJellyFillEl) {
     const _jpt = getJellyPostTimer();
     if (_jpt > 0) {
-      // 0–9.5 → 0–100%; clamp to [0,1]
-      const _jPct = Math.min(1, _jpt / 9.5);
+      // Escort countdown: remaining / window → 0–100% (time left to reach the orb).
+      const _jPct = Math.min(1, _jpt / JELLY_POST_ATTUNE_WINDOW);
       const _jPctRounded = Math.round(_jPct * 100);
       if (_jPctRounded !== _lastJellyBarPct) {
         _lastJellyBarPct = _jPctRounded;
         _humJellyBarEl.style.display = 'block';
         _humJellyFillEl.style.width = _jPctRounded + '%';
-        // Color: healthy = jelly blue; warning (<3s, pct<0.32) → warm orange
-        const _warn = _jPct < 0.32;
+        // Color: healthy = jelly blue; warning (< ~10s left) → warm orange.
+        const _warn = _jpt < 10;
         _humJellyFillEl.style.background = _warn
-          ? 'rgba(255,140,80,' + (0.7 + (1 - _jPct / 0.32) * 0.3) + ')'
+          ? 'rgba(255,140,80,' + (0.7 + (1 - _jpt / 10) * 0.3) + ')'
           : 'rgba(170,204,255,' + (0.55 + _jPct * 0.35) + ')';
       }
     } else if (_lastJellyBarPct !== 0) {

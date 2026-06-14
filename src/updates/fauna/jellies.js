@@ -89,6 +89,25 @@ const CRIMSON_BURST_DECAY = 1.05;
 const CRIMSON_MAX_AGE = 52;
 let _crimsonListenerOn = false;
 
+// ----------------------------------------------------------------
+// Post-sync jelly choreography (two phases after a successful jelly sync):
+//   1. ESCORT  — the synced jellies rise and hover/orbit ABOVE the player and
+//      follow them while they carry the jelly key and hunt for the jelly
+//      sun-seed orb. Ends when the orb is grabbed OR the ~60s carry window
+//      elapses (attunement.js drops the carrier → the player must re-sync).
+//   2. OBELISK — once the jelly sun-seed orb is grabbed, the flock sweeps to
+//      the obelisk and orbits it (crimson ritual) until the finale transform.
+// ----------------------------------------------------------------
+let jellyObeliskActive = false; // set on jelly-orb collect; cleared at the transformation
+let _escortCount = 0;
+const ESCORT_R = 3.4;       // overhead escort ring radius
+const ESCORT_Y = 6.8;       // height above the player
+const ESCORT_BOB = 0.55;
+const ESCORT_SPIN = 0.5;    // rad/s overhead rotation
+const ESCORT_LERP = 2.3;
+const ESCORT_MAX = 10;      // cap so the escort reads as a guiding huddle
+const ESCORT_TAG_R2 = 2025; // tag jellies within 45 m of the player at sync time
+
 /** Linked / ritual formation — one horizontal ring 25 m Ø, evenly spaced, rotating, anchored over the obelisk. */
 const FORMATION_RING_R = 12.5;
 /** Ring hovers this far below the risen obelisk tip so the crimson ritual reads as orbiting the monolith. */
@@ -123,22 +142,53 @@ function getObeliskAnchor() {
 
 /** Quest is in its endgame — jellies should disperse from the ritual ring back to free drift. */
 function questAtEndgame() {
+  // Disperse at the transformation (and after). The flock keeps orbiting through
+  // FINALE so it rides the obelisk all the way to the end-of-quest bloom.
   const p = getQuestPhase();
-  return p === QuestPhases.FINALE || p === QuestPhases.TRANSFORM || p === QuestPhases.FREE_ROAM;
+  return p === QuestPhases.TRANSFORM || p === QuestPhases.FREE_ROAM;
 }
 
-function ensureJellyCrimsonListener() {
+function _startCrimsonSweep() {
+  jellyCrimson.active = true;
+  jellyCrimson.t = 0;
+  jellyCrimson.waveR = 0;
+  jellyCrimson.burst = 1.2;
+  for (let ji = 0; ji < jellies.length; ji++) jellies[ji]._crimsonJoined = false;
+}
+
+/** Tag the nearest jellies (<= ESCORT_MAX, within 45 m) to escort overhead and slot them. */
+function _tagEscortJellies() {
+  const cand = [];
+  for (let ji = 0; ji < jellies.length; ji++) {
+    jellies[ji]._escort = false; // clear prior tags first
+    const g = jellies[ji].group;
+    const dx = g.position.x - player.pos.x, dz = g.position.z - player.pos.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < ESCORT_TAG_R2) cand.push({ ji, d2 });
+  }
+  cand.sort((a, b) => a.d2 - b.d2);
+  _escortCount = Math.min(ESCORT_MAX, cand.length);
+  for (let s = 0; s < _escortCount; s++) {
+    const j = jellies[cand[s].ji];
+    j._escort = true;
+    j._escortSlot = s;
+  }
+}
+
+function ensureJellyListeners() {
   if (_crimsonListenerOn) return;
   _crimsonListenerOn = true;
+  // Sync complete → the synced jellies escort overhead (unless the orb ritual already runs).
   on(Events.CREATURE_ATTUNED, (d) => {
-    if (d.type !== 'jelly') return;
-    jellyCrimson.active = true;
-    jellyCrimson.t = 0;
-    jellyCrimson.waveR = 0;
-    jellyCrimson.burst = 1.2;
-    for (let ji = 0; ji < jellies.length; ji++) {
-      jellies[ji]._crimsonJoined = false;
-    }
+    if (d.type !== 'jelly' || jellyObeliskActive) return;
+    _tagEscortJellies();
+  });
+  // Jelly sun-seed orb grabbed → the flock sweeps to the obelisk and orbits it.
+  on(Events.ORB_COLLECTED, (d) => {
+    if (d.creatureType !== 'jelly' || jellyObeliskActive) return;
+    jellyObeliskActive = true;
+    _startCrimsonSweep();
+    for (let ji = 0; ji < jellies.length; ji++) jellies[ji]._escort = false;
   });
 }
 
@@ -158,7 +208,7 @@ function ensureJellyRitualOrb() {
 
 export function updateJellies(dt, t) {
   ensureJellyRitualOrb();
-  ensureJellyCrimsonListener();
+  ensureJellyListeners();
   const obeliskAnchor = getObeliskAnchor();
   // At quest endgame (FINALE/TRANSFORM/FREE_ROAM) the ritual disperses — jellies return to free drift.
   const endgame = questAtEndgame();
@@ -171,8 +221,11 @@ export function updateJellies(dt, t) {
   // carries the jelly frequency (getPlayerFrequency() === 'jelly'), or while the
   // crimson harmony wave is sweeping. Pitch-lock / attune-target alone no longer
   // pull jellies to the obelisk.
-  const jellyAttuned = getPlayerFrequency() === 'jelly';
-  const wantsJellyRitual = !endgame && (jellyAttuned || jellyCrimson.active);
+  const jellyCarrying = getPlayerFrequency() === 'jelly';
+  // The obelisk ritual now starts only AFTER the jelly sun-seed orb is grabbed
+  // (jellyObeliskActive) — not at sync. Before that, synced jellies escort overhead.
+  const wantsJellyRitual = !endgame && (jellyObeliskActive || jellyCrimson.active);
+  const jellyEscortActive = !endgame && jellyCarrying && !jellyObeliskActive;
   const attune = getAttunement();
   if (wantsJellyRitual && !jellyRitual.active) {
     jellyRitual.active = true;
@@ -188,10 +241,13 @@ export function updateJellies(dt, t) {
     if (jellyRitual.orbMesh) jellyRitual.orbMesh.visible = false;
   }
   // Crimson harmony also disperses at endgame so the flock free-drifts during the finale bloom.
-  if (endgame && jellyCrimson.active) {
-    jellyCrimson.active = false;
-    jellyCrimson.burst = 0;
-    for (let ji = 0; ji < jellies.length; ji++) jellies[ji]._crimsonJoined = false;
+  if (endgame) {
+    jellyObeliskActive = false;
+    if (jellyCrimson.active) {
+      jellyCrimson.active = false;
+      jellyCrimson.burst = 0;
+      for (let ji = 0; ji < jellies.length; ji++) jellies[ji]._crimsonJoined = false;
+    }
   }
   if (attune > jellyRitual.lastAttune + 0.03) jellyRitual.flash = 0.28;
   jellyRitual.lastAttune = attune;
@@ -325,6 +381,22 @@ export function updateJellies(dt, t) {
       j._crimsonJoined = true;
     }
 
+    // ESCORT: synced jellies hover/orbit above the player while hunting the orb.
+    const escortThis = jellyEscortActive && j._escort;
+    if (escortThis) {
+      const k = Math.max(1, _escortCount);
+      const eang = t * ESCORT_SPIN + (j._escortSlot / k) * Math.PI * 2;
+      const etx = player.pos.x + Math.cos(eang) * ESCORT_R;
+      const etz = player.pos.z + Math.sin(eang) * ESCORT_R;
+      const ety = player.pos.y + ESCORT_Y + Math.sin(t * 1.4 + j._escortSlot * 0.7) * ESCORT_BOB;
+      const eL = Math.min(1, dt * ESCORT_LERP);
+      g.position.x += (etx - g.position.x) * eL;
+      g.position.z += (etz - g.position.z) * eL;
+      g.position.y += (ety - g.position.y) * eL;
+      j.driftAng += dt * 0.1;
+      g.rotation.y += dt * 0.7;
+    }
+
     let crimsonOrbit = false;
     /**
      * Shared ring — start as soon as each jelly is swept by crimson wave.
@@ -336,7 +408,7 @@ export function updateJellies(dt, t) {
      * motion. A fixed per-jelly slot makes the target move continuously so the
      * dt-scaled ease produces a smooth orbit.
      */
-    if (jellyCrimson.active && j._crimsonJoined) {
+    if (jellyCrimson.active && j._crimsonJoined && !escortThis) {
       crimsonOrbit = true;
       const M = Math.max(1, jellies.length);
       const base = t * FORMATION_SPIN;
@@ -354,7 +426,7 @@ export function updateJellies(dt, t) {
       g.rotation.y += dt * 0.85;
     }
 
-    if (!crimsonOrbit) switch (j._state) {
+    if (!crimsonOrbit && !escortThis) switch (j._state) {
       case 'drift': {
         j.driftAng += dt * 0.15;
         const radius = 8 + Math.sin(t * 0.1 + j.phase) * 4;
@@ -399,7 +471,7 @@ export function updateJellies(dt, t) {
       }
     }
 
-    if (jellyRitual.active && !jellyCrimson.active && !crimsonOrbit) {
+    if (jellyRitual.active && !jellyCrimson.active && !crimsonOrbit && !escortThis) {
       // Ease the ritual centroid toward the obelisk (world center), not the player.
       jellyRitual.centerX += (obeliskAnchor.x - jellyRitual.centerX) * Math.min(1, dt * 4.5);
       jellyRitual.centerZ += (obeliskAnchor.z - jellyRitual.centerZ) * Math.min(1, dt * 4.5);
@@ -428,7 +500,7 @@ export function updateJellies(dt, t) {
     // comfortable ~6.5 m so they stay inside the 10 m pulse radius and the player
     // can fill the meter. This replaces the obelisk pull during the attune phase.
     let didReceptive = false;
-    if (jellyReceptive && !jellyRitual.active && j._state !== 'display' && _jhd2 < 324) {
+    if (jellyReceptive && !jellyRitual.active && !escortThis && j._state !== 'display' && _jhd2 < 324) {
       const SETTLE_R = 6.5;
       const SETTLE_R2 = SETTLE_R * SETTLE_R;
       // Only pull inward when farther than the settle ring; let it hover otherwise.
@@ -444,7 +516,7 @@ export function updateJellies(dt, t) {
     }
 
     // Curiosity: jelly drifts toward idle player (ease strength so crossing the idle threshold isn’t a step change).
-    if (!didReceptive && !(jellyCrimson.active && j._crimsonJoined) && !jellyRitual.active) {
+    if (!didReceptive && !escortThis && !(jellyCrimson.active && j._crimsonJoined) && !jellyRitual.active) {
       const rawPull =
         playerIdleTime > 5 && _jhd2 < 100 && j._state !== 'display'
           ? Math.min((playerIdleTime - 5) / 5, 0.4)
@@ -467,7 +539,7 @@ export function updateJellies(dt, t) {
     const jellyGroundY = j._cachedGY;
     /** Skip terrain/tree pulls whenever linked to player ritual or crimson wave (orbit math owns height). */
     const inLinkedFormation =
-      jellyRitual.active || (jellyCrimson.active && j._crimsonJoined);
+      escortThis || jellyRitual.active || (jellyCrimson.active && j._crimsonJoined);
     if (!inLinkedFormation) {
       const jellyMinY = jellyGroundY + 3;
       if (g.position.y < jellyMinY) {

@@ -3921,160 +3921,7 @@ void main() {
 						lerpBloomFactor(bloomFactors[2]) * vec4(bloomTintColors[2], 1.0) * texture2D(blurTexture3, vUv) +
 						lerpBloomFactor(bloomFactors[3]) * vec4(bloomTintColors[3], 1.0) * texture2D(blurTexture4, vUv) +
 						lerpBloomFactor(bloomFactors[4]) * vec4(bloomTintColors[4], 1.0) * texture2D(blurTexture5, vUv) );
-				}`})}};Xu.BlurDirectionX=new W(1,0),Xu.BlurDirectionY=new W(0,1);var Zu=class e extends Mr{constructor(){let t=e.SkyShader,n=new Ur({name:t.name,uniforms:Br.clone(t.uniforms),vertexShader:t.vertexShader,fragmentShader:t.fragmentShader,side:1,depthWrite:!1});super(new Fr(1,1,1),n),this.isSky=!0}};Zu.SkyShader={name:`SkyShader`,uniforms:{turbidity:{value:2},rayleigh:{value:1},mieCoefficient:{value:.005},mieDirectionalG:{value:.8},sunPosition:{value:new J},up:{value:new J(0,1,0)}},vertexShader:`
-		uniform vec3 sunPosition;
-		uniform float rayleigh;
-		uniform float turbidity;
-		uniform float mieCoefficient;
-		uniform vec3 up;
-
-		varying vec3 vWorldPosition;
-		varying vec3 vSunDirection;
-		varying float vSunfade;
-		varying vec3 vBetaR;
-		varying vec3 vBetaM;
-		varying float vSunE;
-
-		// constants for atmospheric scattering
-		const float e = 2.71828182845904523536028747135266249775724709369995957;
-		const float pi = 3.141592653589793238462643383279502884197169;
-
-		// wavelength of used primaries, according to preetham
-		const vec3 lambda = vec3( 680E-9, 550E-9, 450E-9 );
-		// this pre-calculation replaces older TotalRayleigh(vec3 lambda) function:
-		// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
-		const vec3 totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
-
-		// mie stuff
-		// K coefficient for the primaries
-		const float v = 4.0;
-		const vec3 K = vec3( 0.686, 0.678, 0.666 );
-		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
-		const vec3 MieConst = vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
-
-		// earth shadow hack
-		// cutoffAngle = pi / 1.95;
-		const float cutoffAngle = 1.6110731556870734;
-		const float steepness = 1.5;
-		const float EE = 1000.0;
-
-		float sunIntensity( float zenithAngleCos ) {
-			zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );
-			return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos ) ) / steepness ) ) );
-		}
-
-		vec3 totalMie( float T ) {
-			float c = ( 0.2 * T ) * 10E-18;
-			return 0.434 * c * MieConst;
-		}
-
-		void main() {
-
-			vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-			vWorldPosition = worldPosition.xyz;
-
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-			gl_Position.z = gl_Position.w; // set z to camera.far
-
-			vSunDirection = normalize( sunPosition );
-
-			vSunE = sunIntensity( dot( vSunDirection, up ) );
-
-			vSunfade = 1.0 - clamp( 1.0 - exp( ( sunPosition.y / 450000.0 ) ), 0.0, 1.0 );
-
-			float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );
-
-			// extinction (absorption + out scattering)
-			// rayleigh coefficients
-			vBetaR = totalRayleigh * rayleighCoefficient;
-
-			// mie coefficients
-			vBetaM = totalMie( turbidity ) * mieCoefficient;
-
-		}`,fragmentShader:`
-		varying vec3 vWorldPosition;
-		varying vec3 vSunDirection;
-		varying float vSunfade;
-		varying vec3 vBetaR;
-		varying vec3 vBetaM;
-		varying float vSunE;
-
-		uniform float mieDirectionalG;
-		uniform vec3 up;
-
-		// constants for atmospheric scattering
-		const float pi = 3.141592653589793238462643383279502884197169;
-
-		const float n = 1.0003; // refractive index of air
-		const float N = 2.545E25; // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
-
-		// optical length at zenith for molecules
-		const float rayleighZenithLength = 8.4E3;
-		const float mieZenithLength = 1.25E3;
-		// 66 arc seconds -> degrees, and the cosine of that
-		const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
-
-		// 3.0 / ( 16.0 * pi )
-		const float THREE_OVER_SIXTEENPI = 0.05968310365946075;
-		// 1.0 / ( 4.0 * pi )
-		const float ONE_OVER_FOURPI = 0.07957747154594767;
-
-		float rayleighPhase( float cosTheta ) {
-			return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
-		}
-
-		float hgPhase( float cosTheta, float g ) {
-			float g2 = pow( g, 2.0 );
-			float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5 );
-			return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );
-		}
-
-		void main() {
-
-			vec3 direction = normalize( vWorldPosition - cameraPosition );
-
-			// optical length
-			// cutoff angle at 90 to avoid singularity in next formula.
-			float zenithAngle = acos( max( 0.0, dot( up, direction ) ) );
-			float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253 ) );
-			float sR = rayleighZenithLength * inverse;
-			float sM = mieZenithLength * inverse;
-
-			// combined extinction factor
-			vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );
-
-			// in scattering
-			float cosTheta = dot( direction, vSunDirection );
-
-			float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );
-			vec3 betaRTheta = vBetaR * rPhase;
-
-			float mPhase = hgPhase( cosTheta, mieDirectionalG );
-			vec3 betaMTheta = vBetaM * mPhase;
-
-			vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );
-			Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );
-
-			// nightsky
-			float theta = acos( direction.y ); // elevation --> y-axis, [-pi/2, pi/2]
-			float phi = atan( direction.z, direction.x ); // azimuth --> x-axis [-pi/2, pi/2]
-			vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );
-			vec3 L0 = vec3( 0.1 ) * Fex;
-
-			// composition + solar disc
-			float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );
-			L0 += ( vSunE * 19000.0 * Fex ) * sundisk;
-
-			vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );
-
-			vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );
-
-			gl_FragColor = vec4( retColor, 1.0 );
-
-			#include <tonemapping_fragment>
-			#include <colorspace_fragment>
-
-		}`};var Qu=class e extends Mr{constructor(){super(e.Geometry,new sr({opacity:0,transparent:!0})),this.isLensflare=!0,this.type=`Lensflare`,this.frustumCulled=!1,this.renderOrder=1/0;let t=new J,n=new J,r=new aa(16,16),i=new aa(16,16),a=l,o=e.Geometry,s=new Lo({uniforms:{scale:{value:null},screenPosition:{value:null}},vertexShader:`
+				}`})}};Xu.BlurDirectionX=new W(1,0),Xu.BlurDirectionY=new W(0,1);var Zu=class e extends Mr{constructor(){super(e.Geometry,new sr({opacity:0,transparent:!0})),this.isLensflare=!0,this.type=`Lensflare`,this.frustumCulled=!1,this.renderOrder=1/0;let t=new J,n=new J,r=new aa(16,16),i=new aa(16,16),a=l,o=e.Geometry,s=new Lo({uniforms:{scale:{value:null},screenPosition:{value:null}},vertexShader:`
 
 				precision highp float;
 
@@ -4125,7 +3972,7 @@ void main() {
 
 					gl_FragColor = texture2D( map, vUV );
 
-				}`,depthTest:!1,depthWrite:!1,transparent:!1}),u=new Mr(o,s),d=[],f=$u.Shader,p=new Lo({name:f.name,uniforms:{map:{value:null},occlusionMap:{value:i},color:{value:new X(16777215)},scale:{value:new W},screenPosition:{value:new J}},vertexShader:f.vertexShader,fragmentShader:f.fragmentShader,blending:2,transparent:!0,depthWrite:!1}),m=new Mr(o,p);this.addElement=function(e){d.push(e)};let h=new W,g=new W,_=new Ns,v=new q;this.onBeforeRender=function(e,f,y){e.getCurrentViewport(v);let b=e.getRenderTarget(),x=b===null?l:b.texture.type;a!==x&&(r.dispose(),i.dispose(),r.type=i.type=x,a=x);let S=v.w/v.z,C=v.z/2,w=v.w/2,T=16/v.w;if(h.set(T*S,T),_.min.set(v.x,v.y),_.max.set(v.x+(v.z-16),v.y+(v.w-16)),n.setFromMatrixPosition(this.matrixWorld),n.applyMatrix4(y.matrixWorldInverse),!(n.z>0)&&(t.copy(n).applyMatrix4(y.projectionMatrix),g.x=v.x+t.x*C+C-8,g.y=v.y+t.y*w+w-8,_.containsPoint(g))){e.copyFramebufferToTexture(r,g);let n=s.uniforms;n.scale.value=h,n.screenPosition.value=t,e.renderBufferDirect(y,null,o,s,u,null),e.copyFramebufferToTexture(i,g),n=c.uniforms,n.scale.value=h,n.screenPosition.value=t,e.renderBufferDirect(y,null,o,c,u,null);let a=-t.x*2,l=-t.y*2;for(let n=0,r=d.length;n<r;n++){let r=d[n],i=p.uniforms;i.color.value.copy(r.color),i.map.value=r.texture,i.screenPosition.value.x=t.x+a*r.distance,i.screenPosition.value.y=t.y+l*r.distance,T=r.size/v.w;let s=v.w/v.z;i.scale.value.set(T*s,T),p.uniformsNeedUpdate=!0,e.renderBufferDirect(y,null,o,p,m,null)}}},this.dispose=function(){s.dispose(),c.dispose(),p.dispose(),r.dispose(),i.dispose();for(let e=0,t=d.length;e<t;e++)d[e].texture.dispose()}}},$u=class{constructor(e,t=1,n=0,r=new X(16777215)){this.texture=e,this.size=t,this.distance=n,this.color=r}};$u.Shader={name:`LensflareElementShader`,uniforms:{map:{value:null},occlusionMap:{value:null},color:{value:null},scale:{value:null},screenPosition:{value:null}},vertexShader:`
+				}`,depthTest:!1,depthWrite:!1,transparent:!1}),u=new Mr(o,s),d=[],f=Qu.Shader,p=new Lo({name:f.name,uniforms:{map:{value:null},occlusionMap:{value:i},color:{value:new X(16777215)},scale:{value:new W},screenPosition:{value:new J}},vertexShader:f.vertexShader,fragmentShader:f.fragmentShader,blending:2,transparent:!0,depthWrite:!1}),m=new Mr(o,p);this.addElement=function(e){d.push(e)};let h=new W,g=new W,_=new Ns,v=new q;this.onBeforeRender=function(e,f,y){e.getCurrentViewport(v);let b=e.getRenderTarget(),x=b===null?l:b.texture.type;a!==x&&(r.dispose(),i.dispose(),r.type=i.type=x,a=x);let S=v.w/v.z,C=v.z/2,w=v.w/2,T=16/v.w;if(h.set(T*S,T),_.min.set(v.x,v.y),_.max.set(v.x+(v.z-16),v.y+(v.w-16)),n.setFromMatrixPosition(this.matrixWorld),n.applyMatrix4(y.matrixWorldInverse),!(n.z>0)&&(t.copy(n).applyMatrix4(y.projectionMatrix),g.x=v.x+t.x*C+C-8,g.y=v.y+t.y*w+w-8,_.containsPoint(g))){e.copyFramebufferToTexture(r,g);let n=s.uniforms;n.scale.value=h,n.screenPosition.value=t,e.renderBufferDirect(y,null,o,s,u,null),e.copyFramebufferToTexture(i,g),n=c.uniforms,n.scale.value=h,n.screenPosition.value=t,e.renderBufferDirect(y,null,o,c,u,null);let a=-t.x*2,l=-t.y*2;for(let n=0,r=d.length;n<r;n++){let r=d[n],i=p.uniforms;i.color.value.copy(r.color),i.map.value=r.texture,i.screenPosition.value.x=t.x+a*r.distance,i.screenPosition.value.y=t.y+l*r.distance,T=r.size/v.w;let s=v.w/v.z;i.scale.value.set(T*s,T),p.uniformsNeedUpdate=!0,e.renderBufferDirect(y,null,o,p,m,null)}}},this.dispose=function(){s.dispose(),c.dispose(),p.dispose(),r.dispose(),i.dispose();for(let e=0,t=d.length;e<t;e++)d[e].texture.dispose()}}},Qu=class{constructor(e,t=1,n=0,r=new X(16777215)){this.texture=e,this.size=t,this.distance=n,this.color=r}};Qu.Shader={name:`LensflareElementShader`,uniforms:{map:{value:null},occlusionMap:{value:null},color:{value:null},scale:{value:null},screenPosition:{value:null}},vertexShader:`
 
 		precision highp float;
 
@@ -4179,4 +4026,4 @@ void main() {
 			gl_FragColor = texture;
 			gl_FragColor.rgb *= color;
 
-		}`},Qu.Geometry=(function(){let e=new br,t=new ni(new Float32Array([-1,-1,0,0,0,1,-1,0,1,0,1,1,0,1,1,-1,1,0,0,1]),5);return e.setIndex([0,1,2,0,2,3]),e.setAttribute(`position`,new ii(t,3,0,!1)),e.setAttribute(`uv`,new ii(t,2,3,!1)),e})();function ed(e,t=!1){let n=e[0].index!==null,r=new Set(Object.keys(e[0].attributes)),i=new Set(Object.keys(e[0].morphAttributes)),a={},o={},s=e[0].morphTargetsRelative,c=new br,l=0;for(let u=0;u<e.length;++u){let d=e[u],f=0;if(n!==(d.index!==null))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. All geometries must have compatible attributes; make sure index attribute exists among all geometries, or in none of them.`),null;for(let e in d.attributes){if(!r.has(e))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. All geometries must have compatible attributes; make sure "`+e+`" attribute exists among all geometries, or in none of them.`),null;a[e]===void 0&&(a[e]=[]),a[e].push(d.attributes[e]),f++}if(f!==r.size)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. Make sure all geometries have the same number of attributes.`),null;if(s!==d.morphTargetsRelative)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. .morphTargetsRelative must be consistent throughout all geometries.`),null;for(let e in d.morphAttributes){if(!i.has(e))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`.  .morphAttributes must be consistent throughout all geometries.`),null;o[e]===void 0&&(o[e]=[]),o[e].push(d.morphAttributes[e])}if(t){let e;if(n)e=d.index.count;else if(d.attributes.position!==void 0)e=d.attributes.position.count;else return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. The geometry must have either an index or a position attribute`),null;c.addGroup(l,e,u),l+=e}}if(n){let t=0,n=[];for(let r=0;r<e.length;++r){let i=e[r].index;for(let e=0;e<i.count;++e)n.push(i.getX(e)+t);t+=e[r].attributes.position.count}c.setIndex(n)}for(let e in a){let t=td(a[e]);if(!t)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the `+e+` attribute.`),null;c.setAttribute(e,t)}for(let e in o){let t=o[e][0].length;if(t===0)break;c.morphAttributes=c.morphAttributes||{},c.morphAttributes[e]=[];for(let n=0;n<t;++n){let t=[];for(let r=0;r<o[e].length;++r)t.push(o[e][r][n]);let r=td(t);if(!r)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the `+e+` morphAttribute.`),null;c.morphAttributes[e].push(r)}}return c}function td(e){let t,n,r,i=-1,a=0;for(let o=0;o<e.length;++o){let s=e[o];if(t===void 0&&(t=s.array.constructor),t!==s.array.constructor)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.array must be of consistent array types across matching attributes.`),null;if(n===void 0&&(n=s.itemSize),n!==s.itemSize)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.itemSize must be consistent across matching attributes.`),null;if(r===void 0&&(r=s.normalized),r!==s.normalized)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.normalized must be consistent across matching attributes.`),null;if(i===-1&&(i=s.gpuType),i!==s.gpuType)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.`),null;a+=s.count*n}let o=new t(a),s=new ur(o,n,r),c=0;for(let t=0;t<e.length;++t){let r=e[t];if(r.isInterleavedBufferAttribute){let e=c/n;for(let t=0,i=r.count;t<i;t++)for(let i=0;i<n;i++){let n=r.getComponent(t,i);s.setComponent(t+e,i,n)}}else o.set(r.array,c);c+=r.count*n}return i!==void 0&&(s.gpuType=i),s}export{ti as $,Si as A,Ro as B,To as C,ia as D,Li as E,Xi as F,Ao as G,ko as H,ut as I,Zi as J,ps as K,Y as L,Ki as M,Ri as N,is as O,Aa as P,Me as Q,Mr as R,Re as S,ei as T,Ia as U,zn as V,Jr as W,e as X,It as Y,jo as Z,X as _,Xu as a,ai as at,gs as b,Wu as c,Io as ct,ur as d,J as dt,Ha as et,br as f,vs as g,La as h,Zu as i,yi as it,Ai as j,Oo as k,Ru as l,fr as lt,ga as m,Qu as n,rn as nt,Ju as o,Le as ot,oa as p,na as q,$u as r,Po as rt,qu as s,Fo as st,ed as t,Mo as tt,Fr as u,W as ut,za as v,Z as w,Va as x,Ra as y,sr as z};
+		}`},Zu.Geometry=(function(){let e=new br,t=new ni(new Float32Array([-1,-1,0,0,0,1,-1,0,1,0,1,1,0,1,1,-1,1,0,0,1]),5);return e.setIndex([0,1,2,0,2,3]),e.setAttribute(`position`,new ii(t,3,0,!1)),e.setAttribute(`uv`,new ii(t,2,3,!1)),e})();function $u(e,t=!1){let n=e[0].index!==null,r=new Set(Object.keys(e[0].attributes)),i=new Set(Object.keys(e[0].morphAttributes)),a={},o={},s=e[0].morphTargetsRelative,c=new br,l=0;for(let u=0;u<e.length;++u){let d=e[u],f=0;if(n!==(d.index!==null))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. All geometries must have compatible attributes; make sure index attribute exists among all geometries, or in none of them.`),null;for(let e in d.attributes){if(!r.has(e))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. All geometries must have compatible attributes; make sure "`+e+`" attribute exists among all geometries, or in none of them.`),null;a[e]===void 0&&(a[e]=[]),a[e].push(d.attributes[e]),f++}if(f!==r.size)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. Make sure all geometries have the same number of attributes.`),null;if(s!==d.morphTargetsRelative)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. .morphTargetsRelative must be consistent throughout all geometries.`),null;for(let e in d.morphAttributes){if(!i.has(e))return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`.  .morphAttributes must be consistent throughout all geometries.`),null;o[e]===void 0&&(o[e]=[]),o[e].push(d.morphAttributes[e])}if(t){let e;if(n)e=d.index.count;else if(d.attributes.position!==void 0)e=d.attributes.position.count;else return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index `+u+`. The geometry must have either an index or a position attribute`),null;c.addGroup(l,e,u),l+=e}}if(n){let t=0,n=[];for(let r=0;r<e.length;++r){let i=e[r].index;for(let e=0;e<i.count;++e)n.push(i.getX(e)+t);t+=e[r].attributes.position.count}c.setIndex(n)}for(let e in a){let t=ed(a[e]);if(!t)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the `+e+` attribute.`),null;c.setAttribute(e,t)}for(let e in o){let t=o[e][0].length;if(t===0)break;c.morphAttributes=c.morphAttributes||{},c.morphAttributes[e]=[];for(let n=0;n<t;++n){let t=[];for(let r=0;r<o[e].length;++r)t.push(o[e][r][n]);let r=ed(t);if(!r)return console.error(`THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the `+e+` morphAttribute.`),null;c.morphAttributes[e].push(r)}}return c}function ed(e){let t,n,r,i=-1,a=0;for(let o=0;o<e.length;++o){let s=e[o];if(t===void 0&&(t=s.array.constructor),t!==s.array.constructor)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.array must be of consistent array types across matching attributes.`),null;if(n===void 0&&(n=s.itemSize),n!==s.itemSize)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.itemSize must be consistent across matching attributes.`),null;if(r===void 0&&(r=s.normalized),r!==s.normalized)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.normalized must be consistent across matching attributes.`),null;if(i===-1&&(i=s.gpuType),i!==s.gpuType)return console.error(`THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.`),null;a+=s.count*n}let o=new t(a),s=new ur(o,n,r),c=0;for(let t=0;t<e.length;++t){let r=e[t];if(r.isInterleavedBufferAttribute){let e=c/n;for(let t=0,i=r.count;t<i;t++)for(let i=0;i<n;i++){let n=r.getComponent(t,i);s.setComponent(t+e,i,n)}}else o.set(r.array,c);c+=r.count*n}return i!==void 0&&(s.gpuType=i),s}export{Ha as $,Ai as A,zn as B,Z as C,is as D,ia as E,ut as F,ps as G,Ia as H,Y as I,It as J,na as K,Mr as L,Ri as M,Aa as N,Oo as O,Xi as P,ti as Q,sr as R,To as S,Li as T,Jr as U,ko as V,Ao as W,jo as X,e as Y,Me as Z,za as _,Ju as a,Le as at,Va as b,Ru as c,fr as ct,br as d,Mo as et,oa as f,X as g,vs as h,Xu as i,ai as it,Ki as j,Si as k,Fr as l,W as lt,La as m,Zu as n,Po as nt,qu as o,Fo as ot,ga as p,Zi as q,Qu as r,yi as rt,Wu as s,Io as st,$u as t,rn as tt,ur as u,J as ut,Ra as v,ei as w,Re as x,gs as y,Ro as z};

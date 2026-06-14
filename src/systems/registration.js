@@ -16,7 +16,7 @@ export const nearest = {
   puffDist2: Infinity, puffPos: { x: 0, z: 0 },
   jellyDist2: Infinity, jellyPos: { x: 0, z: 0 },
   deerDist2: Infinity, deerPos: { x: 0, z: 0 }, deerWanderAng: 0,
-  mothDist2: Infinity, mothPos: { x: 0, z: 0 },
+  mothDist2: Infinity, mothPos: { x: 0, z: 0, y: 0 },
   luminidDist2: Infinity, luminidPos: { x: 0, z: 0 },
 };
 

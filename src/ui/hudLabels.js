@@ -21,15 +21,20 @@ export const WEATHER_LABELS = {
 
 /**
  * @param {string} questPhase exported quest phase id (e.g. SEEK, RISING)
+ * @param {function():string} [seekLabelFn] optional callback that returns the
+ *   tiered SEEK-phase label (from discoveries.getSeekHudLabel). When provided
+ *   and questPhase is 'SEEK', its return value is used instead of the static
+ *   fallback — so a stuck player eventually sees the required creature name.
  */
-export function formatQuestHudTitle(questPhase) {
-  return questPhase === 'SEEK'
-    ? 'Seek the orbs...'
-    : questPhase === 'RISING'
-      ? 'The obelisk stirs...'
-      : questPhase === 'COMPLETE'
-        ? 'Convergence!'
-        : 'Luminaries';
+export function formatQuestHudTitle(questPhase, seekLabelFn) {
+  if (questPhase === 'SEEK') {
+    return (seekLabelFn && seekLabelFn()) || 'Seek the orbs...';
+  }
+  return questPhase === 'RISING'
+    ? 'The obelisk stirs...'
+    : questPhase === 'COMPLETE'
+      ? 'Convergence!'
+      : 'Luminaries';
 }
 
 export function formatDayPhaseLabel(timePhase, labels = PHASE_LABELS) {

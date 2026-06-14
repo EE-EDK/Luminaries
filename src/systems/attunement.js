@@ -17,7 +17,7 @@
 //   We've started calling it "attunement." The creatures call it nothing.
 //   They just know.
 
-import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2, WEATHER_ATTUNE_MODS } from '../constants.js';
+import { ATTUNE_RATE, ATTUNE_DECAY, ATTUNE_JUMP_R2, WEATHER_ATTUNE_MODS, EYE_H } from '../constants.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
 
@@ -25,13 +25,13 @@ import { isLocked, getLockType, resetLock, refreshLock } from './spiritHum.js';
 // Constants
 // ================================================================
 const JELLY_R2 = 100;       // 10m squared — must be within 10m
-const DEER_R2_MIN = 64;     // 8m squared — must be 8-12m away
-const DEER_R2_MAX = 144;    // 12m squared
+const DEER_R2_MIN = 64;     // 8m squared — must be 8-15m away
+const DEER_R2_MAX = 225;    // 15m squared (widened: calmed deer needs room to walk alongside)
 const MOTH_R2 = 64;         // 8m squared — must be within 8m
 const JELLY_RHYTHM = 2.0;   // expected pulse interval in seconds
 const JELLY_TOLERANCE = 0.42; // ± tolerance (s) — rhythm clicks are forgiving on keyboard/mouse
 const JELLY_PRIME_CAP = 0.34; // slow build while locked+near so ritual/gather can start before full cadence
-const JELLY_POST_ATTUNE_WINDOW = 4.0; // must pulse every 4s once jelly-attuned (enough time to walk to an orb)
+const JELLY_POST_ATTUNE_WINDOW = 9.5; // must pulse every ~9.5s once jelly-attuned; auto-refreshes near jelly
 const DEER_ANGLE_TOL = 0.785; // ±45° (π/4 radians)
 
 // ================================================================
@@ -77,7 +77,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     nearestJellyDist2, nearestJellyPos,
     nearestDeerDist2, nearestDeerPos, nearestDeerWanderAng,
     nearestMothDist2, nearestMothPos,
-    playerYaw, playerSpeed, pulsePressed, sprinting,
+    playerYaw, playerPitch = 0, playerSpeed, pulsePressed, sprinting,
     playerX, playerZ, time
   } = creatureData;
   const pulseEdge = pulsePressed && !_jellyLastPulseInput;
@@ -95,7 +95,15 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     if (pulseEdge) {
       _jellyPostTimer = JELLY_POST_ATTUNE_WINDOW;
       _jellySyncFlash = 0.35;
-    } else if (_jellyPostTimer <= 0) {
+    } else {
+      // Auto-refresh: player carrying jelly frequency near any jelly (~12m) keeps the window alive
+      // so they aren't punished for walking carefully to an orb through the forest.
+      const _jellyNearby = nearestJellyDist2 < 144 && nearestJellyDist2 < Infinity; // 12m squared
+      if (_jellyNearby && _jellyPostTimer < JELLY_POST_ATTUNE_WINDOW) {
+        _jellyPostTimer = Math.min(JELLY_POST_ATTUNE_WINDOW, _jellyPostTimer + dt);
+      }
+    }
+    if (_jellyPostTimer <= 0) {
       // Missed beat: frequency collapses and player must re-attune from scratch.
       playerFrequency = null;
       attunement = 0;
@@ -165,14 +173,26 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
 
   // --- Moth: Move laterally within 8m + look toward moth (requires pitch-lock to moth) ---
   if (!matchType && _locked && _lockTarget === 'moth' && nearestMothDist2 < MOTH_R2 && nearestMothDist2 < Infinity && playerSpeed > 0.5) {
-    // Check if player is looking toward moth (angle between look direction and direction to moth < 60°)
+    // 3D gaze check: compute full angle between player look direction and direction to moth.
+    // playerPitch is camera.rotation.x in radians (negative = up, clamped ±1 rad ≈ ±57°), passed in via creatureData.
+    // nearestMothPos.y may be present (if caller provides it); fall back to hovering ~2m above eye.
     const toMothX = nearestMothPos.x - playerX;
     const toMothZ = nearestMothPos.z - playerZ;
-    const toMothAng = Math.atan2(toMothX, toMothZ);
-    let lookDiff = playerYaw - toMothAng;
-    while (lookDiff > Math.PI) lookDiff -= 2 * Math.PI;
-    while (lookDiff < -Math.PI) lookDiff += 2 * Math.PI;
-    if (Math.abs(lookDiff) < 1.047) { // ~60° (π/3)
+    const _mothY = nearestMothPos.y !== undefined ? nearestMothPos.y : (EYE_H + 2.0);
+    const toMothY = _mothY - EYE_H; // dy from player eye to moth
+    // Squared horizontal distance already known (nearestMothDist2); full 3D distance squared:
+    const toMothLen2 = nearestMothDist2 + toMothY * toMothY;
+    // Player look vector (Three.js camera: rotation.x is pitch, rotation y handled by yaw wrapper)
+    // lookDir = (sin(yaw)*cos(pitch), -sin(pitch), cos(yaw)*cos(pitch))
+    const _cosPitch = Math.cos(playerPitch);
+    const lookX = Math.sin(playerYaw) * _cosPitch;
+    const lookY = -Math.sin(playerPitch);
+    const lookZ = Math.cos(playerYaw) * _cosPitch;
+    // Dot product of look direction (unit) with direction to moth (not normalized)
+    const dot = lookX * toMothX + lookY * toMothY + lookZ * toMothZ;
+    // dot / |toMoth| = cos(angle); angle < 60° iff cos(angle) > 0.5 iff dot > 0.5 * |toMoth|
+    // Squared check: dot > 0 AND dot² > 0.25 * toMothLen2 (avoids sqrt in hot path)
+    if (dot > 0 && dot * dot > 0.25 * toMothLen2) { // cos²(60°) = 0.25
       matchType = 'moth';
     }
   }
@@ -310,6 +330,12 @@ export function checkFlash() {
 
 export function getJellySyncFlash() {
   return _jellySyncFlash;
+}
+
+/** Returns remaining seconds of the post-attune jelly carry window (0 if not in jelly-carry mode). */
+export function getJellyPostTimer() {
+  if (playerFrequency !== 'jelly') return 0;
+  return Math.max(0, _jellyPostTimer);
 }
 
 /** DEV: full creature carrier + attunement bar (jelly post-attune timer held high). */

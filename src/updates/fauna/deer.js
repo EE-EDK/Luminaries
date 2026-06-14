@@ -6,6 +6,7 @@ import { WORLD_R, DEER_FLEE_R, DEER_FLEE_SPEED_MULT } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
 import { getAttunement, getAttunementTarget } from '../../systems/attunement.js';
+import { isLocked, getLockType } from '../../systems/spiritHum.js';
 import { canSee, canHear } from '../../systems/ai/senses.js';
 import { emit, Events } from '../../kernel/eventBus.js';
 import { separation, cohesion, worldBounds, avoidObstacles } from '../../systems/ai/steering.js';
@@ -39,6 +40,10 @@ const _DEER_NEIGHBOR_R2 = _DEER_NEIGHBOR_R * _DEER_NEIGHBOR_R;
 
 export function updateDeers(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  // Deer-attunement calming: when pitch-locked to 'deer', deer sense the player's harmonic
+  // resonance and become less skittish — allowing the player to walk alongside at 8-15m.
+  // Gated STRICTLY on lock-to-deer so normal deer behavior is UNCHANGED otherwise.
+  const _deerLocked = isLocked() && getLockType() === 'deer';
 
   // Spatial hash over deer positions — O(k) same-type neighbor queries replace
   // the former O(n²) inner scans. Cell ≈ neighbor radius so each query touches
@@ -60,7 +65,9 @@ export function updateDeers(dt, t) {
     if (pDist2 > 3600) { g.visible = false; continue; }
     g.visible = true;
 
-    if (d.state !== 'flee' && pDist2 < nearestDist2) {
+    // When pitch-locked to deer, track nearest deer regardless of flee state so the player
+    // can match headings with a deer that was fleeing but is now calming down.
+    if ((d.state !== 'flee' || _deerLocked) && pDist2 < nearestDist2) {
       nearestDist2 = pDist2;
       nearestPos.x = gx;
       nearestPos.y = g.position.y;
@@ -70,9 +77,12 @@ export function updateDeers(dt, t) {
 
     const pAng = Math.atan2(ddx, ddz);
     const curiousFrac = Math.min(Math.max(playerIdleTime - 5, 0) / 3, 1);
-    const alertR = sprinting ? 18 : (12 - curiousFrac * 4);
+    // When pitch-locked to deer, shrink alert and flee radii so the player can walk
+    // within the attunement band (8-15m) without spooking the deer.
+    // Normal (non-locked) behavior is UNCHANGED.
+    const alertR = _deerLocked ? 5 : (sprinting ? 18 : (12 - curiousFrac * 4));
     const alertR2 = alertR * alertR;
-    const fleeR = sprinting ? 10 : (DEER_FLEE_R - curiousFrac * 4);
+    const fleeR  = _deerLocked ? 3 : (sprinting ? 10 : (DEER_FLEE_R - curiousFrac * 4));
     const fleeR2 = fleeR * fleeR;
 
     // Terrain height

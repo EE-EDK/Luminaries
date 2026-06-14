@@ -204,6 +204,7 @@ function updateMoths(dt, t) {
   nearest.mothDist2 = result.nearestDist2;
   nearest.mothPos.x = result.nearestPos.x;
   nearest.mothPos.z = result.nearestPos.z;
+  nearest.mothPos.y = result.nearestPos.y; // moth hover height — accurate 3D gaze check in attunement
 }
 
 function updateLuminids(dt, t) {
@@ -820,7 +821,7 @@ try {
     playLaserZap: playLaserZap,
     playLaserHum: playLaserHum,
     stopLaserHums: stopLaserHums,
-    showOrbRejectHint: (got) => showOrbRejectHint(got),
+    showOrbRejectHint: (required, got) => showOrbRejectHint(required, got),
     showOrbListening: () => showOrbListening(),
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,

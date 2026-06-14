@@ -5,6 +5,8 @@ import { emit, Events } from '../kernel/eventBus.js';
 import { QuestPhases, QUEST_CONFIG, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getPlayerFrequency, consumeFrequency } from '../systems/attunement.js';
 import { freeGrabMode } from '../debug/debugFlags.js';
+import { ORB_TOUCH_R } from '../constants.js';
+import { primeHumForCreature } from '../systems/spiritHum.js';
 
 const RUNG_H = 25 / QUEST_CONFIG.ORBS_REQUIRED;
 
@@ -187,7 +189,7 @@ export function attemptCollectOrb(index, playerPos) {
   const dx = o.x - playerPos.x;
   const dz = o.z - playerPos.z;
   const distSq = dx * dx + dz * dz;
-  const touchR = 2.0; // ORB_TOUCH_R
+  const touchR = ORB_TOUCH_R;
 
   if (distSq < touchR * touchR) {
     const freq = freeGrabMode ? (ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)] || 'any') : getPlayerFrequency();
@@ -223,7 +225,11 @@ export function attemptCollectOrb(index, playerPos) {
         creatureType: freq
       });
 
-      if (!freeGrabMode) consumeFrequency();
+      if (!freeGrabMode) {
+        consumeFrequency();
+        const next = ORB_CREATURE_SEQUENCE[Math.min(_orbsFound, ORB_CREATURE_SEQUENCE.length - 1)];
+        primeHumForCreature(next);
+      }
       return true;
     } else {
       if (_rejectCooldown <= 0) {

@@ -18,6 +18,7 @@ import {
 import { sr } from './utils/rng.js';
 import { getGroundY, getMeshGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
 import { placePufflingHomeClusters, getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
+import { ORB_CREATURE_SEQUENCE } from './quest/config.js';
 
 // ================================================================
 // Slope tilt helpers — for aligning entities to terrain contour
@@ -486,6 +487,69 @@ export function populate(arrays, builders, scene) {
       orbs.push(o);
     }
   }
+  // ================================================================
+  // Orb–creature proximity guarantee (Slice H)
+  // For each gated orb (ORB_CREATURE_SEQUENCE index 1→jelly, 2→deer, 3→moth),
+  // ensure at least one creature of the required type has its home within
+  // GUARANTEE_R (18 m, inside the 20 m spirit-hum resonance range).
+  // If none exists, nudge/spawn one using seeded sr() at 12–16 m from the orb.
+  // ================================================================
+  const GUARANTEE_R2 = 324; // 18² — must be < RESONANCE_RANGE2 (400 = 20²)
+  for (let oi = 0; oi < orbs.length; oi++) {
+    const req = ORB_CREATURE_SEQUENCE[oi]; // 'any', 'jelly', 'deer', or 'moth'
+    if (req === 'any') continue;
+    const ob = orbs[oi];
+    const ox = ob.x, oz = ob.z;
+    let found = false;
+    if (req === 'jelly') {
+      for (let ji = 0; ji < jellies.length; ji++) {
+        const j = jellies[ji];
+        const dx = j.homeX - ox, dz = j.homeZ - oz;
+        if (dx * dx + dz * dz < GUARANTEE_R2) { found = true; break; }
+      }
+      if (!found) {
+        // Spawn a guarantee jelly within 12-16 m of the orb
+        const ga = sr() * 6.28, gd = 12 + sr() * 4;
+        const gx = ox + Math.cos(ga) * gd, gz = oz + Math.sin(ga) * gd;
+        const gy = getGroundY(gx, gz) + 3 + sr() * 2;
+        jellies.push(makeJelly(gx, gy, gz));
+      }
+    } else if (req === 'deer') {
+      for (let di = 0; di < deers.length; di++) {
+        const d = deers[di];
+        const dx = d.homeX - ox, dz = d.homeZ - oz;
+        if (dx * dx + dz * dz < GUARANTEE_R2) { found = true; break; }
+      }
+      if (!found) {
+        // Spawn a guarantee deer within 12-16 m of the orb (up to 8 attempts)
+        for (let ga2 = 0; ga2 < 8; ga2++) {
+          const ga = sr() * 6.28, gd = 12 + sr() * 4;
+          const gx = ox + Math.cos(ga) * gd, gz = oz + Math.sin(ga) * gd;
+          if (inKeepOut(gx, gz)) continue;
+          const de = makeDeer(gx, gz);
+          const deerY = getGroundY(gx, gz);
+          de.group.position.y = deerY;
+          de._baseY = deerY;
+          deers.push(de);
+          break;
+        }
+      }
+    } else if (req === 'moth') {
+      for (let mi = 0; mi < moths.length; mi++) {
+        const m = moths[mi];
+        const dx = m.centerX - ox, dz = m.centerZ - oz;
+        if (dx * dx + dz * dz < GUARANTEE_R2) { found = true; break; }
+      }
+      if (!found) {
+        // Spawn a guarantee moth within 12-16 m of the orb
+        const ga = sr() * 6.28, gd = 12 + sr() * 4;
+        const gx = ox + Math.cos(ga) * gd, gz = oz + Math.sin(ga) * gd;
+        const gy = getGroundY(gx, gz) + 2 + sr() * 2;
+        moths.push(makeMoth(gx, gy, gz));
+      }
+    }
+  }
+
   // Wisps (float above terrain)
   for (let i = 0; i < WISP_N; i++) {
     const wa = sr() * 6.28, wd = 2 + sr() * 3;

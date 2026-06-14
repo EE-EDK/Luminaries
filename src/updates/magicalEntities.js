@@ -14,23 +14,57 @@ import { keys, touchSprint } from '../core/input.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { orbBoost, setBubblePulse } from '../state/gameState.js';
 import { getRainRate } from '../systems/weather.js';
-import { getQuestPhase } from '../quest/questState.js';
+import { getQuestPhase, getOrbsFound } from '../quest/questState.js';
+import { ORB_CREATURE_SEQUENCE } from '../quest/config.js';
 import { wisps, fairyRings, bubbles, ponds, orbs, crys_data, mush_data, flowers } from '../state/entityStore.js';
 import { getEchoBloomRing, echoBloom } from '../entities/world/energyLines.js';
 import { playFairyBounce, playBubblePop } from '../systems/audio.js';
+import { nearest } from '../systems/registration.js';
+
+// Pre-allocated scratch for wisp creature-guide target (no per-frame allocations)
+const _creatureGuidePos = { x: 0, z: 0 };
 
 export function updateWisps(dt, t) {
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
   const carriedFreq = getPlayerFrequency();
   let guideOrb = null;
+  let guideCreatureType = null; // set when wisp should lead to a creature instead
   const qp = getQuestPhase();
-    if ((playerIdleTime > 5 || carriedFreq) && (qp === 'SEEK' || qp === 'RISING')) {
-    let bestD = Infinity;
-    for (let oi = 0; oi < orbs.length; oi++) {
-      if (orbs[oi].found) continue;
-      const odx = orbs[oi].x - player.pos.x, odz = orbs[oi].z - player.pos.z;
-      const od2 = odx * odx + odz * odz;
-      if (od2 < bestD) { bestD = od2; guideOrb = orbs[oi]; }
+  if ((playerIdleTime > 5 || carriedFreq) && (qp === 'SEEK' || qp === 'RISING')) {
+    // Determine which creature type the next orb requires
+    const orbsFound = getOrbsFound();
+    const seqIdx = Math.min(orbsFound, ORB_CREATURE_SEQUENCE.length - 1);
+    const required = ORB_CREATURE_SEQUENCE[seqIdx];
+
+    // If the player doesn't yet carry the required frequency, guide toward that creature
+    if (required !== 'any' && carriedFreq !== required) {
+      // Use nearest creature positions from registration (pre-updated each frame)
+      let creaturePos = null;
+      if (required === 'jelly') {
+        if (nearest.jellyDist2 < Infinity) creaturePos = nearest.jellyPos;
+      } else if (required === 'deer') {
+        if (nearest.deerDist2 < Infinity) creaturePos = nearest.deerPos;
+      } else if (required === 'moth') {
+        if (nearest.mothDist2 < Infinity) creaturePos = nearest.mothPos;
+      } else if (required === 'puff') {
+        if (nearest.puffDist2 < Infinity) creaturePos = nearest.puffPos;
+      }
+      if (creaturePos) {
+        _creatureGuidePos.x = creaturePos.x;
+        _creatureGuidePos.z = creaturePos.z;
+        guideCreatureType = required;
+      }
+    }
+
+    // Fall through to orb guidance if creature guidance is not active
+    if (!guideCreatureType) {
+      let bestD = Infinity;
+      for (let oi = 0; oi < orbs.length; oi++) {
+        if (orbs[oi].found) continue;
+        const odx = orbs[oi].x - player.pos.x, odz = orbs[oi].z - player.pos.z;
+        const od2 = odx * odx + odz * odz;
+        if (od2 < bestD) { bestD = od2; guideOrb = orbs[oi]; }
+      }
     }
   }
   for (let i = 0; i < wisps.length; i++) {
@@ -41,7 +75,15 @@ export function updateWisps(dt, t) {
     w.targetX = player.pos.x + Math.cos(orbitAng) * orbitR;
     w.targetY = player.pos.y - EYE_H + orbitY;
     w.targetZ = player.pos.z + Math.sin(orbitAng) * orbitR;
-    if (i === 0 && guideOrb) {
+    if (i === 0 && guideCreatureType) {
+      // Lead toward nearest creature of the required type
+      const guideFrac = Math.min((playerIdleTime - 5) / 3, 0.6);
+      const midX = (player.pos.x + _creatureGuidePos.x) * 0.5;
+      const midZ = (player.pos.z + _creatureGuidePos.z) * 0.5;
+      w.targetX += (midX - player.pos.x) * guideFrac;
+      w.targetZ += (midZ - player.pos.z) * guideFrac;
+      w.targetY += 0.5;
+    } else if (i === 0 && guideOrb) {
       const guideFrac = carriedFreq ? 0.5 : Math.min((playerIdleTime - 5) / 3, 0.6);
       const midX = (player.pos.x + guideOrb.x) * 0.5;
       const midZ = (player.pos.z + guideOrb.z) * 0.5;

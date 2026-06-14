@@ -26,6 +26,28 @@ export const QUEST_CONFIG = {
 // Orb 1 accepts any carried frequency (onboarding). Orb 5 also accepts any.
 export const ORB_CREATURE_SEQUENCE = ['any', 'jelly', 'deer', 'moth', 'any'];
 
+/**
+ * Display names for creature types, keyed by the ORB_CREATURE_SEQUENCE id.
+ * Used by reject-hint and seek-HUD copy so players see a concrete species name
+ * once they've been stuck long enough to earn the explicit tier.
+ */
+export const CREATURE_NAMES = {
+  child: {
+    jelly: 'jellyfish',
+    deer:  'deer',
+    moth:  'moon moth',
+    puff:  'puffling',
+    any:   'a forest friend',
+  },
+  adult: {
+    jelly: 'bioluminescent drifter',
+    deer:  'biological metronome',
+    moth:  'orbital pollinator',
+    puff:  'micro-fauna',
+    any:   'any authenticated carrier',
+  },
+};
+
 // Shown by orb count (0–4): mood of what the next sleeper asks for—no species or recipe.
 export const ORB_STAGE_HINTS = {
   child: [

@@ -5,7 +5,7 @@
 // response to creature attunement events.
 
 import { player } from '../core/player.js';
-import { keys, touchSprint, yaw, mouseDown, touchJump } from '../core/input.js';
+import { keys, touchSprint, yaw, pitch, mouseDown, touchJump } from '../core/input.js';
 import { updateAttunement, getAttunementTarget, getFlashCreaturePos, checkFlash } from '../systems/attunement.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
@@ -41,7 +41,7 @@ export function updateAttunementVisuals(dt, t, ctx) {
     nearestJellyDist2: nearest.jellyDist2, nearestJellyPos: nearest.jellyPos,
     nearestDeerDist2: nearest.deerDist2, nearestDeerPos: nearest.deerPos, nearestDeerWanderAng: nearest.deerWanderAng,
     nearestMothDist2: nearest.mothDist2, nearestMothPos: nearest.mothPos,
-    playerYaw: yaw, playerSpeed: _attuneSpeed, pulsePressed: !!mouseDown || !!touchJump,
+    playerYaw: yaw, playerPitch: pitch, playerSpeed: _attuneSpeed, pulsePressed: !!mouseDown || !!touchJump,
     sprinting: _attuneSprinting,
     playerX: _pX, playerZ: _pZ, time: t
   }, ctx);

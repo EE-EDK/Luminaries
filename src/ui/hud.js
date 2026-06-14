@@ -1,6 +1,7 @@
 import { getQuestPhase } from '../quest/questState.js';
 import { phase as timePhase } from '../systems/dayNightCycle.js';
 import { weatherState } from '../systems/weather.js';
+import { getSeekHudLabel } from '../systems/discoveries.js';
 import {
   formatDayPhaseLabel,
   formatQuestHudTitle,
@@ -43,7 +44,7 @@ export function initHUD() {
 export function updateHUD(dt, playerPos) {
   if (!hudEl) return;
   fpsS = fpsS * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
-  const qLabel = formatQuestHudTitle(getQuestPhase());
+  const qLabel = formatQuestHudTitle(getQuestPhase(), getSeekHudLabel);
   const tLabel = formatDayPhaseLabel(timePhase);
   const wLabel = formatWeatherLabel(weatherState);
 

@@ -17,6 +17,11 @@
 //   with rings of light we'd never documented.
 //   She walked beside them, humming their note. For 12 seconds,
 //   three species existed as one frequency.
+//
+// B4: Magnetic snap resolves ties by nearest creature (not fixed array order).
+// B2: Far-field hint (20–40 m) surfaces pitch match without granting lock.
+// C2: primeHumForCreature() nudges pitch toward a band center before lock.
+// New exports: primeHumForCreature, getFarFieldHint, getLockDecay.
 
 import { emit, Events } from '../kernel/eventBus.js';
 import {
@@ -34,8 +39,18 @@ const BANDS = [
   { center: HUM_BAND_PUFF.center,  tol: HUM_BAND_PUFF.tol,  type: 'puff' },
 ];
 
-// Creature proximity threshold for resonance (squared, 20m)
+// Creature proximity threshold for close-range resonance / lock (squared, 20m)
 const RESONANCE_RANGE2 = 400;
+// Far-field: in-band but creature 20–40 m away — hint only, no lock granted
+const FAR_FIELD_MIN2 = 400;   // > 20 m (exclusive — within this = close range)
+const FAR_FIELD_MAX2 = 1600;  // < 40 m (inclusive)
+
+// Pre-allocated scratch for getFarFieldHint (no per-call allocation)
+const _farFieldResult = { type: null, dist: 0 };
+
+// Last nearestCreatures snapshot — updated each frame by updateHum so
+// getFarFieldHint can be called from outside the update (e.g., visuals frame).
+let _lastNearestCreatures = { deerDist2: Infinity, jellyDist2: Infinity, mothDist2: Infinity, puffDist2: Infinity };
 
 // ================================================================
 // State
@@ -69,6 +84,8 @@ export function stopHum() {
 // nearestCreatures: { deerDist2, jellyDist2, mothDist2, puffDist2 }
 export function updateHum(dt, inputY, nearestCreatures) {
   _justLocked = false;
+  // Keep snapshot current for getFarFieldHint (called by visuals outside update)
+  _lastNearestCreatures = nearestCreatures;
 
   // Handle lock decay when not humming
   if (pitchLocked && !humActive) {
@@ -91,7 +108,10 @@ export function updateHum(dt, inputY, nearestCreatures) {
   // Invert: top of screen = high pitch
   humTarget = HUM_FREQ_MAX - inputY * (HUM_FREQ_MAX - HUM_FREQ_MIN);
 
-  // Magnetic snapping — gently pull toward nearby creature band center
+  // Magnetic snapping — pull toward the in-range band whose creature is NEAREST
+  // (B4: resolve overlap ties by proximity, not fixed array order)
+  let _snapBest = null;
+  let _snapBestDist2 = Infinity;
   for (let i = 0; i < BANDS.length; i++) {
     const band = BANDS[i];
     const delta = Math.abs(humTarget - band.center);
@@ -104,9 +124,15 @@ export function updateHum(dt, inputY, nearestCreatures) {
       case 'puff':  dist2 = nearestCreatures.puffDist2;  break;
     }
     if (dist2 > RESONANCE_RANGE2) continue;
-    const proximity = 1.0 - delta / (band.tol * 1.5);
-    humTarget += (band.center - humTarget) * 0.25 * proximity;
-    break;
+    if (dist2 < _snapBestDist2) {
+      _snapBestDist2 = dist2;
+      _snapBest = band;
+    }
+  }
+  if (_snapBest !== null) {
+    const delta = Math.abs(humTarget - _snapBest.center);
+    const proximity = 1.0 - delta / (_snapBest.tol * 1.5);
+    humTarget += (_snapBest.center - humTarget) * 0.25 * proximity;
   }
 
   // Smooth pitch glide (~80ms time constant)
@@ -204,6 +230,70 @@ export function getLockProgress() {
 
 export function justLocked() {
   return _justLocked;
+}
+
+// ----------------------------------------------------------------
+// getLockDecay — remaining lock-decay seconds (0 when not locked)
+// Used by visuals to show how long the lock persists.
+// ----------------------------------------------------------------
+export function getLockDecay() {
+  return pitchLocked ? Math.max(0, lockDecay) : 0;
+}
+
+// ----------------------------------------------------------------
+// getFarFieldHint — B2: pitch is inside a creature band but nearest
+// creature is in the far-field range (20–40 m). Returns
+// {type, dist} so the visuals layer can show "get closer" cue,
+// OR null when no such condition applies.
+//
+// Uses the pre-allocated _farFieldResult object (no per-frame alloc).
+// Only meaningful while humming and not already locked.
+// ----------------------------------------------------------------
+export function getFarFieldHint() {
+  if (!humActive || pitchLocked) return null;
+
+  for (let i = 0; i < BANDS.length; i++) {
+    const band = BANDS[i];
+    const delta = Math.abs(humPitch - band.center);
+    if (delta >= band.tol) continue; // not in this band
+
+    let dist2 = Infinity;
+    switch (band.type) {
+      case 'deer':  dist2 = _lastNearestCreatures.deerDist2;  break;
+      case 'moth':  dist2 = _lastNearestCreatures.mothDist2;  break;
+      case 'jelly': dist2 = _lastNearestCreatures.jellyDist2; break;
+      case 'puff':  dist2 = _lastNearestCreatures.puffDist2;  break;
+    }
+
+    if (dist2 > FAR_FIELD_MIN2 && dist2 <= FAR_FIELD_MAX2) {
+      _farFieldResult.type = band.type;
+      _farFieldResult.dist = Math.sqrt(dist2); // acceptable: called by UI, not per-frame hot path
+      return _farFieldResult;
+    }
+  }
+  return null;
+}
+
+// ----------------------------------------------------------------
+// primeHumForCreature — C2: nudge humPitch and humTarget to ~80% of
+// the way toward a creature's band center so the player starts near
+// the right frequency after consuming an orb, without auto-locking.
+// No-op for null / 'any' / unknown types.
+// ----------------------------------------------------------------
+export function primeHumForCreature(type) {
+  if (!type || type === 'any') return;
+  let band = null;
+  for (let i = 0; i < BANDS.length; i++) {
+    if (BANDS[i].type === type) { band = BANDS[i]; break; }
+  }
+  if (!band) return;
+
+  // Place pitch 40% of tolerance ABOVE center (slightly off-center so
+  // the player must make a small intentional adjustment to lock).
+  const offset = band.tol * 0.40;
+  const target = band.center + offset;
+  humPitch = target;
+  humTarget = target;
 }
 
 // Reset — called when frequency is consumed (orb collected)

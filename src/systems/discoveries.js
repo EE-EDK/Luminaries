@@ -3,7 +3,7 @@
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
 import { getPerspective, isDiscovered, isTruthRevealed, markDiscovered } from '../state/narrativeState.js';
-import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS } from '../quest/config.js';
+import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, CREATURE_NAMES } from '../quest/config.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
@@ -259,18 +259,19 @@ let hintCooldown = 0;
 let stageHintTimer = 0;
 let lastStageHintOrbCount = -1;
 
+// Tiers 0-2 are poetic/cryptic; tier 3 uses a {creature} placeholder filled at runtime.
 const SEEK_HUD_LABELS = {
   child: [
     'The needle dreams of five stolen sparks...',
     'Five gold sleeps wait—each yields to a borrowed voice.',
     'Seek five sun-seeds; wake them in the grove’s order.',
-    'Find five glowing orbs—match each stage’s creature song.',
+    'Find a {creature}—borrow its hum, then touch the orb.',
   ],
   adult: [
     'Lattice: five dormant anchor ignitions.',
     'Five offline nodes—staged bio-keys required.',
     'Recover five resonance anchors in enforced order.',
-    'Quest: five gold orbs—correct carrier per stage.',
+    'Attune to {creature}, then collect the next orb.',
   ],
 };
 
@@ -284,12 +285,22 @@ export function getHintClarityTier(idleTime) {
   return Math.min(3, base + sessionBump);
 }
 
-/** SEEK-phase HUD line — escalates with the same tier model as idle hints. */
+/** SEEK-phase HUD line — escalates with the same tier model as idle hints.
+ *  Tier 3 (most explicit) injects the required creature name so a stuck player
+ *  eventually sees the concrete species they need to attune to. */
 export function getSeekHudLabel() {
   const perspective = getPerspective();
   const tier = getHintClarityTier(playerIdleTime);
   const rows = SEEK_HUD_LABELS[perspective] || SEEK_HUD_LABELS.child;
-  return rows[tier];
+  let label = rows[tier];
+  if (label && label.indexOf('{creature}') !== -1) {
+    const orbCount = getOrbsFound();
+    const creatureKey = ORB_CREATURE_SEQUENCE[Math.min(orbCount, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
+    const names = CREATURE_NAMES[perspective] || CREATURE_NAMES.child;
+    const creatureName = names[creatureKey] || creatureKey;
+    label = label.replace('{creature}', creatureName);
+  }
+  return label;
 }
 
 /**
@@ -307,7 +318,7 @@ export function checkIdleHints(idleTime, dt = 0.016) {
   }
   if (orbCount < 5) {
     stageHintTimer += dt;
-    if (stageHintTimer >= 300) {
+    if (stageHintTimer >= 60) {
       const perspective = getPerspective();
       const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
       const nextHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
@@ -332,22 +343,47 @@ export function checkIdleHints(idleTime, dt = 0.016) {
 // ================================================================
 // Orb Interaction Hints
 // ================================================================
-export function showOrbRejectHint(got) {
+/**
+ * Shown when the player touches an orb but doesn't have the right frequency.
+ * @param {string} required  creature key required by this orb ('jelly'|'deer'|'moth'|'puff'|'any')
+ * @param {string|null} got  creature key the player is carrying, or null if no carrier
+ */
+export function showOrbRejectHint(required, got) {
   const perspective = getPerspective();
-  const orbCount = getOrbsFound();
-  const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
-  const stageHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
-  let text;
-  if (!got) {
-    text = perspective === 'child'
+  const names = CREATURE_NAMES[perspective] || CREATURE_NAMES.child;
+  const requiredName = names[required] || required || 'a forest friend';
+
+  let rejectText;
+  if (got === null || got === undefined) {
+    // No carrier at all — tell them which species to find
+    rejectText = perspective === 'child'
+      ? `The orb hums quietly... seek a ${requiredName} and hum with it first`
+      : `No carrier frequency — attune to ${requiredName} before approaching`;
+  } else if (required === 'any') {
+    // 'any' slot rejected — shouldn't normally happen; fall back gracefully
+    rejectText = perspective === 'child'
       ? 'The orb hums quietly... it wants to hear you hum back'
       : 'No carrier frequency detected — initiate spirit hum [F]';
   } else {
-    text = perspective === 'child'
-      ? 'The orb doesn\'t recognize that sound...'
-      : 'Frequency mismatch — recalibrate resonance';
+    // Wrong creature — name both what they have and what's needed
+    const gotName = names[got] || got;
+    rejectText = perspective === 'child'
+      ? `The orb doesn't know that voice... it listens for a ${requiredName}`
+      : `Frequency mismatch — ${gotName} signal rejected; ${requiredName} signature required`;
   }
-  showNarrativeText(stageHint ? `${text} ${stageHint}` : text, 4.2);
+
+  // First call: show the reject reason immediately
+  showNarrativeText(rejectText, 4.2);
+
+  // Second call: follow up ~9 s later with the poetic stage hint
+  const orbCount = getOrbsFound();
+  const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
+  const stageHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
+  if (stageHint) {
+    // Reset stage hint timer so the next proactive hint doesn't double-fire too soon
+    stageHintTimer = 0;
+    setTimeout(() => { showNarrativeText(stageHint, 5.0); }, 9000);
+  }
 }
 
 export function showOrbListening() {

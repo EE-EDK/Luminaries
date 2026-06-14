@@ -11,13 +11,27 @@ import { setGroundTransform } from '../world/ground.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { revealConstellation } from '../world/sky.js';
 import { on, emit, Events } from '../kernel/eventBus.js';
-import { QuestPhases } from './config.js';
+import { QuestPhases, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getQuestState, getTimers, attemptCollectOrb } from './questState.js';
 import { transformSky } from '../world/sky.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(C.white);
 const _orbActivatedPink = new Color(C.orbActivatedPink);
+
+// Reject-flash scratch (C3) — pre-allocated, no loop allocs
+const _rejectFlashColor = new Color();
+// Map creature type → C key for reject flash and prospective rune tint
+function _creatureColor(type) {
+  if (type === 'jelly') return C.jellyGlow;
+  if (type === 'puff')  return C.puffGlow;
+  if (type === 'deer')  return C.deerGlow;
+  if (type === 'moth')  return C.mothGlow;
+  return C.orbGold; // 'any' → neutral gold
+}
+
+// Per-orb reject-flash timers (C3); keyed by orb index, value = remaining seconds
+const _orbRejectTimer = [];
 
 // References
 let orbs = [];
@@ -236,7 +250,10 @@ function onOrbCollected(d) {
 }
 
 function onOrbRejected(d) {
-  if (showOrbRejectHintFn) showOrbRejectHintFn(d.got);
+  // A1: forward required creature first, then got
+  if (showOrbRejectHintFn) showOrbRejectHintFn(d.required, d.got);
+  // C3: start a ~0.4 s reject-flash on the rejected orb
+  _orbRejectTimer[d.orbIndex] = 0.4;
 }
 
 function onOrbLaserStart(d) {
@@ -316,6 +333,20 @@ export function updateQuestVisuals(dt, t, ctx) {
         ch.position.z = Math.sin(sa) * 0.4;
         ch.position.y = Math.sin(sa * 2 + t) * 0.1;
       }
+
+      // C3: reject-flash — briefly pulse core toward required creature color
+      if (_orbRejectTimer[i] > 0) {
+        _orbRejectTimer[i] -= dt;
+        // rf: 1 at flash start → 0 at end (timer counts down from 0.4 to 0)
+        const rf = Math.max(_orbRejectTimer[i], 0) / 0.4;
+        const reqType = ORB_CREATURE_SEQUENCE[i];
+        _rejectFlashColor.set(_creatureColor(reqType));
+        // copy(white).lerp(creatureColor, rf): rf=1 → creature color peak; rf=0 → white (faded out)
+        o.coreMat.color.copy(_whiteColor).lerp(_rejectFlashColor, rf);
+        o.glowMat.opacity = Math.min(o.glowMat.opacity + rf * 0.45, 1.0);
+        o.hazeMat.opacity = Math.min(o.hazeMat.opacity + rf * 0.18, 0.6);
+        o.group.scale.setScalar(1.0 + rf * 0.12);
+      }
     }
 
     if (s.flashing) {
@@ -372,6 +403,30 @@ export function updateQuestVisuals(dt, t, ctx) {
     face.mat.opacity = fadeIn * 0.9 * pulse;
     if (face.mat.emissiveIntensity !== undefined) {
       face.mat.emissiveIntensity = fadeIn * (1.6 + pulse * 1.2);
+    }
+  }
+
+  // A3: Prospective rune pre-light — dim hint on the NEXT rune face (index orbsFound)
+  // showing the required creature's color at ~25% opacity to telegraph what's needed.
+  {
+    const nextFaceIdx = state.orbsFound;
+    if (nextFaceIdx < runeFaces.length) {
+      const nf = runeFaces[nextFaceIdx];
+      if (!nf.revealed) {
+        // Make meshes visible if not already (they start hidden)
+        for (let m = 0; m < nf.meshes.length; m++) {
+          if (!nf.meshes[m].visible) nf.meshes[m].visible = true;
+        }
+        const nextType = ORB_CREATURE_SEQUENCE[nextFaceIdx];
+        nf.mat.color.set(_creatureColor(nextType));
+        nf.mat.emissive.set(_creatureColor(nextType));
+        // Slow breathe at ~25% max opacity — clearly dim vs full reveal (0.9)
+        const breathe = Math.sin(t * 0.8 + nextFaceIdx * 1.57) * 0.04 + 0.21;
+        nf.mat.opacity = breathe;
+        if (nf.mat.emissiveIntensity !== undefined) {
+          nf.mat.emissiveIntensity = breathe * 0.6;
+        }
+      }
     }
   }
 

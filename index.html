@@ -41,6 +41,29 @@ canvas{display:block;cursor:crosshair}
 .hum-tick{position:absolute;left:46px;font-size:7px;color:#88ffcc;opacity:0.4;
   font-family:monospace;pointer-events:none}
 .hum-band{position:absolute;left:2px;width:24px;border-radius:12px;pointer-events:none}
+/* A6: creature labels on the band ticks — desktop only, shown when hum is armed */
+.hum-creature-label{position:absolute;left:60px;font-size:9px;font-family:monospace;
+  pointer-events:none;white-space:nowrap;opacity:0.85;display:flex;align-items:center;gap:4px}
+.hum-creature-swatch{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* B2: far-field "get closer" hint — sits just below the slider */
+#hum-farfield-hint{position:absolute;bottom:140px;left:8px;width:160px;
+  font-size:10px;font-family:monospace;color:#88ffcc;
+  background:rgba(0,8,4,.82);border:1px solid rgba(100,255,180,.2);
+  padding:4px 7px;border-radius:5px;z-index:151;pointer-events:none;
+  display:none;line-height:1.4;text-shadow:0 0 6px currentColor}
+/* C1: jelly post-attune countdown bar */
+#hum-jelly-bar{position:absolute;bottom:128px;left:8px;width:120px;
+  height:6px;border-radius:3px;z-index:151;pointer-events:none;
+  display:none;overflow:hidden;background:rgba(0,8,4,.6);
+  border:1px solid rgba(170,204,255,.3)}
+#hum-jelly-fill{height:100%;width:100%;border-radius:3px;
+  background:rgba(170,204,255,.7);transition:background .2s}
+/* lock-decay fade cue: pulsing aura on thumb */
+@keyframes hum-lock-fade-pulse{
+  0%{box-shadow:0 0 6px 3px var(--hum-fade-color,rgba(255,255,255,.6))}
+  50%{box-shadow:0 0 14px 7px var(--hum-fade-color,rgba(255,255,255,.9))}
+  100%{box-shadow:0 0 6px 3px var(--hum-fade-color,rgba(255,255,255,.6))}}
+#hum-thumb.lock-fading{animation:hum-lock-fade-pulse 0.6s ease-in-out infinite}
 #overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaffdd;
   font-size:24px;z-index:200;text-align:center;pointer-events:none;
   text-shadow:0 0 18px rgba(100,255,200,.5),0 0 36px rgba(50,200,150,.25);
@@ -69,7 +92,16 @@ canvas{display:block;cursor:crosshair}
 <div class="hum-tick" style="bottom:67px;color:#ccffaa">240</div>
 <div class="hum-tick" style="bottom:17px;color:#88ddff">120</div>
 <div id="hum-label">HUM</div>
+<!-- A6: per-band creature labels (desktop, shown when hum armed) -->
+<div class="hum-creature-label" id="hum-label-puff"  style="bottom:197px"><span class="hum-creature-swatch" style="background:#ffaa88"></span>puffling</div>
+<div class="hum-creature-label" id="hum-label-jelly" style="bottom:130px"><span class="hum-creature-swatch" style="background:#aaccff"></span>jellyfish</div>
+<div class="hum-creature-label" id="hum-label-moth"  style="bottom:67px" ><span class="hum-creature-swatch" style="background:#ccffaa"></span>moth</div>
+<div class="hum-creature-label" id="hum-label-deer"  style="bottom:17px" ><span class="hum-creature-swatch" style="background:#88ddff"></span>deer</div>
 </div>
+<!-- B2: far-field hint (outside slider div so it can overlay freely) -->
+<div id="hum-farfield-hint"></div>
+<!-- C1: jelly post-attune countdown bar -->
+<div id="hum-jelly-bar"><div id="hum-jelly-fill"></div></div>
 <div id="orb-hud" role="status" aria-live="polite">✦ 0 / 5</div>
 <div id="overlay" style="display:none">L U M I N A R I E S<div class="sub">tap or press any key</div></div>
 <script type="module" src="/src/main.js"></script>

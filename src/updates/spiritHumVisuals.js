@@ -6,7 +6,7 @@
 
 import { touchHum, touchHumY, keys, humFreqArmed, mobile } from '../core/input.js';
 import { HUM_FREQ_MIN, HUM_FREQ_MAX, HUM_KEY_RAMP_NORM_PER_S } from '../constants.js';
-import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked } from '../systems/spiritHum.js';
+import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked, getFarFieldHint, getLockDecay } from '../systems/spiritHum.js';
 import { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
@@ -14,6 +14,7 @@ import { getPerspective } from '../state/narrativeState.js';
 import { showNarrativeText } from '../systems/discoveries.js';
 import { setAttuneFlash, setHumResonance } from '../state/gameState.js';
 import { nearest } from '../systems/registration.js';
+import { getJellyPostTimer } from '../systems/attunement.js';
 
 // ================================================================
 // Local state (narrowest scope — only this module reads/writes)
@@ -24,14 +25,46 @@ let _humRingTimer = 0;
 let _desktopHumNorm = 0.5;
 
 // Slider DOM refs
-const _humThumbEl = document.getElementById('hum-thumb');
+const _humSliderEl    = document.getElementById('hum-slider');
+const _humThumbEl     = document.getElementById('hum-thumb');
+const _humFarfieldEl  = document.getElementById('hum-farfield-hint');
+const _humJellyBarEl  = document.getElementById('hum-jelly-bar');
+const _humJellyFillEl = document.getElementById('hum-jelly-fill');
+
+// A6: creature label elements (desktop band labels)
+const _humLabelEls = {
+  puff:  document.getElementById('hum-label-puff'),
+  jelly: document.getElementById('hum-label-jelly'),
+  moth:  document.getElementById('hum-label-moth'),
+  deer:  document.getElementById('hum-label-deer'),
+};
+
 const _humBandColors = {
   deer:  'rgba(136,221,255,',
   moth:  'rgba(204,255,170,',
   jelly: 'rgba(170,204,255,',
   puff:  'rgba(255,170,136,',
 };
+
+// A6: display names for creature types
+const _creatureNames = { deer: 'deer', moth: 'moth', jelly: 'jellyfish', puff: 'puffling' };
+
 let _humSliderDirty = false;
+
+// A6: dirty-check state for desktop slider visibility
+let _sliderDesktopVisible = false;
+
+// A6: dirty-check for thumb position (0–1 norm → bottom px within track height 280)
+let _lastThumbNorm = -1;
+
+// B2: dirty-check for far-field hint content
+let _lastFarfieldType = null;
+
+// C1: dirty-check for jelly bar
+let _lastJellyBarPct = -1;
+
+// lock-decay: dirty-check for fading class
+let _lastLockFading = false;
 
 // Lock narrative text
 const _lockTexts = {
@@ -45,6 +78,25 @@ const _lockTexts = {
 // Update — called once per frame from director
 // ================================================================
 export function updateSpiritHumVisuals(dt) {
+  // ----------------------------------------------------------------
+  // A6: Desktop slider visibility — show when humFreqArmed, hide when not.
+  // Mobile already manages its own display:block externally; we only act
+  // on desktop (mobile === false).
+  // ----------------------------------------------------------------
+  if (!mobile && _humSliderEl) {
+    const _shouldShow = !!humFreqArmed;
+    if (_shouldShow !== _sliderDesktopVisible) {
+      _sliderDesktopVisible = _shouldShow;
+      _humSliderEl.style.display = _shouldShow ? 'block' : 'none';
+      // Show/hide creature labels together with the slider
+      const _lblDisplay = _shouldShow ? 'flex' : 'none';
+      if (_humLabelEls.puff)  _humLabelEls.puff.style.display  = _lblDisplay;
+      if (_humLabelEls.jelly) _humLabelEls.jelly.style.display = _lblDisplay;
+      if (_humLabelEls.moth)  _humLabelEls.moth.style.display  = _lblDisplay;
+      if (_humLabelEls.deer)  _humLabelEls.deer.style.display  = _lblDisplay;
+    }
+  }
+
   const _humInput = touchHum || (!mobile && humFreqArmed);
   const _enterHum = _humInput && !_humWasActive;
   if (_humInput && !_humWasActive) {
@@ -68,6 +120,22 @@ export function updateSpiritHumVisuals(dt) {
   _humWasActive = _humInput;
 
   const _humInputY = touchHum ? touchHumY : _desktopHumNorm;
+
+  // ----------------------------------------------------------------
+  // A6: Live thumb position — dirty-checked, no per-frame DOM writes
+  // when pitch isn't moving. Track height = 280px; thumb height = 20px.
+  // norm 0 = top (high pitch) → bottom:260; norm 1 = bottom (low) → bottom:0
+  // ----------------------------------------------------------------
+  if (_humThumbEl && (_sliderDesktopVisible || touchHum)) {
+    const _tNorm = _humInputY;
+    if (Math.abs(_tNorm - _lastThumbNorm) > 0.003) {
+      _lastThumbNorm = _tNorm;
+      const _trackH = 280;
+      const _thumbH = 20;
+      const _bottomPx = Math.round((_trackH - _thumbH) * (1 - _tNorm));
+      _humThumbEl.style.bottom = _bottomPx + 'px';
+    }
+  }
 
   updateHum(dt, _humInputY, {
     deerDist2: nearest.deerDist2,
@@ -155,6 +223,76 @@ export function updateSpiritHumVisuals(dt) {
       _humThumbEl.style.boxShadow = 'none';
       _humThumbEl.style.transform = 'scale(1)';
       _humSliderDirty = false;
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // B2: Far-field "get closer" hint
+  // Read type/dist from the shared singleton immediately — don't cache ref.
+  // ----------------------------------------------------------------
+  if (_humFarfieldEl) {
+    const _ffh = getFarFieldHint();
+    const _ffType = _ffh ? _ffh.type : null;
+    if (_ffType !== _lastFarfieldType) {
+      _lastFarfieldType = _ffType;
+      if (_ffType) {
+        const _ffDist = Math.round(_ffh.dist);
+        const _ffName = _creatureNames[_ffType] || _ffType;
+        const _ffColor = _humBandColors[_ffType] ? _humBandColors[_ffType] + '1)' : '#88ffcc';
+        _humFarfieldEl.style.display = 'block';
+        _humFarfieldEl.style.color = _ffColor;
+        _humFarfieldEl.style.borderColor = _ffColor.replace(',1)', ',.35)');
+        _humFarfieldEl.textContent = 'Pitch matches ' + _ffName + ' — move closer (~' + _ffDist + 'm)';
+      } else {
+        _humFarfieldEl.style.display = 'none';
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // C1: Jelly post-attune countdown bar
+  // Full = green-blue; warning (< 3s) shifts toward orange-red.
+  // ----------------------------------------------------------------
+  if (_humJellyBarEl && _humJellyFillEl) {
+    const _jpt = getJellyPostTimer();
+    if (_jpt > 0) {
+      // 0–9.5 → 0–100%; clamp to [0,1]
+      const _jPct = Math.min(1, _jpt / 9.5);
+      const _jPctRounded = Math.round(_jPct * 100);
+      if (_jPctRounded !== _lastJellyBarPct) {
+        _lastJellyBarPct = _jPctRounded;
+        _humJellyBarEl.style.display = 'block';
+        _humJellyFillEl.style.width = _jPctRounded + '%';
+        // Color: healthy = jelly blue; warning (<3s, pct<0.32) → warm orange
+        const _warn = _jPct < 0.32;
+        _humJellyFillEl.style.background = _warn
+          ? 'rgba(255,140,80,' + (0.7 + (1 - _jPct / 0.32) * 0.3) + ')'
+          : 'rgba(170,204,255,' + (0.55 + _jPct * 0.35) + ')';
+      }
+    } else if (_lastJellyBarPct !== 0) {
+      _lastJellyBarPct = 0;
+      _humJellyBarEl.style.display = 'none';
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // Lock-decay fade cue: pulse thumb when lock has < 1.5s remaining.
+  // Uses CSS animation class + custom property for the creature color.
+  // ----------------------------------------------------------------
+  if (_humThumbEl) {
+    const _locked = isLocked();
+    const _isFading = _locked && getLockDecay() < 1.5;
+    if (_isFading !== _lastLockFading) {
+      _lastLockFading = _isFading;
+      if (_isFading) {
+        const _lt = getLockType();
+        const _cBase = (_lt && _humBandColors[_lt]) ? _humBandColors[_lt] + '0.8)' : 'rgba(255,255,255,0.8)';
+        _humThumbEl.style.setProperty('--hum-fade-color', _cBase);
+        _humThumbEl.classList.add('lock-fading');
+      } else {
+        _humThumbEl.classList.remove('lock-fading');
+        _humThumbEl.style.removeProperty('--hum-fade-color');
+      }
     }
   }
 }

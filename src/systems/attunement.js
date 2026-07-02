@@ -85,10 +85,19 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   } = creatureData;
   const pulseEdge = pulsePressed && !_jellyLastPulseInput;
 
-  // Pitch lock decays in ~3s after hum stops; jelly rhythm needs two taps ~2s apart before
-  // matchType becomes 'jelly', so refresh lock whenever carrier is jelly and a jelly is in hum range.
-  if (isLocked() && getLockType() === 'jelly' && nearestJellyDist2 < 400 && nearestJellyDist2 < Infinity) {
-    refreshLock();
+  // Pitch lock decays in ~3s after hum stops (HUM_LOCK_DECAY) — but starting the
+  // matching behavior can take longer than that (jelly needs two taps ~2s apart,
+  // puff has gaps between jumps, deer/moth need approach time). Refresh the lock
+  // while the locked creature type is within hum range (20m) so the lock only
+  // fades when the player actually walks away.
+  if (isLocked()) {
+    const _lt = getLockType();
+    if ((_lt === 'jelly' && nearestJellyDist2 < 400) ||
+        (_lt === 'puff' && nearestPuffDist2 < 400) ||
+        (_lt === 'deer' && nearestDeerDist2 < 400) ||
+        (_lt === 'moth' && nearestMothDist2 < 400)) {
+      refreshLock();
+    }
   }
 
   // Jelly carry / escort window: once synced, the player carries the jelly key for up to
@@ -155,10 +164,16 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   // --- Deer: Walk (no sprint) within 8-12m, same direction (±45°, requires pitch-lock to deer) ---
   if (!matchType && _locked && _lockTarget === 'deer' && !sprinting && nearestDeerDist2 >= DEER_R2_MIN && nearestDeerDist2 < DEER_R2_MAX
       && nearestDeerDist2 < Infinity && playerSpeed > 1.0) {
-    // Compare player heading to deer heading
-    // Player walks toward yaw direction; deer faces wanderAng
-    // Normalize angle difference to [-π, π]
-    let angleDiff = playerYaw - nearestDeerWanderAng;
+    // Compare player MOVEMENT heading to deer heading.
+    // Deer move along (sin(wanderAng), cos(wanderAng)); player forward (W) moves along
+    // (-sin(yaw), -cos(yaw)) = heading yaw+π in the deer convention. The previous
+    // `playerYaw - wanderAng` compared the exact opposite direction, so walking
+    // alongside a deer never counted. Prefer the true velocity heading when the
+    // caller provides it (handles strafe/backpedal); fall back to yaw+π.
+    const moveAng = creatureData.playerMoveAng !== undefined
+      ? creatureData.playerMoveAng
+      : (playerYaw + Math.PI);
+    let angleDiff = moveAng - nearestDeerWanderAng;
     // Wrap to [-π, π]
     while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
     while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
@@ -170,7 +185,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
   // --- Moth: Move laterally within 8m + look toward moth (requires pitch-lock to moth) ---
   if (!matchType && _locked && _lockTarget === 'moth' && nearestMothDist2 < MOTH_R2 && nearestMothDist2 < Infinity && playerSpeed > 0.5) {
     // 3D gaze check: compute full angle between player look direction and direction to moth.
-    // playerPitch is camera.rotation.x in radians (negative = up, clamped ±1 rad ≈ ±57°), passed in via creatureData.
+    // playerPitch is camera.rotation.x in radians (positive = look up, clamped ±1 rad ≈ ±57°), passed in via creatureData.
     // nearestMothPos.y may be present (if caller provides it); fall back to hovering ~2m above eye.
     const toMothX = nearestMothPos.x - playerX;
     const toMothZ = nearestMothPos.z - playerZ;
@@ -178,12 +193,14 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     const toMothY = _mothY - EYE_H; // dy from player eye to moth
     // Squared horizontal distance already known (nearestMothDist2); full 3D distance squared:
     const toMothLen2 = nearestMothDist2 + toMothY * toMothY;
-    // Player look vector (Three.js camera: rotation.x is pitch, rotation y handled by yaw wrapper)
-    // lookDir = (sin(yaw)*cos(pitch), -sin(pitch), cos(yaw)*cos(pitch))
+    // Player look vector (Three.js YXZ camera, rotation.y = yaw, rotation.x = pitch):
+    // forward = (-sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch))
+    // (same convention documented in wizardPufflingEvent.js lookAngles(); the previous
+    // vector here was the exact negative — the check only passed with the moth BEHIND you)
     const _cosPitch = Math.cos(playerPitch);
-    const lookX = Math.sin(playerYaw) * _cosPitch;
-    const lookY = -Math.sin(playerPitch);
-    const lookZ = Math.cos(playerYaw) * _cosPitch;
+    const lookX = -Math.sin(playerYaw) * _cosPitch;
+    const lookY = Math.sin(playerPitch);
+    const lookZ = -Math.cos(playerYaw) * _cosPitch;
     // Dot product of look direction (unit) with direction to moth (not normalized)
     const dot = lookX * toMothX + lookY * toMothY + lookZ * toMothZ;
     // dot / |toMoth| = cos(angle); angle < 60° iff cos(angle) > 0.5 iff dot > 0.5 * |toMoth|
@@ -223,7 +240,7 @@ export function updateAttunement(dt, jumping, nearestPuffDist2, creatureData, ct
     const _bio = ctx?.env?.bioGlow !== undefined ? ctx.env.bioGlow : 1.0;
     const weatherMod = WEATHER_ATTUNE_MODS[_wState]?.[matchType] || 1.0;
     const rate = ATTUNE_RATE * dt * _bio * weatherMod;
-    attunement += rate + _puffJumpChunk;
+    attunement = Math.min(1.0, attunement + rate + _puffJumpChunk); // clamp — no unbounded growth while carrying
     refreshLock(); // keep lock alive while actively building attunement
     if (attunement >= 1.0 && playerFrequency !== matchType) {
       attunement = 1.0;

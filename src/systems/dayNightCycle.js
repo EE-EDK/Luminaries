@@ -16,7 +16,7 @@ import { setSkyBrightness, isSkyTransformed } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { C } from '../constants.js';
 import { lerp } from '../utils/math.js';
-import { getQuestState } from '../quest/questState.js';
+import { getOrbsFound } from '../quest/questState.js';
 
 /** Multiplier applied per orb found (compound): each orb makes sky ~10% brighter overall. */
 const ORB_SKY_BRIGHTNESS_STEP = 1.1;
@@ -126,7 +126,7 @@ export function initDayNight(config) {
 export function updateDayNight(dt) {
   if (!sceneRef) return;
 
-  const orbSkyMult = Math.pow(ORB_SKY_BRIGHTNESS_STEP, getQuestState().orbsFound);
+  const orbSkyMult = Math.pow(ORB_SKY_BRIGHTNESS_STEP, getOrbsFound()); // numeric getter — no per-frame object alloc
 
   // Advance world clock
   worldTime = (worldTime + dt / CYCLE_DURATION) % 1.0;

@@ -72,11 +72,16 @@ export function setSaturation(value) {
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
     composer.setSize(window.innerWidth, window.innerHeight);
-    // Re-cap bloom resolution after resize (setSize resets to half-viewport)
+    // Re-cap bloom resolution after resize. composer.setSize() calls
+    // UnrealBloomPass.setSize(fullW, fullH), which sizes render targets from its
+    // ARGUMENTS (width/2 x height/2) and never reads .resolution — so writing
+    // bloomPass.resolution here was a no-op and the targets reverted to uncapped
+    // half-viewport. Re-calling setSize with 2x the capped size yields capped
+    // internal targets (setSize halves its inputs).
     if (bloomPass) {
       const w = Math.min(448, Math.floor(window.innerWidth / 2));
       const h = Math.min(448, Math.floor(window.innerHeight / 2));
-      bloomPass.resolution.set(w, h);
+      bloomPass.setSize(w * 2, h * 2);
     }
   }
 });

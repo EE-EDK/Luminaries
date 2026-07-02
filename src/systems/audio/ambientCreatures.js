@@ -15,6 +15,11 @@ let cricketPingTimer = 0;
 let cricketVolTarget = 0;
 let cricketDayMult = 1;
 
+// Nearest-grass cache — refreshed only after the player moves >1 m (see updateAmbientSounds)
+let _grassCacheD2 = Infinity;
+let _grassCacheX = Infinity;
+let _grassCacheZ = Infinity;
+
 let ambientInited = false;
 
 export function initAmbientSounds() {
@@ -91,14 +96,24 @@ export function updateAmbientSounds(dt, playerPos, ponds, grassPatches, dayPhase
     frogOsc2.frequency.linearRampToValueAtTime(basePitch + 20 + Math.random() * 15, now + 0.5);
   }
 
-  let grassDist2 = Infinity;
+  // Nearest-grass scan is O(1440) — cache it and only rescan after the player has
+  // moved >1 m (grass patches are static; a 1 m stale error is inaudible on a 12 m
+  // cricket falloff). Previously this ran the full scan every frame.
   if (playerPos && grassPatches) {
-    for (let i = 0; i < grassPatches.length; i++) {
-      const dx = grassPatches[i].cx - playerPos.x, dz = grassPatches[i].cz - playerPos.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < grassDist2) grassDist2 = d2;
+    const _gmx = playerPos.x - _grassCacheX, _gmz = playerPos.z - _grassCacheZ;
+    if (_gmx * _gmx + _gmz * _gmz > 1) {
+      let best = Infinity;
+      for (let i = 0; i < grassPatches.length; i++) {
+        const dx = grassPatches[i].cx - playerPos.x, dz = grassPatches[i].cz - playerPos.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < best) best = d2;
+      }
+      _grassCacheD2 = best;
+      _grassCacheX = playerPos.x;
+      _grassCacheZ = playerPos.z;
     }
   }
+  const grassDist2 = _grassCacheD2;
   const cricketProx = grassDist2 < 144 ? (1 - Math.sqrt(grassDist2) / 12) : 0;
   cricketVolTarget = cricketProx * 0.02 * cricketDayMult * weatherDamp;
 

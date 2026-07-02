@@ -3,7 +3,7 @@
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
 import { getPerspective, isDiscovered, isTruthRevealed, markDiscovered } from '../state/narrativeState.js';
-import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, CREATURE_NAMES } from '../quest/config.js';
+import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, CREATURE_NAMES, QuestPhases } from '../quest/config.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
@@ -75,6 +75,19 @@ export function initDiscoveries() {
       setTimeout(() => { showNarrativeText(nextHint, 5.5); }, 900);
     }
   });
+
+  // Endgame overlay text — QUEST_PHASE was emitted by questState.js but had no
+  // subscriber, so the finale/transform/free-roam lines never displayed.
+  on(Events.QUEST_PHASE, (d) => {
+    if (d.phase === QuestPhases.FINALE) showFinaleText();
+    else if (d.phase === QuestPhases.TRANSFORM) showTransformText();
+    else if (d.phase === QuestPhases.FREE_ROAM) showFreeRoamText();
+  });
+
+  // Crystal resonance chain discovery — CRYSTAL_VISITED (updates/vegetation.js,
+  // chain of ≥3 crystals) previously had no listener, making the 'crystalChain'
+  // discovery label unreachable.
+  on(Events.CRYSTAL_VISITED, () => showDiscovery('crystalChain'));
 }
 
 export function updateDiscoveries(dt, t) {

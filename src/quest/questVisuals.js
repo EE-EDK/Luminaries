@@ -2,7 +2,7 @@
 // Quest Visuals — Three.js Rendering & Effects
 // ================================================================
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DynamicDrawUsage, LineCurve3, Mesh, MeshBasicMaterial, Points, PointsMaterial, TubeGeometry, Vector3 } from 'three';
-import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, OBELISK_RISE_SPEED, C } from '../constants.js';
+import { ORB_N, ORB_TOUCH_R, ORB_SENSE_R, OBELISK_H, C } from '../constants.js';
 import { orbLight } from '../core/lighting.js';
 import { scene } from '../core/renderer.js';
 import { sr } from '../utils/rng.js';
@@ -32,6 +32,10 @@ function _creatureColor(type) {
 
 // Per-orb reject-flash timers (C3); keyed by orb index, value = remaining seconds
 const _orbRejectTimer = [];
+// Required creature type captured from the ORB_REJECTED payload — the requirement is
+// progression-indexed (ORB_CREATURE_SEQUENCE[orbsFound]), NOT orb-array-indexed, so the
+// flash color must come from the event, not from ORB_CREATURE_SEQUENCE[i].
+const _orbRejectRequired = [];
 
 // References
 let orbs = [];
@@ -254,6 +258,7 @@ function onOrbRejected(d) {
   if (showOrbRejectHintFn) showOrbRejectHintFn(d.required, d.got);
   // C3: start a ~0.4 s reject-flash on the rejected orb
   _orbRejectTimer[d.orbIndex] = 0.4;
+  _orbRejectRequired[d.orbIndex] = d.required;
 }
 
 function onOrbLaserStart(d) {
@@ -339,7 +344,7 @@ export function updateQuestVisuals(dt, t, ctx) {
         _orbRejectTimer[i] -= dt;
         // rf: 1 at flash start → 0 at end (timer counts down from 0.4 to 0)
         const rf = Math.max(_orbRejectTimer[i], 0) / 0.4;
-        const reqType = ORB_CREATURE_SEQUENCE[i];
+        const reqType = _orbRejectRequired[i] || ORB_CREATURE_SEQUENCE[i];
         _rejectFlashColor.set(_creatureColor(reqType));
         // copy(white).lerp(creatureColor, rf): rf=1 → creature color peak; rf=0 → white (faded out)
         o.coreMat.color.copy(_whiteColor).lerp(_rejectFlashColor, rf);

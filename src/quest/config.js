@@ -13,7 +13,7 @@ export const QuestPhases = {
 
 export const QUEST_CONFIG = {
   ORBS_REQUIRED: 5,
-  OBELISK_RISE_SPEED: 0.8, // From constants, but configurable here
+  OBELISK_RISE_SPEED: 0.8, // m/s — single source of truth (duplicate in constants.js removed)
   // NOTE: Phase transition timings are hardcoded in questState.js (not driven from here):
   //   COMPLETE → FINALE:   12 s  (_finaleTimer > 12)
   //   FINALE   → TRANSFORM: 30 s  (_finalePhaseTimer > 30)

@@ -44,26 +44,36 @@ export function spawnFly(px, py, pz, life) {
   f.life = life; f.max = life; f.active = true; f.wander = Math.random() * 6.28;
 }
 
+// Pre-baked hide matrix — written once per particle on deactivation instead of
+// recomputed for every inactive slot every frame.
+let _hideMatrix = null;
+function _hide(i, f, alreadyDirty) {
+  if (f._hidden) return alreadyDirty;
+  if (!_hideMatrix) {
+    dummy.position.set(0, -100, 0);
+    dummy.scale.setScalar(0);
+    dummy.updateMatrix();
+    _hideMatrix = dummy.matrix.clone();
+  }
+  iMesh.setMatrixAt(i, _hideMatrix);
+  f._hidden = true;
+  return true;
+}
+
 export function updateFlies(dt, t) {
   let ac = 0;
   let needsColorUpdate = false;
+  let matrixDirty = false;
   for (let i = 0; i < flies.length; i++) {
     const f = flies[i];
     if (!f.active) {
-      // Keep invisible
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, f, matrixDirty);
       continue;
     }
     f.life -= dt;
     if (f.life <= 0) {
       f.active = false;
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, f, matrixDirty);
       continue;
     }
     ac++;
@@ -87,6 +97,8 @@ export function updateFlies(dt, t) {
     dummy.scale.setScalar(s);
     dummy.updateMatrix();
     iMesh.setMatrixAt(i, dummy.matrix);
+    f._hidden = false;
+    matrixDirty = true;
 
     // Modulate color brightness for opacity effect
     tmpColor.setHex(f.colorHex);
@@ -94,7 +106,7 @@ export function updateFlies(dt, t) {
     iMesh.setColorAt(i, tmpColor);
     needsColorUpdate = true;
   }
-  iMesh.instanceMatrix.needsUpdate = true;
+  if (matrixDirty) iMesh.instanceMatrix.needsUpdate = true;
   if (needsColorUpdate) iMesh.instanceColor.needsUpdate = true;
   return ac;
 }

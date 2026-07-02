@@ -45,24 +45,35 @@ export function spawnDustBurst(px, pz, count) {
   }
 }
 
+// Pre-baked hide matrix — written once per mote on deactivation instead of
+// recomputed for every inactive slot every frame.
+let _hideMatrix = null;
+function _hide(i, d, alreadyDirty) {
+  if (d._hidden) return alreadyDirty;
+  if (!_hideMatrix) {
+    dummy.position.set(0, -100, 0);
+    dummy.scale.setScalar(0);
+    dummy.updateMatrix();
+    _hideMatrix = dummy.matrix.clone();
+  }
+  iMesh.setMatrixAt(i, _hideMatrix);
+  d._hidden = true;
+  return true;
+}
+
 export function updateDustMotes(dt) {
   let needsColorUpdate = false;
+  let matrixDirty = false;
   for (let i = 0; i < dustMotes.length; i++) {
     const d = dustMotes[i];
     if (!d.active) {
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, d, matrixDirty);
       continue;
     }
     d.life -= dt;
     if (d.life <= 0) {
       d.active = false;
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, d, matrixDirty);
       continue;
     }
     d.vy -= 3 * dt;
@@ -78,11 +89,14 @@ export function updateDustMotes(dt) {
     dummy.scale.setScalar(1);
     dummy.updateMatrix();
     iMesh.setMatrixAt(i, dummy.matrix);
+    d._hidden = false;
+    matrixDirty = true;
 
     tmpColor.copy(baseColor).multiplyScalar(opacity);
     iMesh.setColorAt(i, tmpColor);
     needsColorUpdate = true;
   }
-  iMesh.instanceMatrix.needsUpdate = true;
+  if (matrixDirty) iMesh.instanceMatrix.needsUpdate = true;
   if (needsColorUpdate) iMesh.instanceColor.needsUpdate = true;
 }
+

@@ -53,26 +53,43 @@ export function spawnDandSeed(px, py, pz) {
 let _windX = 0, _windZ = 0, _windStr = 0;
 export function setSeedWind(wx, wz, ws) { _windX = wx; _windZ = wz; _windStr = ws; }
 
+// Pre-baked hide matrix (position y=-100, scale 0) — written once per particle when it
+// deactivates instead of being recomputed for every inactive slot every frame.
+let _hideMatrix = null;
+function _hide(i, s, alreadyDirty) {
+  if (s._hidden) return alreadyDirty;
+  if (!_hideMatrix) {
+    dummy.position.set(0, -100, 0);
+    dummy.scale.setScalar(0);
+    dummy.updateMatrix();
+    _hideMatrix = dummy.matrix.clone();
+  }
+  iMesh.setMatrixAt(i, _hideMatrix);
+  s._hidden = true;
+  return true;
+}
+
 export function updateDandSeeds(dt, t, ctx) {
   let needsColorUpdate = false;
+  let matrixDirty = false;
   const _idle = ctx?.player?.idleTime !== undefined ? ctx.player.idleTime : playerIdleTime;
-  
+
+  // Wayfinding gate is per-frame constant — hoisted out of the per-seed loop.
+  // getQuestState() allocates a fresh object per call; previously it was invoked
+  // once per seed per frame (up to 40 allocations/frame while idle or carrying).
+  const _wayfind = _idle > 2.0 || getPlayerFrequency() !== null;
+  const _qOrbs = _wayfind ? getQuestState().orbs : null;
+
   for (let i = 0; i < dandSeeds.length; i++) {
     const s = dandSeeds[i];
     if (!s.active) {
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, s, matrixDirty);
       continue;
     }
     s.life -= dt;
     if (s.life <= 0) {
       s.active = false;
-      dummy.position.set(0, -100, 0);
-      dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      iMesh.setMatrixAt(i, dummy.matrix);
+      matrixDirty = _hide(i, s, matrixDirty);
       continue;
     }
     s.drift += (Math.random() - 0.5) * 1.5 * dt;
@@ -84,11 +101,10 @@ export function updateDandSeeds(dt, t, ctx) {
 
     // Wave 2: Dandelion Seed Wayfinding — gentle bias toward nearest unfound orb
     // Only active when player is idle (>2s) or carrying a frequency (Item 5)
-    if (_idle > 2.0 || getPlayerFrequency() !== null) {
-      const qOrbs = getQuestState().orbs;
+    if (_qOrbs) {
       let nearestOrbPos = null, nearestD2 = Infinity;
-      for (let oi = 0; oi < qOrbs.length; oi++) {
-        const o = qOrbs[oi]; if (o.found) continue;
+      for (let oi = 0; oi < _qOrbs.length; oi++) {
+        const o = _qOrbs[oi]; if (o.found) continue;
         const dx = o.x - s.x, dz = o.z - s.z;
         const d2 = dx * dx + dz * dz;
         if (d2 < nearestD2) { nearestD2 = d2; nearestOrbPos = o; }
@@ -118,11 +134,13 @@ export function updateDandSeeds(dt, t, ctx) {
     dummy.scale.setScalar(scale);
     dummy.updateMatrix();
     iMesh.setMatrixAt(i, dummy.matrix);
+    s._hidden = false;
+    matrixDirty = true;
 
     tmpColor.copy(baseColor).multiplyScalar(opacity);
     iMesh.setColorAt(i, tmpColor);
     needsColorUpdate = true;
   }
-  iMesh.instanceMatrix.needsUpdate = true;
+  if (matrixDirty) iMesh.instanceMatrix.needsUpdate = true;
   if (needsColorUpdate) iMesh.instanceColor.needsUpdate = true;
 }

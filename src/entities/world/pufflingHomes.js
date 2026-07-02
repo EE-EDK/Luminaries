@@ -34,6 +34,12 @@ const HOUSE_XFADE2      = 1600;  // 40 m — impostor begins fading in
 const IMP_FULL_OP       = 0.72;
 const IMP_FADE_START    = 80;    // m — impostor begins fading out
 const IMP_FAR2          = 9025;  // 95 m — impostor fully invisible beyond this
+// Linear distances derived once from the squared constants (previously the update
+// loop hardcoded 45/40 and recomputed Math.sqrt(IMP_FAR2) per house per frame —
+// changing the squared constants would have silently broken the crossfade).
+const HOUSE_CULL_D = Math.sqrt(HOUSE_CULL_DIST2); // 45 m
+const HOUSE_XFADE_D = Math.sqrt(HOUSE_XFADE2);    // 40 m
+const IMP_FAR = Math.sqrt(IMP_FAR2);              // 95 m
 const OBELISK_EXCLUSION_R2 = 400; // 20 m from origin
 const MIN_CLUSTER_SEP2 = 324; // 18 m between cluster centers
 /** Minimum horizontal distance between house centers (collision disks ~10 m Ø). */
@@ -430,26 +436,24 @@ export function updatePufflingHomes() {
       }
     }
 
-    // Impostor LOD: billboard sprite fills the gap between cull and full-invisible
+    // Impostor LOD: billboard sprite fills the gap between cull and full-invisible.
+    // Squared pre-gate on both ends — sqrt only paid inside the 40-95 m band.
     const imp = _houseImpostors[i];
     if (!imp) continue;
-    if (d2 > IMP_FAR2) {
+    if (d2 > IMP_FAR2 || d2 <= HOUSE_XFADE2) {
       imp.visible = false;
     } else {
       const d = Math.sqrt(d2);
-      if (d >= 45) {
+      imp.visible = true;
+      if (d >= HOUSE_CULL_D) {
         // Beyond mesh cull: full impostor zone, fading out past IMP_FADE_START
-        imp.visible = true;
         const op = d > IMP_FADE_START
-          ? Math.max(0, 1 - (d - IMP_FADE_START) / (Math.sqrt(IMP_FAR2) - IMP_FADE_START)) * IMP_FULL_OP
+          ? Math.max(0, 1 - (d - IMP_FADE_START) / (IMP_FAR - IMP_FADE_START)) * IMP_FULL_OP
           : IMP_FULL_OP;
         imp.material.opacity = op * (0.7 + 0.3 * glowBase);
-      } else if (d > 40) {
-        // Cross-fade 40-45m: impostor fades in as house is still visible
-        imp.visible = true;
-        imp.material.opacity = ((d - 40) / 5) * IMP_FULL_OP * (0.7 + 0.3 * glowBase);
       } else {
-        imp.visible = false;
+        // Cross-fade 40-45m: impostor fades in as house is still visible
+        imp.material.opacity = ((d - HOUSE_XFADE_D) / (HOUSE_CULL_D - HOUSE_XFADE_D)) * IMP_FULL_OP * (0.7 + 0.3 * glowBase);
       }
     }
   }

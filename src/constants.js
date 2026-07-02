@@ -100,7 +100,9 @@ export const ORB_N = 5;
 export const ORB_TOUCH_R = 2.5;
 export const ORB_SENSE_R = 12;
 export const OBELISK_H = 30;
-export const OBELISK_RISE_SPEED = 8;
+// OBELISK_RISE_SPEED removed — the single source of truth is
+// QUEST_CONFIG.OBELISK_RISE_SPEED in quest/config.js (0.8 m/s). The stale
+// duplicate here (8) conflicted with the wired value and had no live importer.
 
 // Dimming (Phase 2) — sector-based bioGlow suppression
 // The world splits into 5 angular sectors (pizza slices) from the obelisk.

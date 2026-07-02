@@ -89,13 +89,13 @@ import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurs
 import { initResonanceRings, updateResonanceRings } from './particles/resonanceRings.js';
 
 // Quest
-import { initQuestState, updateQuestState, getQuestState } from './quest/questState.js';
+import { initQuestState, updateQuestState, getOrbsFound } from './quest/questState.js';
 import { initQuestVisuals, updateQuestVisuals } from './quest/questVisuals.js';
 import { makeLaser } from './quest/lasers.js';
 
 // Narrative
 import { togglePerspective, getPerspective, revealTruth } from './state/narrativeState.js';
-import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, showFinaleText, showTransformText, showFreeRoamText, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
+import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
 // Population
 import { populate as _populate } from './populate.js';
@@ -222,20 +222,32 @@ function updateFairyRings(dt, t) {
 // ================================================================
 // Sync Context — updates the kernel context with current frame values
 // ================================================================
+// Pre-allocated input snapshot — mutated in place every frame so syncContext()
+// allocates nothing in the animation loop (matches context.js's own zero-alloc slices).
+const _ctxIn = {
+  dt: 0, frameDt: 0, t: 0,
+  player: null, camera: null,
+  sprinting: false, playerIdleTime: 0,
+  bioGlow: 0, orbBoost: 1.15, orbsFound: 0,
+  windX: 0, windZ: 0, windStrength: 0, weatherState: null,
+  lightningFlash: 0, isStorming: false, rainRate: 0,
+  dayPhase: 0
+};
+
 function syncContext(dt, t) {
-  const q = getQuestState();
   // attune (flashTimer/flashType/echoTimer/humResonance*) and questPhase are no
   // longer mirrored into the kernel ctx — consumers read them directly from the
   // state/* stores via live bindings (same-frame, no stale copy).
-  updateContext({
-    dt, frameDt: dt, t,
-    player, camera,
-    sprinting: keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint,
-    playerIdleTime,
-    bioGlow, orbBoost: _orbBoost, orbsFound: q.orbsFound,
-    windX, windZ, windStrength, weatherState, lightningFlash, isStorming, rainRate: getRainRate(),
-    dayPhase
-  });
+  _ctxIn.dt = dt; _ctxIn.frameDt = dt; _ctxIn.t = t;
+  _ctxIn.player = player; _ctxIn.camera = camera;
+  _ctxIn.sprinting = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+  _ctxIn.playerIdleTime = playerIdleTime;
+  _ctxIn.bioGlow = bioGlow; _ctxIn.orbBoost = _orbBoost; _ctxIn.orbsFound = getOrbsFound();
+  _ctxIn.windX = windX; _ctxIn.windZ = windZ; _ctxIn.windStrength = windStrength;
+  _ctxIn.weatherState = weatherState; _ctxIn.lightningFlash = lightningFlash;
+  _ctxIn.isStorming = isStorming; _ctxIn.rainRate = getRainRate();
+  _ctxIn.dayPhase = dayPhase;
+  updateContext(_ctxIn);
 }
 
 // ================================================================
@@ -496,7 +508,7 @@ function animate() {
   // Dev-only rolling FPS sampler (no-op + tree-shaken in production).
   sampleFrame(dt);
 
-  const { orbsFound } = getQuestState();
+  const orbsFound = getOrbsFound(); // numeric getter — no per-frame object allocation
 
   updateDayNight(dt);
   const rainRate = updateWeather(dt, elapsed, player.pos);

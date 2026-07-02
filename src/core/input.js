@@ -138,7 +138,7 @@ if (mobile) {
   if (bsEl) bsEl.style.display = 'block';
   if (controlsEl) controlsEl.textContent = 'Stick: Move · Drag right: Look · JUMP · SPRINT · HUM';
 } else {
-  if (controlsEl) controlsEl.textContent = 'WASD: Move · Mouse: Look (click to lock) · Left-click: PULSE · Esc: Unlock · F: HUM · Q/E: pitch';
+  if (controlsEl) controlsEl.textContent = 'WASD: Move · Mouse: Look (click to lock) · Left-click: PULSE · Esc: Unlock · F: HUM · Q/E: pitch · Esc×2: Terminal';
 }
 
 export function unlockTruthControlHint() {

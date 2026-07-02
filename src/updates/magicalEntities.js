@@ -313,23 +313,27 @@ export function updateEchoBloom(dt, t) {
 
   const wave = echoBloom.radius;
   const waveW = 4.0;
+  // Squared-band pre-gate: only entities inside the expanding annulus pay the sqrt
+  // (previously ~600 unconditional sqrts/frame across mushrooms + flowers while active).
+  const _bandMin = Math.max(0, wave - waveW), _bandMax = wave + waveW;
+  const _bandMin2 = _bandMin * _bandMin, _bandMax2 = _bandMax * _bandMax;
   for (let i = 0; i < mush_data.length; i++) {
     const m = mush_data[i];
     const dx = m.x - echoBloom.center.x, dz = m.z - echoBloom.center.z;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    if (Math.abs(d - wave) < waveW) {
-      const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * getLocalGlow(m.x, m.z, bioGlow * orbBoost));
-    }
+    const d2 = dx * dx + dz * dz;
+    if (d2 < _bandMin2 || d2 > _bandMax2) continue;
+    const d = Math.sqrt(d2);
+    const waveFrac = 1 - Math.abs(d - wave) / waveW;
+    m.capMat.emissiveIntensity = Math.max(m.capMat.emissiveIntensity, (m.base + waveFrac * 2.0) * getLocalGlow(m.x, m.z, bioGlow * orbBoost));
   }
   for (let i = 0; i < flowers.length; i++) {
     const fl = flowers[i];
     const fx = fl.group.position.x - echoBloom.center.x;
     const fz = fl.group.position.z - echoBloom.center.z;
-    const d = Math.sqrt(fx * fx + fz * fz);
-    if (Math.abs(d - wave) < waveW) {
-      const waveFrac = 1 - Math.abs(d - wave) / waveW;
-      fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * orbBoost));
-    }
+    const d2 = fx * fx + fz * fz;
+    if (d2 < _bandMin2 || d2 > _bandMax2) continue;
+    const d = Math.sqrt(d2);
+    const waveFrac = 1 - Math.abs(d - wave) / waveW;
+    fl.petalMat.emissiveIntensity = Math.max(fl.petalMat.emissiveIntensity, (0.3 + waveFrac * 1.5) * getLocalGlow(fl.group.position.x, fl.group.position.z, bioGlow * orbBoost));
   }
 }

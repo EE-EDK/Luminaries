@@ -14,10 +14,15 @@ import { moths, crys_data, fairyRings } from '../../state/entityStore.js';
 import { queryNearTrees } from '../../utils/spatialHash.js';
 import { playCreatureSound } from '../../systems/audio.js';
 
+// Pre-allocated result — reused every frame (matches deer/pufflings/jellies/luminids;
+// this was the one fauna module still allocating its result objects per frame).
+const _result = { nearestDist2: Infinity, nearestPos: { x: 0, y: 0, z: 0 } };
+
 export function updateMoths(dt, t) {
 
   let nearestDist2 = Infinity;
-  let nearestPos = { x: 0, z: 0 };
+  const nearestPos = _result.nearestPos;
+  nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
 
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
@@ -281,5 +286,6 @@ export function updateMoths(dt, t) {
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
 
-  return { nearestDist2, nearestPos };
+  _result.nearestDist2 = nearestDist2;
+  return _result;
 }

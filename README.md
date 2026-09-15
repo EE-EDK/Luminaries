@@ -148,6 +148,7 @@ The kernel scheduler in `src/kernel/scheduler.js` orchestrates all per-frame upd
 | Document | Purpose |
 |----------|---------|
 | `reference/GAME_GUIDE.md` | Player-facing guide: themes, gameplay, story, controls |
+| `reference/dashboard.html` | One-page dashboard of the whole reference shelf, with live-measured counts and a doc-drift list (open in a browser) |
 | `CLAUDE.md` | Development instructions for AI-assisted coding |
 | `reference/` | Architecture, entity registry, patterns, performance, audio, roadmap, narrative, manifesto |
 

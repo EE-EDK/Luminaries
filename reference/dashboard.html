@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Luminaries Reference</title>
+<meta name="description" content="Single-page dashboard for the Luminaries reference shelf: world, architecture, budgets, entities, audio, quest, narrative, status, and the imported protocols.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='12' fill='%2333ffdd' opacity='0.8'/><circle cx='16' cy='16' r='6' fill='%23ffffff' opacity='0.9'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function(){try{if(localStorage.getItem('luminaries-dash-theme')==='night')document.documentElement.setAttribute('data-theme','night');}catch(e){}})();
+</script>
+<style>
+/* ============================================================
+   Luminaries reference dashboard — laid out on the kunzhub
+   design system (Self-Host/sites/kunzhub/assets/hub.css).
+   Registry world by day: cream paper, IM Fell wordmark, mono
+   rules, striped cards. The spirit-hum spectrum is the one
+   instrument on the page, so it keeps the instrument world's
+   obsidian glass in both themes. Night mode maps the page to
+   the instrument tokens (bone on obsidian, copper rule).
+   ============================================================ */
+:root{
+  color-scheme:light;
+  --paper:#EFE6D0; --paper-2:#FBF6E8; --paper-3:#F4ECD4;
+  --ink:#1A1410; --ink-dim:#3D2F22; --ink-whisper:#786650; --ink-black:#0E0905;
+  --leather:#8B7758; --copper:#B85A2E; --copper-hot:#D67340;
+  --rule:rgba(26,20,16,.10); --rule-strong:rgba(26,20,16,.22); --rule-page:rgba(26,20,16,.18);
+  --hex-ink:%231a1410; --hex-alpha:0.055;
+  --card-top:rgba(255,250,232,.6); --card-shadow:rgba(80,60,40,.12); --card-inset:rgba(255,248,230,.6);
+  --c-career:#B49A75; --c-creative:#8b0000; --c-data:#2a5a8f; --c-tools:#4a7048; --c-explainers:#6f4a8f; --c-hardware:#D17A3A; --c-family:#e91e8c;
+  --ok:#4a7048; --warn:#B85A2E; --open:#8b0000;
+  --bar:#2a5a8f;
+  /* creature marks, validated on #EFE6D0 */
+  --jelly:#3f50d2; --puff:#c8561f; --deer:#137fae; --moth:#3f8a1f;
+  --font-display:'IM Fell English','EB Garamond',Georgia,serif;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --radius:3px; --col-max:1320px; --ease:cubic-bezier(.2,.7,.2,1);
+  --gutter:clamp(1.25rem,4vw,3rem);
+}
+:root[data-theme="night"]{
+  color-scheme:dark;
+  --paper:#131726; --paper-2:#1A2033; --paper-3:#0F1220;
+  --ink:#ECE3D2; --ink-dim:#C9BBA4; --ink-whisper:#8F846F; --ink-black:#FFF8EA;
+  --leather:#B49A75; --copper:#D17A3A; --copper-hot:#E8925A;
+  --rule:rgba(236,227,210,.10); --rule-strong:rgba(236,227,210,.22); --rule-page:rgba(236,227,210,.18);
+  --hex-ink:%23ece3d2; --hex-alpha:0.045;
+  --card-top:rgba(255,248,230,.04); --card-shadow:rgba(0,0,0,.35); --card-inset:rgba(255,248,230,.06);
+  --c-career:#C9AD83; --c-creative:#d24a4a; --c-data:#5b8fd0; --c-tools:#7fb07a; --c-explainers:#a988cf; --c-hardware:#D17A3A; --c-family:#ef6fb0;
+  --ok:#7fb07a; --warn:#E8925A; --open:#e07a7a;
+  --bar:#5b8fd0;
+  --jelly:#4d5fd8; --puff:#d66a36; --deer:#178fc0; --moth:#4fa832;
+}
+/* instrument tokens never change with the page theme */
+:root{
+  --ins-glass:rgba(19,23,38,.94); --ins-bone:#ECE3D2; --ins-dim:#B49A75; --ins-rule:rgba(236,227,210,.14); --ins-copper:#D17A3A;
+  --ins-jelly:#4d5fd8; --ins-puff:#d66a36; --ins-deer:#178fc0; --ins-moth:#4fa832;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:64px}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:var(--font-body);font-size:15px;line-height:1.55;min-height:100vh;
+  font-feature-settings:'ss01' on,'cv11' on;-webkit-font-smoothing:antialiased;
+  padding-top:32px;overflow-x:hidden;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 102' width='60' height='102'><g fill='none' stroke='%231a1410' stroke-opacity='0.055' stroke-width='2'><path d='M 30 0 L 60 17 L 60 51 L 30 68 L 0 51 L 0 17 Z'/><path d='M 60 51 L 90 68 L 90 102 L 60 119 L 30 102 L 30 68 Z'/></g></svg>");
+  background-size:60px 102px;
+}
+:root[data-theme="night"] body{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 102' width='60' height='102'><g fill='none' stroke='%23ece3d2' stroke-opacity='0.045' stroke-width='2'><path d='M 30 0 L 60 17 L 60 51 L 30 68 L 0 51 L 0 17 Z'/><path d='M 60 51 L 90 68 L 90 102 L 60 119 L 30 102 L 30 68 Z'/></g></svg>");
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.5;mix-blend-mode:multiply;
+  background-image:radial-gradient(ellipse at 50% 0%,rgba(184,90,46,.05),transparent 55%),radial-gradient(ellipse at 100% 100%,rgba(139,119,88,.06),transparent 60%),url("data:image/svg+xml;utf8,<svg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4   0 0 0 0 0.32   0 0 0 0 0.22   0 0 0 0.35 0'/></filter><rect width='220' height='220' filter='url(%23n)' opacity='0.55'/></svg>");
+}
+:root[data-theme="night"] body::before{mix-blend-mode:screen;opacity:.18}
+body>*{position:relative;z-index:2}
+a{color:inherit;text-decoration:none}
+p a,li a,td a,.card-foot a{color:var(--copper);border-bottom:1px solid transparent}
+p a:hover,li a:hover,td a:hover{border-bottom-color:var(--copper-hot);color:var(--copper-hot)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--copper-hot);outline-offset:3px;border-radius:2px}
+em{font-style:italic}
+.mono{font-family:var(--font-mono)}
+code{font-family:var(--font-mono);font-size:.82em;color:var(--ink);background:var(--paper-3);padding:.08em .38em;border-radius:3px;white-space:nowrap;border:1px solid var(--rule)}
+kbd{font-family:var(--font-mono);font-size:.78em;padding:1px 5px;border:1px solid var(--rule-strong);border-bottom-width:2px;border-radius:3px;color:var(--ink);background:var(--paper-2)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:absolute;left:-999px;top:8px;background:var(--paper-2);color:var(--ink);padding:8px 12px;border:1px solid var(--rule-strong);border-radius:var(--radius);z-index:50}
+.skip:focus{left:12px}
+
+/* ── Layout container ─────────────────────────────────────── */
+.masthead,.sheet,.footer,.instrument-wrap{max-width:var(--col-max);margin-left:auto;margin-right:auto;padding-left:var(--gutter);padding-right:var(--gutter)}
+
+/* ── Masthead ─────────────────────────────────────────────── */
+.masthead{padding-top:19px;padding-bottom:1.5rem;border-top:4px solid var(--rule-page)}
+.masthead-rule{display:flex;flex-wrap:wrap;gap:.25rem 1rem;align-items:center;justify-content:space-between;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-whisper);padding-bottom:.75rem;border-bottom:4px solid var(--rule-page);margin-bottom:1rem;opacity:0;animation:fadeIn .45s var(--ease) .05s forwards}
+.masthead-host::before{content:"> ";color:var(--copper)}
+.masthead-build{color:var(--leather)}
+.imprint{height:51px;display:flex;align-items:center;justify-content:center;gap:.5rem;opacity:0;animation:fadeIn .5s var(--ease) .14s forwards}
+.imprint-name{font-family:var(--font-display);font-style:italic;font-size:clamp(1rem,2.4vw,1.2rem);letter-spacing:.13em;color:var(--ink-dim);white-space:nowrap;box-shadow:0 2px 0 transparent;transition:color .2s var(--ease),box-shadow .2s var(--ease)}
+.imprint-mark{display:inline-flex;width:.72rem;height:.72rem;color:var(--leather);opacity:0;transform:translateX(-.3rem);transition:opacity .2s var(--ease),transform .2s var(--ease),color .2s var(--ease)}
+.imprint:hover .imprint-name,.imprint:focus-visible .imprint-name{color:var(--ink);box-shadow:0 2px 0 var(--copper)}
+.imprint:hover .imprint-mark,.imprint:focus-visible .imprint-mark{opacity:1;transform:translateX(0);color:var(--copper)}
+.wordmark{font-family:var(--font-display);font-size:clamp(3rem,9vw,6.5rem);font-weight:400;line-height:.92;letter-spacing:.04em;color:var(--ink);text-align:center;margin:.25rem 0 .5rem}
+.wm-ch{display:inline-block;opacity:0;transform:translateY(.4em);animation:wmIn .55s var(--ease) calc(var(--i)*.045s + .1s) forwards}
+@keyframes wmIn{to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{to{opacity:1}}
+.masthead-sub{font-size:.95rem;text-align:center;color:var(--ink-dim);margin-bottom:1rem;opacity:0;animation:fadeIn .5s var(--ease) .45s forwards;padding:0 .5rem}
+.masthead-sub .vol{font-family:var(--font-display);font-style:italic;color:var(--leather);font-size:1.05rem}
+.masthead-sub .sep{margin:0 .6rem;color:var(--ink-whisper)}
+.masthead-sub em{color:var(--ink)}
+.status-bar{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem .85rem;align-items:baseline;font-family:var(--font-mono);font-size:.72rem;color:var(--ink-dim);letter-spacing:.05em;padding:.78rem 0;border-top:4px solid var(--rule-page);border-bottom:4px solid var(--rule-page);opacity:0;animation:fadeIn .5s var(--ease) .65s forwards}
+.status-key{color:var(--ink-whisper);text-transform:uppercase;letter-spacing:.18em}
+.status-val{color:var(--ink);font-variant-numeric:tabular-nums}
+.status-val a{color:var(--copper)}
+.status-val a:hover{color:var(--copper-hot);border-bottom:1px solid var(--copper-hot)}
+.status-val.cap{color:var(--warn)}
+.status-sep{color:var(--rule-strong)}
+.status-live{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.15em;color:var(--copper-hot)}
+.status-live .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#44FF88;margin-right:.4rem;vertical-align:1px;animation:pulseDot 1.6s ease-out infinite}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(68,255,136,.55)}70%{box-shadow:0 0 0 9px rgba(68,255,136,0)}100%{box-shadow:0 0 0 0 rgba(68,255,136,0)}}
+
+/* ── Command line ─────────────────────────────────────────── */
+.commandline{display:flex;align-items:center;gap:.6rem;margin:1.75rem auto 1rem;max-width:720px;padding:.85rem 1rem;background:linear-gradient(180deg,var(--paper-3) 0%,var(--paper-2) 100%);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:0 1px 0 var(--card-inset) inset,0 8px 24px var(--card-shadow);position:relative;opacity:0;animation:fadeIn .5s var(--ease) .55s forwards}
+.commandline:focus-within{border-color:var(--copper);box-shadow:0 0 0 3px rgba(209,122,58,.18),0 8px 24px var(--card-shadow)}
+.prompt{font-family:var(--font-mono);font-size:.85rem;color:var(--copper);letter-spacing:.05em;user-select:none}
+.search{flex:1;min-width:0;background:transparent;border:0;outline:0;font-family:var(--font-mono);font-size:.95rem;color:var(--ink);caret-color:transparent;padding:0}
+.search::placeholder{color:var(--ink-whisper);font-style:italic}
+.search:focus{caret-color:var(--copper)}
+.caret{font-family:var(--font-mono);color:var(--copper);animation:caretBreathe 12s ease-in-out infinite;user-select:none}
+.commandline:focus-within .caret{display:none}
+.search:not(:placeholder-shown)+.caret{display:none}
+@keyframes caretBreathe{0%{opacity:.28;color:var(--deer)}12.5%{opacity:1;color:var(--deer)}25%{opacity:.28;color:var(--moth)}37.5%{opacity:1;color:var(--moth)}50%{opacity:.28;color:var(--jelly)}62.5%{opacity:1;color:var(--jelly)}75%{opacity:.28;color:var(--puff)}87.5%{opacity:1;color:var(--puff)}100%{opacity:.28;color:var(--deer)}}
+.commandline-hint{font-family:var(--font-mono);font-size:.65rem;color:var(--ink-whisper);letter-spacing:.12em;text-transform:uppercase;display:none;align-items:center;gap:.25rem;white-space:nowrap}
+@media (min-width:760px){.commandline-hint{display:inline-flex}}
+.hint-key{border-bottom:1px dotted var(--rule-strong);padding:1px 2px;border-radius:2px}
+.hint-sep{color:var(--rule-strong)}
+.match-count{font-family:var(--font-mono);font-size:.68rem;color:var(--copper);letter-spacing:.08em;white-space:nowrap}
+.theme-btn{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);background:transparent;border:1px solid var(--rule-strong);border-radius:999px;padding:.3rem .8rem;cursor:pointer;white-space:nowrap}
+.theme-btn:hover{color:var(--ink);border-color:var(--leather)}
+
+/* ── Chips (section nav) ──────────────────────────────────── */
+.chips{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;margin-top:.5rem;opacity:0;animation:fadeIn .45s var(--ease) .75s forwards}
+.chip{display:inline-flex;align-items:center;gap:.45rem;padding:.35rem .85rem .4rem;background:transparent;border:1px solid var(--rule);border-radius:999px;color:var(--ink-dim);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.06em;cursor:pointer;transition:color .18s var(--ease),border-color .18s var(--ease),background .18s var(--ease)}
+.chip-dot{display:inline-block;width:8px;height:8px;background:var(--c);border-radius:1px;transform:rotate(45deg);box-shadow:0 0 0 1px rgba(26,20,16,.2) inset}
+.chip:hover{color:var(--ink);border-color:var(--leather)}
+.chip.is-active{color:var(--paper-2);background:var(--ink);border-color:var(--ink)}
+.chip.is-active .chip-dot{box-shadow:0 0 0 1px rgba(255,255,255,.35) inset}
+
+/* ── Section dividers ─────────────────────────────────────── */
+.section-divider{position:relative;border:0;height:4px;background:var(--rule-page);margin:2.75rem auto 2rem;max-width:var(--col-max);border-radius:2px;overflow:visible}
+.section-divider::after{content:attr(data-label);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:7px 1.25rem;background:var(--paper);font-family:var(--font-mono);font-size:.82rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-black);border:1px solid var(--leather);border-radius:999px;box-shadow:0 1px 0 var(--card-inset) inset,0 2px 6px var(--card-shadow);white-space:nowrap;max-width:calc(100vw - 2rem);overflow:hidden;text-overflow:ellipsis}
+
+/* ── Instrument panel (always obsidian) ───────────────────── */
+.instrument{background:var(--ins-glass);color:var(--ins-bone);border:1px solid var(--ins-rule);border-top:2px solid var(--ins-copper);border-radius:var(--radius);padding:1rem 1.25rem 1.1rem;box-shadow:0 12px 36px rgba(0,0,0,.28)}
+.instrument-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.35rem 1rem;font-family:var(--font-mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ins-dim);margin-bottom:.6rem}
+.instrument-head b{color:var(--ins-bone);font-weight:500}
+.instrument svg{display:block;width:100%;height:auto}
+.instrument text{font-family:var(--font-mono);fill:var(--ins-dim);font-size:12px;letter-spacing:.04em}
+.instrument .lab{fill:var(--ins-bone);font-family:var(--font-body);font-weight:600;font-size:14px;letter-spacing:0}
+.instrument .axis{stroke:var(--ins-rule);stroke-width:1.5}
+.instrument .tick{stroke:var(--ins-rule)}
+.instrument .band{filter:drop-shadow(0 0 10px var(--c))}
+.instrument-foot{font-family:var(--font-body);font-size:.84rem;color:var(--ins-bone);opacity:.85;margin-top:.5rem;max-width:none;line-height:1.5}
+.instrument-foot kbd{color:var(--ins-bone);background:rgba(255,255,255,.06);border-color:var(--ins-rule)}
+@media (prefers-reduced-motion:no-preference){
+  .instrument .band{animation:breathe 4.4s ease-in-out infinite}
+  .instrument .band:nth-of-type(2){animation-delay:-1.1s}
+  .instrument .band:nth-of-type(3){animation-delay:-2.2s}
+  .instrument .band:nth-of-type(4){animation-delay:-3.3s}
+  @keyframes breathe{0%,100%{opacity:.72}50%{opacity:1}}
+}
+
+/* ── Sheet typography ─────────────────────────────────────── */
+.sheet h3{font-family:var(--font-display);font-weight:400;font-size:1.45rem;line-height:1.15;color:var(--ink);margin:1.75rem 0 .5rem;letter-spacing:.005em}
+.sheet h3:first-child,.sheet .cols>div>h3:first-child{margin-top:.25rem}
+.sheet h4{font-family:var(--font-mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-whisper);margin:1.2rem 0 .4rem;font-weight:500}
+.sheet p{margin:0 0 .75rem;max-width:74ch}
+.sheet ul,.sheet ol{margin:0 0 .75rem 1.3rem;max-width:80ch}
+.sheet li{margin:.2rem 0}
+.lede{font-family:var(--font-display);font-size:1.3rem;line-height:1.4;color:var(--ink-dim);max-width:60ch;margin-bottom:1rem}
+.whisper{font-size:.84rem;color:var(--ink-whisper);max-width:80ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.5rem 2.5rem}
+.cols>*{min-width:0}
+.hidden{display:none!important}
+.field{border-left:3px solid var(--copper);padding:.55rem .9rem;background:var(--paper-2);border-radius:0 var(--radius) var(--radius) 0;margin:.75rem 0;font-size:.92rem;max-width:80ch;box-shadow:0 1px 0 var(--card-inset) inset}
+.quote{font-family:var(--font-display);font-style:italic;font-size:1.2rem;line-height:1.35;color:var(--ink-dim);margin:.25rem 0 .75rem;max-width:60ch}
+.quote .adult{display:block;font-family:var(--font-mono);font-style:normal;font-size:.72rem;color:var(--ink-whisper);margin-top:.3rem;letter-spacing:.02em}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.scroll{overflow-x:auto;margin:.4rem 0 .6rem;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:520px}
+th,td{text-align:left;vertical-align:top;padding:.42rem .8rem .42rem 0;border-bottom:1px solid var(--rule)}
+th{font-family:var(--font-mono);font-weight:500;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-whisper);white-space:nowrap;border-bottom:1px solid var(--rule-strong)}
+td:last-child,th:last-child{padding-right:0}
+tr.hit td{background:rgba(184,90,46,.07)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sw{display:inline-block;width:10px;height:10px;border-radius:1px;transform:rotate(45deg);margin:0 .55rem 0 .15rem;vertical-align:0;background:var(--c);box-shadow:0 0 0 1px rgba(26,20,16,.2) inset}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:0 .4rem;border-radius:3px;border:1px solid var(--rule-strong);color:var(--ink-whisper);white-space:nowrap;vertical-align:1px}
+.tag.ok{color:var(--ok);border-color:currentColor}
+.tag.warn{color:var(--warn);border-color:currentColor}
+.tag.open{color:var(--open);border-color:currentColor}
+
+/* ── Registry cards (the shelf) ───────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;padding:.25rem 0 .5rem}
+.card{--accent:var(--leather);position:relative;display:grid;grid-template-rows:auto auto 1fr auto;gap:.45rem;padding:1rem 1.1rem .9rem;background:linear-gradient(180deg,var(--card-top),rgba(80,60,40,.03)),var(--paper-2);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden;color:inherit;box-shadow:0 1px 0 var(--card-inset) inset,0 2px 8px var(--card-shadow);transition:transform .25s var(--ease),border-color .25s var(--ease),box-shadow .25s var(--ease)}
+.card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 1px 0 var(--card-inset) inset,0 14px 36px var(--card-shadow)}
+.card-stripe{position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);opacity:.85}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;padding-top:.2rem}
+.card-serial{font-family:var(--font-mono);font-size:.95rem;font-weight:500;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.card-class{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);opacity:.9;text-align:right}
+.card-title{font-family:var(--font-display);font-weight:400;font-size:1.25rem;line-height:1.2;color:var(--ink);letter-spacing:-.005em;text-wrap:balance;margin:0}
+.card-title a{color:inherit}
+.card-title a:hover{color:var(--copper)}
+.card-desc{font-size:.86rem;color:var(--ink-dim);line-height:1.5;margin:0;max-width:none}
+.card-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem .8rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--leather);padding-top:.5rem;border-top:1px solid var(--rule);margin-top:.2rem}
+.card-foot b{color:var(--ink-dim);font-weight:500}
+.card-foot .when{text-transform:none;letter-spacing:.02em;font-family:var(--font-body);font-size:.78rem;color:var(--ink-whisper);flex-basis:100%}
+
+/* ── Pipelines, real sequences only ───────────────────────── */
+.pipe{list-style:none;padding:0;margin:.5rem 0 .75rem;display:flex;flex-wrap:wrap;gap:.4rem;max-width:none;counter-reset:p}
+.pipe li{counter-increment:p;display:flex;align-items:center;gap:.5rem;background:var(--paper-2);border:1px solid var(--rule);border-radius:var(--radius);padding:.3rem .65rem .3rem .5rem;font-size:.84rem;margin:0;box-shadow:0 1px 0 var(--card-inset) inset}
+.pipe li::before{content:counter(p,decimal-leading-zero);font-family:var(--font-mono);font-size:.64rem;color:var(--copper);min-width:1.4rem;letter-spacing:.06em}
+.pipe li b{font-weight:500}
+.pipe li small{color:var(--ink-whisper);font-family:var(--font-mono);font-size:.68rem}
+.pipe.phases li{font-family:var(--font-display);font-size:1.15rem;padding:.35rem .9rem}
+.pipe.phases li small{font-family:var(--font-mono);font-size:.64rem}
+.tree{font-family:var(--font-mono);font-size:.78rem;line-height:1.5;color:var(--ink-dim);background:var(--paper-3);border:1px solid var(--rule);border-radius:var(--radius);padding:.85rem 1rem;overflow-x:auto;margin:.4rem 0 .9rem;max-width:none;white-space:pre}
+.tree b{color:var(--ink);font-weight:500}
+
+/* ── Bars, meters, checklists, timeline ───────────────────── */
+.bars{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.35rem .75rem;align-items:center;margin:.5rem 0 .25rem;max-width:720px;font-size:.84rem}
+.bars .l{color:var(--ink-dim);font-family:var(--font-mono);font-size:.76rem}
+.bars .b{height:9px;background:var(--paper-3);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.bars .b i{display:block;height:100%;width:calc(var(--v)/var(--max)*100%);background:var(--bar);border-radius:0 4px 4px 0}
+.bars .v{font-variant-numeric:tabular-nums;color:var(--ink-dim);font-family:var(--font-mono);font-size:.76rem;text-align:right}
+.meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.1rem 1.75rem;margin:.6rem 0 .4rem}
+.meter .t{display:flex;justify-content:space-between;gap:.6rem;font-size:.88rem;margin-bottom:.35rem}
+.meter .t b{font-weight:600}
+.meter .t span{color:var(--ink-dim);font-variant-numeric:tabular-nums;font-family:var(--font-mono);font-size:.74rem}
+.meter .track{position:relative;height:13px;background:var(--paper-3);border:1px solid var(--rule);border-radius:4px}
+.meter .fill{position:absolute;top:2px;bottom:2px;left:var(--a);width:var(--w);background:var(--bar);border-radius:3px}
+.meter .fill.cap{background:var(--warn)}
+.meter .lim{position:absolute;top:-4px;bottom:-4px;left:var(--x);width:2px;background:var(--copper)}
+.meter .lim.lo{background:var(--ok)}
+.meter .n{font-size:.8rem;color:var(--ink-whisper);margin-top:.35rem;line-height:1.45}
+.check{list-style:none;padding:0;margin:.4rem 0 .75rem;columns:2;column-gap:2rem;max-width:none}
+.check li{break-inside:avoid;padding:.2rem 0 .2rem 1.5rem;position:relative;font-size:.88rem;margin:0}
+.check li::before{content:"✓";position:absolute;left:.15rem;top:.2rem;color:var(--ok);font-family:var(--font-mono);font-weight:600}
+.check li.open::before{content:"○";color:var(--open)}
+.check li small{color:var(--ink-whisper);font-family:var(--font-mono);font-size:.68rem}
+.timeline{list-style:none;padding:0;margin:.5rem 0;max-width:none;border-left:2px solid var(--rule-strong)}
+.timeline li{padding:.1rem 0 .75rem 1.1rem;position:relative;font-size:.88rem;margin:0}
+.timeline li::before{content:"";position:absolute;left:-6px;top:.5rem;width:8px;height:8px;background:var(--copper);transform:rotate(45deg)}
+.timeline .d{font-family:var(--font-mono);font-size:.68rem;color:var(--leather);display:block;letter-spacing:.08em;text-transform:uppercase}
+.light-row{display:flex;flex-wrap:wrap;gap:.4rem .5rem;margin:.4rem 0 .75rem;max-width:none;list-style:none;padding:0}
+.light-row li{display:flex;align-items:center;gap:.5rem;font-size:.8rem;font-family:var(--font-mono);color:var(--ink-dim);background:var(--paper-2);border:1px solid var(--rule);border-radius:999px;padding:.2rem .7rem .2rem .3rem;margin:0}
+.light-row .dot{width:16px;height:16px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(26,20,16,.25) inset,0 0 8px var(--c)}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 2rem;max-width:none;list-style:none;padding:0;margin:.4rem 0 .75rem}
+.keys li{display:flex;gap:.75rem;align-items:baseline;padding:.4rem 0;border-bottom:1px solid var(--rule);font-size:.88rem;margin:0}
+.keys li span:first-child{min-width:8.2rem}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.footer{padding-bottom:2.75rem;padding-top:.45rem;border-bottom:4px solid var(--rule-page)}
+.colophon{text-align:center;font-size:.78rem;color:var(--ink-whisper);max-width:80ch;margin:0 auto}
+.colophon em{font-family:var(--font-display);font-style:italic;color:var(--leather)}
+.colophon .mono{font-size:.72rem}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width:640px){
+  body{font-size:14.5px}
+  .masthead-rule{font-size:.6rem;letter-spacing:.12em}
+  .status-bar{font-size:.66rem;gap:.35rem .6rem}
+  .check{columns:1}
+  .cards{grid-template-columns:1fr}
+  .section-divider::after{font-size:.7rem;padding:6px .9rem}
+  .instrument{padding:.75rem .75rem .9rem}
+  .wordmark{font-size:clamp(2.6rem,13vw,4rem)}
+}
+@media (max-width:480px){
+  .bars{grid-template-columns:auto minmax(0,1fr)}
+  .bars .v{display:none}
+  .commandline{padding:.65rem .75rem}
+  .keys li span:first-child{min-width:6.5rem}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .masthead-rule,.imprint,.masthead-sub,.status-bar,.commandline,.chips{animation:none;opacity:1}
+  .wm-ch{animation:none;opacity:1;transform:none}
+  .status-live .dot,.caret{animation:none}
+  .card,.chip,.imprint-name,.imprint-mark{transition:none}
+}
+@media print{
+  body{background:#fff;color:#111;padding-top:0}
+  body::before{display:none}
+  .commandline,.chips,.theme-btn,.skip{display:none}
+  .instrument{box-shadow:none}
+  .card{break-inside:avoid;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#shelf">Skip to the shelf</a>
+
+<header class="masthead">
+  <div class="masthead-rule" aria-hidden="true">
+    <span class="masthead-host">luminaries · reference shelf</span>
+    <span class="masthead-build">2026-09-14 · main 162a496</span>
+  </div>
+
+  <a class="imprint" href="https://github.com/EE-EDK/Luminaries" target="_blank" rel="noopener">
+    <span class="imprint-name">EE-EDK / Luminaries</span>
+    <svg class="imprint-mark" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </a>
+
+  <h1 class="wordmark" aria-label="Luminaries">
+    <span class="wm-ch" style="--i:0">L</span><span class="wm-ch" style="--i:1">u</span><span class="wm-ch" style="--i:2">m</span><span class="wm-ch" style="--i:3">i</span><span class="wm-ch" style="--i:4">n</span><span class="wm-ch" style="--i:5">a</span><span class="wm-ch" style="--i:6">r</span><span class="wm-ch" style="--i:7">i</span><span class="wm-ch" style="--i:8">e</span><span class="wm-ch" style="--i:9">s</span>
+  </h1>
+
+  <p class="masthead-sub">
+    <span class="vol">Vol. reference</span><span class="sep">·</span>one page for the whole <code>reference/</code> shelf<span class="sep">·</span><em>a first‑person bioluminescent forest, procedural end to end</em>
+  </p>
+
+  <div class="status-bar" aria-label="project status">
+    <span><span class="status-key">phase 1</span> <span class="status-val">complete</span></span>
+    <span class="status-sep">|</span>
+    <span><span class="status-key">phase 2</span> <span class="status-val">20 / 21</span></span>
+    <span class="status-sep">|</span>
+    <span><span class="status-key">tests</span> <span class="status-val">231 / 231</span></span>
+    <span class="status-sep">|</span>
+    <span><span class="status-key">source</span> <span class="status-val">126 files · 28,097 lines</span></span>
+    <span class="status-sep">|</span>
+    <span><span class="status-key">lights</span> <span class="status-val cap">8 / 8</span></span>
+    <span class="status-sep">|</span>
+    <span><span class="status-key">shelf</span> <span class="status-val">17 docs</span></span>
+    <span class="status-sep">|</span>
+    <span class="status-live"><span class="dot" aria-hidden="true"></span><a href="https://ee-edk.github.io/Luminaries/" target="_blank" rel="noopener">live build</a></span>
+  </div>
+
+  <form class="commandline" role="search" autocomplete="off" onsubmit="return false;">
+    <span class="prompt" aria-hidden="true">&gt;</span>
+    <input class="search" id="q" type="search" placeholder="filter rows, cards and lists…" aria-label="Filter the dashboard">
+    <span class="caret" aria-hidden="true">▮</span>
+    <span class="match-count" id="count" aria-live="polite"></span>
+    <span class="commandline-hint" aria-hidden="true"><span class="hint-key">/</span> focus <span class="hint-sep">·</span> <span class="hint-key">esc</span> clear</span>
+    <button class="theme-btn" id="theme" type="button" aria-pressed="false">Night</button>
+  </form>
+
+  <nav class="chips" aria-label="sections">
+    <a class="chip" href="#shelf"><span class="chip-dot" style="--c:var(--c-tools)"></span>shelf</a>
+    <a class="chip" href="#arch"><span class="chip-dot" style="--c:var(--c-data)"></span>architecture</a>
+    <a class="chip" href="#budget"><span class="chip-dot" style="--c:var(--c-hardware)"></span>budget</a>
+    <a class="chip" href="#entities"><span class="chip-dot" style="--c:var(--c-tools)"></span>entities</a>
+    <a class="chip" href="#audio"><span class="chip-dot" style="--c:var(--c-explainers)"></span>audio</a>
+    <a class="chip" href="#quest"><span class="chip-dot" style="--c:var(--c-creative)"></span>quest &amp; narrative</a>
+    <a class="chip" href="#rules"><span class="chip-dot" style="--c:var(--c-data)"></span>rules</a>
+    <a class="chip" href="#status"><span class="chip-dot" style="--c:var(--c-hardware)"></span>status</a>
+    <a class="chip" href="#protocols"><span class="chip-dot" style="--c:var(--c-career)"></span>protocols</a>
+    <a class="chip" href="#controls"><span class="chip-dot" style="--c:var(--c-family)"></span>controls</a>
+  </nav>
+</header>
+
+<!-- ═══════════════ the instrument ═══════════════ -->
+<hr class="section-divider" data-label="╠ spirit hum · instrument ╣">
+<div class="instrument-wrap">
+  <figure class="instrument" aria-labelledby="spec-title">
+    <div class="instrument-head"><span><b>resonance bands</b> · 80 to 700 Hz</span><span>HUM_BAND_* · constants.js</span></div>
+    <svg viewBox="0 0 1000 150" role="img" aria-labelledby="spec-title spec-desc">
+      <title id="spec-title">Spirit hum spectrum, 80 to 700 Hz</title>
+      <desc id="spec-desc">Four creature resonance bands along the player's hum range: deer 120 Hz plus or minus 50, moth 240 plus or minus 55, jelly 390 plus or minus 60, puffling 550 plus or minus 65. The bands do not overlap.</desc>
+      <!-- x(hz) = 40 + (hz - 80) / 620 * 920 -->
+      <line class="tick" x1="69.7" x2="69.7" y1="58" y2="112"/>
+      <line class="tick" x1="218.1" x2="218.1" y1="58" y2="112"/>
+      <line class="tick" x1="366.5" x2="366.5" y1="58" y2="112"/>
+      <line class="tick" x1="514.8" x2="514.8" y1="58" y2="112"/>
+      <line class="tick" x1="663.2" x2="663.2" y1="58" y2="112"/>
+      <line class="tick" x1="811.6" x2="811.6" y1="58" y2="112"/>
+      <line class="tick" x1="960" x2="960" y1="58" y2="112"/>
+      <line class="axis" x1="40" x2="960" y1="112" y2="112"/>
+      <rect class="band" style="--c:var(--ins-deer)" fill="var(--ins-deer)" x="40" y="66" width="133.5" height="40" rx="3"/>
+      <rect class="band" style="--c:var(--ins-moth)" fill="var(--ins-moth)" x="195.8" y="66" width="163.2" height="40" rx="3"/>
+      <rect class="band" style="--c:var(--ins-jelly)" fill="var(--ins-jelly)" x="411" y="66" width="178" height="40" rx="3"/>
+      <rect class="band" style="--c:var(--ins-puff)" fill="var(--ins-puff)" x="640.9" y="66" width="192.9" height="40" rx="3"/>
+      <text class="lab" x="40" y="40">Deer</text><text x="40" y="56">120 Hz ± 50</text>
+      <text class="lab" x="195.8" y="40">Moon moth</text><text x="195.8" y="56">240 Hz ± 55</text>
+      <text class="lab" x="411" y="40">Jellyfish</text><text x="411" y="56">390 Hz ± 60</text>
+      <text class="lab" x="640.9" y="40">Puffling</text><text x="640.9" y="56">550 Hz ± 65</text>
+      <text x="40" y="134">80 Hz</text>
+      <text x="218.1" y="134" text-anchor="middle">200</text>
+      <text x="366.5" y="134" text-anchor="middle">300</text>
+      <text x="514.8" y="134" text-anchor="middle">400</text>
+      <text x="663.2" y="134" text-anchor="middle">500</text>
+      <text x="811.6" y="134" text-anchor="middle">600</text>
+      <text x="960" y="134" text-anchor="end">700 Hz</text>
+    </svg>
+    <figcaption class="instrument-foot">The whole game hangs on this strip. <kbd>F</kbd> hums, <kbd>Q</kbd>/<kbd>E</kbd> sweep pitch; hold inside a band for 1.2 s to lock, then perform that creature's ritual to attune. Orbs 2, 3 and 4 each demand one specific band. The bands do not overlap at the current tolerances.</figcaption>
+  </figure>
+</div>
+
+<main>
+
+<!-- ═══════════════ the shelf ═══════════════ -->
+<hr class="section-divider" data-label="╠ the shelf · 17 documents ╣">
+<section class="sheet" id="shelf">
+  <h2 class="sr-only">The shelf</h2>
+  <p class="lede">Read in this order when starting cold: architecture, then whichever of entities, patterns, performance, audio or narrative matches the task. The dated plans are history and open‑items ledgers. The imported protocols are workspace standards mirrored here.</p>
+  <div class="cards">
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">01</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="architecture.md">architecture.md</a></h3>
+      <p class="card-desc">Dependency graph from <code>index.html</code> down, data flow, spawn order, the director pattern, module interfaces, file size table.</p>
+      <div class="card-foot"><span>176 lines</span><b>read first</b><span class="when">Every session.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">02</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="entities.md">entities.md</a></h3>
+      <p class="card-desc">Registry of all 29 entity types and 11 particle systems: counts, cull distances, builders, states, resonance bands, tree LOD tiers, palette quick reference.</p>
+      <div class="card-foot"><span>101 lines</span><b>entities</b><span class="when">Adding or modifying entities. Counts lag <code>constants.js</code>; see the drift note under Status.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">03</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="patterns.md">patterns.md</a></h3>
+      <p class="card-desc">Eleven canonical patterns with full code: entity builder, particle pool, culling, glow pulse, weather‑responsive, audio callback and event bus, flat zones, keep‑out, instanced templates, state machine, spirit‑hum gate. Plus the source‑code lore guidelines.</p>
+      <div class="card-foot"><span>338 lines</span><b>any new code</b><span class="when">Before writing anything.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">04</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="performance.md">performance.md</a></h3>
+      <p class="card-desc">Hard limits: FPS floor, light budget breakdown, draw calls, instancing thresholds, cull distances, bloom, material sharing, memory rules, when to flag risk.</p>
+      <div class="card-foot"><span>98 lines</span><b>visual features</b><span class="when">Before adding anything that renders.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">05</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="audio.md">audio.md</a></h3>
+      <p class="card-desc">Web Audio graph, ambient and creature layers, callback injection and event subscriptions, the add‑a‑sound recipe, sanctioned volume exceptions, spirit hum audio.</p>
+      <div class="card-foot"><span>151 lines</span><b>sound, music</b><span class="when">Any change that makes a noise.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-tools)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">06</span><span class="card-class">start here</span></div>
+      <h3 class="card-title"><a href="narrative.md">narrative.md</a></h3>
+      <p class="card-desc">Distilled lore: the two voices and the hidden third, terminology table, creature metaphors, discovery and wish text, the wizard encounter beats, puffling chat pools, narrative constraints.</p>
+      <div class="card-foot"><span>141 lines</span><b>player‑facing text</b><span class="when">Before writing a line the player will read.</span></div>
+    </article>
+
+    <article class="card" style="--accent:var(--c-creative)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">07</span><span class="card-class">design</span></div>
+      <h3 class="card-title"><a href="MANIFESTO.md">MANIFESTO.md</a></h3>
+      <p class="card-desc">The full Phase 2 design in fifteen sections: dual narrative, mechanical symbolism, the Dimming, creatures as metronomes, the five zones, fairy ring boost, bubble rewards, light evolution, audio sync, environmental literacy, the endings, priorities, descoped items, tone guide.</p>
+      <div class="card-foot"><span>727 lines</span><b>intent</b><span class="when">When you need the reason behind a mechanic, not just its constants.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-creative)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">08</span><span class="card-class">player guide</span></div>
+      <h3 class="card-title"><a href="GAME_GUIDE.md">GAME_GUIDE.md</a></h3>
+      <p class="card-desc">Player‑facing guide: themes, controls, tips, the world, weather, day and night, the quest, two‑phase attunement, the wizard, discovery moments, the story.</p>
+      <div class="card-foot"><span>271 lines</span><b>keep current</b><span class="when">Update whenever a feature changes what the player does or sees.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-creative)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">09</span><span class="card-class">phase record</span></div>
+      <h3 class="card-title"><a href="phase-1-summary.md">phase-1-summary.md</a></h3>
+      <p class="card-desc">Everything Phase 1 built, as a checklist by subsystem, with the metrics table and known debt at hand‑off.</p>
+      <div class="card-foot"><span>129 lines</span><b>foundation</b><span class="when">When you need to know what the base layer guarantees.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-creative)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">10</span><span class="card-class">phase record</span></div>
+      <h3 class="card-title"><a href="phase-2-roadmap.md">phase-2-roadmap.md</a></h3>
+      <p class="card-desc">The 21 Phase 2 features in three tiers with file targets and status, the five zones, constants, attunement details, light evolution, the descoped list.</p>
+      <div class="card-foot"><span>120 lines</span><b>planning</b><span class="when">Planning the last Phase 2 item or a Phase 3.</span></div>
+    </article>
+
+    <article class="card" style="--accent:var(--c-data)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">11</span><span class="card-class">plan · 2026‑06‑07</span></div>
+      <h3 class="card-title"><a href="audit-remediation-plan-2026-06-07.md">audit‑remediation‑plan</a></h3>
+      <p class="card-desc">Twelve‑phase plan from the nine‑facet audit, 67 verified findings: regression net, progression, wizard, crystal chains, color, movement, audio, dead code, allocations, docs, validation, FPS hardening, playtest polish. About 68 commits; tests 164 → 218.</p>
+      <div class="card-foot"><span>747 lines</span><b>history</b><span class="when">When a symptom looks like one already audited, or to see why a fix was shaped as it was.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-data)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">12</span><span class="card-class">report · 2026‑06‑07</span></div>
+      <h3 class="card-title"><a href="fps-hotspots-2026-06-07.md">fps‑hotspots</a></h3>
+      <p class="card-desc">Static hotspot ranking, the <code>LumiDebug.perf()</code> recipe, scene inventory, light budget proof, four stress scenarios, the Phase 11 changes, and a measured‑results table that is still empty.</p>
+      <div class="card-foot"><span>516 lines</span><b>measure</b><span class="when">Measuring FPS on real hardware. Fill the table.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-data)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">13</span><span class="card-class">plan · 2026‑06‑13</span></div>
+      <h3 class="card-title"><a href="orb-quest-smoothing-plan-2026-06-13.md">orb‑quest‑smoothing‑plan</a></h3>
+      <p class="card-desc">Why orbs 2 to 4 felt broken: 70% communication, 20% contradictory mechanics, 10% silent timers. Seven verified root causes and phases A to D. Waves 1 and E are merged to <code>main</code>.</p>
+      <div class="card-foot"><span>118 lines</span><b>orb gate</b><span class="when">Playtesting the gate, or touching attunement, spirit hum, or quest hints.</span></div>
+    </article>
+
+    <article class="card" style="--accent:var(--c-hardware)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">14</span><span class="card-class">imported protocol</span></div>
+      <h3 class="card-title"><a href="unified_webgl_protocol_v4.1.md">Unified WebGL Protocol v4.1</a></h3>
+      <p class="card-desc">The legacy monolith, phases 0 to V. Superseded for new work by <a href="../../../../tools/webgl-protocol-v5/00-hub.md">WebGL Protocol v5</a>; still valid for Luminaries‑specific patterns.</p>
+      <div class="card-foot"><span>4,382 lines</span><b>fallback</b><span class="when">A universal Three.js question that v5 does not answer.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-hardware)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">15</span><span class="card-class">imported protocol</span></div>
+      <h3 class="card-title"><a href="webgl_fps_guide_r172_v2.md">Sub‑4 MB WebGL FPS guide</a></h3>
+      <p class="card-desc">Bundle size, draw calls, ECS and loop, asset pipeline, case studies including Luminaries, pointer lock and camera rig, a ranked summary.</p>
+      <div class="card-foot"><span>741 lines</span><b>performance</b><span class="when">A performance pass or a bundle diet.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-hardware)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">16</span><span class="card-class">imported protocol</span></div>
+      <h3 class="card-title"><a href="procedural-audio-engine-protocol.md">Procedural Audio Engine Protocol</a></h3>
+      <p class="card-desc">Zero‑asset Web Audio methodology: managed voices, scheduling, bus topology, anti‑clicking, voice stealing, noise buffers, spatial audio, generative music, state‑reactive layers.</p>
+      <div class="card-foot"><span>692 lines</span><b>audio design</b><span class="when">Designing audio architecture rather than adding one sound.</span></div>
+    </article>
+    <article class="card" style="--accent:var(--c-hardware)" data-f>
+      <div class="card-stripe" aria-hidden="true"></div>
+      <div class="card-head"><span class="card-serial">17</span><span class="card-class">imported · superseded</span></div>
+      <h3 class="card-title"><a href="Technical_Editor_Protocol_v5.1_FULL.md">Technical Editor Protocol v5.1</a></h3>
+      <p class="card-desc">Grounding, risk warnings, premise checks, data standards, documentation and code gates, operational rules, tone. The workspace adopted v6.0 on 2026‑09‑08; this copy is historical.</p>
+      <div class="card-foot"><span>475 lines</span><b>prefer v6.0</b><span class="when"><code>templates/technical_editor_protocol_v6.0.md</code> at the workspace root.</span></div>
+    </article>
+  </div>
+  <p class="whisper">Also on the shelf: <a href="greenskyidea.png">greenskyidea.png</a>, a 6.4 MB concept image for the green‑sky look. Reference only.</p>
+</section>
+
+<!-- ═══════════════ architecture ═══════════════ -->
+<hr class="section-divider" data-label="╠ architecture ╣">
+<section class="sheet" id="arch">
+  <h2 class="sr-only">Architecture</h2>
+  <p class="lede">Functional ES modules, no classes. <code>main.js</code> bootstraps, populates the world with a seeded RNG, then runs one animation loop whose per‑frame work is a scheduler of named systems. Cross‑cutting concerns flow through a typed event bus.</p>
+  <p class="whisper">Source: <a href="architecture.md">architecture.md</a>, <code>src/kernel/</code>, <code>src/systems/registration.js</code>. Seed 42.</p>
+
+  <h3>Bootstrap order</h3>
+  <ol class="pipe">
+    <li data-f><b>core/renderer</b><small>renderer, camera, scene, clock</small></li>
+    <li data-f><b>core/geometries</b><small>GEO shared pool</small></li>
+    <li data-f><b>core/lighting</b><small>hemi, moon, moon2, player, orb, crystal pool</small></li>
+    <li data-f><b>core/postprocessing</b><small>EffectComposer + UnrealBloom</small></li>
+    <li data-f><b>core/input</b><small>keys, yaw, pitch, touch</small></li>
+    <li data-f><b>core/player</b><small>pos, vel, onGround</small></li>
+    <li data-f><b>world/*</b><small>terrain, ground, sky, aurora</small></li>
+    <li data-f><b>populate()</b><small>flat zones → trees → flora, fauna → magical, world</small></li>
+    <li data-f><b>particles init</b><small>11 pre‑allocated pools</small></li>
+    <li data-f><b>systems init</b><small>audio, music, weather, day/night, dimming, discoveries, spirit hum</small></li>
+    <li data-f><b>quest init</b><small>orbs, obelisk at world center</small></li>
+    <li data-f><b>loop(t)</b><small>updatePlayer → updateDimming → director → dimming effects → postRender</small></li>
+  </ol>
+  <div class="field">Spawn order decides heights. Ponds and fairy rings call <code>registerFlatZone()</code> before anything samples <code>getGroundY()</code>. Trees go next, then everything else. Check <code>inKeepOut()</code> before every placement.</div>
+
+  <h3>Scheduler phase order, 20 registered systems</h3>
+  <p>Registered in <code>systems/registration.js</code> with <code>addSystem(name, Phase.X, fn)</code>. The small number is the phase slot; lower runs first. <code>director()</code> calls <code>runScheduler()</code> once per frame.</p>
+  <ol class="pipe">
+    <li data-f><b>adaptiveQuality</b><small>5</small></li>
+    <li data-f><b>crystalProximity</b><small>10</small></li>
+    <li data-f><b>particleSpawn</b><small>20</small></li>
+    <li data-f><b>floraGlow</b><small>30</small></li>
+    <li data-f><b>crystalVisuals</b><small>32</small></li>
+    <li data-f><b>spatialHashUpdate</b><small>35</small></li>
+    <li data-f><b>spiritHum</b><small>38</small></li>
+    <li data-f><b>fauna</b><small>40</small></li>
+    <li data-f><b>attunement</b><small>60</small></li>
+    <li data-f><b>sky</b><small>70</small></li>
+    <li data-f><b>vegetation</b><small>80</small></li>
+    <li data-f><b>rocks</b><small>90</small></li>
+    <li data-f><b>magical</b><small>100</small></li>
+    <li data-f><b>particles</b><small>110</small></li>
+    <li data-f><b>quest</b><small>120</small></li>
+    <li data-f><b>footprints</b><small>130</small></li>
+    <li data-f><b>audio</b><small>140</small></li>
+    <li data-f><b>discoveries</b><small>150</small></li>
+    <li data-f><b>discoveryChecks</b><small>152</small></li>
+    <li data-f><b>perfReport</b><small>160 · dev only</small></li>
+  </ol>
+
+  <div class="cols">
+    <div>
+      <h3>Event bus, 23 events</h3>
+      <p>Typed pub/sub in <code>kernel/eventBus.js</code>: <code>on(Events.X, fn)</code>, <code>emit(Events.X, payload)</code>. Prefer an event over callback injection for new cross‑cutting work.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Group</th><th>Events</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Quest</td><td><code>ORB_COLLECTED</code> <code>ORB_REJECTED</code> <code>QUEST_PHASE</code> <code>ORB_FLY_START</code> <code>ORB_LASER_START</code> <code>WORLD_TRANSFORMED</code></td></tr>
+          <tr data-f><td>Attunement</td><td><code>CREATURE_ATTUNED</code> <code>PITCH_LOCKED</code> <code>ENTITY_MOOD_CHANGE</code> <code>SYMBIOSIS_COUPLED</code></td></tr>
+          <tr data-f><td>Player</td><td><code>FOOTSTEP</code> <code>JUMP</code> <code>LAND</code> <code>FAIRY_BOUNCE</code> <code>BUBBLE_POP</code></td></tr>
+          <tr data-f><td>World</td><td><code>CRYSTAL_CHAIN</code> <code>CRYSTAL_VISITED</code> <code>CREATURE_SOUND</code> <code>WEATHER_CHANGE</code> <code>DAY_PHASE_CHANGE</code></td></tr>
+          <tr data-f><td>Narrative</td><td><code>DISCOVERY</code> <code>NARRATIVE_TEXT</code> <code>PERSPECTIVE_CHANGED</code></td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">Two of these were once emitted with no subscriber, <code>QUEST_PHASE</code> and <code>CRYSTAL_VISITED</code>; both were wired in the 2026‑07‑01 pass. Grep for listeners before trusting an event.</p>
+      <h3>Where state lives</h3>
+      <ul>
+        <li data-f><code>constants.js</code>: counts, physics, colors (<code>C</code>). Immutable.</li>
+        <li data-f><code>state/</code>: orbStore, playerStore, attunementStore, spiritHumStore, narrativeState, entityStore, magicalStore, gameState.</li>
+        <li data-f><code>kernel/context.js</code>: a pre‑allocated per‑frame snapshot (dt, player, bioGlow) so systems read one object.</li>
+        <li data-f><code>quest/config.js</code>: <code>QuestPhases</code>, <code>QUEST_CONFIG</code>, <code>ORB_CREATURE_SEQUENCE</code>, creature display names.</li>
+        <li data-f>Systems own their state at module scope and expose getters: <code>getLocalGlow()</code>, <code>isLocked()</code>, <code>getPlayerFrequency()</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Directory map</h3>
+      <div class="tree"><b>src/</b>
+├─ main.js          bootstrap, director subsystems, loop
+├─ constants.js     counts, physics, C palette
+├─ kernel/          eventBus, scheduler, context
+├─ core/            renderer, geometries, lighting, input, player, bloom
+├─ world/           terrain, ground, sky, aurora
+├─ entities/        flora 16, fauna 4 (+luminid), magical 5, world 4
+├─ particles/       11 pooled systems + particlePool
+├─ systems/         audio, music, weather, dayNightCycle, dimming,
+│                   attunement, spiritHum, discoveries, echoVisions,
+│                   wizardPufflingEvent, pufflingChat, adaptiveQuality,
+│                   perfMonitor, registration, ai/, intro/
+├─ quest/           config, questState, questVisuals, lasers
+├─ state/           8 stores
+├─ updates/         fauna/, vegetation, magical, crystal, spawning,
+│                   attunement + hum visuals, playerVisuals
+├─ ui/              hud, hudLabels, overlay, pufflingHomePreview
+├─ debug/           debugConsole (LumiDebug), debugFlags, devSkipPanel
+└─ utils/           rng (sr), math, spatialHash</div>
+      <h3>Code size by directory, measured</h3>
+      <p class="whisper">Lines of JavaScript excluding <code>__tests__</code>. Total 28,097 across 126 files. The README's "~86 files, ~14,000 lines" predates Phase 2.</p>
+      <div class="bars" role="img" aria-label="Horizontal bars of lines per directory">
+        <span class="l">entities</span><span class="b"><i style="--v:7687;--max:7687" title="entities: 7,687 lines"></i></span><span class="v">7,687</span>
+        <span class="l">systems</span><span class="b"><i style="--v:7494;--max:7687" title="systems: 7,494 lines"></i></span><span class="v">7,494</span>
+        <span class="l">updates</span><span class="b"><i style="--v:3573;--max:7687" title="updates: 3,573 lines"></i></span><span class="v">3,573</span>
+        <span class="l">world</span><span class="b"><i style="--v:2117;--max:7687" title="world: 2,117 lines"></i></span><span class="v">2,117</span>
+        <span class="l">quest</span><span class="b"><i style="--v:1350;--max:7687" title="quest: 1,350 lines"></i></span><span class="v">1,350</span>
+        <span class="l">particles</span><span class="b"><i style="--v:1336;--max:7687" title="particles: 1,336 lines"></i></span><span class="v">1,336</span>
+        <span class="l">main.js</span><span class="b"><i style="--v:906;--max:7687" title="main.js: 906 lines"></i></span><span class="v">906</span>
+        <span class="l">core</span><span class="b"><i style="--v:767;--max:7687" title="core: 767 lines"></i></span><span class="v">767</span>
+        <span class="l">debug</span><span class="b"><i style="--v:594;--max:7687" title="debug: 594 lines"></i></span><span class="v">594</span>
+        <span class="l">kernel</span><span class="b"><i style="--v:327;--max:7687" title="kernel: 327 lines"></i></span><span class="v">327</span>
+        <span class="l">state</span><span class="b"><i style="--v:279;--max:7687" title="state: 279 lines"></i></span><span class="v">279</span>
+        <span class="l">utils</span><span class="b"><i style="--v:237;--max:7687" title="utils: 237 lines"></i></span><span class="v">237</span>
+        <span class="l">ui</span><span class="b"><i style="--v:184;--max:7687" title="ui: 184 lines"></i></span><span class="v">184</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ budget ═══════════════ -->
+<hr class="section-divider" data-label="╠ budget · hard limits ╣">
+<section class="sheet" id="budget">
+  <h2 class="sr-only">Budget</h2>
+  <p class="lede">These are hard limits. Flag alternatives before any risky change; never spend the frame rate on a feature.</p>
+  <p class="whisper">Source: <a href="performance.md">performance.md</a>, <a href="fps-hotspots-2026-06-07.md">fps‑hotspots</a>, <code>core/lighting.js</code>.</p>
+  <div class="meters">
+    <div class="meter" data-f>
+      <div class="t"><b>Frame rate</b><span>floor 20 · seen 31–59</span></div>
+      <div class="track" title="FPS scale 0 to 60; green line is the 20 FPS floor; band is the owner-observed range"><span class="fill" style="--a:51.7%;--w:46.6%"></span><span class="lim lo" style="--x:33.3%"></span><span class="lim lo" style="--x:25%;opacity:.5"></span></div>
+      <div class="n">Target avg ≥ 20 and 1%‑low ≥ 15, never below 15. The observed band is from the 2026‑06‑07 playtest HUD; the formal per‑scenario table is still unmeasured.</div>
+    </div>
+    <div class="meter" data-f>
+      <div class="t"><b>Real‑time lights</b><span>8 of 8</span></div>
+      <div class="track" title="Light budget: 8 of 8 in use"><span class="fill cap" style="--a:0;--w:100%"></span><span class="lim" style="--x:100%"></span></div>
+      <div class="n">1 hemisphere, 2 directional (moon, moon2), 1 player, 1 orb, 3 crystal proximity pool (<code>MAX_CRYSTAL_LIGHTS = 3</code>). The crystal pool is the only flex. Never add ambient or directional lights.</div>
+    </div>
+    <div class="meter" data-f>
+      <div class="t"><b>Draw calls</b><span>est. 80–120 of 200</span></div>
+      <div class="track" title="Draw call budget 200; static estimate 80 to 120"><span class="fill" style="--a:40%;--w:20%"></span><span class="lim" style="--x:100%"></span></div>
+      <div class="n">Static estimate only. Confirm live with <code>LumiDebug.perf()</code> and read <code>draws</code>. Anything with more than 50 copies must be an <code>InstancedMesh</code>.</div>
+    </div>
+    <div class="meter" data-f>
+      <div class="t"><b>Particles per system</b><span>fireflies ~120 of 500</span></div>
+      <div class="track" title="Per-system particle cap 500; fireflies about 120, others under 100"><span class="fill" style="--a:0;--w:24%"></span><span class="lim" style="--x:100%"></span></div>
+      <div class="n">Eleven pooled systems, each capped below 500. Pools are pre‑allocated <code>Float32Array</code>s and never grow.</div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h3>Hot‑path rules</h3>
+      <ul>
+        <li data-f>No allocations in the animation loop. Pre‑allocate at module scope.</li>
+        <li data-f>Squared distances only in culling checks. No <code>Math.sqrt()</code> in the hot path.</li>
+        <li data-f><code>InstancedMesh</code> for anything with more than 50 copies; 500+ also needs LOD and culling.</li>
+        <li data-f>Share materials. Lift non‑modulated materials to module scope with a <code>_</code> prefix. Clone only when <code>emissiveIntensity</code> is animated per instance.</li>
+        <li data-f><code>depthWrite: false</code> on every transparent, glow, or haze material.</li>
+        <li data-f>Keep <code>emissiveIntensity</code> between 0.3 and 2.0 or bloom blows out.</li>
+        <li data-f>Bloom internal resolution is capped at 512² and re‑applied after resize, because <code>setSize()</code> ignores <code>.resolution</code>. Shadow map updates at ~1 Hz.</li>
+      </ul>
+      <h4>flag it before you add</h4>
+      <ul>
+        <li data-f>More than 500 particles in one system, or any new real‑time light.</li>
+        <li data-f>A per‑frame loop over more than 200 entities without culling.</li>
+        <li data-f>A canvas texture over 1024², or a new post‑processing pass.</li>
+        <li data-f>Any <code>Math.random()</code> or <code>new</code> inside the loop.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Visibility culling</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Entity</th><th class="num">Cull</th><th>Check</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Trees</td><td class="num">110 m</td><td>4‑tier LOD, per‑instance frustum</td></tr>
+          <tr data-f><td>Deer</td><td class="num">60 m</td><td>2D</td></tr>
+          <tr data-f><td>Jellies</td><td class="num">55 m</td><td>2D</td></tr>
+          <tr data-f><td>Mushrooms</td><td class="num">50 m</td><td>3D</td></tr>
+          <tr data-f><td>Rocks</td><td class="num">50 m</td><td>2D</td></tr>
+          <tr data-f><td>Moths</td><td class="num">45 m</td><td>2D</td></tr>
+          <tr data-f><td>Pufflings</td><td class="num">40 m</td><td>2D</td></tr>
+          <tr data-f><td>Ferns, flowers, reeds</td><td class="num">40 m</td><td>2D</td></tr>
+          <tr data-f><td>Grass</td><td class="num">—</td><td>GPU vertex shader, zero CPU</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Tree LOD</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Tier</th><th>Distance</th><th>Detail</th><th class="num">Calls / template</th></tr></thead>
+        <tbody>
+          <tr data-f><td>0</td><td>&lt; 20 m</td><td>Full detail, wind sway</td><td class="num">4</td></tr>
+          <tr data-f><td>1</td><td>20 to 70 m</td><td>No glow mesh</td><td class="num">3</td></tr>
+          <tr data-f><td>2</td><td>70 to 110 m</td><td>Impostor sprite</td><td class="num">1</td></tr>
+          <tr data-f><td>3</td><td>&gt; 110 m</td><td>Hidden</td><td class="num">0</td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">500 trees, 10 templates, about 40 draw calls in total.</p>
+    </div>
+  </div>
+
+  <h3>Hotspot ranking, static</h3>
+  <p class="whisper">From the 2026‑06‑07 report, ranked by expected CPU cost per frame, with the Phase 11 task that addressed each.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>#</th><th>Hotspot</th><th>Cost model</th><th>Addressed by</th></tr></thead>
+    <tbody>
+      <tr data-f><td>1</td><td>Fauna O(n²) neighbour scans</td><td>~3,000 distance checks per frame across pufflings, jellies, deer, plus huddle and startle loops</td><td>11.2 spatial hash, O(k) per query, radii unchanged</td></tr>
+      <tr data-f><td>2</td><td>Post‑processing</td><td>RenderPass → UnrealBloom (5 mip blurs) → saturation; GPU‑bound, fixed cost</td><td>11.3 cap confirmed; 11.5 adaptive bloom strength</td></tr>
+      <tr data-f><td>3</td><td>Draw calls and overdraw</td><td>Un‑instanced creatures, particle clouds, transparent glow layers</td><td>11.4 runtime audit with the probe</td></tr>
+      <tr data-f><td>4</td><td>Crystal proximity and chains</td><td>18‑crystal scan, up to 3 dynamic lights, chain pulse visuals</td><td>11.4 light assert, 11.3 throttle</td></tr>
+      <tr data-f><td>5</td><td>Echo‑visions, discovery checks</td><td>Accepted sqrt and allocation; checks do not need 60 Hz</td><td>11.3 N‑frame cadence; squared pre‑gate added 2026‑07‑01</td></tr>
+      <tr data-f><td>6</td><td>Shadow map</td><td>Already manual ~1 Hz</td><td>11.3 confirm only</td></tr>
+      <tr data-f><td>7</td><td>Tree LOD and frustum cull</td><td>Per‑instance over 495 trees each frame</td><td>11.3 or 11.4 only if data shows a breach</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ═══════════════ entities ═══════════════ -->
+<hr class="section-divider" data-label="╠ entities · 29 types + 11 particle systems ╣">
+<section class="sheet" id="entities">
+  <h2 class="sr-only">Entities</h2>
+  <p class="lede">Every entity module exports one <code>make*()</code> builder that returns a flat object: group, position, material, per‑instance state. Placement uses <code>sr()</code>, never <code>Math.random()</code>.</p>
+  <p class="whisper">Source: <a href="entities.md">entities.md</a>; counts verified against <code>constants.js</code>.</p>
+
+  <h3>Fauna, 4 attunable types</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Creature</th><th class="num">Count</th><th class="num">Cull</th><th>States</th><th>Voice</th><th>Hum band</th><th>Ritual</th></tr></thead>
+    <tbody>
+      <tr data-f><td><span class="sw" style="--c:var(--jelly)"></span>Jellyfish</td><td class="num">35</td><td class="num">55 m</td><td>drift, pulse, ritual orbit</td><td>Glass harmonica 360–420 Hz</td><td>390 ± 60 Hz</td><td>Stand still under 10 m, left‑click in its 2 s pulse</td></tr>
+      <tr data-f><td><span class="sw" style="--c:var(--puff)"></span>Puffling</td><td class="num">40</td><td class="num">40 m</td><td>hop, idle, wander, follow</td><td>3‑note pentatonic chirp 500–750 Hz</td><td>550 ± 65 Hz</td><td>Sprint within 8 m</td></tr>
+      <tr data-f><td><span class="sw" style="--c:var(--deer)"></span>Spirit deer</td><td class="num">12</td><td class="num">60 m</td><td>walk, pause, look, flee</td><td>Distant horn 100–130 Hz</td><td>120 ± 50 Hz</td><td>Walk, no sprint, same heading ±45°, 8 to 12 m; the lock calms its flee</td></tr>
+      <tr data-f><td><span class="sw" style="--c:var(--moth)"></span>Moon moth</td><td class="num">35</td><td class="num">45 m</td><td>patrol orbit</td><td>Whisper‑flutter 200–280 Hz</td><td>240 ± 55 Hz</td><td>Move within 8 m and look at it</td></tr>
+      <tr data-f><td>Luminid</td><td class="num">5</td><td class="num">—</td><td>towering stilted walker, 2‑bone leg IK</td><td>—</td><td>—</td><td>Not attunable; absent from entities.md</td></tr>
+    </tbody>
+  </table></div>
+  <p class="whisper">Deer flee radius 8 m at 2.2× speed; IK legs are sine phase offsets with front and back 180° apart. All creature sounds go through <code>playCreatureSound(type, pos, playerPos)</code> with spatial falloff.</p>
+
+  <div class="cols">
+    <div>
+      <h3>Flora, 16 types</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Entity</th><th class="num">Count</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Trees</td><td class="num">500</td><td>10 templates × 4 InstancedMesh, LOD, bark texture, sway</td></tr>
+          <tr data-f><td>Grass patches</td><td class="num">1,200</td><td>Vertex‑shader animation, 3 palettes, GPU dimming</td></tr>
+          <tr data-f><td>Mushrooms</td><td class="num">370</td><td>Glow pulse, spores; 10 shared materials</td></tr>
+          <tr data-f><td>Rocks</td><td class="num">350</td><td>SDF instanced; collision</td></tr>
+          <tr data-f><td>Ferns</td><td class="num">250</td><td>Sway; glow on restoration</td></tr>
+          <tr data-f><td>Flowers</td><td class="num">230</td><td>Bloom reactivity, firefly attraction</td></tr>
+          <tr data-f><td>Reeds</td><td class="num">90</td><td>Sway; glow on restoration</td></tr>
+          <tr data-f><td>Spiral fronds, veil moss</td><td class="num">45 each</td><td>Curling fronds; draped moss</td></tr>
+          <tr data-f><td>Orb bushes, lantern pods</td><td class="num">36 each</td><td>Pink orb clusters; hanging warm pods</td></tr>
+          <tr data-f><td>Thornblooms, helixvines</td><td class="num">30 each</td><td>Glowing orb center; spiral pods</td></tr>
+          <tr data-f><td>Dandelions</td><td class="num">25</td><td>8 seeds per approach, 15–25 s regrowth, wayfinding bias</td></tr>
+          <tr data-f><td>Snapthorns, corpse blooms</td><td class="num">24 each</td><td>Reactive tips; spadix and spathe</td></tr>
+          <tr data-f><td>Crystals</td><td class="num">18</td><td>Rotation, 3 proximity lights, resonance chains; 9 shared materials</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div>
+      <h3>Magical and world, 9 types</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Entity</th><th class="num">Count</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Wisps</td><td class="num">6</td><td>Target tracking; guide toward the needed creature or orb</td></tr>
+          <tr data-f><td>Fairy rings</td><td class="num">8</td><td>8–13 mushrooms, spore haze; super‑jump when restored</td></tr>
+          <tr data-f><td>Bubbles</td><td class="num">40</td><td>Drift, bob; pop in restored zones, repel in dimmed</td></tr>
+          <tr data-f><td>Ponds</td><td class="num">10</td><td>Noise‑deformed water, lily pads, flat zone</td></tr>
+          <tr data-f><td>Orbs</td><td class="num">5</td><td>Quest items; sense 12 m, touch 2.5 m</td></tr>
+          <tr data-f><td>Obelisk</td><td class="num">1</td><td>World center; rises one rung per orb; runes reveal per orb</td></tr>
+          <tr data-f><td>Moat</td><td class="num">1</td><td>Fades in during finale</td></tr>
+          <tr data-f><td>Rainbows</td><td class="num">6 arcs</td><td>Finale, 6 colors and sparkle chains</td></tr>
+          <tr data-f><td>Puffling homes</td><td class="num">—</td><td>Brick cottages with impostor LOD; toadstool theme after transform</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Particles, 11 pooled systems</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>System</th><th>Trigger</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Fireflies (~120)</td><td>Crystal and flower proximity, random</td></tr>
+          <tr data-f><td>Spores</td><td>Mushroom proximity</td></tr>
+          <tr data-f><td>Dust</td><td>Landing impact</td></tr>
+          <tr data-f><td>Seeds</td><td>Dandelion dispersal, biased toward the nearest unfound orb</td></tr>
+          <tr data-f><td>Star motes (50)</td><td>Always on</td></tr>
+          <tr data-f><td>Bubble pops</td><td>Bubble pop</td></tr>
+          <tr data-f><td>Leaves</td><td>Wind</td></tr>
+          <tr data-f><td>Footprints</td><td>Player movement</td></tr>
+          <tr data-f><td>Rain</td><td>Rain and storm states</td></tr>
+          <tr data-f><td>Resonance rings (12)</td><td>Hum pitch inside a band with that creature near</td></tr>
+          <tr data-f><td>Orb burst</td><td>Orb collection</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="field">Counts above are the <code>constants.js</code> values. <a href="entities.md">entities.md</a> still lists the older Phase 1 numbers for mushrooms (250), ferns (160), flowers (140), reeds (40) and rocks (60), and does not list luminids or puffling homes. Update it when you next touch the registry.</div>
+</section>
+
+<!-- ═══════════════ audio ═══════════════ -->
+<hr class="section-divider" data-label="╠ audio · zero assets ╣">
+<section class="sheet" id="audio">
+  <h2 class="sr-only">Audio</h2>
+  <p class="lede">Everything is synthesized in <code>systems/audio.js</code> and <code>systems/music.js</code>. No audio files. Entity files never import audio; they emit events or receive callbacks through <code>main.js</code>.</p>
+  <p class="whisper">Source: <a href="audio.md">audio.md</a>, <a href="procedural-audio-engine-protocol.md">procedural‑audio protocol</a>.</p>
+  <div class="cols">
+    <div>
+      <h3>Bus graph</h3>
+      <div class="tree"><b>AudioContext</b>
+└─ <b>masterGain</b> → destination
+   ├─ forestGain → forestFilter → brown noise (co‑prime loop lengths)
+   ├─ forest2Gain → second brown layer
+   ├─ windGain → bandpass 200–800 Hz → brown noise
+   ├─ rainGain → bandpass 1200–3200 Hz → white noise
+   ├─ waterGain → waterFilter → stream noise (pond proximity)
+   ├─ reverbGain → dual delay 0.55 s / 0.79 s (shared send)
+   ├─ musicMasterGain (0.6) → harp, flute, drone, chime
+   └─ transient voices: creatures, footsteps, interactions, hum</div>
+      <h3>Rules</h3>
+      <ul>
+        <li data-f>First line of every public function: <code>if (!initialized || muted) return;</code></li>
+        <li data-f>Per‑voice volume 0.02 to 0.08. Always call <code>.stop(time)</code> so nodes do not accumulate.</li>
+        <li data-f>Route through <code>connectWithReverb(gain, masterGain, wet)</code>.</li>
+        <li data-f>New triggers: emit a kernel event and subscribe in <code>initAudio()</code>. Callback injection stays for legacy paths.</li>
+        <li data-f>Sanctioned exceptions, not bugs: thunder burst at 0.20 / 0.15 (short transient, exponential decay) and music voices at 0.15 pre‑bus, about 0.038 delivered after 0.6 × 0.42.</li>
+      </ul>
+      <h4>adding a sound</h4>
+      <ol>
+        <li data-f>Add a guarded function in <code>audio.js</code>: oscillator or noise → gain envelope → <code>connectWithReverb()</code>, then <code>.stop()</code>.</li>
+        <li data-f>Export it, then either subscribe to an event in <code>initAudio()</code> or pass it as a callback from <code>main.js</code>.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Layers</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Layer</th><th>Source</th><th>Driven by</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Forest hum</td><td>2 brown noise buffers</td><td>Day phase</td></tr>
+          <tr data-f><td>Wind</td><td>Bandpassed brown noise</td><td><code>windStrength</code></td></tr>
+          <tr data-f><td>Rain</td><td>Bandpassed white noise</td><td><code>rainRate</code></td></tr>
+          <tr data-f><td>Thunder</td><td>Noise + low osc burst</td><td><code>isStorming</code>, 2–5 s spacing</td></tr>
+          <tr data-f><td>Water, frogs</td><td>Filtered stream; pulsed tones</td><td>Within 15 m / 20 m of a pond</td></tr>
+          <tr data-f><td>Crickets</td><td>Periodic pings</td><td>Within 12 m of grass</td></tr>
+          <tr data-f><td>Creatures</td><td>Per‑type synthesis, cooldown 6–18 s</td><td>Proximity; cooldown halves at 2+ orbs</td></tr>
+          <tr data-f><td>Player</td><td>Footstep, jump, land</td><td>Head‑bob zero cross, input</td></tr>
+          <tr data-f><td>Interactions</td><td>Bubble pop, fairy bounce, orb collect and warble, laser zap and hum, crystal chain fifth</td><td>Events</td></tr>
+          <tr data-f><td>Spirit hum</td><td>Sine + detuned sine + triangle octave, 3.5 Hz LFO, 0.04 vol</td><td><kbd>F</kbd>; a resonance layer fades in inside a band; the lock chime is root + fifth</td></tr>
+          <tr data-f><td>Music</td><td>Generative harp, flute, drone, chime; major pentatonic</td><td>Game state sets tempo and volume</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ quest & narrative ═══════════════ -->
+<hr class="section-divider" data-label="╠ quest &amp; narrative ╣">
+<section class="sheet" id="quest">
+  <h2 class="sr-only">Quest and narrative</h2>
+  <p class="lede">The forest is dimmed in five angular sectors. Each orb, once activated with the right creature's frequency, sends a restoration wave through its sector and raises the obelisk one rung. Five orbs end in a finale, a transform, and free roam.</p>
+  <p class="whisper">Source: <a href="MANIFESTO.md">MANIFESTO.md</a>, <a href="GAME_GUIDE.md">GAME_GUIDE.md</a>, <a href="narrative.md">narrative.md</a>, <code>quest/config.js</code>.</p>
+
+  <h3>Quest phases</h3>
+  <ol class="pipe phases">
+    <li data-f>SEEK<small>find and activate orbs</small></li>
+    <li data-f>RISING<small>obelisk climbs at 0.8 u/s</small></li>
+    <li data-f>COMPLETE<small>12 s · glitter, moat, rainbows</small></li>
+    <li data-f>FINALE<small>30 s · creatures gather</small></li>
+    <li data-f>TRANSFORM<small>13 s · lasers to every tree, white flash</small></li>
+    <li data-f>FREE_ROAM<small>dimming gone, all rings active</small></li>
+  </ol>
+
+  <h3>The orb sequence, from code</h3>
+  <p><code>ORB_CREATURE_SEQUENCE = ['any', 'jelly', 'deer', 'moth', 'any']</code>. Orb 1 accepts any carried frequency, so the puffling sprint is the natural first success. Orbs 2 to 4 each demand one species; the reject hint, the seek HUD, the pre‑lit obelisk rune and the wisp now all name it.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Orb</th><th>Requires</th><th>Zone in the design</th><th>Constellation</th><th>Wish unlocked</th></tr></thead>
+    <tbody>
+      <tr data-f><td>1</td><td>Any frequency</td><td>The Shallows, ponds</td><td>The Drifter</td><td>"The stars are listening…"</td></tr>
+      <tr data-f><td>2</td><td><span class="sw" style="--c:var(--jelly)"></span>Jellyfish</td><td>The Deep Roots, mushrooms</td><td>The Hopper</td><td>"Someone drew pictures in the sky."</td></tr>
+      <tr data-f><td>3</td><td><span class="sw" style="--c:var(--deer)"></span>Deer</td><td>The Crystal Spires</td><td>The Orbiter</td><td>"I wonder who lived here before."</td></tr>
+      <tr data-f><td>4</td><td><span class="sw" style="--c:var(--moth)"></span>Moon moth</td><td>The Canopy, trees</td><td>The Strider</td><td>"The stars feel closer tonight."</td></tr>
+      <tr data-f><td>5</td><td>Any frequency</td><td>The Convergence, obelisk</td><td>The Convergence</td><td>Finale text</td></tr>
+    </tbody>
+  </table></div>
+  <p class="whisper">The roadmap's zone table lists jelly, puffling, moth, deer, any. The code is the truth; the zone names are thematic, not geographic.</p>
+
+  <h3>Two‑phase unlock</h3>
+  <ol class="pipe">
+    <li data-f><b>Hum</b><small><kbd>F</kbd>, sweep with <kbd>Q</kbd>/<kbd>E</kbd> or the slider; creature within 20 m</small></li>
+    <li data-f><b>Lock</b><small>resonance &gt; 0.12 for 1.2 s; decays 3 s after release</small></li>
+    <li data-f><b>Ritual</b><small>0.15 / s × bioGlow × weather, until 1.0</small></li>
+    <li data-f><b>Carry</b><small>light changes color; decays; jelly needs a re‑click within its window</small></li>
+    <li data-f><b>Touch</b><small>within 2.5 m of the orb; wrong species → reject flash and hint</small></li>
+  </ol>
+  <div class="cols">
+    <div>
+      <h3>Weather modifiers on attunement</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>State</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr data-f><td>CLEAR</td><td>Baseline</td></tr>
+          <tr data-f><td>MISTY</td><td>Jelly 1.5×</td></tr>
+          <tr data-f><td>LIGHT_RAIN</td><td>Puffling 1.3×</td></tr>
+          <tr data-f><td>HEAVY_RAIN</td><td>All 0.7×</td></tr>
+          <tr data-f><td>FOG_BANK</td><td>Deer 1.5×, calmer flee</td></tr>
+          <tr data-f><td>LUMINOUS_STORM</td><td>Moth 1.5×, others 0.8×; echo‑visions on sprint</td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">Day phases DUSK, NIGHT, DEEP_NIGHT, DAWN drive <code>bioGlow</code> from 0.65 to 1.5, which scales both attunement rate and orb visibility. Attune at deep night.</p>
+      <h3>The Dimming</h3>
+      <ul>
+        <li data-f>Five angular sectors from the world center; <code>DIMMING_FACTOR = 0.18</code> in unrestored sectors.</li>
+        <li data-f>Activation sends a restoration wave at 30 m/s with edge blending.</li>
+        <li data-f>Every restorable emissive reads <code>getLocalGlow(x, z, bioGlow)</code>; grass does it on the GPU via <code>uGlowMult</code>.</li>
+        <li data-f>Restored zones: fairy rings grant a 3.5× jump with 4 s feather fall; bubbles pop with a pulse. Dimmed zones: bubbles repel.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Player light evolution</h3>
+      <ul class="light-row">
+        <li data-f><span class="dot" style="--c:#668888"></span>0 / 5 · 0.4 · 12 m</li>
+        <li data-f><span class="dot" style="--c:#88aacc"></span>1 · 0.6 · 16 m</li>
+        <li data-f><span class="dot" style="--c:#66ddaa"></span>2 · 0.8 · 20 m</li>
+        <li data-f><span class="dot" style="--c:#aaffcc"></span>3 · 1.0 · 25 m</li>
+        <li data-f><span class="dot" style="--c:#ddffee"></span>4 · 1.2 · 30 m</li>
+        <li data-f><span class="dot" style="--c:#ffffff"></span>5 · 1.5 · 40 m</li>
+      </ul>
+      <p class="whisper">Color, intensity, range, from <code>PLAYER_LIGHT_*</code>. While carrying a frequency the creature's color overlays this.</p>
+      <h3>Environmental literacy</h3>
+      <ul>
+        <li data-f>Constellations: one revealed per orb, 3 s fade, in <code>world/sky.js</code>.</li>
+        <li data-f>Shooting‑star wishes: look up (<code>pitch &lt; −0.5</code>) as one crosses; five levels gated by orbs.</li>
+        <li data-f>Ground glyphs: stand within 3 m for about 2 s to reveal a hidden marker.</li>
+        <li data-f>Crystal chains: three crystals in sequence fire a perfect‑fifth tone and a wave pulse.</li>
+        <li data-f>Echo‑visions: sprint in a storm to see glowing traces of creature paths.</li>
+        <li data-f>Obelisk runes: one face per orb in the creature's color; the next face is pre‑lit as a breadcrumb.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Two voices, one world</h3>
+  <div class="cols">
+    <div>
+      <p class="quote">"Once, this forest sang. Every root hummed with light. Then the glow began to dim."<span class="adult">// BIOSENSOR ARRAY v4.2 — Sector luminance decay: 73% loss over 2,400 cycles</span></p>
+      <p><kbd>Tab</kbd> toggles the child's Magic Garden and the adult's Chronobiological Archive. The hidden third layer is never stated: an architect preserved the world as their child once saw it. The child's view is the original data; the adult's is the maintenance routine.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Concept</th><th>Child</th><th>Adult</th><th>System</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Progress</td><td>Sun‑Seeds found</td><td>Synchronization Index</td><td><code>orbsFound</code></td></tr>
+          <tr data-f><td>Darkness</td><td>Sleepy Dust</td><td>Entropic Chronophage</td><td><code>DIMMING_FACTOR</code></td></tr>
+          <tr data-f><td>Creature rhythm</td><td>Dancing with friends</td><td>Biological Metronome sync</td><td>attunement</td></tr>
+          <tr data-f><td>Player</td><td>The Spark</td><td>Diagnostic Routine</td><td>camera, <code>playerLight</code></td></tr>
+          <tr data-f><td>Obelisk</td><td>The Big Crystal</td><td>Central Archive Index</td><td><code>entities/world/obelisk.js</code></td></tr>
+          <tr data-f><td>Fairy ring jump</td><td>Jumping really high!</td><td>Breaking gravitational lock</td><td><kbd>Space</kbd> in a restored ring</td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">Voice rules: child lines 8 to 15 words, wonder, nothing darker than "sleepy". Adult lines 10 to 20 words as log entries, clinical, with a subtext of loss. No exposition dumps, no dialogue, no cutscenes; the story is optional.</p>
+    </div>
+    <div>
+      <h3>The wizard‑puffling encounter</h3>
+      <p>Fires once per session after about 18 s of cumulative walking. State machine in <code>systems/wizardPufflingEvent.js</code>.</p>
+      <ol class="pipe">
+        <li data-f><b>approach</b><small>spawns 16–24 m out, camera locks</small></li>
+        <li data-f><b>confront</b><small>"Another dead soul"</small></li>
+        <li data-f><b>waitHum</b><small>"Hum to answer it… (press F)"</small></li>
+        <li data-f><b>proclaim</b><small>"NOW you see BOTH worlds at once!"</small></li>
+        <li data-f><b>prebeam</b><small>2.5 s</small></li>
+        <li data-f><b>smite</b><small>pink sky beam, smoke puff</small></li>
+        <li data-f><b>handBack</b><small>0.6 s camera ease</small></li>
+        <li data-f><b>done</b><small><code>revealTruth()</code></small></li>
+      </ol>
+      <p>After the truth is revealed every discovery line shows both voices at once, the adult line as a subtitle. Two bugs hid this for months: the camera aimed 180° away from the wizard, and the payoff was a no‑op. Both fixed 2026‑06‑07.</p>
+      <h3>Puffling chat</h3>
+      <p>Context pools in priority order: carrying, attuning, near an unfound orb, general (25% override), restored sector, dimmed sector. Each has child and adult variants. Five‑second bubbles, 8 to 14 s cooldown, positioned over the speaker's head in <code>systems/pufflingChat.js</code>.</p>
+      <p class="quote" style="font-size:1.05rem">"go — sing to the gold!"<span class="adult">Carry integrity: 100%</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ rules & patterns ═══════════════ -->
+<hr class="section-divider" data-label="╠ rules &amp; patterns ╣">
+<section class="sheet" id="rules">
+  <h2 class="sr-only">Rules and patterns</h2>
+  <p class="whisper">Source: <a href="../CLAUDE.md">CLAUDE.md</a>, <a href="patterns.md">patterns.md</a>.</p>
+  <div class="cols">
+    <div>
+      <h3>Conventions</h3>
+      <ul>
+        <li data-f><code>const</code> and <code>let</code> only. No classes; functional style throughout.</li>
+        <li data-f>Named imports from Three.js and from project modules, for tree‑shaking.</li>
+        <li data-f>Colors come from <code>C</code> in <code>constants.js</code>. Never inline a hex value.</li>
+        <li data-f>Seeded <code>sr()</code> for world generation; <code>Math.random()</code> only for runtime variation.</li>
+        <li data-f>Banner comments <code>// ===…===</code> for major sections. Module‑scoped state, not closures or globals.</li>
+        <li data-f>DOM overlays for intro, discovery and HUD text; <code>troika-three-text</code> for in‑world 3D text.</li>
+        <li data-f>Logic modules never import <code>core/input.js</code>: it constructs a <code>WebGLRenderer</code> and breaks Vitest. Thread inputs through parameters.</li>
+        <li data-f>Register per‑frame work with <code>addSystem()</code>; do not grow <code>main.js</code>.</li>
+      </ul>
+      <h3>Adding an entity</h3>
+      <ol>
+        <li data-f>Count constant and colors in <code>constants.js</code>.</li>
+        <li data-f><code>src/entities/&lt;category&gt;/name.js</code> exporting <code>makeName()</code>.</li>
+        <li data-f>Call it in <code>populate()</code>, after flat zones.</li>
+        <li data-f>Register an update via <code>addSystem()</code> or extend a <code>_director*</code> function.</li>
+        <li data-f>Check the light budget if it emits light.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>The eleven patterns</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Pattern</th><th>Shape</th></tr></thead>
+        <tbody>
+          <tr data-f><td>Entity builder</td><td><code>make*()</code> returns <code>{ group, x, z, mat, phase, … }</code>; position the group.</td></tr>
+          <tr data-f><td>Particle pool</td><td><code>init*()</code> pre‑allocates, <code>spawn*()</code> reuses a dead slot, <code>update*()</code> sets <code>drawRange</code>.</td></tr>
+          <tr data-f><td>Visibility culling</td><td>Squared 2D distance, toggle <code>group.visible</code>, <code>continue</code> before any update.</td></tr>
+          <tr data-f><td>Breathing glow</td><td><code>(0.5 + pulse × 0.7) × getLocalGlow(x, z, bioGlow)</code>, speed 0.8–1.5, seeded phase.</td></tr>
+          <tr data-f><td>Weather‑responsive</td><td>Read <code>windX/Z</code>, <code>windStrength</code>, <code>getRainRate()</code>, <code>isStorming</code>.</td></tr>
+          <tr data-f><td>Audio callback / event bus</td><td>Inject <code>onSound</code> through <code>main.js</code>, or <code>on(Events.X)</code> in <code>initAudio()</code>.</td></tr>
+          <tr data-f><td>Flat zone</td><td><code>registerFlatZone(x, z, r)</code> before other placement.</td></tr>
+          <tr data-f><td>Keep‑out</td><td>Resample the polar position until <code>!inKeepOut(x, z)</code>.</td></tr>
+          <tr data-f><td>Instanced template</td><td>Merge non‑indexed parts, <code>InstancedMesh</code>, <code>setMatrixAt</code>, control with <code>count</code>.</td></tr>
+          <tr data-f><td>State machine</td><td><code>{ duration: [a, b], next: { STATE: weight } }</code> tables with a timer.</td></tr>
+          <tr data-f><td>Spirit hum gate</td><td><code>isLocked() &amp;&amp; getLockType() === type</code> before behaviour counts.</td></tr>
+        </tbody>
+      </table></div>
+      <h4>source‑code lore</h4>
+      <p>Files an F12 inspector opens first carry 4 to 7 line comments in the Archive voice: field notes from Dr. R. Vasquez and Dr. Chen that cite real constants as observed phenomena and never explain the mystery. One per major file, after the banner, never inline with logic.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ status ═══════════════ -->
+<hr class="section-divider" data-label="╠ status &amp; open work ╣">
+<section class="sheet" id="status">
+  <h2 class="sr-only">Status and open work</h2>
+  <p class="whisper">Source: <a href="phase-2-roadmap.md">roadmap</a>, <a href="../CLAUDE.md">CLAUDE.md</a> TODO and roll‑ups, the dated plans, <code>git log</code>.</p>
+
+  <h3>Phase 2 features, 20 of 21</h3>
+  <ul class="check">
+    <li data-f>The Dimming <small>systems/dimming.js</small></li>
+    <li data-f>Creature attunement, all four types</li>
+    <li data-f>Spirit hum and resonance tuning</li>
+    <li data-f>Orb activation gate with reject hint</li>
+    <li data-f>Stillness and curiosity responses</li>
+    <li data-f>Fairy ring boost</li>
+    <li data-f>Audio sync progression</li>
+    <li data-f>Player light evolution</li>
+    <li data-f>Wisp guides</li>
+    <li data-f>Weather attunement modifiers</li>
+    <li data-f>Day and night gating</li>
+    <li data-f>Bubble pop rewards</li>
+    <li data-f>Crystal resonance chains</li>
+    <li data-f>Dandelion wayfinding</li>
+    <li data-f>Obelisk rune reveal</li>
+    <li data-f>Dual narrative, Tab toggle</li>
+    <li data-f>Sky constellations</li>
+    <li data-f>Shooting star wishes</li>
+    <li data-f>Ground glyphs</li>
+    <li data-f>Finale, transform and free roam text</li>
+    <li data-f>Echo‑visions</li>
+    <li class="open" data-f>Deferred optimizations and FPS hardening <small>measure scenarios (i)–(iv)</small></li>
+  </ul>
+
+  <div class="cols">
+    <div>
+      <h3>Open items</h3>
+      <ul>
+        <li data-f><span class="tag open">open</span> Measure the four FPS stress scenarios with <code>LumiDebug.perf()</code> and fill the table in the hotspot report.</li>
+        <li data-f><span class="tag open">playtest</span> The 2026‑07‑01 fixes await an owner run: deer stride‑match and moth gaze → orbs 3 and 4 → finale, transform and free‑roam overlay text; the crystal‑chain discovery line; reject‑flash colors.</li>
+        <li data-f><span class="tag open">playtest</span> The 2026‑06‑07 visual verify: wizard visible and rising in the beam, jelly ring over the obelisk, no floating rocks or grass, finale warmth, cottages and gardens.</li>
+        <li data-f><span class="tag open">open</span> Jellies: ritual and crimson ring still need tuning; confirm the encounter feels cohesive.</li>
+        <li data-f><span class="tag open">open</span> Puffling houses still read dark at night; compare against <code>mushroom-house-puffling-home.html</code>.</li>
+        <li data-f><span class="tag open">open</span> Debug discoverability: <kbd>Esc</kbd>×2 is in the controls line, but production drops <code>console</code> output.</li>
+        <li data-f><span class="tag warn">deploy</span> <code>docs/</code> was last rebuilt at <code>7af474e</code>, before the attunement‑inversion fixes. Rebuild and push after the playtest passes.</li>
+      </ul>
+      <h4>technical debt</h4>
+      <ul>
+        <li data-f><span class="tag">debt</span> Extract more of <code>main.js</code> (906 lines) into system files.</li>
+        <li data-f><span class="tag">debt</span> No save or load; the game resets on refresh.</li>
+        <li data-f><span class="tag">debt</span> No accessibility: screen reader, colorblind, reduced‑motion.</li>
+        <li data-f><span class="tag">debt</span> Intro overlays are DOM, not <code>troika-three-text</code>; acceptable pre‑gameplay.</li>
+      </ul>
+      <h4>documentation drift found 2026‑09‑14</h4>
+      <ul>
+        <li data-f>README and CLAUDE.md quote ~86 files / ~14k lines; measured 126 / 28.1k.</li>
+        <li data-f>entities.md counts lag <code>constants.js</code>; luminids and puffling homes are unregistered.</li>
+        <li data-f>GAME_GUIDE says the pitch lock takes 2 s; <code>HUM_LOCK_TIME</code> is 1.2 s.</li>
+        <li data-f>README's controls table omits hum, pitch, pulse and Tab.</li>
+        <li data-f>narrative.md and audio.md still cite <code>questManager.js</code>; the file is <code>quest/questState.js</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>How it got here</h3>
+      <ol class="timeline">
+        <li data-f><span class="d">2026‑03</span>Phase 1 foundation complete: 29 entity types, 11 particle systems, procedural audio and music, weather, day and night, the orb quest and finale.</li>
+        <li data-f><span class="d">2026‑04</span>Performance pass from the FPS guide: bloom cap, shadow throttle, tree frustum culling, shared materials, named imports, terser build, perf monitor. Pattern library written.</li>
+        <li data-f><span class="d">2026‑06‑07</span>Nine‑facet audit, 67 findings, twelve‑phase remediation over about 68 commits. Tests 164 → 218. Second‑phase gate, wizard camera, jelly ritual, houses, crystal chains, dead code, allocations, bundle split.</li>
+        <li data-f><span class="d">2026‑06‑13</span>Orb‑quest smoothing plan: communication, deer deadlock, forgiveness, tests. Waves 1 and E merged; <code>docs/</code> rebuilt at <code>29ae932</code>.</li>
+        <li data-f><span class="d">2026‑07‑01</span>Review pass: moth gaze and deer stride vectors were inverted 180°; dead <code>QUEST_PHASE</code> and <code>CRYSTAL_VISITED</code> wiring; hot‑path allocations removed. Tests 231. Committed at <code>20e5878</code>.</li>
+        <li data-f><span class="d">2026‑08‑30</span>Docs currency pass; agent startup brief; the fifth governance file retired.</li>
+      </ol>
+      <h3>Audit remediation, phases 0 to 12</h3>
+      <ol class="pipe">
+        <li data-f><b>Regression net</b></li>
+        <li data-f><b>Unblock progression</b></li>
+        <li data-f><b>Wizard end to end</b></li>
+        <li data-f><b>Crystal chains wired</b></li>
+        <li data-f><b>Color and visuals</b></li>
+        <li data-f><b>Movement and camera</b></li>
+        <li data-f><b>Audio</b></li>
+        <li data-f><b>Dead code</b></li>
+        <li data-f><b>Allocations and bundle</b></li>
+        <li data-f><b>Docs sync</b></li>
+        <li data-f><b>Validation</b></li>
+        <li data-f><b>FPS hardening</b></li>
+        <li data-f><b>Playtest polish</b></li>
+      </ol>
+      <h3>Orb‑quest smoothing, by phase</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>Phase</th><th>Intent</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr data-f><td>A, communication</td><td>Name the creature on reject, wire the seek HUD, pre‑light the rune, aim the wisp, tighten hint cadence, show the desktop slider</td><td><span class="tag ok">merged</span></td></tr>
+          <tr data-f><td>B, mechanics</td><td>Deer deadlock (lock calms flee), far‑field "getting warmer", moth vertical look, nearest‑type snap</td><td><span class="tag ok">B1 B2 merged</span> <span class="tag warn">verify B3 B4</span></td></tr>
+          <tr data-f><td>C, forgiveness</td><td>Visible timers, sane pitch parking, orb‑side reject pulse, use <code>ORB_TOUCH_R</code></td><td><span class="tag ok">C1 merged</span> <span class="tag warn">verify C2–C5</span></td></tr>
+          <tr data-f><td>D, safety net</td><td>Gated‑path integration tests; orb placement within 20 m of its creature</td><td><span class="tag ok">D1 merged</span> <span class="tag warn">verify D2</span></td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">"Verify" means the commit messages do not name the item; check the source before reopening it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ protocols ═══════════════ -->
+<hr class="section-divider" data-label="╠ imported protocols ╣">
+<section class="sheet" id="protocols">
+  <h2 class="sr-only">Imported protocols</h2>
+  <div class="cols">
+    <div>
+      <h3><a href="unified_webgl_protocol_v4.1.md">Unified Generative WebGL Protocol v4.1</a></h3>
+      <p>Legacy monolith, 4,382 lines. Phase 0 scaffold (Vite or single file, renderer, camera, loop, constants); I world anchor (terrain, ground, sky, lighting, shadows); 1.5 input; II asset factory (compound primitives, GEO pool, builder, materials, palette, seeded RNG, instancing, LOD, GPU shader animation); III kinematic kernel (motion × dt, player, physics, collision, pools, creature physics); IV director (dt cap, culling, state machines, AI, glow, event bus, scheduler, sectors, weather, stillness); V procedural audio. New Three.js work uses <a href="../../../../tools/webgl-protocol-v5/00-hub.md">Protocol v5</a>, 46 composable modules plus a walking‑sim recipe.</p>
+      <h3><a href="webgl_fps_guide_r172_v2.md">Sub‑4 MB WebGL FPS guide, r172</a></h3>
+      <p>Budget baseline; bundle and asset compression (tree‑shaking, procedural textures, meshoptimizer, ZzFX, CSS HUD); draw calls and GPU efficiency (instancing, per‑instance frustum culling, baked shadows, bloom with instancing, material sharing); a hand‑rolled ECS and fixed‑timestep loop; Vite config and disposal; case studies including Luminaries; pointer lock and camera rig; a ranked summary.</p>
+    </div>
+    <div>
+      <h3><a href="procedural-audio-engine-protocol.md">Procedural Audio Engine Protocol</a></h3>
+      <p>Ten sections: zero‑asset philosophy and the guard pattern; the managed voice and pooling; scheduling strategies (game‑loop direct for real‑time 3D, lookahead for music, hybrid); bus topology and the dual‑delay reverb; anti‑clicking with the anchor rule and ADSR; voice stealing and polyphony caps; noise buffer design with co‑prime lengths; spatial falloff, panning, zone modulation and cooldown triggers; generative music; state‑reactive soundscapes.</p>
+      <h3><a href="Technical_Editor_Protocol_v5.1_FULL.md">Technical Editor Protocol v5.1</a></h3>
+      <p>Seven parts: reasoning and grounding (source verification, risk warnings, premise checks, disambiguation); engineering data standards; analytical protocols (tolerances, failure modes, forensic precision); coding and documentation gates; operational protocols (session save points, tool recovery, context management); tone and verification; domain extensions. Superseded by v6.0 at the workspace root on 2026‑09‑08; read §0 of v6.0 first.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ controls & debug ═══════════════ -->
+<hr class="section-divider" data-label="╠ controls &amp; debug ╣">
+<section class="sheet" id="controls">
+  <h2 class="sr-only">Controls and debug</h2>
+  <p class="whisper">Source: <a href="GAME_GUIDE.md">GAME_GUIDE.md</a>, <code>src/debug/debugConsole.js</code>.</p>
+  <div class="cols">
+    <div>
+      <h3>Desktop</h3>
+      <ul class="keys">
+        <li data-f><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Move</span></li>
+        <li data-f><span><kbd>Space</kbd></span><span>Jump; super‑jump inside a restored fairy ring</span></li>
+        <li data-f><span><kbd>Shift</kbd></span><span>Sprint (puffling ritual)</span></li>
+        <li data-f><span>Left‑click</span><span>Pulse (jelly ritual)</span></li>
+        <li data-f><span><kbd>F</kbd></span><span>Toggle spirit hum</span></li>
+        <li data-f><span><kbd>Q</kbd> / <kbd>E</kbd></span><span>Lower / raise hum pitch</span></li>
+        <li data-f><span><kbd>Tab</kbd></span><span>Toggle child / adult perspective</span></li>
+        <li data-f><span>Mouse</span><span>Look; click to lock the pointer, <kbd>Esc</kbd> to release</span></li>
+        <li data-f><span><kbd>Esc</kbd> ×2</span><span>Debug terminal, within 3 s</span></li>
+      </ul>
+      <h3>Mobile</h3>
+      <p>Virtual joystick bottom‑left, jump and sprint buttons bottom‑right, a vertical hum slider on the left edge for pitch. Minimum width 400 px.</p>
+    </div>
+    <div>
+      <h3><code>LumiDebug</code></h3>
+      <p>Attached to <code>window</code> in dev and reachable from the in‑game terminal. Production strips <code>console</code> output, so prefer the terminal on the live build.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Call</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr data-f><td><code>help()</code></td><td>Lists everything below</td></tr>
+          <tr data-f><td><code>perf(n)</code></td><td>Rolling FPS stats, renderer info, top‑n subsystems by ms</td></tr>
+          <tr data-f><td><code>grantOrbs(n)</code>, <code>forcePhase(phases.X)</code></td><td>Jump the quest state machine</td></tr>
+          <tr data-f><td><code>spawnWizard()</code>, <code>unlockTruth()</code></td><td>Trigger the encounter; fire the reveal directly</td></tr>
+          <tr data-f><td><code>unlockCreature(t)</code>, <code>unlockAllCreatures()</code>, <code>unlockPitch()</code>, <code>unlockSequence()</code>, <code>unlockEverything()</code></td><td>Bypass gates while testing</td></tr>
+          <tr data-f><td><code>debugForcePitchLock()</code>, <code>debugForceAttuned()</code>, <code>resetAttune()</code></td><td>Drive the attunement flow by hand</td></tr>
+          <tr data-f><td><code>pauseTimers()</code>, <code>resumeTimers()</code>, <code>stopSequence()</code></td><td>Freeze weather and day/night; halt scripted sequences</td></tr>
+          <tr data-f><td><code>quality</code>, <code>playerPos</code>, <code>phases</code></td><td>Adaptive‑quality notch, position, phase enum</td></tr>
+        </tbody>
+      </table></div>
+      <p class="whisper">The dev skip panel (skip intro, jump to the mage scene, per‑orb buttons) ships in production builds by owner request.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <hr class="section-divider" data-label="╠ colophon ╣">
+  <p class="colophon">Measured figures come from the working tree on <span class="mono">2026‑09‑14</span> (<span class="mono">npm test</span>, <span class="mono">wc -l</span>, <span class="mono">git log</span>). Everything else is quoted from the documents on the shelf. When two sources disagree, <em>constants.js and the test run win</em>, and the disagreement belongs in the drift list. Laid out on the <em>kunzhub</em> design system. Verification for project‑only work: <span class="mono">npm test</span>, <span class="mono">npm run build</span>, one descriptive commit, push <span class="mono">origin main</span>.</p>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('theme'),key='luminaries-dash-theme';
+  function paint(){var night=root.getAttribute('data-theme')==='night';btn.textContent=night?'Day':'Night';btn.setAttribute('aria-pressed',night?'true':'false');}
+  btn.addEventListener('click',function(){var night=root.getAttribute('data-theme')==='night';if(night)root.removeAttribute('data-theme');else root.setAttribute('data-theme','night');try{localStorage.setItem(key,night?'day':'night');}catch(e){}paint();});
+  paint();
+
+  var q=document.getElementById('q'),count=document.getElementById('count'),items=[].slice.call(document.querySelectorAll('[data-f]')),secs=[].slice.call(document.querySelectorAll('section.sheet')),divs={};
+  [].slice.call(document.querySelectorAll('hr.section-divider')).forEach(function(h){var s=h.nextElementSibling;if(s&&s.id)divs[s.id]=h;});
+  items.forEach(function(el){el.dataset.t=el.textContent.replace(/\s+/g,' ').toLowerCase();});
+  function apply(){
+    var s=q.value.trim().toLowerCase();
+    if(!s){items.forEach(function(el){el.classList.remove('hidden','hit');});secs.forEach(function(x){x.classList.remove('hidden');if(divs[x.id])divs[x.id].classList.remove('hidden');});count.textContent='';return;}
+    var n=0;
+    items.forEach(function(el){var ok=el.dataset.t.indexOf(s)>-1;el.classList.toggle('hidden',!ok);el.classList.toggle('hit',ok);if(ok)n++;});
+    secs.forEach(function(x){var empty=!x.querySelector('[data-f]:not(.hidden)');x.classList.toggle('hidden',empty);if(divs[x.id])divs[x.id].classList.toggle('hidden',empty);});
+    count.textContent=n?n+' match'+(n===1?'':'es'):'no matches';
+  }
+  q.addEventListener('input',apply);
+  q.addEventListener('keydown',function(e){if(e.key==='Escape'){q.value='';apply();q.blur();}});
+  document.addEventListener('keydown',function(e){if(e.key==='/'&&document.activeElement!==q&&!/input|textarea/i.test(document.activeElement.tagName)){e.preventDefault();q.focus();}});
+
+  var chips=[].slice.call(document.querySelectorAll('.chips .chip'));
+  if('IntersectionObserver' in window){
+    var map={};chips.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+    var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){chips.forEach(function(a){a.classList.remove('is-active');});var a=map[en.target.id];if(a)a.classList.add('is-active');}});},{rootMargin:'-15% 0px -70% 0px'});
+    secs.forEach(function(x){io.observe(x);});
+  }
+})();
+</script>
+</body>
+</html>

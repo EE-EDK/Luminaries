@@ -22,6 +22,7 @@ npm test             # Run unit tests (kernel modules)
 | File | What It Covers | Read When |
 |------|---------------|-----------|
 | `reference/architecture.md` | System dependency graph, data flow, spawn order, director pattern, module interfaces | **Always read first** |
+| `reference/dashboard.html` | Single-page dashboard of the whole `reference/` shelf: doc index, architecture, budgets, entities, audio, quest, status, drift list (open in a browser; kunzhub layout) | Orienting in a new session, or finding which reference doc to open |
 | `reference/entities.md` | Complete registry: all 29 entity types, 11 particle systems, counts, cull distances, builders | Adding/modifying entities |
 | `reference/patterns.md` | 10 canonical code patterns with full examples (entity builder, particle pool, culling, state machine, etc.) | Writing any new code |
 | `reference/performance.md` | Hard limits: light budget, draw calls, FPS, particles, memory rules | Adding visual features |

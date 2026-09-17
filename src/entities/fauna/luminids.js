@@ -1,10 +1,11 @@
-// --- Luminid (Tall stilted gentle giant — enhanced detail) ---
+// --- Luminid (Tall stilted gentle giant — baked, 17 meshes; was 29) ---
 import {
   Group, Mesh, MeshBasicMaterial, MeshStandardMaterial,
   SphereGeometry, CylinderGeometry, ConeGeometry, DoubleSide,
   CircleGeometry, AdditiveBlending, Vector3, Quaternion
 } from 'three';
 import { scene } from '../../core/renderer.js';
+import { createBaker, roleMaterial, MOTION } from '../_bake.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 
@@ -34,52 +35,38 @@ function _smoothstep(t) { return t * t * (3 - 2 * t); }
 
 export function makeLuminid(x, z) {
   const g = new Group();
-  
-  // 1. MAIN BODY (Suspended Lantern / Teardrop)
+
+  // 1. MAIN BODY (Suspended Lantern / Teardrop) — shell + sensory fronds baked into one mesh
   const bodyGroup = new Group();
   bodyGroup.position.y = 5.0; // Towering high
   g.add(bodyGroup);
 
-  const crystalMat = new MeshStandardMaterial({
-    color: C.luminidShell, emissive: C.luminidShellEmissive, emissiveIntensity: 0.5,
-    transparent: true, opacity: 0.4, roughness: 0.1, metalness: 0.8
-  });
-  
-  // Teardrop shell
-  const shell = new Mesh(new SphereGeometry(0.8, 6, 8), crystalMat);
-  shell.scale.set(1, 1.8, 1);
-  bodyGroup.add(shell);
+  const crystalMat = roleMaterial('glow', { emissive: C.luminidShellEmissive, emissiveIntensity: 0.5, roughness: 0.1, metalness: 0.8, opacity: 0.4 });
+  crystalMat.color.setHex(C.luminidShell);
+  const bb = createBaker();
+  bb.add(new SphereGeometry(0.8, 8, 10), { role: 'shell', scale: [1, 1.8, 1], motion: { mode: MOTION.BREATHE, amp: 0.03, phase: 0, speed: 0.8 } });
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const fp = [Math.cos(angle) * 0.2, 1.4, Math.sin(angle) * 0.2];
+    bb.add(new ConeGeometry(0.02, 0.8, 3), { role: 'shell', pos: fp, rot: [Math.sin(angle) * 0.8, 0, Math.cos(angle) * 0.8], emis: 1.4, pivot: fp, motion: { mode: MOTION.FLUTTER, amp: 0.12, phase: i * 1.1, speed: 1.3 } });
+  }
+  bodyGroup.add(bb.build({ shell: crystalMat }).shell);
 
-  // Inner Core (The "Star")
-  const coreMat = new MeshBasicMaterial({ 
-    color: C.luminidCore, transparent: true, opacity: 0.9, blending: AdditiveBlending
-  });
+  // Inner Core (The "Star") — plain material; the updater animates its opacity
+  const coreMat = new MeshBasicMaterial({ color: C.luminidCore, transparent: true, opacity: 0.9, blending: AdditiveBlending });
   const core = new Mesh(new SphereGeometry(0.25, 8, 8), coreMat);
   bodyGroup.add(core);
 
   // Glow Halo
-  const haloMat = new MeshBasicMaterial({ 
-    color: C.luminidHalo, transparent: true, opacity: 0.2, side: DoubleSide, blending: AdditiveBlending
-  });
+  const haloMat = new MeshBasicMaterial({ color: C.luminidHalo, transparent: true, opacity: 0.2, side: DoubleSide, blending: AdditiveBlending });
   const halo = new Mesh(new CircleGeometry(1.2, 16), haloMat);
   halo.rotation.x = Math.PI / 2;
   bodyGroup.add(halo);
 
-  // 2. TOP FRONDS (Sensory fern-like whiskers)
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2;
-    const frond = new Mesh(new ConeGeometry(0.02, 0.8, 3), crystalMat);
-    frond.position.set(Math.cos(angle) * 0.2, 1.4, Math.sin(angle) * 0.2);
-    frond.rotation.z = Math.cos(angle) * 0.8;
-    frond.rotation.x = Math.sin(angle) * 0.8;
-    bodyGroup.add(frond);
-  }
-
-  // 3. SPINDLY LEGS (6 legs)
+  // 3. SPINDLY LEGS (6 legs) — upper segment one mesh, lower segment + glowing foot one mesh
   const legs = [];
-  const legMat = new MeshStandardMaterial({
-    color: C.luminidLeg, emissive: C.luminidLegEmissive, roughness: 0.9
-  });
+  const legMat = roleMaterial('solid', { emissive: C.luminidLegEmissive, emissiveIntensity: 1.0, roughness: 0.9 });
+  legMat.color.setHex(C.luminidLeg);
 
   const legAngles = [0.2, 1.0, 2.1, 3.14 + 0.2, 3.14 + 1.0, 3.14 + 2.1];
   for (let i = 0; i < 6; i++) {
@@ -88,25 +75,19 @@ export function makeLuminid(x, z) {
     shoulder.position.set(Math.cos(angle) * 0.5, 5.2, Math.sin(angle) * 0.5);
     g.add(shoulder);
 
-    // Upper Leg (length L_UPPER, hung from the shoulder pivot)
-    const upper = new Mesh(new CylinderGeometry(0.04, 0.03, L_UPPER, 4), legMat);
-    upper.position.y = -L_UPPER / 2;
+    const ub = createBaker();
+    ub.add(new CylinderGeometry(0.04, 0.03, L_UPPER, 5), { role: 'leg', pos: [0, -L_UPPER / 2, 0] });
     const upperPivot = new Group();
-    upperPivot.add(upper);
+    upperPivot.add(ub.build({ leg: legMat }).leg);
     shoulder.add(upperPivot);
 
-    // Lower Leg (length L_LOWER, hung from the knee pivot)
-    const lower = new Mesh(new CylinderGeometry(0.03, 0.015, L_LOWER, 4), legMat);
-    lower.position.y = -L_LOWER / 2;
+    const lb = createBaker();
+    lb.add(new CylinderGeometry(0.03, 0.015, L_LOWER, 5), { role: 'leg', pos: [0, -L_LOWER / 2, 0] });
+    lb.add(new SphereGeometry(0.05, 5, 4), { role: 'leg', pos: [0, -L_LOWER, 0], color: C.luminidCore, emis: 6.0, motion: { mode: MOTION.FLICKER, phase: i * 1.7, speed: 2.5 } });
     const lowerPivot = new Group();
     lowerPivot.position.y = -L_UPPER; // knee sits at the end of the upper segment
-    lowerPivot.add(lower);
+    lowerPivot.add(lb.build({ leg: legMat }).leg);
     upperPivot.add(lowerPivot);
-
-    // Foot tip glow (at the end of the lower segment)
-    const tip = new Mesh(new SphereGeometry(0.05, 4, 4), coreMat);
-    tip.position.y = -L_LOWER;
-    lowerPivot.add(tip);
 
     legs.push({
       shoulder, upperPivot, lowerPivot,
@@ -121,10 +102,10 @@ export function makeLuminid(x, z) {
   const stalkGroup = new Group();
   stalkGroup.position.y = -1.2;
   bodyGroup.add(stalkGroup);
-  const stalk = new Mesh(new CylinderGeometry(0.02, 0.04, 0.8, 4), legMat);
-  stalk.position.y = -0.4;
-  stalkGroup.add(stalk);
-  const sensor = new Mesh(new SphereGeometry(0.1, 5, 4), coreMat);
+  const sb = createBaker();
+  sb.add(new CylinderGeometry(0.02, 0.04, 0.8, 5), { role: 'leg', pos: [0, -0.4, 0] });
+  stalkGroup.add(sb.build({ leg: legMat }).leg);
+  const sensor = new Mesh(new SphereGeometry(0.1, 6, 5), coreMat);
   sensor.position.y = -0.8;
   stalkGroup.add(sensor);
 

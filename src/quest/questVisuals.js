@@ -331,12 +331,15 @@ export function updateQuestVisuals(dt, t, ctx) {
         o.group.scale.setScalar(1.0);
       }
 
-      for (let sc = 3; sc < o.group.children.length; sc++) {
-        const ch = o.group.children[sc];
-        const sa = ((sc - 3) / 6) * 6.28 + t * 1.5;
-        ch.position.x = Math.cos(sa) * 0.4;
-        ch.position.z = Math.sin(sa) * 0.4;
-        ch.position.y = Math.sin(sa * 2 + t) * 0.1;
+      if (!o._gpu) {
+        // Legacy sparkle ring (baked orbs orbit their sparkles in the vertex shader)
+        for (let sc = 3; sc < o.group.children.length; sc++) {
+          const ch = o.group.children[sc];
+          const sa = ((sc - 3) / 6) * 6.28 + t * 1.5;
+          ch.position.x = Math.cos(sa) * 0.4;
+          ch.position.z = Math.sin(sa) * 0.4;
+          ch.position.y = Math.sin(sa * 2 + t) * 0.1;
+        }
       }
 
       // C3: reject-flash — briefly pulse core toward required creature color
@@ -721,12 +724,24 @@ function transformTreesAndGround() {
     const gp = grassPatchesRef[gi];
     if (!gp.mesh?.material) continue;
     const isPink = gi % 3 !== 2; // 2/3 pink, 1/3 cyan
-    gp.mesh.material.emissive.setHex(isPink ? 0xcc44aa : 0x22ccee);
-    gp.mesh.material.emissiveIntensity = 0.38;
     const colorAttr = gp.mesh.geometry.attributes.color;
+    const emisAttr = gp.mesh.geometry.attributes.emisColor;
+    // Chunked grass: this patch owns a vertex range inside a shared chunk mesh;
+    // its emissive colour lives in the per-vertex emisColor attribute.
+    const v0 = gp.range ? gp.range[0] : 0;
+    const v1 = gp.range ? gp.range[1] : (colorAttr ? colorAttr.count : 0);
+    if (emisAttr) {
+      const er = isPink ? 0.8 : 0.13, eg = isPink ? 0.27 : 0.8, eb = isPink ? 0.67 : 0.93;
+      const ea = emisAttr.array;
+      for (let v = v0; v < v1; v++) { ea[v * 3] = er; ea[v * 3 + 1] = eg; ea[v * 3 + 2] = eb; }
+      emisAttr.needsUpdate = true;
+    } else {
+      gp.mesh.material.emissive.setHex(isPink ? 0xcc44aa : 0x22ccee);
+      gp.mesh.material.emissiveIntensity = 0.38;
+    }
     if (colorAttr) {
       const arr = colorAttr.array;
-      for (let i = 0; i < arr.length; i += 3) {
+      for (let i = v0 * 3; i < v1 * 3; i += 3) {
         const r = arr[i], g = arr[i + 1], b = arr[i + 2];
         if (isPink) {
           arr[i]     = r * 0.12 + g * 0.04 + 0.06;
@@ -744,11 +759,18 @@ function transformTreesAndGround() {
 
   // Transform ferns, flowers, reeds — alternate cyan/pink
   const floraGroups = [];
-  for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push({ group: fernsRef[i].group, idx: i });
-  for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push({ group: flowersRef[i].group, idx: fernsRef.length + i });
-  for (let i = 0; i < reedsRef.length; i++) if (reedsRef[i].group) floraGroups.push({ group: reedsRef[i].group, idx: fernsRef.length + flowersRef.length + i });
+  for (let i = 0; i < fernsRef.length; i++) if (fernsRef[i].group) floraGroups.push({ group: fernsRef[i].group, rec: fernsRef[i], idx: i });
+  for (let i = 0; i < flowersRef.length; i++) if (flowersRef[i].group) floraGroups.push({ group: flowersRef[i].group, rec: flowersRef[i], idx: fernsRef.length + i });
+  for (let i = 0; i < reedsRef.length; i++) if (reedsRef[i].group) floraGroups.push({ group: reedsRef[i].group, rec: reedsRef[i], idx: fernsRef.length + flowersRef.length + i });
   for (let i = 0; i < floraGroups.length; i++) {
     const floraIsPink = floraGroups[i].idx % 2 === 0;
+    const rec = floraGroups[i].rec;
+    if (rec && rec._type) {
+      // Instanced plant: retint its per-instance emissive (no child meshes to traverse).
+      const proxy = rec.glowMat || rec.petalMat || rec.stalkMat;
+      if (proxy) { proxy.emissive.setHex(floraIsPink ? 0xcc44aa : 0x22aacc); proxy.emissiveIntensity = Math.max(proxy.emissiveIntensity || 0, 0.35); }
+      continue;
+    }
     floraGroups[i].group.traverse((ch) => {
       if (!ch.isMesh || !ch.material) return;
       const m = ch.material;

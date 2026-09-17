@@ -4,6 +4,7 @@
 // Extracted from director() in main.js.
 // Handles firefly spawning, spore emission, dandelion wind dispersal, leaf fall.
 
+import { disperseDandelion } from '../entities/flora/dandelions.js';
 import { getGroundY } from '../world/terrain.js';
 import { getParticleScale, getDensityScale } from '../systems/adaptiveQuality.js';
 
@@ -79,10 +80,7 @@ export function spawnWindParticles(dt, t, ctx) {
     for (let i = 0; i < dandelions.length; i++) {
       const dn = dandelions[i];
       if (!dn.dispersed && Math.random() < 0.1) {
-        dn.dispersed = true;
-        for (let s = 0; s < 8; s++) spawnDandSeed(dn.x, dn.h + 0.05, dn.z);
-        for (let c = 2; c < dn.group.children.length; c++) dn.group.children[c].visible = false;
-        dn.regrowTimer = 15 + Math.random() * 10;
+        disperseDandelion(dn);   // hides the seed head only (the old index loop also hid the stem)
       }
     }
   }

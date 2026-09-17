@@ -2,6 +2,7 @@
 // Fauna — Deer update loop
 // ================================================================
 
+import { applyDetailLod } from '../../entities/_bake.js';
 import { WORLD_R, DEER_FLEE_R, DEER_FLEE_SPEED_MULT } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -64,6 +65,7 @@ export function updateDeers(dt, t) {
 
     if (pDist2 > 3600) { g.visible = false; continue; }
     g.visible = true;
+    applyDetailLod(d, pDist2, 900);
 
     // When pitch-locked to deer, track nearest deer regardless of flee state so the player
     // can match headings with a deer that was fleeing but is now calming down.

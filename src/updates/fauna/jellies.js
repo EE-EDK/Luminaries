@@ -2,6 +2,7 @@
 // Fauna — Jellies update loop
 // ================================================================
 
+import { applyDetailLod } from '../../entities/_bake.js';
 import { WORLD_R } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -347,6 +348,7 @@ export function updateJellies(dt, t) {
     const jFloatY = j.floatY + jellyAltMod;
 
     const _jhd2 = _jdx * _jdx + _jdz * _jdz;
+    applyDetailLod(j, _jhd2);
     if (_jhd2 < nearestDist2) {
       nearestDist2 = _jhd2;
       nearestPos.x = jx;
@@ -707,9 +709,16 @@ export function updateJellies(dt, t) {
       1.0 - bellPulse * 0.35,
       1.0 + bellPulse * 0.28
     );
-    for (let ti = 0; ti < j.tentGroup.children.length; ti++) {
-      j.tentGroup.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
-      j.tentGroup.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
+    if (!j._gpu) {
+      // Legacy per-tentacle sway (baked jellies undulate in the vertex shader).
+      for (let ti = 0; ti < j.tentGroup.children.length; ti++) {
+        j.tentGroup.children[ti].rotation.x = Math.sin(t * 2 + ti + syncP) * 0.15;
+        j.tentGroup.children[ti].rotation.z = Math.sin(t * 1.5 + ti * 0.7 + syncP) * 0.1;
+      }
+    } else {
+      // Whole tentacle skirt sways gently with the pulse; the wave does the rest.
+      j.tentGroup.rotation.x = Math.sin(t * 1.2 + syncP) * 0.05;
+      j.tentGroup.rotation.z = Math.sin(t * 0.9 + syncP + 1.3) * 0.04;
     }
   }
 

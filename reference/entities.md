@@ -4,33 +4,61 @@
 
 ## Flora (16 types)
 
-| Entity | Count | Cull Distance | File | Builder | Key Properties |
-|--------|-------|---------------|------|---------|----------------|
-| Trees | 500 | 4-tier LOD | `entities/flora/trees.js` | `createTreeTemplates()` + `createTreeInstances()` | 10 templates, 4 InstancedMesh/template (trunk, canopy, glow, detail), wind sway |
-| Mushrooms | 250 | 50m | `entities/flora/mushrooms.js` | `makeMush()` | Glow pulse (sin-based), emissive cap, spore emission |
-| Crystals | 18 | — | `entities/flora/crystals.js` | `makeCrystal()` | Rotation, proximity lights (5 max), glow pulse |
-| Grass | 1,200 | GPU shader | `entities/flora/grass.js` | `makeGrassPatch()` | Vertex shader animation, zero CPU cost, 3 palette variants (purple/blue/teal), 38-67 blades/patch, GPU dimming via uGlowMult |
-| Ferns | 160 | 40m | `entities/flora/ferns.js` | `makeFern()` | Gentle sway |
-| Flowers | 140 | 40m | `entities/flora/flowers.js` | `makeFlower()` | Bloom reactivity (`_react`), firefly attraction |
-| Reeds | 40 | 40m | `entities/flora/reeds.js` | `makeReed()` | Wind sway |
-| Dandelions | 25 | — | `entities/flora/dandelions.js` | `makeDandelion()` | Seed dispersal (8 seeds per approach), regrowth timer 15-25s |
-| Thornblooms | 30 | — | `entities/flora/thornbloom.js` | `makeThornbloom()` | Glowing orb center, spike geometry |
-| Helixvines | 30 | — | `entities/flora/helixvine.js` | `makeHelixvine()` | Spiral pod clusters |
-| Snapthorns | 24 | — | `entities/flora/snapthorn.js` | `makeSnapthorn()` | Reactive tips, player proximity response |
-| Spiral Fronds | 45 | — | `entities/flora/spiralfrond.js` | `makeSpiralFrond()` | Curling frond geometry |
-| Corpse Blooms | 24 | — | `entities/flora/corpsebloom.js` | `makeCorpseBloom()` | Spadix + spathe, eerie glow |
-| Orb Bushes | 36 | — | `entities/flora/orbbush.js` | `makeOrbBush()` | Pink orb clusters on branches |
-| Lantern Pods | 36 | — | `entities/flora/lanternpod.js` | `makeLanternPod()` | Hanging pod lanterns, warm glow |
-| Veil Moss | 45 | — | `entities/flora/veilmoss.js` | `makeVeilMoss()` | Draped moss on support structure |
+Counts are the `constants.js` values (`*_N`, `GRASS_PATCHES`). Spawned counts are lower where
+placement rejects a spot (see `reference/entity-audit-2026-09-16.md` §5 for the measured
+runtime counts at seed 42). "Instanced" types are drawn as template `InstancedMesh`
+populations (`entities/_instancedFlora.js`): the whole population costs templates × roles draw
+calls, is never per-instance culled, and only instances inside 30 m get their glow tint written.
+"Baked" types are one `Mesh` per material role (`entities/_bake.js`), hidden beyond 40 m.
 
-## Fauna (4 types)
+| Entity | Count | Cull / Draw | File | Builder | Key Properties |
+|--------|-------|-------------|------|---------|----------------|
+| Trees | 500 | 4-tier LOD | `entities/flora/trees.js` | `createTreeTemplates()` + `createTreeInstances()` | 10 templates, 4 InstancedMesh/template (trunk, canopy, glow, detail), wind sway; tier-2 impostors are one shared `Points` cloud (1 draw call) |
+| Mushrooms | 370 | instanced, 8 templates × 2 roles (16 draws) | `entities/flora/mushrooms.js` | `makeMush()` | Cap breathes (GPU), gills, spots, proximity pulse, shadow-casting caps |
+| Crystals | 18 | 55 m | `entities/flora/crystals.js` | `makeCrystal()` | 3 baked meshes; vein flicker (GPU), rotation, proximity lights (5 max) |
+| Grass | 1,440 | GPU shader, 60 m | `entities/flora/grass.js` | `makeGrassPatch()` + `chunkGrassPatches()` | Patches merged into 24 m world-space chunks (12 draws at origin); per-vertex `emisColor`; vertex-shader wind, zero CPU |
+| Ferns | 250 | instanced, 6 × 2 (12 draws) | `entities/flora/ferns.js` | `makeFern()` | Height-weighted sway, curl reaction (`_baseScale` preserved) |
+| Flowers | 230 | instanced, 6 × 2 (12 draws) | `entities/flora/flowers.js` | `makeFlower()` | 5–7 petals, breathing glow, bloom reactivity (`_react`) |
+| Reeds | 90 | instanced, 6 × 2 (12 draws) | `entities/flora/reeds.js` | `makeReed()` | Tube stalks, plume baked 2.3× brighter, wind sway |
+| Dandelions | 60 | 40 m | `entities/flora/dandelions.js` | `makeDandelion()` + `disperseDandelion()` | 2 baked meshes; seed dispersal hides `headMesh` only; regrowth timer |
+| Thornblooms | 55 | 40 m | `entities/flora/thornbloom.js` | `makeThornbloom()` | 4 baked meshes; orb + additive haze, spikes |
+| Helixvines | 50 | 40 m | `entities/flora/helixvine.js` | `makeHelixvine()` | 4 baked meshes; rings orbit on the GPU |
+| Snapthorns | 44 | 40 m | `entities/flora/snapthorn.js` | `makeSnapthorn()` | 5 baked meshes; tentacles wave and lean toward the player (`MOTION.REACH`, 3.5 m) |
+| Spiral Fronds | 65 | 40 m | `entities/flora/spiralfrond.js` | `makeSpiralFrond()` | 4 baked meshes; curling frond geometry |
+| Corpse Blooms | 34 | 40 m | `entities/flora/corpsebloom.js` | `makeCorpseBloom()` | 4 baked meshes; flies orbit on the GPU |
+| Orb Bushes | 46 | 40 m | `entities/flora/orbbush.js` | `makeOrbBush()` | 3 baked meshes; orbs bob on the GPU |
+| Lantern Pods | 41 | 40 m | `entities/flora/lanternpod.js` | `makeLanternPod()` | 3 baked meshes; pendulum pods (GPU), warm glow |
+| Veil Moss | 50 | 40 m | `entities/flora/veilmoss.js` | `makeVeilMoss()` | 2 baked meshes; curtain wave (GPU) |
 
-| Entity | Count | Cull Distance | File | Builder | States | Audio | Resonance Band |
-|--------|-------|---------------|------|---------|--------|-------|----------------|
-| Jellies | 35 | 55m | `entities/fauna/jellies.js` | `makeJelly()` | drift, pulse | Glass harmonica (360-420Hz) | 390Hz ±40 |
-| Pufflings | 40 | 40m | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander | 3-note chirp arpeggio (500-750Hz) | 550Hz ±45 |
-| Deer | 12 | 60m | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee | Distant horn (100-130Hz) | 120Hz ±30 |
-| Moths | 35 | 45m | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit) | Whisper-flutter (200-280Hz) | 240Hz ±35 |
+### Part baking and GPU motion (2026-09-16)
+
+- `entities/_motion.js` — one vertex-shader chunk shared by every baked material: wind sway
+  (height-weighted `aSway`), player brush-aside (1.2 m), storm droop, and per-part motion modes
+  (`MOTION.BOB / ORBIT / PENDULUM / WAVE / BREATHE / SPIN / FLUTTER / FLICKER / REACH`) read from
+  `aMotion` (mode, amp, phase, speed) about `aPivot`. Uniforms are written once per frame by
+  `updateMotionGlobals()` in `updates/vegetation.js`.
+- `entities/_bake.js` — `createBaker().add(geo, {role, pos, rot, scale, color, opacity, emis,
+  sway, motion, pivot})` then `build({role: roleMaterial(kind, opts)})`. **Every mesh that uses a
+  `roleMaterial` must come out of a baker** — a raw geometry on a motion material renders black.
+  `src/entities/__tests__/entityBudget.test.js` pins the mesh count of every builder and checks
+  the baked attributes.
+- `entities/_instancedFlora.js` — `createInstancedFloraType()`; records keep their old shape
+  (`group`, `capMat`, `petalMat`, ...) through a material-shaped proxy that writes a per-instance
+  glow attribute.
+
+## Fauna (5 types)
+
+Creatures are baked per rigid pivot (body, head, legs, wings ...) so the CPU animation still
+drives the pivots while decorative parts move on the GPU. `applyDetailLod(rec, d2)` hides the
+small accent meshes listed in `rec._detail` beyond the stated detail distance.
+
+| Entity | Count | Cull / Detail | Meshes | File | Builder | States | Audio | Resonance Band |
+|--------|-------|---------------|-------:|------|---------|--------|-------|----------------|
+| Jellies | 35 | 55 m / 30 m | 7 | `entities/fauna/jellies.js` | `makeJelly()` | drift, pulse (tentacles wave on the GPU) | Glass harmonica (360-420Hz) | 390Hz ±40 |
+| Pufflings | 40 | 40 m / 20 m | 10 (13 wizard) | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander; breathe, blink, ear flick | 3-note chirp arpeggio (500-750Hz) | 550Hz ±45 |
+| Deer | 12 | 60 m / 30 m | 17 | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee | Distant horn (100-130Hz) | 120Hz ±30 |
+| Moths | 35 | 45 m / 25 m | 8 | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit); eyespots pulse, tails flutter, antennae quiver | Whisper-flutter (200-280Hz) | 240Hz ±35 |
+| Luminids | 5 | — | 17 | `entities/fauna/luminids.js` | `makeLuminid()` | stilt walk (2-bone IK legs) | — | — |
 
 ### Creature Resonance Bands (Spirit Hum)
 
@@ -56,9 +84,9 @@ Each creature type has a pitch band. The player must press F to hum and match th
 
 | Entity | Count | File | Builder | Purpose |
 |--------|-------|------|---------|---------|
-| Rocks | 60 | `entities/world/rocks.js` | `makeRock()` | Collision obstacles, 50m cull |
-| Obelisk | 1 | `entities/world/obelisk.js` | `makeObelisk()` | Quest target, center of world, rises with orb collection |
-| Moat | 1 | `entities/world/moat.js` | `makeMoat()` | Ring around obelisk, fades in during finale |
+| Rocks | 350 + 50 boulders + 250 pebbles | `entities/world/rocks.js` | SDF instanced | Collision obstacles, 50m cull |
+| Obelisk | 1 | `entities/world/obelisk.js` | `makeObelisk()` | 18 baked meshes; quest target, center of world, rises with orb collection; cap edge / glyph / inscription reveal from 0.6 / 0.7 / 0.55 opacity |
+| Moat | 1 | `entities/world/moat.js` | `makeMoat()` | One mesh in a `Group` (`getMoatMesh()` returns the group); fades in during finale |
 | Rainbows | 6 arcs | `entities/world/rainbows.js` | `makeRainbows()` | Finale effect, 6 colors + sparkle chains |
 
 ## Particles (11 systems)
@@ -83,10 +111,10 @@ Each creature type has a pitch band. The player must press F to hum and match th
 |------|----------|--------|------------|
 | 0 | < 20m | Full detail + wind sway | 4 per template |
 | 1 | 20-70m | Reduced (no glow mesh) | 3 per template |
-| 2 | 70-110m | Impostor sprite | 1 per template |
+| 2 | 70-110m | Impostor point in one shared `Points` cloud | 1 total |
 | 3 | > 110m | Hidden | 0 |
 
-**Total tree draw calls:** ~40 (10 templates x 4 meshes, culled by LOD)
+**Total tree draw calls:** ~41 (10 templates x 4 meshes, culled by LOD, + 1 impostor cloud); measured 50 at the origin on 2026-09-16 including shadow passes
 
 ## Entity Color Palette Quick Reference
 

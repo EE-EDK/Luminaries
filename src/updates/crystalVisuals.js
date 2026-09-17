@@ -2,6 +2,7 @@
 // Crystal Visuals Update — Coupled to Audio Resonance Chains
 // ================================================================
 import { on, Events } from '../kernel/eventBus.js';
+import { player } from '../core/player.js';
 import { crys_data } from '../state/entityStore.js';
 import { getLocalGlow } from '../systems/dimming.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
@@ -35,9 +36,16 @@ export function updateCrystalVisuals(dt, t) {
   // Let's check stopClusterHarmonies in audio/crystals.js.
   
   // Update all crystals. Only those in activeIndices get the pulse.
+  const px = player.pos.x, pz = player.pos.z;
   for (let i = 0; i < crys_data.length; i++) {
     const crys = crys_data[i];
     const mat = crys.mat;
+    // Distance cull (55 m). The proximity lights and chain visuals key off
+    // crys.x / crys.z, not the group, so hiding the group is safe.
+    const cdx = crys.x - px, cdz = crys.z - pz;
+    const cd2 = cdx * cdx + cdz * cdz;
+    if (cd2 > 3025) { if (crys.group.visible) crys.group.visible = false; continue; }
+    if (!crys.group.visible) crys.group.visible = true;
     
     let pulseIdx = activeIndices.indexOf(i);
     if (pulseIdx !== -1) {

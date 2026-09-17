@@ -438,7 +438,7 @@ function _directorQuest(dt, t, ctx) {
   updateFloraReactions(dt, t);
   updateQuestState(dt);
   updateQuestVisuals(dt, t);
-  updateRainbowSparkles(t);
+  updateRainbowSparkles(t, dt);
   timeEnd('quest');
 }
 

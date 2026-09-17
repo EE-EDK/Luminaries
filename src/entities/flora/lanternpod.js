@@ -1,153 +1,63 @@
-import { AdditiveBlending, CatmullRomCurve3, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from 'three';
+import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
+import { createBaker, roleMaterial, swayByHeight, MOTION } from '../_bake.js';
 
 // ================================================================
-// LanternPod — Thin stems curving outward with hanging translucent
-// glowing pods at their tips, like natural paper lanterns
+// LanternPod — drooping stems with hanging translucent pods. 3 meshes
+// (was 25). Each pod (shell, core, cap, silk threads) swings as a pendulum
+// from its stem tip on the GPU; the stems sway with height.
 // ================================================================
+// Legacy record: { group, podMats, phase, x, z }. podMats holds one material;
+// podMeshes is gone (the pendulum is baked).
+
+const _plantMat = roleMaterial('solid', { emissive: C.lanternHaze, emissiveIntensity: 0.05, roughness: 0.7, doubleSide: true });
+const _hazeMat = roleMaterial('haze', { opacity: 0.04 });
 
 export function makeLanternPod(x, z) {
   const g = new Group();
-  const stemN = 2 + Math.floor(sr() * 3); // 2-4 stems
-  const podMats = [];
-  const podMeshes = [];
+  const stemN = 2 + Math.floor(sr() * 3);
+  const phase = sr() * 6.28;
+  const b = createBaker();
+  const podMat = roleMaterial('glow', { emissive: C.lanternGlow, emissiveIntensity: 0.5 + sr() * 0.3, roughness: 0.2, metalness: 0.1 });
 
-  // --- Root mound ---
-  const rootMat = new MeshStandardMaterial({
-    color: 0x1a2818, roughness: 0.9,
-    emissive: 0x050a05, emissiveIntensity: 0.03
-  });
-  const mound = new Mesh(
-    new SphereGeometry(0.1, 5, 4), rootMat
-  );
-  mound.scale.set(1.5, 0.4, 1.5);
-  mound.position.y = 0.02;
-  g.add(mound);
-
-  // --- Base leaf ---
-  const leafMat = new MeshStandardMaterial({
-    color: C.lanternStem, emissive: 0x0a1a08,
-    emissiveIntensity: 0.04, side: DoubleSide
-  });
+  b.add(new SphereGeometry(0.1, 5, 4), { role: 'plant', pos: [0, 0.02, 0], scale: [1.5, 0.4, 1.5], color: 0x1a2818, emis: 0.5 });
   for (let i = 0; i < 2; i++) {
     const la = sr() * 6.28;
-    const leaf = new Mesh(
-      new PlaneGeometry(0.1, 0.18), leafMat
-    );
-    leaf.position.set(Math.cos(la) * 0.08, 0.08, Math.sin(la) * 0.08);
-    leaf.rotation.y = -la;
-    leaf.rotation.x = -0.6;
-    g.add(leaf);
+    b.add(new PlaneGeometry(0.1, 0.18), { role: 'plant', pos: [Math.cos(la) * 0.08, 0.08, Math.sin(la) * 0.08], rot: [-0.6, -la, 0], color: C.lanternStem, emis: 0.6, sway: 0.1 });
   }
 
   for (let si = 0; si < stemN; si++) {
-    const stemAngle = (si / stemN) * 6.28 + sr() * 0.5;
-    const stemH = 0.8 + sr() * 0.8; // 0.8-1.6m
-    const stemLean = 0.3 + sr() * 0.4; // how far it leans outward
-
-    // Build a drooping curve for the stem
+    const stemAngle = (si / stemN) * 6.28 + sr() * 0.5, stemH = 0.8 + sr() * 0.8, stemLean = 0.3 + sr() * 0.4;
+    const sway = swayByHeight(0.1, stemH, 0.3);
     const points = [];
-    const segs = 10;
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      const outward = stemLean * Math.sin(t * Math.PI * 0.7);
-      const height = t < 0.7
-        ? t / 0.7 * stemH  // rise
-        : stemH - (t - 0.7) / 0.3 * stemH * 0.25; // droop at end
-      points.push(new Vector3(
-        Math.cos(stemAngle) * outward,
-        height,
-        Math.sin(stemAngle) * outward
-      ));
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10, out = stemLean * Math.sin(t * Math.PI * 0.7);
+      const hh = t < 0.7 ? t / 0.7 * stemH : stemH - (t - 0.7) / 0.3 * stemH * 0.25;
+      points.push(new Vector3(Math.cos(stemAngle) * out, hh, Math.sin(stemAngle) * out));
     }
     const curve = new CatmullRomCurve3(points);
+    b.add(new TubeGeometry(curve, 12, 0.008 + sr() * 0.004, 4, false), { role: 'plant', color: C.lanternStem, emis: 1, sway });
 
-    // Stem tube
-    const stemMat = new MeshStandardMaterial({
-      color: C.lanternStem, roughness: 0.7,
-      emissive: C.lanternHaze, emissiveIntensity: 0.06
-    });
-    const tube = new Mesh(
-      new TubeGeometry(curve, 12, 0.008 + sr() * 0.004, 4, false), stemMat
-    );
-    g.add(tube);
-
-    // --- Hanging pod at tip ---
-    const tipPt = curve.getPoint(1);
+    const tip = curve.getPoint(1);
     const podR = 0.06 + sr() * 0.04;
-
-    // Outer shell (translucent)
-    const podMat = new MeshStandardMaterial({
-      color: C.lanternPod, emissive: C.lanternGlow,
-      emissiveIntensity: 0.5 + sr() * 0.3,
-      transparent: true, opacity: 0.5,
-      roughness: 0.2, metalness: 0.1
-    });
-    const pod = new Mesh(
-      new SphereGeometry(podR, 8, 6), podMat
-    );
-    pod.position.copy(tipPt);
-    pod.position.y -= podR * 0.3; // hang below stem tip
-    g.add(pod);
-    podMats.push(podMat);
-
-    // Inner core (brighter)
-    const coreMat = new MeshStandardMaterial({
-      color: 0xffffcc, emissive: C.lanternGlow,
-      emissiveIntensity: 1.0,
-      transparent: true, opacity: 0.5,
-      roughness: 0.0
-    });
-    const core = new Mesh(
-      new SphereGeometry(podR * 0.4, 5, 4), coreMat
-    );
-    core.position.copy(pod.position);
-    g.add(core);
-
-    // Pod haze
-    const haze = new Mesh(
-      new SphereGeometry(podR * 2.5, 5, 4),
-      new MeshBasicMaterial({
-        color: C.lanternHaze, transparent: true, opacity: 0.04,
-        blending: AdditiveBlending, depthWrite: false
-      })
-    );
-    haze.position.copy(pod.position);
-    g.add(haze);
-
-    // Small cap/calyx where stem meets pod
-    const capMat = new MeshStandardMaterial({
-      color: C.lanternStem, roughness: 0.6
-    });
-    const cap = new Mesh(
-      new ConeGeometry(podR * 0.5, podR * 0.4, 5), capMat
-    );
-    cap.position.copy(tipPt);
-    cap.rotation.x = Math.PI; // point downward
-    g.add(cap);
-
-    // Hanging silk threads from pod bottom
-    const silkMat = new MeshBasicMaterial({
-      color: C.lanternGlow, transparent: true, opacity: 0.15
-    });
+    const pivot = [tip.x, tip.y, tip.z];
+    const swing = { mode: MOTION.PENDULUM, amp: 0.12 + sr() * 0.06, phase: phase + si * 1.4, speed: 0.6 + sr() * 0.3 };
+    const podY = tip.y - podR * 0.3;
+    const tipSway = sway(tip.x, tip.y, tip.z);
+    b.add(new SphereGeometry(podR, 9, 7), { role: 'pod', pos: [tip.x, podY, tip.z], color: C.lanternPod, emis: 1.0, opacity: 0.5, sway: tipSway, pivot, motion: swing });
+    b.add(new SphereGeometry(podR * 0.4, 6, 5), { role: 'pod', pos: [tip.x, podY, tip.z], color: 0xffffcc, emis: 2.0, opacity: 0.5, sway: tipSway, pivot, motion: swing });
+    b.add(new SphereGeometry(podR * 2.5, 6, 4), { role: 'haze', pos: [tip.x, podY, tip.z], color: C.lanternHaze, sway: tipSway, pivot, motion: swing });
+    b.add(new ConeGeometry(podR * 0.5, podR * 0.4, 5), { role: 'plant', pos: pivot, rot: [Math.PI, 0, 0], color: C.lanternStem, emis: 0.4, sway: tipSway, pivot, motion: swing });
     for (let thi = 0; thi < 2; thi++) {
-      const threadLen = 0.04 + sr() * 0.04;
-      const thread = new Mesh(new CylinderGeometry(0.001, 0.001, threadLen, 3), silkMat);
-      thread.position.set(
-        pod.position.x + (sr() - 0.5) * podR * 0.5,
-        pod.position.y - podR - threadLen * 0.5,
-        pod.position.z + (sr() - 0.5) * podR * 0.5
-      );
-      g.add(thread);
+      const tl = 0.04 + sr() * 0.04;
+      b.add(new CylinderGeometry(0.001, 0.001, tl, 3), { role: 'pod', pos: [tip.x + (sr() - 0.5) * podR * 0.5, podY - podR - tl * 0.5, tip.z + (sr() - 0.5) * podR * 0.5], color: C.lanternGlow, emis: 0.3, opacity: 0.3, sway: tipSway, pivot, motion: swing });
     }
-
-    // Store pod mesh for pendulum animation
-    podMeshes.push(pod);
   }
 
-  g.position.set(x, 0, z);
-  scene.add(g);
-  return { group: g, podMats, podMeshes, phase: sr() * 6.28, x, z };
+  const m = b.build({ plant: _plantMat, pod: podMat, haze: _hazeMat });
+  g.add(m.plant, m.pod, m.haze);
+  g.position.set(x, 0, z); scene.add(g);
+  return { group: g, podMats: [podMat], phase, x, z };
 }

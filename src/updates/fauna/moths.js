@@ -2,6 +2,7 @@
 // Fauna — Moths update loop
 // ================================================================
 
+import { applyDetailLod } from '../../entities/_bake.js';
 import { getGroundY } from '../../world/terrain.js';
 import { WORLD_R } from '../../constants.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -32,6 +33,7 @@ export function updateMoths(dt, t) {
     const _mhd2 = _mdx * _mdx + _mdz * _mdz;
     if (_mhd2 > 2025) { g.visible = false; continue; }
     g.visible = true;
+    applyDetailLod(m, _mhd2, 625);
 
     if (_mhd2 < nearestDist2) {
       nearestDist2 = _mhd2;

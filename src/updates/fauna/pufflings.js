@@ -2,6 +2,7 @@
 // Fauna — Pufflings update loop
 // ================================================================
 
+import { applyDetailLod } from '../../entities/_bake.js';
 import { WORLD_R } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow, isRestored } from '../../systems/dimming.js';
@@ -68,6 +69,7 @@ export function updatePuffs(dt, t) {
 
     if (pDist2 > 1600) { g.visible = false; continue; }
     g.visible = true;
+    applyDetailLod(p, pDist2, 400);
 
     if (pDist2 < nearestDist2) {
       nearestDist2 = pDist2;

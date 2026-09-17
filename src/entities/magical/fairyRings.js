@@ -1,148 +1,83 @@
-// --- Fairy Ring (enhanced mushroom circle + glow ring) ---
-import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, RingGeometry, SphereGeometry } from 'three';
+// --- Fairy Ring (mushroom circle + glow ring — baked, 5 meshes; was 66) ---
+// Mini mushrooms (caps, stems, toadstools) share the ring's mushMat so the
+// activation glow still drives them; moss, stone, old caps and lichen are
+// one ground mesh; cap dots, mycelium web and damp ring one unlit mesh;
+// spore motes and glow worms one mesh under sporeMat (motes rise and drift,
+// worms twinkle — GPU); the glow disc stays its own mesh.
+import { CircleGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, FAIRY_RING_R } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { GEO } from '../../core/geometries.js';
+import { createBaker, roleMaterial, MOTION } from '../_bake.js';
+
+const _groundMat = roleMaterial('solid', { emissive: 0x0a2210, emissiveIntensity: 0.05, roughness: 0.9 });
+const _unlitMat = roleMaterial('basic', { doubleSide: true });
 
 export function makeFairyRing(x, z) {
   const g = new Group();
   const ringR = FAIRY_RING_R;
+  const phase = sr() * 6.28;
   const mushCount = 8 + Math.floor(sr() * 5);
-  const mushMat = new MeshStandardMaterial({
-    color: C.fairyMush, emissive: C.fairyGlow, emissiveIntensity: 0.2, roughness: 0.5
-  });
-  const stemMat = new MeshStandardMaterial({
-    color: C.mushStem, roughness: 0.7, emissive: C.fairyGlow, emissiveIntensity: 0.05
-  });
+  const b = createBaker();
+  const mushMat = roleMaterial('solid', { emissive: C.fairyGlow, emissiveIntensity: 0.2, roughness: 0.5 });
+  const sporeMat = roleMaterial('basic', { opacity: 0.2 });
+  const liftY = 0.06;
+
   for (let i = 0; i < mushCount; i++) {
     const a = (i / mushCount) * 6.28 + sr() * 0.15;
     const mr = ringR + sr() * 0.3 - 0.15;
     const sc = 0.15 + sr() * 0.2;
-    const liftY = 0.06; // raise all mushrooms above ground to prevent terrain clipping
-    // Mini mushroom stem
-    const s = new Mesh(GEO.mushStem, stemMat);
-    s.scale.setScalar(sc); s.position.set(Math.cos(a) * mr, sc * 0.3 + liftY, Math.sin(a) * mr); g.add(s);
-    // Mini cap
-    const cap = new Mesh(GEO.mushCap, mushMat);
-    cap.scale.set(sc, sc * 0.4, sc); cap.position.set(Math.cos(a) * mr, sc * 0.55 + liftY, Math.sin(a) * mr); g.add(cap);
-    // Cap dot (white spot on each mini cap)
-    const dotMat = new MeshBasicMaterial({
-      color: C.white, transparent: true, opacity: 0.7,
-      depthWrite: false
-    });
-    const dot = new Mesh(new SphereGeometry(sc * 0.08, 3, 3), dotMat);
-    dot.position.set(Math.cos(a) * mr, sc * 0.6 + liftY, Math.sin(a) * mr); g.add(dot);
+    const cx = Math.cos(a) * mr, cz = Math.sin(a) * mr;
+    b.add(GEO.mushStem, { role: 'mush', pos: [cx, sc * 0.3 + liftY, cz], scale: sc, color: C.mushStem, emis: 0.25 });
+    b.add(GEO.mushCap, { role: 'mush', pos: [cx, sc * 0.55 + liftY, cz], scale: [sc, sc * 0.4, sc], color: C.fairyMush, emis: 1.0, pivot: [cx, sc * 0.4 + liftY, cz], motion: { mode: MOTION.BREATHE, amp: 0.04, phase: i * 0.8 + phase, speed: 1.2 } });
+    b.add(new SphereGeometry(sc * 0.08, 3, 3), { role: 'unlit', pos: [cx, sc * 0.6 + liftY, cz], color: C.white, opacity: 0.7 });
   }
-  // Tiny toadstools between main mushrooms (smaller extras)
-  const toadMat = new MeshStandardMaterial({
-    color: 0x885588, emissive: C.fairyGlow, emissiveIntensity: 0.1, roughness: 0.6
-  });
   for (let ti = 0; ti < 5; ti++) {
-    const ta = sr() * 6.28;
-    const tr = ringR + sr() * 0.6 - 0.3;
-    const tsc = 0.06 + sr() * 0.06;
-    const toad = new Mesh(GEO.mushCap, toadMat);
-    toad.scale.set(tsc, tsc * 0.5, tsc);
-    toad.position.set(Math.cos(ta) * tr, tsc * 0.35 + 0.04, Math.sin(ta) * tr); g.add(toad);
+    const ta = sr() * 6.28, tr = ringR + sr() * 0.6 - 0.3, tsc = 0.06 + sr() * 0.06;
+    b.add(GEO.mushCap, { role: 'mush', pos: [Math.cos(ta) * tr, tsc * 0.35 + 0.04, Math.sin(ta) * tr], scale: [tsc, tsc * 0.5, tsc], color: 0x885588, emis: 0.5 });
   }
-  // Moss patches on ground between mushrooms (3-5 green blobs)
-  const mossMat = new MeshStandardMaterial({
-    color: 0x1a5525, emissive: 0x0a2210, emissiveIntensity: 0.05, roughness: 0.9
-  });
   for (let mi = 0; mi < 4; mi++) {
     const ma = sr() * 6.28, md = sr() * ringR * 0.8;
-    const moss = new Mesh(new SphereGeometry(0.08 + sr() * 0.08, 4, 3), mossMat);
-    moss.scale.set(1.5, 0.2, 1.5);
-    moss.position.set(Math.cos(ma) * md, 0.01, Math.sin(ma) * md); g.add(moss);
+    b.add(new SphereGeometry(0.08 + sr() * 0.08, 5, 4), { role: 'ground', pos: [Math.cos(ma) * md, 0.01, Math.sin(ma) * md], scale: [1.5, 0.2, 1.5], color: 0x1a5525 });
   }
-  // Center stone (flat pebble at ring center)
-  const stoneMat = new MeshStandardMaterial({
-    color: 0x445566, emissive: C.fairyGlow, emissiveIntensity: 0.05, roughness: 0.85
-  });
-  const stone = new Mesh(new SphereGeometry(0.12, 5, 3), stoneMat);
-  stone.scale.set(1.2, 0.3, 1.0); stone.position.y = 0.03; g.add(stone);
-  // Spore haze motes (floating particles inside ring — animated)
-  const sporeMat = new MeshBasicMaterial({
-    color: C.fairyGlow, transparent: true, opacity: 0.2,
-    depthWrite: false
-  });
-  const spores = [];
-  for (let si = 0; si < 8; si++) {
-    const spore = new Mesh(new SphereGeometry(0.012, 3, 3), sporeMat);
-    const sx = (sr() - 0.5) * ringR * 0.8, sz = (sr() - 0.5) * ringR * 0.8;
-    spore.position.set(sx, 0.05 + sr() * 0.3, sz);
-    g.add(spore);
-    spores.push({ mesh: spore, baseX: sx, baseZ: sz, drift: sr() * 6.28, speed: 0.2 + sr() * 0.3 });
-  }
-  // Central glow disc (flat ring on ground — raised above terrain)
-  const discMat = new MeshBasicMaterial({
-    color: C.fairyRing, transparent: true, opacity: 0.0, side: DoubleSide,
-    depthWrite: false
-  });
-  const disc = new Mesh(new RingGeometry(0.3, ringR - 0.3, 16), discMat);
-  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.12; g.add(disc); // raised from 0.02
-
-  // Mycelium web threads on ground (radial connecting lines between mushrooms)
-  const webMat = new MeshBasicMaterial({
-    color: C.fairyGlow, transparent: true, opacity: 0.08,
-    depthWrite: false
-  });
-  for (let wi = 0; wi < 6; wi++) {
-    const wA1 = sr() * 6.28, wA2 = wA1 + 0.5 + sr() * 1.5;
-    const webLen = ringR * 0.6 + sr() * ringR * 0.4;
-    const web = new Mesh(new CylinderGeometry(0.002, 0.002, webLen, 3), webMat);
-    web.position.set(Math.cos((wA1 + wA2) / 2) * ringR * 0.4, 0.005, Math.sin((wA1 + wA2) / 2) * ringR * 0.4);
-    web.rotation.x = Math.PI / 2; web.rotation.z = wA1; g.add(web);
-  }
-
-  // Tiny fallen spore caps (old dried mushroom remnants)
-  const oldCapMat = new MeshStandardMaterial({
-    color: 0x4a3a30, roughness: 0.9, transparent: true, opacity: 0.5,
-    depthWrite: false
-  });
+  b.add(new SphereGeometry(0.12, 6, 4), { role: 'ground', pos: [0, 0.03, 0], scale: [1.2, 0.3, 1.0], color: 0x445566 });
   for (let oci = 0; oci < 3; oci++) {
     const oa = sr() * 6.28, od = sr() * ringR * 0.7;
-    const oldCap = new Mesh(new SphereGeometry(0.03, 4, 3), oldCapMat);
-    oldCap.scale.set(1.3, 0.3, 1.3);
-    oldCap.position.set(Math.cos(oa) * od, 0.008, Math.sin(oa) * od); g.add(oldCap);
+    b.add(new SphereGeometry(0.03, 4, 3), { role: 'ground', pos: [Math.cos(oa) * od, 0.008, Math.sin(oa) * od], scale: [1.3, 0.3, 1.3], color: 0x4a3a30 });
   }
-
-  // Lichen spots on center stone
-  const lichMat = new MeshStandardMaterial({
-    color: 0x778866, roughness: 0.9, transparent: true, opacity: 0.5,
-    depthWrite: false
-  });
   for (let lci = 0; lci < 2; lci++) {
-    const lich = new Mesh(new CircleGeometry(0.02 + sr() * 0.02, 4), lichMat);
-    lich.position.set((sr() - 0.5) * 0.08, 0.06, (sr() - 0.5) * 0.06);
-    lich.rotation.x = -Math.PI / 2 + sr() * 0.4; g.add(lich);
+    b.add(new CircleGeometry(0.02 + sr() * 0.02, 4), { role: 'ground', pos: [(sr() - 0.5) * 0.08, 0.06, (sr() - 0.5) * 0.06], rot: [-Math.PI / 2 + sr() * 0.4, 0, 0], color: 0x778866 });
   }
-
-  // Glow worm dots (tiny bioluminescent specks at ground level)
-  const glowWorms = [];
+  // Spore motes: rise (BOB with large amplitude) while drifting (ORBIT) — split across two sets
+  for (let si = 0; si < 10; si++) {
+    const sx = (sr() - 0.5) * ringR * 0.8, sz = (sr() - 0.5) * ringR * 0.8, sy = 0.05 + sr() * 0.35;
+    const mo = si % 2 === 0
+      ? { mode: MOTION.BOB, amp: 0.2 + sr() * 0.15, phase: sr() * 6.28, speed: 0.4 + sr() * 0.3 }
+      : { mode: MOTION.ORBIT, amp: 0.15, phase: sr() * 6.28, speed: 0.3 + sr() * 0.3 };
+    b.add(new SphereGeometry(0.012, 4, 3), { role: 'spore', pos: [sx + (si % 2 ? 0.12 : 0), sy, sz], color: C.fairyGlow, pivot: [sx, sy, sz], motion: mo });
+  }
   for (let gwi = 0; gwi < 5; gwi++) {
     const gwa = sr() * 6.28, gwd = sr() * ringR * 0.9;
-    const gwm = new MeshBasicMaterial({
-      color: 0x88ffaa, transparent: true, opacity: 0.25,
-      depthWrite: false
-    });
-    const gw = new Mesh(new SphereGeometry(0.005, 3, 3), gwm);
-    gw.position.set(Math.cos(gwa) * gwd, 0.01, Math.sin(gwa) * gwd); g.add(gw);
-    glowWorms.push(gw);
+    b.add(new SphereGeometry(0.005, 3, 3), { role: 'spore', pos: [Math.cos(gwa) * gwd, 0.01, Math.sin(gwa) * gwd], color: 0x88ffaa, emis: 1.5, motion: { mode: MOTION.FLICKER, phase: gwi * 1.3 + phase, speed: 1.5 } });
   }
+  for (let wi = 0; wi < 6; wi++) {
+    const wA1 = sr() * 6.28, wA2 = wA1 + 0.5 + sr() * 1.5, webLen = ringR * 0.6 + sr() * ringR * 0.4;
+    b.add(new CylinderGeometry(0.002, 0.002, webLen, 3), { role: 'unlit', pos: [Math.cos((wA1 + wA2) / 2) * ringR * 0.4, 0.005, Math.sin((wA1 + wA2) / 2) * ringR * 0.4], rot: [Math.PI / 2, 0, wA1], color: C.fairyGlow, opacity: 0.08 });
+  }
+  b.add(new RingGeometry(ringR * 0.5, ringR * 0.85, 12), { role: 'unlit', pos: [0, 0.008, 0], rot: [-Math.PI / 2, 0, 0], color: 0x0a0a06, opacity: 0.15 });
 
-  // Dew-wet soil ring (dark dampness circle just inside mushroom ring)
-  const dampMat = new MeshBasicMaterial({
-    color: 0x0a0a06, transparent: true, opacity: 0.15, side: DoubleSide,
-    depthWrite: false
-  });
-  const damp = new Mesh(new RingGeometry(ringR * 0.5, ringR * 0.85, 12), dampMat);
-  damp.rotation.x = -Math.PI / 2; damp.position.y = 0.008; g.add(damp);
+  const m = b.build({ mush: mushMat, ground: _groundMat, unlit: _unlitMat, spore: sporeMat });
+  g.add(m.mush, m.ground, m.unlit, m.spore);
+
+  // Central glow disc (opacity driven by activation)
+  const discMat = new MeshBasicMaterial({ color: C.fairyRing, transparent: true, opacity: 0.0, side: 2, depthWrite: false });
+  const disc = new Mesh(new RingGeometry(0.3, ringR - 0.3, 18), discMat);
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.12; g.add(disc);
 
   g.position.set(x, 0, z); scene.add(g);
   return {
-    group: g, mushMat: mushMat, discMat: discMat, sporeMat, spores, glowWorms,
-    x: x, z: z, ringR, phase: sr() * 6.28, glowIntensity: 0, active: false
+    group: g, mushMat, discMat, sporeMat, spores: [], glowWorms: [],
+    x, z, ringR, phase, glowIntensity: 0, active: false, _gpu: true
   };
 }

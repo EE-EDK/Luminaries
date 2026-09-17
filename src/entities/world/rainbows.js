@@ -2,6 +2,7 @@
 import { AdditiveBlending, BufferGeometry, CatmullRomCurve3, CircleGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, MeshBasicMaterial, SphereGeometry, TubeGeometry, Vector3 } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C, OBELISK_H } from '../../constants.js';
+import { sr } from '../../utils/rng.js';
 export const rainbowArcs = [];
 
 function buildRibbonGeo(arcPts, ribbonWidth, segments, addVertexColors, baseColor) {
@@ -110,7 +111,7 @@ export function makeRainbows() {
       const spark = new Mesh(new SphereGeometry(0.06, 4, 3), sparkMat.clone());
       spark.visible = false;
       scene.add(spark);
-      sparkles.push({ mesh: spark, mat: spark.material, phase: si / 8, speed: 0.15 + Math.random() * 0.1 });
+      sparkles.push({ mesh: spark, mat: spark.material, phase: si / 8, speed: 0.15 + sr() * 0.1 });
     }
 
     // Ground glow pools at endpoints (wider)
@@ -156,7 +157,8 @@ export function makeRainbows() {
 }
 
 // Animate rainbow sparkles traveling along arcs
-export function updateRainbowSparkles(t) {
+// @param t world time (s)  @param dt frame delta (s) — sparkle travel is dt-scaled (was a fixed 1/60 step)
+export function updateRainbowSparkles(t, dt = 1 / 60) {
   for (let i = 0; i < rainbowArcs.length; i++) {
     const arc = rainbowArcs[i];
     if (!arc.sparkles || !arc.curve) continue;
@@ -171,7 +173,7 @@ export function updateRainbowSparkles(t) {
     // Animate traveling sparkles
     for (let si = 0; si < arc.sparkles.length; si++) {
       const sp = arc.sparkles[si];
-      sp.phase += sp.speed * 0.016; // ~60fps step
+      sp.phase += sp.speed * dt;
       if (sp.phase > 1) sp.phase -= 1;
       const pt = arc.curve.getPoint(sp.phase);
       sp.mesh.position.copy(pt);

@@ -1,4 +1,5 @@
 import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, MeshStandardMaterial } from 'three';
+import { WORLD_R } from '../../constants.js';
 import { scene } from '../../core/renderer.js';
 import { sr } from '../../utils/rng.js';
 import { getMeshGroundY } from '../../world/terrain.js';
@@ -7,9 +8,12 @@ import { getMeshGroundY } from '../../world/terrain.js';
 // Grass Patch — GPU vertex shader sway (zero CPU per-frame cost)
 // ================================================================
 // Wind sway + player proximity flatten run entirely on the GPU.
-// Each patch gets its own material instance with onBeforeCompile
-// injecting custom vertex shader code. WebGL caches the compiled
-// shader program so only uniform uploads differ between patches.
+// Patches are built individually (so populate.js can re-ground each blade
+// after the puffling-home plateaus reshape the terrain), then merged into
+// ~30 world-space chunks by chunkGrassPatches(): one material, one draw call
+// per chunk instead of one per patch (1,440 patches → ~30 draws). The
+// palette's emissive colour is baked per vertex (`emisColor`) so chunks can
+// mix palettes and the finale recolour can still tint patch by patch.
 
 // Shared uniforms updated once per frame from main.js
 const sharedUniforms = {
@@ -41,7 +45,9 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   // blade against the FINAL mesh surface after puffling-home plateaus reshape the terrain
   // (those are registered AFTER grass is built, which otherwise leaves blades floating/sunk).
   const contours = [];
+  const emis = [];
   const count = density || 20;
+  const emisCol = new Color(palette ? palette[8] : 0x44ff66);
   const colBase1 = new Color(palette ? palette[0] : 0x0a2010);
   const colBase2 = new Color(palette ? palette[1] : 0x152e18);
   const colMid = new Color(palette ? palette[2] : 0x2a6035);
@@ -113,7 +119,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     colors.push(tmpC.r, tmpC.g, tmpC.b, tmpC.r, tmpC.g, tmpC.b);
     colors.push(tc.r, tc.g, tc.b);
     // One contour entry per vertex pushed for this blade (count-agnostic — backfills to match).
-    while (contours.length < verts.length / 3) contours.push(dy);
+    while (contours.length < verts.length / 3) { contours.push(dy); emis.push(emisCol.r, emisCol.g, emisCol.b); }
   }
   // Ground cover: clover-like triangles
   const cloverCol = new Color(palette ? palette[6] : 0x1a5528);
@@ -131,7 +137,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverCol.r, cloverCol.g, cloverCol.b);
     colors.push(cloverBr.r, cloverBr.g, cloverBr.b);
-    while (contours.length < verts.length / 3) contours.push(cdy);
+    while (contours.length < verts.length / 3) { contours.push(cdy); emis.push(emisCol.r, emisCol.g, emisCol.b); }
   }
   // Static geometry — no DynamicDrawUsage, no origPos needed
   geo.setAttribute('position', new Float32BufferAttribute(verts, 3));
@@ -139,16 +145,33 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
   geo.setAttribute('bladeHeight', new Float32BufferAttribute(heights, 1));
   // Contour offset per vertex (relative to the patch-center ground). Re-grounded in populate.js.
   geo.setAttribute('baseContour', new Float32BufferAttribute(contours, 1));
+  geo.setAttribute('emisColor', new Float32BufferAttribute(emis, 3));
   geo.computeVertexNormals();
 
+  const mat = makeGrassMaterial(cx, cz);
+
+  const mesh = new Mesh(geo, mat);
+  mesh.position.set(cx, 0, cz);
+  scene.add(mesh);
+  return { mesh, geo, cx, cz, palette };
+}
+
+/** Base emissive intensity for every blade (was the per-patch material's emissiveIntensity). */
+const GRASS_EMISSIVE = 0.35;
+
+/**
+ * @brief Grass material: GPU sway / flatten / proximity glow, per-vertex emissive colour.
+ * @param {number} patchX local-space origin x (0 for world-space chunks)
+ * @param {number} patchZ
+ */
+export function makeGrassMaterial(patchX, patchZ) {
   const mat = new MeshStandardMaterial({
     vertexColors: true, roughness: 0.7, side: DoubleSide,
-    emissive: palette ? palette[8] : 0x44ff66, emissiveIntensity: 0.35
+    emissive: 0xffffff, emissiveIntensity: GRASS_EMISSIVE
   });
-
+  mat.customProgramCacheKey = () => 'lumGrass';
   // Inject GPU sway into the vertex shader — same math as the old CPU path
   // but runs entirely on the GPU with zero per-frame CPU cost
-  const patchX = cx, patchZ = cz;
   mat.onBeforeCompile = (shader) => {
     // Bind shared uniforms (updated once per frame for all patches)
     shader.uniforms.uTime = sharedUniforms.uTime;
@@ -167,6 +190,8 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
       '#include <common>',
       `#include <common>
       attribute float bladeHeight;
+      attribute vec3 emisColor;
+      varying vec3 vEmisColor;
       uniform float uTime;
       uniform float uWindAmp;
       uniform float uWindLeanX;
@@ -216,6 +241,7 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
       } else {
         vGlow = 0.0;
       }
+      vEmisColor = emisColor;
       `
     );
 
@@ -224,19 +250,73 @@ export function makeGrassPatch(cx, cz, radius, density, palette) {
       '#include <common>',
       `#include <common>
       varying float vGlow;
+      varying vec3 vEmisColor;
       uniform float uGlowMult;
       `
     );
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
-      totalEmissiveRadiance *= (1.0 + vGlow * 10.0) * uGlowMult;
+      totalEmissiveRadiance *= vEmisColor * (1.0 + vGlow * 10.0) * uGlowMult;
       `
     );
   };
+  return mat;
+}
 
-  const mesh = new Mesh(geo, mat);
-  mesh.position.set(cx, 0, cz);
-  scene.add(mesh);
-  return { mesh, geo, cx, cz };
+// ================================================================
+// Chunk merge — call once after populate.js has re-grounded every patch.
+// ================================================================
+/**
+ * @brief Merge patch meshes into world-space chunk meshes (one draw call each).
+ * Each grassPatches entry keeps cx / cz (ambient crickets) and gains
+ * `mesh` → its chunk mesh plus `range` = [firstVertex, endVertex) inside it,
+ * which the finale recolour uses to tint patch by patch.
+ * @param {Array} grassPatches records from makeGrassPatch
+ * @param {number} [cellSize=24] chunk cell edge (m)
+ * @return {Mesh[]} chunk meshes
+ */
+export function chunkGrassPatches(grassPatches, cellSize = 24) {
+  const cells = new Map();
+  for (let i = 0; i < grassPatches.length; i++) {
+    const gp = grassPatches[i];
+    const kx = Math.floor((gp.cx + WORLD_R) / cellSize), kz = Math.floor((gp.cz + WORLD_R) / cellSize);
+    const key = kx * 1000 + kz;
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(gp);
+  }
+  const chunkMat = makeGrassMaterial(0, 0);
+  const chunks = [];
+  for (const list of cells.values()) {
+    let total = 0;
+    for (const gp of list) total += gp.geo.attributes.position.count;
+    const pos = new Float32Array(total * 3), col = new Float32Array(total * 3), hgt = new Float32Array(total), emi = new Float32Array(total * 3);
+    let v = 0;
+    for (const gp of list) {
+      const g = gp.geo, n = g.attributes.position.count;
+      const P = g.attributes.position.array, Cc = g.attributes.color.array, H = g.attributes.bladeHeight.array, E = g.attributes.emisColor.array;
+      const ox = gp.mesh.position.x, oy = gp.mesh.position.y, oz = gp.mesh.position.z;
+      for (let i = 0; i < n; i++) {
+        pos[(v + i) * 3] = P[i * 3] + ox; pos[(v + i) * 3 + 1] = P[i * 3 + 1] + oy; pos[(v + i) * 3 + 2] = P[i * 3 + 2] + oz;
+      }
+      col.set(Cc, v * 3); hgt.set(H, v); emi.set(E, v * 3);
+      gp.range = [v, v + n];
+      v += n;
+      scene.remove(gp.mesh);
+      g.dispose();
+      gp.mesh.material.dispose();
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+    geo.setAttribute('bladeHeight', new Float32BufferAttribute(hgt, 1));
+    geo.setAttribute('emisColor', new Float32BufferAttribute(emi, 3));
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    const mesh = new Mesh(geo, chunkMat);
+    scene.add(mesh);
+    chunks.push(mesh);
+    for (const gp of list) { gp.mesh = mesh; gp.geo = geo; }
+  }
+  return chunks;
 }

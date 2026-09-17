@@ -1,116 +1,158 @@
-import { CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three';
-import { scene } from '../../core/renderer.js';
-import { C } from '../../constants.js';
+import { CylinderGeometry, PlaneGeometry, SphereGeometry } from 'three';
+import { C, FERN_N } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
+import { createBaker, roleMaterial, swayByHeight, MOTION } from '../_bake.js';
+import { createInstancedFloraType } from '../_instancedFlora.js';
 
-// --- Fern (fronds, leaflets, fiddlehead, water droplets) ---
-export function makeFern(x, z) {
-  const g = new Group();
-  const fMat = new MeshStandardMaterial({
-    color: C.fern, emissive: C.fernGlow, emissiveIntensity: 0.2,
-    roughness: 0.7, side: DoubleSide
-  });
+// ================================================================
+// Fern — instanced (FERN_N plants, 6 baked variants, 2 draw calls each)
+// ================================================================
+// Fronds, leaflets, fiddlehead, roots, droplets. Wind sway, leaflet flutter
+// and the fiddlehead's slow breathing all run in the vertex shader; the CPU
+// only writes a per-plant glow tint when its sector changes.
+//
+// Legacy record shape preserved: { group, phase, glowMat, glowBase }.
+// `curlMat` is intentionally absent — the fiddlehead's brightness is baked
+// relative to the frond glow (1.5×) so one tint drives both.
+
+const TEMPLATES = 6;
+const MAX_PER_TEMPLATE = Math.ceil(FERN_N / TEMPLATES) + 24;
+
+/** Tapered frond blade: PlaneGeometry narrowed toward the tip, gently cupped. */
+function frondBlade(w, len) {
+  const g = new PlaneGeometry(w, len, 1, 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const t = (p.getY(i) + len / 2) / len;          // 0 base … 1 tip
+    p.setX(i, p.getX(i) * (1.0 - t * 0.85));        // taper
+    p.setZ(i, -Math.abs(p.getX(i)) * 0.35 - t * t * 0.04); // cup + droop
+  }
+  g.translate(0, len / 2, 0);
+  g.computeVertexNormals();
+  return g;
+}
+
+function buildFernTemplate() {
+  const b = createBaker();
   const frondCount = 3 + Math.floor(sr() * 2);
-  const scale = 0.5 + sr() * 0.7;
+  const sway = swayByHeight(0.05, 0.75, 0.55);
 
-  // Root clump at base (dark humus mound)
-  const rootMat = new MeshStandardMaterial({ color: 0x1a1208, roughness: 0.95 });
-  const rootClump = new Mesh(new SphereGeometry(0.06, 5, 3), rootMat);
-  rootClump.scale.set(1.5, 0.5, 1.5); rootClump.position.y = 0.02; g.add(rootClump);
-  // Tiny root tendrils
+  // Root clump + tendrils + soil (rigid)
+  b.add(new SphereGeometry(0.06, 5, 3), { role: 'solid', pos: [0, 0.02, 0], scale: [1.5, 0.5, 1.5], color: 0x1a1208, emis: 0 });
   for (let ri = 0; ri < 3; ri++) {
     const ra = sr() * 6.28;
-    const root = new Mesh(new CylinderGeometry(0.003, 0.002, 0.08, 3), rootMat);
-    root.position.set(Math.cos(ra) * 0.06, 0.01, Math.sin(ra) * 0.06);
-    root.rotation.z = (ra < 3.14 ? 1 : -1) * 1.2; root.rotation.y = ra; g.add(root);
+    b.add(new CylinderGeometry(0.003, 0.002, 0.08, 3), {
+      role: 'solid', pos: [Math.cos(ra) * 0.06, 0.01, Math.sin(ra) * 0.06],
+      rot: [0, ra, (ra < 3.14 ? 1 : -1) * 1.2], color: 0x1a1208, emis: 0
+    });
+  }
+  for (let sci = 0; sci < 3; sci++) {
+    b.add(new SphereGeometry(0.006, 3, 3), { role: 'solid', pos: [(sr() - 0.5) * 0.1, 0.005, (sr() - 0.5) * 0.1], color: 0x1a1208, emis: 0 });
   }
 
   for (let i = 0; i < frondCount; i++) {
     const ang = (i / frondCount) * 6.28 + sr() * 0.3;
-    // Frond midrib (thin cylinder spine)
-    const midrib = new Mesh(new CylinderGeometry(0.004, 0.006, 0.55, 3),
-      new MeshStandardMaterial({ color: 0x1a4520, roughness: 0.8 }));
-    midrib.position.set(Math.cos(ang) * 0.15, 0.25, Math.sin(ang) * 0.15);
-    midrib.rotation.y = -ang; midrib.rotation.x = -0.6 - sr() * 0.4;
-    g.add(midrib);
-    // Frond blade
-    const frond = new Mesh(new PlaneGeometry(0.12, 0.6, 1, 3), fMat);
-    frond.position.set(Math.cos(ang) * 0.15, 0.25, Math.sin(ang) * 0.15);
-    frond.rotation.y = -ang;
-    frond.rotation.x = -0.6 - sr() * 0.4;
-    g.add(frond);
-    // Leaflets along the frond (6 instead of 4, alternating)
-    for (let j = 0; j < 6; j++) {
-      const lf = new Mesh(new PlaneGeometry(0.07, 0.06, 1, 1), fMat);
-      const fy = 0.06 + j * 0.08;
-      const side = (j % 2 === 0) ? 1 : -1;
-      lf.position.set(Math.cos(ang) * (0.15 + 0.06), fy, Math.sin(ang) * (0.15 + 0.06 * side));
-      lf.rotation.y = -ang; lf.rotation.x = -0.8; lf.rotation.z = side * 0.5;
-      g.add(lf);
-    }
-    // Spore dots on underside (3 per frond)
-    const sporeMat = new MeshStandardMaterial({
-      color: 0x886622, emissive: 0x443311, emissiveIntensity: 0.1
+    const tilt = -0.6 - sr() * 0.4;
+    const bx = Math.cos(ang) * 0.15, bz = Math.sin(ang) * 0.15;
+    const fPhase = sr() * 6.28;
+    // Midrib
+    b.add(new CylinderGeometry(0.004, 0.006, 0.55, 3), {
+      role: 'solid', pos: [bx, 0.25, bz], rot: [tilt, -ang, 0], color: 0x1a4520, emis: 0, sway
     });
+    // Blade (from base, so the taper/sway read correctly)
+    b.add(frondBlade(0.13, 0.62), {
+      role: 'solid', pos: [bx, 0.0, bz], rot: [tilt + 0.02, -ang, 0], color: C.fern, emis: 1.0, sway
+    });
+    // Leaflets — 8 alternating, fluttering about their own base
+    for (let j = 0; j < 8; j++) {
+      const fy = 0.06 + j * 0.065;
+      const side = (j % 2 === 0) ? 1 : -1;
+      const lx = Math.cos(ang) * (0.15 + 0.05), lz = Math.sin(ang) * (0.15 + 0.05 * side);
+      b.add(new PlaneGeometry(0.07, 0.05), {
+        role: 'solid', pos: [lx, fy, lz], rot: [-0.8, -ang, side * 0.5], color: C.fern, emis: 0.9, sway,
+        motion: { mode: MOTION.FLUTTER, amp: 0.10, phase: fPhase + j * 0.9, speed: 2.2 + sr() * 0.8 }
+      });
+    }
+    // Spore dots on the underside
     for (let sp = 0; sp < 3; sp++) {
-      const spore = new Mesh(new SphereGeometry(0.008, 3, 3), sporeMat);
-      const sy = 0.12 + sp * 0.12;
-      spore.position.set(Math.cos(ang) * (0.15 + 0.02), sy - 0.01, Math.sin(ang) * (0.15 + 0.02));
-      g.add(spore);
+      b.add(new SphereGeometry(0.008, 3, 3), {
+        role: 'solid', pos: [Math.cos(ang) * 0.17, 0.12 + sp * 0.12 - 0.01, Math.sin(ang) * 0.17],
+        color: 0x886622, emis: 0, sway
+      });
     }
   }
-  // Center curl (fiddlehead) with spiral hint
-  const curlMat = new MeshStandardMaterial({
-    color: C.fernGlow, emissive: C.fernGlow, emissiveIntensity: 0.3
-  });
-  const curl = new Mesh(new SphereGeometry(0.04, 4, 3), curlMat);
-  curl.position.y = 0.35; g.add(curl);
-  // Spiral arm on fiddlehead
-  const spiralArm = new Mesh(new CylinderGeometry(0.006, 0.003, 0.06, 3), curlMat);
-  spiralArm.position.set(0.02, 0.37, 0); spiralArm.rotation.z = -0.8; g.add(spiralArm);
 
-  // Water droplets on fronds (3-4 tiny glass beads)
-  const dropMat = new MeshStandardMaterial({
-    color: 0xeeffff, emissive: 0x88bbdd, emissiveIntensity: 0.1,
-    transparent: true, opacity: 0.5, roughness: 0.0, metalness: 0.5
+  // Fiddlehead — breathes slowly
+  const curlPhase = sr() * 6.28;
+  b.add(new SphereGeometry(0.04, 5, 4), {
+    role: 'glow', pos: [0, 0.35, 0], color: C.fernGlow, emis: 1.5, sway: 0.25,
+    motion: { mode: MOTION.BREATHE, amp: 0.08, phase: curlPhase, speed: 1.1 }
   });
+  b.add(new CylinderGeometry(0.006, 0.003, 0.06, 3), {
+    role: 'glow', pos: [0.02, 0.37, 0], rot: [0, 0, -0.8], color: C.fernGlow, emis: 1.5, sway: 0.25,
+    pivot: [0, 0.35, 0], motion: { mode: MOTION.BREATHE, amp: 0.08, phase: curlPhase, speed: 1.1 }
+  });
+
+  // Water droplets — glassy beads
   for (let dri = 0; dri < 3; dri++) {
     const dra = sr() * 6.28, drd = sr() * 0.2;
-    const drop = new Mesh(new SphereGeometry(0.006 + sr() * 0.005, 3, 3), dropMat);
-    drop.position.set(Math.cos(dra) * drd, 0.12 + sr() * 0.2, Math.sin(dra) * drd);
-    g.add(drop);
+    b.add(new SphereGeometry(0.006 + sr() * 0.005, 4, 3), {
+      role: 'glow', pos: [Math.cos(dra) * drd, 0.12 + sr() * 0.2, Math.sin(dra) * drd],
+      color: 0xeeffff, emis: 0.5, opacity: 0.55, sway
+    });
   }
 
-  // Dead brown frond (one withered frond at base)
-  const deadMat = new MeshStandardMaterial({
-    color: 0x3a2a10, roughness: 0.9, side: DoubleSide, transparent: true, opacity: 0.6
-  });
-  const deadFrond = new Mesh(new PlaneGeometry(0.1, 0.4, 1, 2), deadMat);
+  // One withered frond at the base
   const deadAng = sr() * 6.28;
-  deadFrond.position.set(Math.cos(deadAng) * 0.12, 0.05, Math.sin(deadAng) * 0.12);
-  deadFrond.rotation.x = -1.3; deadFrond.rotation.y = deadAng; g.add(deadFrond);
+  b.add(frondBlade(0.1, 0.4), {
+    role: 'glow', pos: [Math.cos(deadAng) * 0.12, 0.03, Math.sin(deadAng) * 0.12],
+    rot: [-1.3, deadAng, 0], color: 0x3a2a10, emis: 0, opacity: 0.6, sway: 0.1
+  });
 
-  // Stipe hairs (tiny fuzz on main stems)
-  const hairMat = new MeshBasicMaterial({ color: 0x2a4020, transparent: true, opacity: 0.3 });
+  // Stipe hairs
   for (let hi = 0; hi < 4; hi++) {
-    const hair = new Mesh(new CylinderGeometry(0.001, 0.001, 0.015, 3), hairMat);
-    hair.position.set((sr() - 0.5) * 0.08, 0.08 + sr() * 0.15, (sr() - 0.5) * 0.08);
-    hair.rotation.z = (sr() - 0.5) * 1.5; g.add(hair);
+    b.add(new CylinderGeometry(0.001, 0.001, 0.015, 3), {
+      role: 'glow', pos: [(sr() - 0.5) * 0.08, 0.08 + sr() * 0.15, (sr() - 0.5) * 0.08],
+      rot: [0, 0, (sr() - 0.5) * 1.5], color: 0x2a4020, emis: 0, opacity: 0.3
+    });
   }
 
-  // Soil crumbs at base
-  const soilMat = new MeshStandardMaterial({ color: 0x1a1208, roughness: 0.95 });
-  for (let sci = 0; sci < 3; sci++) {
-    const soil = new Mesh(new SphereGeometry(0.006, 3, 3), soilMat);
-    soil.position.set((sr() - 0.5) * 0.1, 0.005, (sr() - 0.5) * 0.1); g.add(soil);
-  }
-
-  g.scale.setScalar(scale);
-  g.position.set(x, 0, z);
-  scene.add(g);
-  // Return per-instance emissive materials + their base intensities so the
-  // updater can drive them through getLocalGlow() (sector restoration glow),
-  // matching the flower/mushroom/crystal path. fMat (fronds+leaflets) and
-  // curlMat (fiddlehead) are per-fern instances, safe to modulate individually.
-  return { group: g, phase: sr() * 6.28, glowMat: fMat, glowBase: 0.2, curlMat, curlBase: 0.3 };
+  return { geos: b.buildGeometries(), meta: { frondCount } };
 }
+
+let _type = null;
+function getType() {
+  if (_type) return _type;
+  _type = createInstancedFloraType({
+    name: 'fern',
+    templateCount: TEMPLATES,
+    maxInstances: MAX_PER_TEMPLATE,
+    seed: 30011,
+    buildTemplate: buildFernTemplate,
+    materials: {
+      solid: roleMaterial('solid', { emissive: 0xffffff, roughness: 0.7, doubleSide: true }),
+      glow: roleMaterial('glow', { emissive: 0xffffff, roughness: 0.3, metalness: 0.2, doubleSide: true })
+    },
+    glowKey: 'glowMat',
+    glowColor: C.fernGlow,
+    glowIntensity: 0.2
+  });
+  return _type;
+}
+
+/**
+ * @brief Spawn a fern at (x, z). Returns the legacy record; populate.js sets group.position.y and slopeQ.
+ * @param {number} x
+ * @param {number} z
+ */
+export function makeFern(x, z) {
+  const type = getType();
+  const scale = 0.5 + sr() * 0.7;
+  const rec = type.spawn(x, z, { scale, phase: sr() * 6.28 });
+  rec.glowBase = 0.2;
+  rec._baseScale = rec.group.scale.x;   // reactions scale relative to this (the old code reset every plant to scale 1)
+  return rec;
+}
+
+/** @brief The instanced type (for tests / debug). */
+export function getFernType() { return getType(); }

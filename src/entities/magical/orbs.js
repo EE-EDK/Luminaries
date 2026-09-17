@@ -1,4 +1,4 @@
-// --- Golden Orb (enhanced multi-shell glow) ---
+// --- Golden Orb (quest item — baked, 6 meshes; was 35) ---
 // FIELD REPORT (Dr. R. Vasquez, final entry):
 //   Five of them. Always five. Placed at positions that look random
 //   until you map them — then you see the pentagonal symmetry. They
@@ -6,125 +6,71 @@
 //   Coincidence? I stopped believing in coincidence on day 3.
 //   The forest put them here for someone to find. I just don't think
 //   that someone was us.
-import { CircleGeometry, ConeGeometry, DoubleSide, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, SphereGeometry, TorusGeometry } from 'three';
+//
+// Core, glow shell and haze keep their own materials (questVisuals.js
+// drives colour and opacity). Seed, wireframe star, corona rays, sparkle
+// ring, runes, sacred arcs, orbit trail, pulse ring, facet sparkles and the
+// ground disc are merged into three unlit meshes with baked orbit / spin.
+// The old `group.children[3..8]` sparkle loop in questVisuals.js is skipped
+// for `_gpu` orbs.
+import { CircleGeometry, ConeGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
+import { createBaker, roleMaterial, MOTION } from '../_bake.js';
 
 export function makeOrb(x, z) {
   const g = new Group();
-  // Core sphere
+  const phase = sr() * 6.28;
   const coreMat = new MeshBasicMaterial({ color: C.orbGold });
-  const core = new Mesh(new SphereGeometry(0.2, 10, 8), coreMat);
-  g.add(core);
-  // Inner seed (tiny bright white center)
-  const seedMat = new MeshBasicMaterial({ color: 0xffffff });
-  const seed = new Mesh(new SphereGeometry(0.06, 6, 4), seedMat);
-  g.add(seed);
-  // Inner star wireframe (icosahedron)
-  const starMat = new MeshBasicMaterial({
-    color: C.skyStarWarm, transparent: true, opacity: 0.4, wireframe: true,
-    depthWrite: false
-  });
-  const star = new Mesh(new IcosahedronGeometry(0.15, 0), starMat);
+  g.add(new Mesh(new SphereGeometry(0.2, 12, 9), coreMat));
+  const glowMat = new MeshBasicMaterial({ color: C.orbGlow, transparent: true, opacity: 0.5, depthWrite: false });
+  g.add(new Mesh(new SphereGeometry(0.35, 10, 7), glowMat));
+  const hazeMat = new MeshBasicMaterial({ color: C.orbInner, transparent: true, opacity: 0.15, depthWrite: false });
+  g.add(new Mesh(new SphereGeometry(0.6, 10, 6), hazeMat));
+
+  const b = createBaker();
+  // Bright seed + wireframe star (wireframe needs its own material)
+  b.add(new SphereGeometry(0.06, 6, 4), { role: 'bright', color: 0xffffff });
+  const star = new Mesh(new IcosahedronGeometry(0.15, 0), new MeshBasicMaterial({ color: C.skyStarWarm, transparent: true, opacity: 0.4, wireframe: true, depthWrite: false }));
   g.add(star);
-  // Inner glow shell
-  const glowMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.5,
-    depthWrite: false
-  });
-  const glow = new Mesh(new SphereGeometry(0.35, 8, 6), glowMat);
-  g.add(glow);
-  // Corona ray spikes (8 thin cones radiating outward)
-  const rayMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.3,
-    depthWrite: false
-  });
+  // Corona rays
   for (let ri = 0; ri < 8; ri++) {
     const ra = (ri / 8) * 6.28;
-    const ray = new Mesh(new ConeGeometry(0.02, 0.25, 3), rayMat);
-    ray.position.set(Math.cos(ra) * 0.3, Math.sin(ra * 2) * 0.05, Math.sin(ra) * 0.3);
-    ray.rotation.z = -ra + Math.PI / 2; ray.rotation.y = ra;
-    g.add(ray);
+    b.add(new ConeGeometry(0.02, 0.25, 3), { role: 'soft', pos: [Math.cos(ra) * 0.3, Math.sin(ra * 2) * 0.05, Math.sin(ra) * 0.3], rot: [0, ra, -ra + Math.PI / 2], color: C.orbGlow, opacity: 0.3, pivot: [0, 0, 0], motion: { mode: MOTION.SPIN, phase, speed: 0.35 } });
   }
-  // Outer haze shell
-  const hazeMat = new MeshBasicMaterial({
-    color: C.orbInner, transparent: true, opacity: 0.15,
-    depthWrite: false
-  });
-  const haze = new Mesh(new SphereGeometry(0.6, 8, 5), hazeMat);
-  g.add(haze);
-  // Orbiting sparkle ring (small dots)
+  // Sparkle ring — six bright dots orbiting at 1.5 rad/s (was questVisuals CPU)
   for (let i = 0; i < 6; i++) {
-    const sp = new Mesh(new SphereGeometry(0.03, 4, 3),
-      new MeshBasicMaterial({ color: C.white }));
     const a = (i / 6) * 6.28;
-    sp.position.set(Math.cos(a) * 0.4, Math.sin(a * 2) * 0.1, Math.sin(a) * 0.4);
-    g.add(sp);
+    b.add(new SphereGeometry(0.03, 5, 4), { role: 'bright', pos: [Math.cos(a) * 0.4, Math.sin(a * 2) * 0.1, Math.sin(a) * 0.4], color: C.white, pivot: [0, 0, 0], motion: { mode: MOTION.ORBIT, amp: 0.1, phase, speed: 1.5 } });
   }
-  // Rune dots (4 tiny golden markers on equatorial band)
-  const runeMat = new MeshBasicMaterial({
-    color: C.orbGold, transparent: true, opacity: 0.7,
-    depthWrite: false
-  });
   for (let di = 0; di < 4; di++) {
     const da = (di / 4) * 6.28 + 0.4;
-    const rune = new Mesh(new SphereGeometry(0.015, 3, 3), runeMat);
-    rune.position.set(Math.cos(da) * 0.5, 0, Math.sin(da) * 0.5);
-    g.add(rune);
+    b.add(new SphereGeometry(0.015, 4, 3), { role: 'soft', pos: [Math.cos(da) * 0.5, 0, Math.sin(da) * 0.5], color: C.orbGold, opacity: 0.7, pivot: [0, 0, 0], motion: { mode: MOTION.SPIN, phase, speed: -0.5 } });
   }
-
-  // Sacred geometry lines (3 great-circle arcs around orb)
-  const sacredMat = new MeshBasicMaterial({
-    color: C.skyStarWarm, transparent: true, opacity: 0.12,
-    depthWrite: false
-  });
   for (let sgi = 0; sgi < 3; sgi++) {
-    const sgR = new Mesh(new TorusGeometry(0.28, 0.003, 4, 12), sacredMat);
-    sgR.rotation.set(sgi * 1.05, sgi * 0.7, 0); g.add(sgR);
+    b.add(new TorusGeometry(0.28, 0.003, 4, 14), { role: 'soft', rot: [sgi * 1.05, sgi * 0.7, 0], color: C.skyStarWarm, opacity: 0.12, motion: { mode: MOTION.PENDULUM, amp: 0.5, phase: sgi * 2.1, speed: 0.4 } });
   }
-
-  // Orbit trail arc (faint ring showing sparkle path)
-  const trailMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.08,
-    depthWrite: false
-  });
-  const trail = new Mesh(new TorusGeometry(0.4, 0.004, 4, 16), trailMat);
-  trail.rotation.x = Math.PI / 2; g.add(trail);
-
-  // Energy pulse ring (thicker torus at midpoint)
-  const pulseMat = new MeshBasicMaterial({
-    color: C.orbInner, transparent: true, opacity: 0.15,
-    depthWrite: false
-  });
-  const pulse = new Mesh(new TorusGeometry(0.25, 0.012, 4, 10), pulseMat);
-  pulse.rotation.x = Math.PI / 2; g.add(pulse);
-
-  // Micro-facet surface sparkles (tiny dots on core surface)
-  const facetMat = new MeshBasicMaterial({
-    color: C.white, transparent: true, opacity: 0.5,
-    depthWrite: false
-  });
+  b.add(new TorusGeometry(0.4, 0.004, 4, 18), { role: 'soft', rot: [Math.PI / 2, 0, 0], color: C.orbGlow, opacity: 0.08 });
+  b.add(new TorusGeometry(0.25, 0.012, 4, 12), { role: 'soft', rot: [Math.PI / 2, 0, 0], color: C.orbInner, opacity: 0.15, motion: { mode: MOTION.BREATHE, amp: 0.12, phase, speed: 5.0 } });
   for (let fci = 0; fci < 6; fci++) {
     const fca = sr() * 6.28, fce = sr() * Math.PI - Math.PI / 2;
-    const fc = new Mesh(new SphereGeometry(0.008, 3, 3), facetMat);
-    fc.position.set(Math.cos(fca) * Math.cos(fce) * 0.2, Math.sin(fce) * 0.2, Math.sin(fca) * Math.cos(fce) * 0.2);
-    g.add(fc);
+    b.add(new SphereGeometry(0.008, 3, 3), { role: 'bright', pos: [Math.cos(fca) * Math.cos(fce) * 0.2, Math.sin(fce) * 0.2, Math.sin(fca) * Math.cos(fce) * 0.2], color: C.white, opacity: 0.5, motion: { mode: MOTION.FLICKER, phase: fci * 1.3, speed: 4 } });
   }
+  b.add(new CircleGeometry(0.5, 10), { role: 'ground', pos: [0, -0.95, 0], rot: [-Math.PI / 2, 0, 0], color: C.orbGlow, opacity: 0.1, motion: { mode: MOTION.BREATHE, amp: 0.1, phase, speed: 2.5 }, pivot: [0, -0.95, 0] });
 
-  // Ground glow disc (projected light circle below orb)
-  const gndMat = new MeshBasicMaterial({
-    color: C.orbGlow, transparent: true, opacity: 0.1, side: DoubleSide,
-    depthWrite: false
+  const m = b.build({
+    bright: roleMaterial('basic', { depthWrite: false }),
+    soft: roleMaterial('basic', { depthWrite: false }),
+    ground: roleMaterial('basic', { doubleSide: true, depthWrite: false })
   });
-  const gndGlow = new Mesh(new CircleGeometry(0.5, 8), gndMat);
-  gndGlow.rotation.x = -Math.PI / 2; gndGlow.position.y = -0.95; g.add(gndGlow);
+  g.add(m.bright, m.soft, m.ground);
 
   g.position.set(x, 1.0, z);
   scene.add(g);
   return {
-    group: g, coreMat: coreMat, glowMat: glowMat, hazeMat: hazeMat,
-    x: x, z: z, found: false, flyUp: false, flyY: 1.0, phase: sr() * 6.28,
-    laserLine: null, laserMat: null
+    group: g, coreMat, glowMat, hazeMat,
+    x, z, found: false, flyUp: false, flyY: 1.0, phase,
+    laserLine: null, laserMat: null, _gpu: true
   };
 }

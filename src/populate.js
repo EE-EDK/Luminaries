@@ -18,6 +18,7 @@ import {
 import { sr } from './utils/rng.js';
 import { getGroundY, getMeshGroundY, getGroundNormal, registerFlatZone, buildHeightCache } from './world/terrain.js';
 import { placePufflingHomeClusters, getPufflingHouseCollision } from './entities/world/pufflingHomes.js';
+import { chunkGrassPatches } from './entities/flora/grass.js';
 import { ORB_CREATURE_SEQUENCE } from './quest/config.js';
 
 // ================================================================
@@ -57,6 +58,38 @@ function inKeepOut(x, z) {
     if (dx * dx + dz * dz < keepOutZones[i].r2) return true;
   }
   return false;
+}
+
+// Grass patches keep their own overlap list. They used to push 2–4.5 m keep-out
+// zones into keepOutZones, which blanketed the interior and starved every plant
+// placed after them (measured 2026-09-16: 1 of 230 flowers, 2 of 90 reeds,
+// 2 of 60 dandelions, 2 of 55 thornblooms survived). Grass only needs to avoid
+// other grass; flowers and ferns growing through it are the point.
+const grassZones = []; // { x, z, r2 }
+function inGrass(x, z) {
+  for (let i = 0; i < grassZones.length; i++) {
+    const dx = grassZones[i].x - x, dz = grassZones[i].z - z;
+    if (dx * dx + dz * dz < grassZones[i].r2) return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Try up to `tries` candidate positions; the first one outside every keep-out
+ * zone that also passes `ok` (optional) is returned as [x, z], else null.
+ * Every spawner below used to make a single attempt and `continue` on rejection.
+ * @param {number} tries
+ * @param {() => number[]} sample returns a candidate [x, z]
+ * @param {(x:number, z:number) => boolean} [ok] extra acceptance test (biome bias etc.)
+ */
+function findSpot(tries, sample, ok) {
+  for (let a = 0; a < tries; a++) {
+    const c = sample();
+    if (inKeepOut(c[0], c[1])) continue;
+    if (ok && !ok(c[0], c[1])) continue;
+    return c;
+  }
+  return null;
 }
 
 function makeGlyphs(glyphs_data) {
@@ -259,11 +292,12 @@ export function populate(arrays, builders, scene) {
       if (r <= 0) { refIdx = j; break; }
     }
     const ref = trees_data[refIdx];
-    const ang = sr() * 6.28, d = 1 + sr() * 4;
-    const mx = ref.x + Math.cos(ang) * d, mz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(mx, mz)) continue;
-    // Avoid oversaturating very dense clusters after mixed-plant increase.
-    if (classifyBiome(mx, mz) === 'dense' && sr() < 0.45) continue;
+    const spot = findSpot(8, () => {
+      const ang = sr() * 6.28, d = 1 + sr() * 4;
+      return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d];
+    }, (x, z) => !(classifyBiome(x, z) === 'dense' && sr() < 0.45)); // avoid oversaturating dense groves
+    if (!spot) continue;
+    const mx = spot[0], mz = spot[1];
     const m = makeMush(mx, mz);
     m.group.position.y = getGroundY(mx, mz) - 0.06;
     tiltToSlope(m.group, mx, mz, 0.3);
@@ -272,9 +306,9 @@ export function populate(arrays, builders, scene) {
   }
   // Crystals
   for (let i = 0; i < CRYSTAL_N; i++) {
-    const ang = sr() * 6.28, d = 8 + sr() * WORLD_R * 0.6;
-    const cx = Math.cos(ang) * d, cz = Math.sin(ang) * d;
-    if (inKeepOut(cx, cz)) continue;
+    const spot = findSpot(12, () => { const ang = sr() * 6.28, d = 8 + sr() * WORLD_R * 0.6; return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const cx = spot[0], cz = spot[1];
     const c = makeCrystal(cx, cz);
     c.group.position.y = getGroundY(cx, cz) - 0.06;
     tiltToSlope(c.group, cx, cz, 0.45);
@@ -290,9 +324,9 @@ export function populate(arrays, builders, scene) {
   // Pufflings
   for (let i = 0; i < PUFF_N; i++) {
     const ref = mush_data[Math.floor(sr() * mush_data.length)];
-    const ang = sr() * 6.28, d = 1 + sr() * 5;
-    const px = ref.x + Math.cos(ang) * d, pz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(px, pz)) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 1 + sr() * 5; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const px = spot[0], pz = spot[1];
     const p = makePuff(px, pz);
     p.group.position.y = getGroundY(px, pz);
     p._baseY = getGroundY(px, pz);
@@ -300,9 +334,9 @@ export function populate(arrays, builders, scene) {
   }
   // Spirit Deer
   for (let i = 0; i < DEER_N; i++) {
-    const ang = sr() * 6.28, d = 12 + sr() * WORLD_R * 0.5;
-    const dx = Math.cos(ang) * d, dz = Math.sin(ang) * d;
-    if (inKeepOut(dx, dz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 12 + sr() * WORLD_R * 0.5; return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const dx = spot[0], dz = spot[1];
     const de = makeDeer(dx, dz);
     const deerY = getGroundY(dx, dz);
     de.group.position.y = deerY;
@@ -311,9 +345,9 @@ export function populate(arrays, builders, scene) {
   }
   // Luminids (towering giants)
   for (let i = 0; i < LUMINID_N; i++) {
-    const ang = sr() * 6.28, d = 15 + sr() * WORLD_R * 0.45;
-    const lx = Math.cos(ang) * d, lz = Math.sin(ang) * d;
-    if (inKeepOut(lx, lz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 15 + sr() * WORLD_R * 0.45; return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const lx = spot[0], lz = spot[1];
     const lu = makeLuminid(lx, lz);
     lu.group.position.y = getGroundY(lx, lz);
     luminids.push(lu);
@@ -340,17 +374,19 @@ export function populate(arrays, builders, scene) {
     // Keep grass in the reachable interior — the perimeter mountain ring rises
     // steeply from ~0.68*WORLD_R (terrain.js rimT/wall), and a flat disc of blades
     // can't conform to that near-vertical go/no-go wall (reads as floating grass).
-    const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.62);
-    const gx = Math.cos(ang) * d, gz = Math.sin(ang) * d;
     const pal = grassPalettes[Math.floor(sr() * grassPalettes.length)];
     const rad = 2 + sr() * 2.5, cnt = 38 + Math.floor(sr() * 30);
-    if (inKeepOut(gx, gz)) continue;
+    // Grass avoids big features (keepOutZones) and other grass (grassZones); it
+    // does NOT block the flora placed after it.
+    const spot = findSpot(6, () => { const ang = sr() * 6.28, d = 2 + sr() * (WORLD_R * 0.62); return [Math.cos(ang) * d, Math.sin(ang) * d]; }, (x, z) => !inGrass(x, z));
+    if (!spot) continue;
+    const gx = spot[0], gz = spot[1];
     const gp = makeGrassPatch(gx, gz, rad, cnt, pal);
     // Anchor to the RENDERED mesh surface (matches per-blade getMeshGroundY in
     // grass.js); small bury keeps bases just inside the terrain on slopes.
     gp.mesh.position.y = getMeshGroundY(gx, gz) - 0.03;
     grassPatches.push(gp);
-    keepOutZones.push({ x: gx, z: gz, r2: rad * rad });
+    grassZones.push({ x: gx, z: gz, r2: rad * rad * 0.6 }); // patches may overlap at the edges
   }
   // Rocks — SDF instanced procedural rocks
   initProceduralRocks();
@@ -415,13 +451,11 @@ export function populate(arrays, builders, scene) {
   // Ferns
   for (let i = 0; i < FERN_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    const ang = sr() * 6.28, d = 1 + sr() * 5;
-    const fx = ref.x + Math.cos(ang) * d, fz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(fx, fz)) continue;
     // Bias ferns toward edge/open so groves don't turn into solid fern carpets.
-    const fernBiome = classifyBiome(fx, fz);
-    if (fernBiome === 'dense' && sr() < 0.55) continue;
-    if (fernBiome === 'open' && sr() < 0.15) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 1 + sr() * 5; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; },
+      (x, z) => { const bm = classifyBiome(x, z); return !((bm === 'dense' && sr() < 0.55) || (bm === 'open' && sr() < 0.15)); });
+    if (!spot) continue;
+    const fx = spot[0], fz = spot[1];
     const f = makeFern(fx, fz);
     f.group.position.y = getGroundY(fx, fz) - 0.05;
     f.slopeQ = computeSlopeQuat(fx, fz, 0.4);
@@ -430,12 +464,10 @@ export function populate(arrays, builders, scene) {
   }
   // Flowers — biased toward open areas
   for (let i = 0; i < FLOWER_N; i++) {
-    const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7);
-    const flx = Math.cos(ang) * d, flz = Math.sin(ang) * d;
-    if (inKeepOut(flx, flz)) continue;
-    const flowerBiome = classifyBiome(flx, flz);
-    if (flowerBiome === 'dense' && sr() < 0.92) continue;
-    if (flowerBiome === 'edge' && sr() < 0.55) continue;
+    const spot = findSpot(12, () => { const ang = sr() * 6.28, d = 3 + sr() * (WORLD_R * 0.7); return [Math.cos(ang) * d, Math.sin(ang) * d]; },
+      (x, z) => { const bm = classifyBiome(x, z); return !((bm === 'dense' && sr() < 0.92) || (bm === 'edge' && sr() < 0.55)); });
+    if (!spot) continue;
+    const flx = spot[0], flz = spot[1];
     const fl = makeFlower(flx, flz);
     fl.group.position.y = getGroundY(flx, flz) - 0.05;
     fl.slopeQ = computeSlopeQuat(flx, flz, 0.35);
@@ -444,12 +476,10 @@ export function populate(arrays, builders, scene) {
   }
   // Reeds — biased toward open areas
   for (let i = 0; i < REED_N; i++) {
-    const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8);
-    const rdx = Math.cos(ang) * d, rdz = Math.sin(ang) * d;
-    if (inKeepOut(rdx, rdz)) continue;
-    const reedBiome = classifyBiome(rdx, rdz);
-    if (reedBiome === 'dense' && sr() < 0.9) continue;
-    if (reedBiome === 'edge' && sr() < 0.5) continue;
+    const spot = findSpot(12, () => { const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.8); return [Math.cos(ang) * d, Math.sin(ang) * d]; },
+      (x, z) => { const bm = classifyBiome(x, z); return !((bm === 'dense' && sr() < 0.9) || (bm === 'edge' && sr() < 0.5)); });
+    if (!spot) continue;
+    const rdx = spot[0], rdz = spot[1];
     const rd = makeReed(rdx, rdz);
     rd.group.position.y = getGroundY(rdx, rdz) - 0.05;
     rd.slopeQ = computeSlopeQuat(rdx, rdz, 0.15);
@@ -558,12 +588,10 @@ export function populate(arrays, builders, scene) {
   }
   // Dandelions — biased toward open areas
   for (let i = 0; i < DANDELION_N; i++) {
-    const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7);
-    const dnx = Math.cos(ang) * d, dnz = Math.sin(ang) * d;
-    if (inKeepOut(dnx, dnz)) continue;
-    const dandBiome = classifyBiome(dnx, dnz);
-    if (dandBiome === 'dense' && sr() < 0.92) continue;
-    if (dandBiome === 'edge' && sr() < 0.55) continue;
+    const spot = findSpot(12, () => { const ang = sr() * 6.28, d = 4 + sr() * (WORLD_R * 0.7); return [Math.cos(ang) * d, Math.sin(ang) * d]; },
+      (x, z) => { const bm = classifyBiome(x, z); return !((bm === 'dense' && sr() < 0.92) || (bm === 'edge' && sr() < 0.55)); });
+    if (!spot) continue;
+    const dnx = spot[0], dnz = spot[1];
     const dn = makeDandelion(dnx, dnz);
     dn.group.position.y = getGroundY(dnx, dnz) - 0.05;
     tiltToSlope(dn.group, dnx, dnz, 0.35);
@@ -578,9 +606,9 @@ export function populate(arrays, builders, scene) {
   }
   // Thornblooms (open areas)
   for (let i = 0; i < THORNBLOOM_N; i++) {
-    const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7);
-    const tx = Math.cos(ang) * d, tz = Math.sin(ang) * d;
-    if (inKeepOut(tx, tz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7); return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const tx = spot[0], tz = spot[1];
     const tb = makeThornbloom(tx, tz);
     tb.group.position.y = getGroundY(tx, tz) - 0.05;
     tb.slopeQ = computeSlopeQuat(tx, tz, 0.3);
@@ -590,11 +618,11 @@ export function populate(arrays, builders, scene) {
   // Helixvines (near trees)
   for (let i = 0; i < HELIXVINE_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    const ang = sr() * 6.28, d = 2 + sr() * 4;
-    const hx = ref.x + Math.cos(ang) * d, hz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(hx, hz)) continue;
     // Keep some in groves but shift excess into less-crowded transitions.
-    if (classifyBiome(hx, hz) === 'dense' && sr() < 0.35) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 2 + sr() * 4; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; },
+      (x, z) => !(classifyBiome(x, z) === 'dense' && sr() < 0.35));
+    if (!spot) continue;
+    const hx = spot[0], hz = spot[1];
     const hv = makeHelixvine(hx, hz);
     hv.group.position.y = getGroundY(hx, hz) - 0.05;
     hv.slopeQ = computeSlopeQuat(hx, hz, 0.25);
@@ -603,9 +631,9 @@ export function populate(arrays, builders, scene) {
   }
   // Snapthorns (open areas)
   for (let i = 0; i < SNAPTHORN_N; i++) {
-    const ang = sr() * 6.28, d = 6 + sr() * (WORLD_R * 0.65);
-    const sx = Math.cos(ang) * d, sz = Math.sin(ang) * d;
-    if (inKeepOut(sx, sz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 6 + sr() * (WORLD_R * 0.65); return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const sx = spot[0], sz = spot[1];
     const sn = makeSnapthorn(sx, sz);
     sn.group.position.y = getGroundY(sx, sz) - 0.05;
     tiltToSlope(sn.group, sx, sz, 0.25);
@@ -615,9 +643,9 @@ export function populate(arrays, builders, scene) {
   // SpiralFronds (near trees)
   for (let i = 0; i < SPIRALFROND_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    const ang = sr() * 6.28, d = 2 + sr() * 5;
-    const sfx = ref.x + Math.cos(ang) * d, sfz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(sfx, sfz)) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 2 + sr() * 5; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const sfx = spot[0], sfz = spot[1];
     const sf = makeSpiralFrond(sfx, sfz);
     sf.group.position.y = getGroundY(sfx, sfz) - 0.05;
     sf.slopeQ = computeSlopeQuat(sfx, sfz, 0.35);
@@ -626,9 +654,9 @@ export function populate(arrays, builders, scene) {
   }
   // CorpseBlooms (open areas)
   for (let i = 0; i < CORPSEBLOOM_N; i++) {
-    const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.6);
-    const cbx = Math.cos(ang) * d, cbz = Math.sin(ang) * d;
-    if (inKeepOut(cbx, cbz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 8 + sr() * (WORLD_R * 0.6); return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const cbx = spot[0], cbz = spot[1];
     const cb = makeCorpseBloom(cbx, cbz);
     cb.group.position.y = getGroundY(cbx, cbz) - 0.05;
     cb.slopeQ = computeSlopeQuat(cbx, cbz, 0.3);
@@ -637,9 +665,9 @@ export function populate(arrays, builders, scene) {
   }
   // OrbBushes (scattered)
   for (let i = 0; i < ORBBUSH_N; i++) {
-    const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7);
-    const obx = Math.cos(ang) * d, obz = Math.sin(ang) * d;
-    if (inKeepOut(obx, obz)) continue;
+    const spot = findSpot(10, () => { const ang = sr() * 6.28, d = 5 + sr() * (WORLD_R * 0.7); return [Math.cos(ang) * d, Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const obx = spot[0], obz = spot[1];
     const ob = makeOrbBush(obx, obz);
     ob.group.position.y = getGroundY(obx, obz) - 0.05;
     ob.slopeQ = computeSlopeQuat(obx, obz, 0.35);
@@ -649,10 +677,10 @@ export function populate(arrays, builders, scene) {
   // LanternPods (near trees)
   for (let i = 0; i < LANTERNPOD_N; i++) {
     const ref = trees_data[Math.floor(sr() * trees_data.length)];
-    const ang = sr() * 6.28, d = 2 + sr() * 4;
-    const lpx = ref.x + Math.cos(ang) * d, lpz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(lpx, lpz)) continue;
-    if (classifyBiome(lpx, lpz) === 'dense' && sr() < 0.4) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 2 + sr() * 4; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; },
+      (x, z) => !(classifyBiome(x, z) === 'dense' && sr() < 0.4));
+    if (!spot) continue;
+    const lpx = spot[0], lpz = spot[1];
     const lp = makeLanternPod(lpx, lpz);
     lp.group.position.y = getGroundY(lpx, lpz) - 0.05;
     lp.slopeQ = computeSlopeQuat(lpx, lpz, 0.3);
@@ -664,9 +692,9 @@ export function populate(arrays, builders, scene) {
     const ref = rocks_data.length > 0
       ? rocks_data[Math.floor(sr() * rocks_data.length)]
       : { x: 0, z: 0 };
-    const ang = sr() * 6.28, d = 1 + sr() * 3;
-    const vmx = ref.x + Math.cos(ang) * d, vmz = ref.z + Math.sin(ang) * d;
-    if (inKeepOut(vmx, vmz)) continue;
+    const spot = findSpot(8, () => { const ang = sr() * 6.28, d = 1 + sr() * 3; return [ref.x + Math.cos(ang) * d, ref.z + Math.sin(ang) * d]; });
+    if (!spot) continue;
+    const vmx = spot[0], vmz = spot[1];
     const vm = makeVeilMoss(vmx, vmz);
     vm.group.position.y = getGroundY(vmx, vmz) - 0.05;
     vm.slopeQ = computeSlopeQuat(vmx, vmz, 0.2);
@@ -721,19 +749,28 @@ export function populate(arrays, builders, scene) {
       gp.mesh.position.y = centerY - 0.03;
     }
   }
+  // Every patch is now on its final ground: merge them into ~30 world-space chunk
+  // meshes (one draw call each). grassPatches entries keep cx/cz and gain `range`.
+  chunkGrassPatches(grassPatches);
   const floraArrays = [ferns, flowers, reeds, thornblooms, helixvines, snapthorns,
     spiralfronds, corpseblooms, orbbushes, lanternpods, veilmosses, dandelions];
+  // Remove an entity the houses grew over. Instanced plants (ferns, flowers,
+  // mushrooms, reeds) hide their instance; merged ones dispose their meshes.
+  // Shared module-scope materials are never disposed here (other plants use them).
+  function disposeEntity(e) {
+    if (e.remove) { e.remove(); return; }
+    e.group.traverse((ch) => {
+      if (ch.geometry) ch.geometry.dispose();
+    });
+    scene.remove(e.group);
+  }
   for (let ai = 0; ai < floraArrays.length; ai++) {
     const arr = floraArrays[ai];
     for (let i = arr.length - 1; i >= 0; i--) {
       const e = arr[i];
       const ex = e.group.position.x, ez = e.group.position.z;
       if (overlapsHouse(ex, ez)) {
-        e.group.traverse((ch) => {
-          if (ch.geometry) ch.geometry.dispose();
-          if (ch.material) ch.material.dispose();
-        });
-        scene.remove(e.group);
+        disposeEntity(e);
         arr.splice(i, 1);
       } else {
         e.group.position.y = getGroundY(ex, ez) - 0.05;
@@ -744,11 +781,7 @@ export function populate(arrays, builders, scene) {
     const m = mush_data[i];
     const mx = m.x, mz = m.z;
     if (overlapsHouse(mx, mz)) {
-      m.group.traverse((ch) => {
-        if (ch.geometry) ch.geometry.dispose();
-        if (ch.material) ch.material.dispose();
-      });
-      scene.remove(m.group);
+      disposeEntity(m);
       mush_data.splice(i, 1);
     } else {
       m.group.position.y = getGroundY(mx, mz) - 0.06;
@@ -758,11 +791,7 @@ export function populate(arrays, builders, scene) {
     const c = crys_data[i];
     const cx = c.x, cz = c.z;
     if (overlapsHouse(cx, cz)) {
-      c.group.traverse((ch) => {
-        if (ch.geometry) ch.geometry.dispose();
-        if (ch.material) ch.material.dispose();
-      });
-      scene.remove(c.group);
+      disposeEntity(c);
       crys_data.splice(i, 1);
     } else {
       c.group.position.y = getGroundY(cx, cz) - 0.06;
@@ -773,11 +802,7 @@ export function populate(arrays, builders, scene) {
     const p = puffs[i];
     const px = p.group.position.x, pz = p.group.position.z;
     if (overlapsHouse(px, pz)) {
-      p.group.traverse((ch) => {
-        if (ch.geometry) ch.geometry.dispose();
-        if (ch.material) ch.material.dispose();
-      });
-      scene.remove(p.group);
+      disposeEntity(p);
       puffs.splice(i, 1);
     } else {
       const y = getGroundY(px, pz);
@@ -790,11 +815,7 @@ export function populate(arrays, builders, scene) {
     const d = deers[i];
     const dx = d.group.position.x, dz = d.group.position.z;
     if (overlapsHouse(dx, dz)) {
-      d.group.traverse((ch) => {
-        if (ch.geometry) ch.geometry.dispose();
-        if (ch.material) ch.material.dispose();
-      });
-      scene.remove(d.group);
+      disposeEntity(d);
       deers.splice(i, 1);
     } else {
       const y = getGroundY(dx, dz);
@@ -807,11 +828,7 @@ export function populate(arrays, builders, scene) {
     const lu = luminids[i];
     const lx = lu.group.position.x, lz = lu.group.position.z;
     if (overlapsHouse(lx, lz)) {
-      lu.group.traverse((ch) => {
-        if (ch.geometry) ch.geometry.dispose();
-        if (ch.material) ch.material.dispose();
-      });
-      scene.remove(lu.group);
+      disposeEntity(lu);
       luminids.splice(i, 1);
     } else {
       lu.group.position.y = getGroundY(lx, lz);

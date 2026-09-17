@@ -1,4 +1,4 @@
-import { AdditiveBlending, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Sphere, SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Points, PointsMaterial, Quaternion, RepeatWrapping, Sphere, SphereGeometry, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
@@ -190,23 +190,88 @@ function getCanopyAlphaMap() {
   return _canopyAlphaMap;
 }
 
-// Create a billboard impostor sprite for a tree (1 draw call at distance)
-export function makeTreeImpostor(treeH, groundY) {
-  const mat = new SpriteMaterial({
-    map: getGlowTexture(),
-    color: C.treeGlowImpostor,
-    transparent: true,
-    opacity: 0.65,
-    depthWrite: false,
-    blending: AdditiveBlending
+// ================================================================
+// Impostor cloud — every distant tree's glow billboard is one point in a
+// single Points mesh (1 draw call for all 495 trees; was one Sprite each,
+// ~90 draw calls at the world centre). makeTreeImpostor() returns a proxy
+// with the Sprite-shaped fields updateTreeLOD() and populate.js already use
+// (position, visible, material.color / .opacity, userData); the arrays are
+// flushed to the GPU once per frame by flushTreeImpostors().
+// ================================================================
+const IMP_MAX = 1024;
+let _impCloud = null;
+let _impCount = 0;
+let _impPos = null, _impCol = null, _impAlpha = null, _impSize = null;
+const _impProxies = [];
+
+function getImpostorCloud() {
+  if (_impCloud) return _impCloud;
+  const geo = new BufferGeometry();
+  _impPos = new Float32Array(IMP_MAX * 3);
+  _impCol = new Float32Array(IMP_MAX * 3);
+  _impAlpha = new Float32Array(IMP_MAX);
+  _impSize = new Float32Array(IMP_MAX);
+  geo.setAttribute('position', new BufferAttribute(_impPos, 3).setUsage(DynamicDrawUsage));
+  geo.setAttribute('color', new BufferAttribute(_impCol, 3).setUsage(DynamicDrawUsage));
+  geo.setAttribute('aAlpha', new BufferAttribute(_impAlpha, 1).setUsage(DynamicDrawUsage));
+  geo.setAttribute('aSize', new BufferAttribute(_impSize, 1));
+  geo.setDrawRange(0, 0);
+  const mat = new PointsMaterial({
+    map: getGlowTexture(), vertexColors: true, transparent: true, depthWrite: false,
+    blending: AdditiveBlending, sizeAttenuation: true, size: 1
   });
-  const sprite = new Sprite(mat);
+  mat.customProgramCacheKey = () => 'lumTreeImpostor';
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aAlpha;\nattribute float aSize;\nvarying float vAlpha;')
+      .replace('gl_PointSize = size;', 'gl_PointSize = aSize; vAlpha = aAlpha;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vAlpha;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.a *= vAlpha;');
+  };
+  _impCloud = new Points(geo, mat);
+  _impCloud.frustumCulled = false;
+  scene.add(_impCloud);
+  return _impCloud;
+}
+
+// Create a billboard impostor for a tree — a slot in the shared point cloud.
+export function makeTreeImpostor(treeH, groundY) {
+  getImpostorCloud();
+  if (_impCount >= IMP_MAX) throw new Error('tree impostor cloud is full; raise IMP_MAX');
+  const idx = _impCount++;
   const canopyW = treeH * 0.55;
-  sprite.scale.set(canopyW * 2.2, canopyW * 1.6, 1);
-  sprite.position.y = groundY + treeH * 0.6;
-  sprite.visible = false;
-  scene.add(sprite);
-  return sprite;
+  // World width → point size: PointsMaterial gives px = aSize·(H/2)/depth, a sprite gives
+  // W·(H/2)/(depth·tan(fov/2)); fov 65° → 1/tan(32.5°) ≈ 1.57.
+  _impSize[idx] = canopyW * 2.2 * 1.57;
+  _impAlpha[idx] = 0;
+  const proxy = {
+    isImpostorProxy: true, idx,
+    position: { x: 0, y: groundY + treeH * 0.6, z: 0 },
+    visible: false,
+    material: { color: new Color(C.treeGlowImpostor), opacity: 0.65 },
+    userData: {}
+  };
+  _impProxies.push(proxy);
+  _impCloud.geometry.setDrawRange(0, _impCount);
+  return proxy;
+}
+
+/** @brief Copy every impostor proxy's state into the point-cloud attributes (once per frame). */
+export function flushTreeImpostors() {
+  if (!_impCloud) return;
+  const geo = _impCloud.geometry;
+  for (let i = 0; i < _impProxies.length; i++) {
+    const p = _impProxies[i];
+    const o = p.idx * 3;
+    _impPos[o] = p.position.x; _impPos[o + 1] = p.position.y; _impPos[o + 2] = p.position.z;
+    const c = p.material.color;
+    _impCol[o] = c.r; _impCol[o + 1] = c.g; _impCol[o + 2] = c.b;
+    _impAlpha[p.idx] = p.visible ? p.material.opacity : 0;
+  }
+  geo.attributes.position.needsUpdate = true;
+  geo.attributes.color.needsUpdate = true;
+  geo.attributes.aAlpha.needsUpdate = true;
 }
 
 // ================================================================
@@ -918,6 +983,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
     if (mesh.glow) { mesh.glow.count = glowCount; mesh.glow.instanceMatrix.needsUpdate = true; }
     if (mesh.detail) { mesh.detail.count = detailCount; mesh.detail.instanceMatrix.needsUpdate = true; }
   }
+  flushTreeImpostors();
 }
 
 // ================================================================

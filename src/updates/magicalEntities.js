@@ -104,8 +104,8 @@ export function updateWisps(dt, t) {
     w.hazeMat.opacity = 0.08 + p * 0.12;
     const sa = t * (2.5 + i * 0.5) + w.phase;
     const sparkR = 0.14 + Math.sin(t * 1.3 + w.phase) * 0.06;
-    const ch = w.group.children[5];
-    ch.position.set(Math.cos(sa) * sparkR, Math.sin(sa * 1.5) * 0.08, Math.sin(sa) * sparkR);
+    const ch = w.spark || w.group.children[5];
+    if (ch && !w._gpu) ch.position.set(Math.cos(sa) * sparkR, Math.sin(sa * 1.5) * 0.08, Math.sin(sa) * sparkR);
     for (let ti = 0; ti < w.tendrils.length; ti++) {
       const td = w.tendrils[ti];
       const wave = Math.sin(t * 3 + ti * 2.1 + w.phase) * 0.3;
@@ -123,8 +123,10 @@ export function updateWisps(dt, t) {
     }
     w.facet.rotation.y += dt * 1.5;
     w.facet.rotation.x += dt * 0.7;
-    w.halo.rotation.z += dt * 0.3;
-    w.halo2.rotation.y += dt * 0.2;
+    if (!w._gpu) {
+      w.halo.rotation.z += dt * 0.3;
+      w.halo2.rotation.y += dt * 0.2;
+    }
   }
 }
 

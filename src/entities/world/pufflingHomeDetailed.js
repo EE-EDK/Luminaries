@@ -7,6 +7,7 @@
 import {
   BoxGeometry,
   BufferAttribute,
+  BufferGeometry,
   Color,
   CylinderGeometry,
   ExtrudeGeometry,
@@ -212,9 +213,91 @@ function makeCottageStones(rng, H) {
  *   glass: number, glassEmissive: number, glassEmissiveInt: number }} theme
  * @param {number} seed
  */
+// ----------------------------------------------------------------
+// Shared geometry templates — every house has the same shell, cap, gill,
+// door and window; only the brick vertex colours and the decor scatter are
+// per-house. Built once, the position / normal / uv buffers are shared by
+// every house (one GL buffer each) instead of ~14k triangles re-uploaded
+// per house (~70 houses).
+// ----------------------------------------------------------------
+let _tpl = null;
+function getTemplates() {
+  if (_tpl) return _tpl;
+  const H = PUFF_HOUSE;
+  const _m = new Matrix4();
+  const _q = new Quaternion();
+  const brickGeos = [];
+  const brickH = H.baseHeight / H.brickLayers;
+  const brickTemplate = new BoxGeometry(1, 1, 1);
+  for (let i = 0; i < H.brickLayers; i++) {
+    const t = i / Math.max(H.brickLayers - 1, 1);
+    const radius = H.baseRadius * (1 - t) + H.topRadius * t;
+    const y = i * brickH + brickH / 2;
+    const angleOffset = (i % 2 === 0) ? 0 : Math.PI / H.bricksPerRow;
+    const brickWidth = ((Math.PI * 2 * radius) / H.bricksPerRow) * 0.99;
+    for (let j = 0; j < H.bricksPerRow; j++) {
+      const angle = j * ((Math.PI * 2) / H.bricksPerRow) + angleOffset;
+      const br = radius + 0.06;
+      _q.setFromAxisAngle(new Vector3(0, 1, 0), angle + Math.PI / 2);
+      _m.compose(new Vector3(Math.cos(angle) * br, y, Math.sin(angle) * br), _q, new Vector3(brickWidth, brickH * 0.97, 0.92));
+      const g = brickTemplate.clone();
+      g.applyMatrix4(_m);
+      brickGeos.push(g);
+    }
+  }
+  const bricks = mergeGeometries(brickGeos);
+  for (const g of brickGeos) g.dispose();
+  const doorShape = new Shape();
+  doorShape.moveTo(-1, 0); doorShape.lineTo(-1, 1.5); doorShape.absarc(0, 1.5, 1, Math.PI, 0, true); doorShape.lineTo(1, 0); doorShape.lineTo(-1, 0);
+  const capGeo = new SphereGeometry(H.capRadius, 36, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+  capGeo.scale(1, H.capFlatten, 1);
+  _tpl = {
+    bricks, brickCount: H.brickLayers * H.bricksPerRow,
+    innerWall: new CylinderGeometry(H.topRadius - 0.4, H.baseRadius - 0.4, H.baseHeight, 28),
+    seal: new CylinderGeometry(H.topRadius - 0.3, H.topRadius - 0.3, 0.2, 28),
+    cap: capGeo,
+    gill: new CylinderGeometry(H.capRadius + 0.1, H.topRadius - 0.2, 0.55, 36, 1, false),
+    frame: new ExtrudeGeometry(doorShape, { depth: 0.3, bevelEnabled: false }),
+    panel: new ExtrudeGeometry(doorShape, { depth: 0.2, bevelEnabled: false }),
+    groove: new BoxGeometry(0.05, 2.4, 0.22),
+    knob: new SphereGeometry(0.15, 14, 12),
+    win: new PlaneGeometry(1.2, 1.4)
+  };
+  return _tpl;
+}
+
+/** Brick geometry for one house: shared position/normal/uv buffers + its own colour attribute. */
+function brickGeometryFor(rng, hueR, satR, lumR) {
+  const T = getTemplates();
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', T.bricks.attributes.position);
+  geo.setAttribute('normal', T.bricks.attributes.normal);
+  if (T.bricks.attributes.uv) geo.setAttribute('uv', T.bricks.attributes.uv);
+  if (T.bricks.index) geo.setIndex(T.bricks.index);
+  const n = T.bricks.attributes.position.count;
+  const vertsPerBrick = n / T.brickCount;
+  const colors = new Float32Array(n * 3);
+  const c = new Color();
+  for (let b = 0; b < T.brickCount; b++) {
+    const h = hueR[0] + rng() * (hueR[1] - hueR[0]);
+    const s = satR[0] + rng() * (satR[1] - satR[0]);
+    const l = lumR[0] + rng() * (lumR[1] - lumR[0]);
+    c.setHSL(h, s, l);
+    for (let v = 0; v < vertsPerBrick; v++) {
+      const o = (b * vertsPerBrick + v) * 3;
+      colors[o] = c.r; colors[o + 1] = c.g; colors[o + 2] = c.b;
+    }
+  }
+  geo.setAttribute('color', new BufferAttribute(colors, 3));
+  geo.boundingSphere = T.bricks.boundingSphere ? T.bricks.boundingSphere.clone() : null;
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  return geo;
+}
+
 export function createPufflingHomeDetailedGroup(theme, seed) {
   const rng = mulberry32(seed);
   const H = PUFF_HOUSE;
+  const T = getTemplates();
 
   // Per-brick HSL variation is baked into vertex colors (see below), so the base
   // color stays white and the brick palette shows through at full saturation. The
@@ -284,92 +367,37 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   const _q = new Quaternion();
   const _v = new Vector3();
 
-  // --- Brick rings → single merged geometry (single material for perf) ---
-  // Per-brick HSL variation (hue 0.50–0.55, sat 0.05–0.18, lum 0.18–0.32 for the
-  // bio theme) is baked into vertex colors so the merged geometry stays one draw
-  // call while each brick reads distinctly against the night grade.
-  const brickGeos = [];
-  const brickH = H.baseHeight / H.brickLayers;
-  const brickTemplate = new BoxGeometry(1, 1, 1);
-  const hueR = theme.brickHueRange;
-  const satR = theme.brickSatRange;
-  const lumR = theme.brickLumRange;
-  const _brickColor = new Color();
-  const vCount = brickTemplate.attributes.position.count;
-  for (let i = 0; i < H.brickLayers; i++) {
-    const t = i / Math.max(H.brickLayers - 1, 1);
-    const radius = H.baseRadius * (1 - t) + H.topRadius * t;
-    const y = i * brickH + brickH / 2;
-    const angleOffset = (i % 2 === 0) ? 0 : Math.PI / H.bricksPerRow;
-    // Tighter mortar: near-zero tangential/vertical gaps so the shell reads as a
-    // continuous, smooth brick wall (was 0.95 / 0.9 — visibly loose). Slightly
-    // deeper, proud bricks (0.92 was 0.8) catch the rim light for a soft bevel.
-    const brickWidth = ((Math.PI * 2 * radius) / H.bricksPerRow) * 0.99;
-    for (let j = 0; j < H.bricksPerRow; j++) {
-      const angle = j * ((Math.PI * 2) / H.bricksPerRow) + angleOffset;
-      // Push bricks a hair outward so each course slightly overlaps the next,
-      // hiding seams and giving a smoother, tighter silhouette.
-      const br = radius + 0.06;
-      const bx = Math.cos(angle) * br;
-      const bz = Math.sin(angle) * br;
-      _q.setFromAxisAngle(new Vector3(0, 1, 0), angle + Math.PI / 2);
-      _m.compose(new Vector3(bx, y, bz), _q, new Vector3(brickWidth, brickH * 0.97, 0.92));
-      const g = brickTemplate.clone();
-      g.applyMatrix4(_m);
-      if (brickVertexColored && hueR && satR && lumR) {
-        const h = hueR[0] + rng() * (hueR[1] - hueR[0]);
-        const s = satR[0] + rng() * (satR[1] - satR[0]);
-        const l = lumR[0] + rng() * (lumR[1] - lumR[0]);
-        _brickColor.setHSL(h, s, l);
-        const colors = new Float32Array(vCount * 3);
-        for (let v = 0; v < vCount; v++) {
-          colors[v * 3] = _brickColor.r;
-          colors[v * 3 + 1] = _brickColor.g;
-          colors[v * 3 + 2] = _brickColor.b;
-        }
-        g.setAttribute('color', new BufferAttribute(colors, 3));
-      }
-      brickGeos.push(g);
-    }
-  }
-  const mergedBricks = mergeGeometries(brickGeos);
+  // --- Brick shell: shared geometry + per-house baked HSL vertex colours ---
   let brickMesh = null;
-  if (mergedBricks) {
+  {
+    const hueR = theme.brickHueRange || [0.5, 0.55];
+    const satR = theme.brickSatRange || [0.05, 0.18];
+    const lumR = theme.brickLumRange || [0.18, 0.32];
+    const mergedBricks = brickGeometryFor(rng, hueR, satR, lumR);
     brickMesh = new Mesh(mergedBricks, brickMat);
     brickMesh.castShadow = true;
     brickMesh.receiveShadow = true;
     root.add(brickMesh);
   }
 
-  const innerWall = new Mesh(
-    new CylinderGeometry(H.topRadius - 0.4, H.baseRadius - 0.4, H.baseHeight, 28),
-    innerMat
-  );
+  const innerWall = new Mesh(T.innerWall, innerMat);
   innerWall.position.y = H.baseHeight / 2;
   innerWall.castShadow = true;
   innerWall.receiveShadow = true;
   root.add(innerWall);
 
-  const seal = new Mesh(
-    new CylinderGeometry(H.topRadius - 0.3, H.topRadius - 0.3, 0.2, 28),
-    innerMat
-  );
+  const seal = new Mesh(T.seal, innerMat);
   seal.position.y = H.baseHeight;
   root.add(seal);
 
   // --- Cap + gill ---
-  const capGeo = new SphereGeometry(H.capRadius, 36, 20, 0, Math.PI * 2, 0, Math.PI / 2);
-  capGeo.scale(1, H.capFlatten, 1);
-  const cap = new Mesh(capGeo, capMat);
+  const cap = new Mesh(T.cap, capMat);
   cap.position.y = H.baseHeight;
   cap.castShadow = true;
   cap.receiveShadow = true;
   root.add(cap);
 
-  const gill = new Mesh(
-    new CylinderGeometry(H.capRadius + 0.1, H.topRadius - 0.2, 0.55, 36, 1, false),
-    gillMat
-  );
+  const gill = new Mesh(T.gill, gillMat);
   gill.position.y = H.baseHeight - 0.22;
   gill.receiveShadow = true;
   root.add(gill);
@@ -401,31 +429,23 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
 
   // --- Door ---
   const doorRoot = new Group();
-  const doorShape = new Shape();
-  doorShape.moveTo(-1, 0);
-  doorShape.lineTo(-1, 1.5);
-  doorShape.absarc(0, 1.5, 1, Math.PI, 0, true);
-  doorShape.lineTo(1, 0);
-  doorShape.lineTo(-1, 0);
-
-  const frame = new Mesh(new ExtrudeGeometry(doorShape, { depth: 0.3, bevelEnabled: false }), doorFrameMat);
+  const frame = new Mesh(T.frame, doorFrameMat);
   frame.scale.set(1.18, 1.15, 1);
   frame.position.z = -0.06;
   frame.castShadow = true;
   doorRoot.add(frame);
 
-  const doorPanel = new Mesh(new ExtrudeGeometry(doorShape, { depth: 0.2, bevelEnabled: false }), doorMat);
+  const doorPanel = new Mesh(T.panel, doorMat);
   doorPanel.castShadow = true;
   doorPanel.receiveShadow = true;
   doorRoot.add(doorPanel);
 
-  const grooveGeo = new BoxGeometry(0.05, 2.4, 0.22);
   for (let i = -0.5; i <= 0.5; i += 0.5) {
-    const g = new Mesh(grooveGeo, doorGrooveMat);
+    const g = new Mesh(T.groove, doorGrooveMat);
     g.position.set(i, 1.2, 0.001);
     doorRoot.add(g);
   }
-  const knob = new Mesh(new SphereGeometry(0.15, 14, 12), knobMat);
+  const knob = new Mesh(T.knob, knobMat);
   knob.position.set(0.6, 1.0, 0.25);
   doorRoot.add(knob);
 
@@ -433,7 +453,7 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   root.add(doorRoot);
 
   // --- Window ---
-  const win = new Mesh(new PlaneGeometry(1.2, 1.4), glassMat);
+  const win = new Mesh(T.win, glassMat);
   const wr = H.topRadius + 0.35;
   win.position.set(-wr * 0.85, 1.3, wr * 0.45);
   win.rotation.y = 0.9;

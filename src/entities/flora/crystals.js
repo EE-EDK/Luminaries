@@ -1,116 +1,77 @@
-import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry, TorusGeometry } from 'three';
+import { CircleGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry } from 'three';
 import { scene } from '../../core/renderer.js';
 import { C } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { GEO } from '../../core/geometries.js';
+import { createBaker, roleMaterial, MOTION } from '../_bake.js';
 
 // ================================================================
-// Shared materials — created once, reused across all 100 crystal instances
+// Crystals — CRYSTAL_N formations, 3 meshes each (was 30)
 // ================================================================
-const _rockMat = new MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.9, metalness: 0.1 });
-const _veinMat = new MeshBasicMaterial({ color: C.crystalCore, transparent: true, opacity: 0.5 });
-const _moteMat = new MeshBasicMaterial({ color: 0xaaffee, transparent: true, opacity: 0.6 });
-const _shardMat = new MeshStandardMaterial({
-  color: C.crystal, emissive: C.crystalCore, emissiveIntensity: 0.8,
-  transparent: true, opacity: 0.5
-});
-const _stainMat = new MeshStandardMaterial({
-  color: 0x335566, emissive: 0x112233, emissiveIntensity: 0.05, roughness: 0.9, side: DoubleSide
-});
-const _filMat = new MeshBasicMaterial({ color: C.crystalCore, transparent: true, opacity: 0.2 });
-const _inclMat = new MeshStandardMaterial({
-  color: 0x115544, emissive: 0x113322, emissiveIntensity: 0.3,
-  transparent: true, opacity: 0.25
-});
-const _prismMat = new MeshBasicMaterial({ color: 0xaaffee, transparent: true, opacity: 0.06 });
-const _groundGlowMat = new MeshBasicMaterial({
-  color: C.crystal, transparent: true, opacity: 0.06, side: DoubleSide
-});
+// Main spire + three shards share one per-crystal material so
+// crystalVisuals.js can drive the glow; base rocks and stains share one
+// module material; veins, motes, filaments, inclusions, prism halo and the
+// ground stain are one unlit mesh whose motes twinkle and whose halo turns.
+// Proximity PointLights are pooled in core/lighting.js (light budget).
 
-// --- Crystals (emissive + SHARED proximity PointLights managed by Director) ---
+const _rockMat = roleMaterial('solid', { roughness: 0.9, metalness: 0.1 });
+const _sparkMat = roleMaterial('basic', { doubleSide: true });
+
 export function makeCrystal(x, z) {
   const g = new Group();
   const phase = sr() * 6.28;
-  const cMat = new MeshStandardMaterial({
-    color: C.crystal, emissive: C.crystalCore, emissiveIntensity: 1.5,
-    transparent: true, opacity: 0.7, roughness: 0.1, metalness: 0.5
-  });
-  const main = new Mesh(GEO.crystal, cMat);
-  main.position.y = 0.9; main.castShadow = true; g.add(main);
+  const b = createBaker();
+  const cMat = roleMaterial('glow', { emissive: C.crystalCore, emissiveIntensity: 1.5, roughness: 0.1, metalness: 0.5, opacity: 0.7 });
 
+  // Spire + shards (shared per-crystal material → one mesh)
+  b.add(GEO.crystal, { role: 'crystal', pos: [0, 0.9, 0], color: C.crystal, emis: 1.0 });
   for (let i = 0; i < 3; i++) {
-    const sh = new Mesh(GEO.crystalSm, cMat);
     const a = (i / 3) * 6.28 + sr() * 0.5;
-    sh.position.set(Math.cos(a) * 0.4, 0.45, Math.sin(a) * 0.4);
-    sh.rotation.z = (sr() - 0.5) * 0.8; sh.castShadow = true; g.add(sh);
+    b.add(GEO.crystalSm, { role: 'crystal', pos: [Math.cos(a) * 0.4, 0.45, Math.sin(a) * 0.4], rot: [0, 0, (sr() - 0.5) * 0.8], color: C.crystal, emis: 0.9 });
   }
-
-  // Base rock cluster (3-5 dark stones)
-  const rockN = 3 + Math.floor(sr() * 3);
-  for (let ri = 0; ri < rockN; ri++) {
-    const ra = sr() * 6.28, rd = 0.2 + sr() * 0.5;
-    const rSz = 0.08 + sr() * 0.12;
-    const rock = new Mesh(new SphereGeometry(rSz, 4, 3), _rockMat);
-    rock.scale.set(1 + sr() * 0.5, 0.5 + sr() * 0.4, 1 + sr() * 0.5);
-    rock.position.set(Math.cos(ra) * rd, rSz * 0.3, Math.sin(ra) * rd);
-    rock.rotation.set(sr(), sr(), sr()); g.add(rock);
-  }
-
-  // Inner fracture veins (thin bright lines inside main crystal)
-  for (let vi = 0; vi < 3; vi++) {
-    const vLen = 0.4 + sr() * 0.8;
-    const vein = new Mesh(new CylinderGeometry(0.008, 0.008, vLen, 3), _veinMat);
-    vein.position.set((sr() - 0.5) * 0.15, 0.5 + sr() * 0.7, (sr() - 0.5) * 0.15);
-    vein.rotation.set((sr() - 0.5) * 0.8, (sr() - 0.5) * 0.5, (sr() - 0.5) * 0.8);
-    g.add(vein);
-  }
-
-  // Ambient floating motes near crystal (tiny static sparkles)
-  for (let mi = 0; mi < 5; mi++) {
-    const mote = new Mesh(new SphereGeometry(0.012, 3, 3), _moteMat);
-    mote.position.set((sr() - 0.5) * 1.0, 0.3 + sr() * 1.5, (sr() - 0.5) * 1.0);
-    g.add(mote);
-  }
-
-  // Micro-crystal shards (tiny spikes on base rocks)
+  // Micro shards on the base rocks
   for (let sci = 0; sci < 4; sci++) {
     const sa = sr() * 6.28, sd = 0.3 + sr() * 0.3;
-    const shard = new Mesh(new CylinderGeometry(0, 0.015, 0.12 + sr() * 0.1, 3), _shardMat);
-    shard.position.set(Math.cos(sa) * sd, 0.06 + sr() * 0.1, Math.sin(sa) * sd);
-    shard.rotation.z = (sr() - 0.5) * 0.6; g.add(shard);
+    b.add(new CylinderGeometry(0, 0.015, 0.12 + sr() * 0.1, 3), { role: 'crystal', pos: [Math.cos(sa) * sd, 0.06 + sr() * 0.1, Math.sin(sa) * sd], rot: [0, 0, (sr() - 0.5) * 0.6], color: C.crystal, emis: 0.55, opacity: 0.7 });
+  }
+  // Inclusions inside the spire (darker, faint)
+  for (let ii = 0; ii < 4; ii++) {
+    b.add(new SphereGeometry(0.02 + sr() * 0.02, 3, 3), { role: 'crystal', pos: [(sr() - 0.5) * 0.15, 0.4 + sr() * 0.6, (sr() - 0.5) * 0.15], color: 0x115544, emis: 0.2, opacity: 0.35 });
   }
 
-  // Mineral stain rings on base rocks (flat colored circles)
+  // Base rock cluster + mineral stains
+  const rockN = 3 + Math.floor(sr() * 3);
+  for (let ri = 0; ri < rockN; ri++) {
+    const ra = sr() * 6.28, rd = 0.2 + sr() * 0.5, rSz = 0.08 + sr() * 0.12;
+    b.add(new SphereGeometry(rSz, 5, 4), { role: 'rock', pos: [Math.cos(ra) * rd, rSz * 0.3, Math.sin(ra) * rd], rot: [sr(), sr(), sr()], scale: [1 + sr() * 0.5, 0.5 + sr() * 0.4, 1 + sr() * 0.5], color: 0x1a1a22 });
+  }
   for (let sti = 0; sti < 2; sti++) {
     const sta = sr() * 6.28, std = 0.2 + sr() * 0.3;
-    const stain = new Mesh(new CircleGeometry(0.04 + sr() * 0.03, 5), _stainMat);
-    stain.rotation.x = -Math.PI / 2 + sr() * 0.4;
-    stain.position.set(Math.cos(sta) * std, 0.05, Math.sin(sta) * std); g.add(stain);
+    b.add(new CircleGeometry(0.04 + sr() * 0.03, 5), { role: 'rock', pos: [Math.cos(sta) * std, 0.05, Math.sin(sta) * std], rot: [-Math.PI / 2 + sr() * 0.4, 0, 0], color: 0x335566 });
   }
 
-  // Energy filament wisps (curved lines connecting crystal tips)
+  // Fracture veins (flicker), motes (bob + twinkle), filaments, prism halo (spin), ground stain
+  for (let vi = 0; vi < 3; vi++) {
+    b.add(new CylinderGeometry(0.008, 0.008, 0.4 + sr() * 0.8, 3), {
+      role: 'spark', pos: [(sr() - 0.5) * 0.15, 0.5 + sr() * 0.7, (sr() - 0.5) * 0.15], rot: [(sr() - 0.5) * 0.8, (sr() - 0.5) * 0.5, (sr() - 0.5) * 0.8],
+      color: C.crystalCore, opacity: 0.5, motion: { mode: MOTION.FLICKER, phase: sr() * 6.28, speed: 3 + sr() * 3 }
+    });
+  }
+  for (let mi = 0; mi < 6; mi++) {
+    b.add(new SphereGeometry(0.012, 3, 3), {
+      role: 'spark', pos: [(sr() - 0.5) * 1.0, 0.3 + sr() * 1.5, (sr() - 0.5) * 1.0], color: 0xaaffee, opacity: 0.6,
+      motion: { mode: MOTION.BOB, amp: 0.04 + sr() * 0.05, phase: sr() * 6.28, speed: 0.6 + sr() * 0.6 }
+    });
+  }
   for (let fli = 0; fli < 2; fli++) {
-    const fil = new Mesh(new CylinderGeometry(0.003, 0.003, 0.6 + sr() * 0.4, 3), _filMat);
-    fil.position.set((sr() - 0.5) * 0.3, 0.7 + sr() * 0.5, (sr() - 0.5) * 0.3);
-    fil.rotation.set((sr() - 0.5) * 1.0, sr(), (sr() - 0.5) * 1.0); g.add(fil);
+    b.add(new CylinderGeometry(0.003, 0.003, 0.6 + sr() * 0.4, 3), { role: 'spark', pos: [(sr() - 0.5) * 0.3, 0.7 + sr() * 0.5, (sr() - 0.5) * 0.3], rot: [(sr() - 0.5) * 1.0, sr(), (sr() - 0.5) * 1.0], color: C.crystalCore, opacity: 0.2 });
   }
+  b.add(new TorusGeometry(0.35, 0.02, 4, 12), { role: 'spark', pos: [0, 0.6, 0], rot: [Math.PI / 2 + sr() * 0.3, 0, 0], color: 0xaaffee, opacity: 0.08, pivot: [0, 0.6, 0], motion: { mode: MOTION.SPIN, speed: 0.25 + sr() * 0.2, phase } });
+  b.add(new CircleGeometry(0.8, 10), { role: 'spark', pos: [0, 0.01, 0], rot: [-Math.PI / 2, 0, 0], color: C.crystal, opacity: 0.06 });
 
-  // Surface inclusions (tiny darker spots inside crystal body)
-  for (let ii = 0; ii < 4; ii++) {
-    const incl = new Mesh(new SphereGeometry(0.02 + sr() * 0.02, 3, 3), _inclMat);
-    incl.position.set((sr() - 0.5) * 0.15, 0.4 + sr() * 0.6, (sr() - 0.5) * 0.15);
-    g.add(incl);
-  }
-
-  // Prismatic halo ring (rainbow tint torus around main crystal)
-  const prism = new Mesh(new TorusGeometry(0.35, 0.02, 4, 10), _prismMat);
-  prism.position.y = 0.6; prism.rotation.x = Math.PI / 2 + sr() * 0.3; g.add(prism);
-
-  // Ground glow stain (emissive circle on floor beneath crystal)
-  const groundGlow = new Mesh(new CircleGeometry(0.8, 8), _groundGlowMat);
-  groundGlow.rotation.x = -Math.PI / 2; groundGlow.position.y = 0.01; g.add(groundGlow);
-
+  const m = b.build({ crystal: cMat, rock: _rockMat, spark: _sparkMat });
+  m.crystal.castShadow = true;
+  g.add(m.crystal, m.rock, m.spark);
   g.position.set(x, 0, z); scene.add(g);
-  // Crystal lighting handled by proximity pool in core/lighting.js (light budget compliance)
-  return { group: g, mat: cMat, phase: phase, x: x, z: z };
+  return { group: g, mat: cMat, phase, x, z };
 }

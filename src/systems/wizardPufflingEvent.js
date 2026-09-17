@@ -3,7 +3,7 @@ import { scene } from '../core/renderer.js';
 import { C } from '../constants.js';
 import { makePuff } from '../entities/fauna/pufflings.js';
 import { playWizardApproachLaLa } from './audio/creatures.js';
-import { humFreqArmed, pitch, yaw } from '../core/input.js';
+import { isHumInputActive, mobile, pitch, yaw } from '../core/input.js';
 import { player } from '../core/player.js';
 
 /**
@@ -465,8 +465,13 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     if (_confrontT >= CONFRONT_TO_WAIT_HUM) {
       _state = 'waitHum';
       _waitHumT = 0;
-      _humWasArmed = humFreqArmed;
-      if (_showNarrativeText) _showNarrativeText('Hum to answer it… (press F)', 4);
+      _humWasArmed = isHumInputActive();
+      // Name the control the player actually has. A phone has no F key: there,
+      // holding the pitch slider is the hum.
+      const humPrompt = mobile
+        ? 'Hum to answer it… (hold the HUM slider)'
+        : 'Hum to answer it… (press F)';
+      if (_showNarrativeText) _showNarrativeText(humPrompt, 4);
     }
 
     focusVec.x = g.position.x;
@@ -491,11 +496,14 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     const facePlayer = Math.atan2(px - g.position.x, pz - g.position.z);
     g.rotation.y = facePlayer;
 
+    // Already humming when the wizard asked? Then a moment of it is ambient,
+    // not an answer — hold it long enough to read as deliberate.
+    const humming = isHumInputActive();
     let proceed = false;
     if (!_humWasArmed) {
-      proceed = humFreqArmed && _waitHumT > 0.35;
+      proceed = humming && _waitHumT > 0.35;
     } else {
-      proceed = humFreqArmed && _waitHumT > 2.25;
+      proceed = humming && _waitHumT > 2.25;
     }
 
     if (proceed) {

@@ -4,7 +4,7 @@
 // Extracted from main.js _directorSpiritHum(). Self-contained visual
 // and input handling for the spirit hum mechanic.
 
-import { touchHum, touchHumY, keys, humFreqArmed, mobile } from '../core/input.js';
+import { touchHum, touchHumY, keys, humFreqArmed, mobile, isHumInputActive } from '../core/input.js';
 import { HUM_FREQ_MIN, HUM_FREQ_MAX, HUM_KEY_RAMP_NORM_PER_S } from '../constants.js';
 import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumPitch, getResonance, getResonanceType, getLockProgress, justLocked, getFarFieldHint, getLockDecay } from '../systems/spiritHum.js';
 import { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from '../systems/audio.js';
@@ -97,7 +97,7 @@ export function updateSpiritHumVisuals(dt) {
     }
   }
 
-  const _humInput = touchHum || (!mobile && humFreqArmed);
+  const _humInput = isHumInputActive();   // F on desktop, slider held on mobile
   const _enterHum = _humInput && !_humWasActive;
   if (_humInput && !_humWasActive) {
     startHum();

@@ -44,6 +44,8 @@ vi.mock('../../entities/fauna/pufflings.js', () => ({
 // ── Mock input (also imports renderer.js) ─────────────────────────────────
 vi.mock('../../core/input.js', () => ({
   humFreqArmed: false,
+  mobile: false,
+  isHumInputActive: () => false,
   yaw: 0,
   pitch: 0,
   keys: {},

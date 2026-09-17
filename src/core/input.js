@@ -269,6 +269,19 @@ if (slEl && mobile) {
   }, { passive: false });
 }
 
+/**
+ * @brief True while the player is asking to hum, on either control scheme.
+ * Desktop toggles the hum with F and sweeps pitch with Q/E; mobile has no
+ * keyboard, so holding the pitch slider IS the hum. Every caller that needs
+ * "is the player humming right now" reads this one function, so the two
+ * schemes cannot drift apart — the wizard's waitHum gate read `humFreqArmed`
+ * alone and was therefore unanswerable on a phone, stalling the encounter.
+ * @return {boolean}
+ */
+export function isHumInputActive() {
+  return touchHum || (!mobile && humFreqArmed);
+}
+
 // Right-side look
 renderer.domElement.addEventListener('touchstart', (e) => {
   e.preventDefault(); triggerGo();

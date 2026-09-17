@@ -3,7 +3,7 @@
 // ================================================================
 // These guard the LumiDebug.perf() data path. The sampler is gated by
 // import.meta.env.DEV, which vitest.config.js pins to true by forcing test mode.
-// Without that pin, a shell with NODE_ENV=production exported turns every export
+// Without that pin, any shell that inherits NODE_ENV=production turns every export
 // in perfMonitor.js into a no-op and the five tests below fail as bare
 // "expected 0 to be 240" assertions that name nothing. The first test states the
 // precondition out loud so the failure reads as what it is.

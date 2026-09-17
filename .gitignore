@@ -17,3 +17,6 @@ graphify-out/cache/
 
 # Delivery archives (snapshots handed to the owner, never source)
 *.zip
+
+# Files delivered into the chat land here when a folder is connected
+Claude outputs/

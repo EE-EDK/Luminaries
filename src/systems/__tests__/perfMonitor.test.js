@@ -2,7 +2,11 @@
 // perfMonitor — rolling FPS sampler + timing/renderer probes (dev-only).
 // ================================================================
 // These guard the LumiDebug.perf() data path. The sampler is gated by
-// import.meta.env.DEV, which vitest sets to true, so the math executes here.
+// import.meta.env.DEV, which vitest.config.js pins to true by forcing test mode.
+// Without that pin, a shell with NODE_ENV=production exported turns every export
+// in perfMonitor.js into a no-op and the five tests below fail as bare
+// "expected 0 to be 240" assertions that name nothing. The first test states the
+// precondition out loud so the failure reads as what it is.
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   sampleFrame,
@@ -21,6 +25,13 @@ function fillSteady(ms, frames) {
 }
 
 describe('perfMonitor FPS sampler', () => {
+  it('runs in dev mode — perfMonitor is a no-op otherwise', () => {
+    expect(
+      import.meta.env.DEV,
+      'the suite must run in test/dev mode; NODE_ENV=production in the shell disables perfMonitor (see vitest.config.js)'
+    ).toBe(true);
+  });
+
   it('reports zeros before any frame is sampled (in a fresh window region)', () => {
     // We can't reset module state, so instead assert the stats are internally
     // consistent rather than exact zeros (other tests may have run first).

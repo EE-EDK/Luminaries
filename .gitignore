@@ -14,3 +14,6 @@ __pycache__/
 
 # Graphify transient cache artifacts
 graphify-out/cache/
+
+# Delivery archives (snapshots handed to the owner, never source)
+*.zip

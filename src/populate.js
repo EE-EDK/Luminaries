@@ -892,7 +892,7 @@ export function populate(arrays, builders, scene) {
     const newY = getGroundY(tr.x, tr.z);
     tr.y = newY;
     if (treeImpostors[i]) {
-      treeImpostors[i].position.y = newY + (tr.treeH || 10) * 0.6;
+      treeImpostors[i].position.y = newY + (tr.treeH || 10) * 0.5;   // stamp centre (trees.js)
     }
   }
   // Rebuild instanced tree matrices with corrected heights + slope tilt

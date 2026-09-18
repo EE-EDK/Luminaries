@@ -1,7 +1,7 @@
-import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Points, PointsMaterial, Quaternion, RepeatWrapping, Sphere, SphereGeometry, SRGBColorSpace, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Frustum, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PlaneGeometry, Points, PointsMaterial, Quaternion, RepeatWrapping, Sphere, SphereGeometry, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { scene } from '../../core/renderer.js';
-import { C } from '../../constants.js';
+import { C, WORLD_R } from '../../constants.js';
 import { sr } from '../../utils/rng.js';
 import { saveSeed, restoreSeed } from '../../utils/rng.js';
 import { lerp } from '../../utils/math.js';
@@ -119,24 +119,63 @@ const GLOW_PALETTES = C.treeGlowPalettes;
 export { GLOW_PALETTES };
 
 // ================================================================
-// Billboard impostor — procedural glow texture for distant trees
+// Impostor texture — a tree-shaped stamp for the distant forest
 // ================================================================
-let _glowTexture = null;
-function getGlowTexture() {
-  if (_glowTexture) return _glowTexture;
-  const size = 64;
+// The old impostor was the radial glow above, blended additively. That reads as
+// light, not as a tree: while the forest is dimmed (treeDim starts at 0.35 and
+// the quest is about restoring it) the glow multiplies down to ~5% luminance
+// and the entire far forest disappears, so trees seemed to pop into existence
+// at the 63 m mesh boundary. This stamp carries the tree's SHAPE — canopy blob
+// over a tapered trunk — in its alpha, and its RGB darkens the trunk relative
+// to the canopy. Drawn with normal blending and tinted per tree, a dimmed tree
+// far away is a dark silhouette exactly like a dimmed tree close up.
+let _impostorTexture = null;
+function getTreeImpostorTexture() {
+  if (_impostorTexture) return _impostorTexture;
+  const S = 128;
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const c = canvas.getContext('2d');
-  const grad = c.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(68, 255, 136, 0.55)');
-  grad.addColorStop(0.25, 'rgba(34, 204, 100, 0.35)');
-  grad.addColorStop(0.6, 'rgba(20, 120, 60, 0.12)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  c.fillStyle = grad;
-  c.fillRect(0, 0, size, size);
-  _glowTexture = new CanvasTexture(canvas);
-  return _glowTexture;
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  const d = img.data;
+  const cx = S * 0.5, cy = S * 0.37, maxR = S * 0.46;
+
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      // --- Canopy: organic-edged blob, same perturbation family as the
+      // near-tree canopy alpha map so near and far read as one forest.
+      const dx = x - cx, dy = (y - cy) * 1.12;      // slightly wider than tall
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx);
+      const edgeR = maxR * (0.80
+        + 0.10 * Math.sin(ang * 3 + 0.5)
+        + 0.06 * Math.sin(ang * 5 + 1.7)
+        + 0.03 * Math.sin(ang * 7 + 3.1));
+      const t = dist / edgeR;
+      const canopy = t < 0.55 ? 1 : Math.max(0, 1 - Math.pow((t - 0.55) / 0.45, 1.4));
+
+      // --- Trunk: tapered column from under the canopy to the bottom edge.
+      const ny = y / S;
+      let trunk = 0;
+      if (ny > 0.42) {
+        const halfW = S * (0.030 + 0.030 * (ny - 0.42) / 0.58);
+        const tx = Math.abs(x - S * 0.5);
+        trunk = Math.max(0, 1 - Math.pow(tx / halfW, 2.2));
+        if (ny > 0.94) trunk *= (1 - ny) / 0.06;    // fade into the ground
+      }
+
+      const a = Math.min(1, Math.max(canopy, trunk * 0.95));
+      // Trunk pixels render darker than canopy pixels (texture RGB multiplies
+      // the per-tree vertex colour), which gives the silhouette some structure.
+      const lum = canopy >= trunk ? 1.0 : 0.42;
+      const v = Math.round(lum * 255);
+      const i = (y * S + x) * 4;
+      d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = Math.round(a * 255);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  _impostorTexture = new CanvasTexture(canvas);
+  return _impostorTexture;
 }
 
 // ================================================================
@@ -216,9 +255,12 @@ function getImpostorCloud() {
   geo.setAttribute('aAlpha', new BufferAttribute(_impAlpha, 1).setUsage(DynamicDrawUsage));
   geo.setAttribute('aSize', new BufferAttribute(_impSize, 1));
   geo.setDrawRange(0, 0);
+  // Normal blending, not additive: the impostor has to be able to render DARKER
+  // than the sky, because a dimmed tree is a silhouette. Additive can only add
+  // light, which is why the dimmed far forest was invisible.
   const mat = new PointsMaterial({
-    map: getGlowTexture(), vertexColors: true, transparent: true, depthWrite: false,
-    blending: AdditiveBlending, sizeAttenuation: true, size: 1
+    map: getTreeImpostorTexture(), vertexColors: true, transparent: true,
+    depthWrite: false, sizeAttenuation: true, size: 1
   });
   mat.customProgramCacheKey = () => 'lumTreeImpostor';
   mat.onBeforeCompile = (shader) => {
@@ -243,11 +285,14 @@ export function makeTreeImpostor(treeH, groundY) {
   const canopyW = treeH * 0.55;
   // World width → point size: PointsMaterial gives px = aSize·(H/2)/depth, a sprite gives
   // W·(H/2)/(depth·tan(fov/2)); fov 65° → 1/tan(32.5°) ≈ 1.57.
+  // The point is square and the stamp draws ground-to-crown inside it; canopyW is
+  // 0.55·treeH, so 2.2·canopyW = 1.21·treeH covers the whole tree with the point
+  // centred at mid-trunk.
   _impSize[idx] = canopyW * 2.2 * 1.57;
   _impAlpha[idx] = 0;
   const proxy = {
     isImpostorProxy: true, idx,
-    position: { x: 0, y: groundY + treeH * 0.6, z: 0 },
+    position: { x: 0, y: groundY + treeH * 0.5, z: 0 },   // stamp centre = mid-trunk
     visible: false,
     material: { color: new Color(C.treeGlowImpostor), opacity: 0.65 },
     userData: {}
@@ -632,6 +677,22 @@ function bakeTemplate(palIdx, seedOffset) {
 // ================================================================
 const _dummy = new Object3D();
 const _impColor = new Color();
+const _impGlow = new Color();
+/** Unlit far-tree tint — canopy in shadow, not black, so silhouettes keep a little depth. */
+const IMPOSTOR_SILHOUETTE = 0x24352c;
+/**
+ * Aerial perspective. Without it a dimmed tree and a night sky are both nearly
+ * black and the far forest is a void — which is exactly what players saw. Every
+ * impostor is mixed toward this haze with distance, so the forest recedes in
+ * legible layers instead of falling off a cliff at the mesh boundary.
+ */
+const IMPOSTOR_HAZE = 0x5c7c70;
+/** Squared distance at which haze reaches full strength (~140 m). */
+const IMPOSTOR_HAZE_FULL_D2 = 19600;
+/** Haze never fully erases the tree. */
+const IMPOSTOR_HAZE_MAX = 0.78;
+/** Impostor opacity once the 3D mesh has handed over. Near-solid: the stamp IS the tree now. */
+const IMPOSTOR_OPACITY = 0.92;
 const _slopeUp = new Vector3(0, 1, 0);
 const _slopeNorm = new Vector3();
 const _slopeQ = new Quaternion();
@@ -845,18 +906,42 @@ export function treeCanopyLivingPulse(templateIndex, time, treeDim) {
   return { em, op };
 }
 
-function _applyImpostorCanopyPulse(impostor, posIdx, time, treeDim, bioGlow, lodOpacity) {
+/**
+ * @brief Tint one distant-tree impostor: silhouette first, glow on top.
+ *
+ * The tint is a blend between a near-black silhouette and the template's canopy
+ * glow, driven by how lit the forest currently is. That blend is the whole point:
+ * the previous version multiplied the glow colour by the dim factor, so a dimmed
+ * forest (treeDim starts at 0.35) produced ~5% luminance on an additive sprite
+ * and the far forest vanished. A silhouette has no such floor to fall through —
+ * a dark tree at 100 m stays as visible as a dark tree at 40 m.
+ *
+ * @param {object} impostor proxy from makeTreeImpostor()
+ * @param {number} posIdx tree index (palette fallback)
+ * @param {number} time seconds
+ * @param {number} treeDim 0..1 forest dimming (× orb boost)
+ * @param {number} bioGlow 0..1 day/night bioluminescence
+ * @param {number} lodOpacity 0..1 LOD cross-fade weight
+ */
+function _applyImpostorCanopyPulse(impostor, posIdx, time, treeDim, bioGlow, lodOpacity, d2) {
   const ti = impostor.userData?.treeTemplateIndex != null
     ? impostor.userData.treeTemplateIndex
     : (posIdx % GLOW_PALETTES.length);
   const pulse = treeCanopyLivingPulse(ti, time, treeDim);
   const pal = GLOW_PALETTES[ti % GLOW_PALETTES.length];
-  const dim = Math.max(0.1, treeDim);
   const bio = 0.4 + 0.6 * bioGlow;
-  _impColor.setHex(pal.glow).multiplyScalar(dim * bio * pulse.em);
+  // How lit this tree reads, 0 (fully dimmed) → 1 (restored and pulsing bright).
+  const lit = Math.min(1, Math.max(0, treeDim * bio * pulse.em));
+  _impColor.setHex(IMPOSTOR_SILHOUETTE).lerp(_impGlow.setHex(pal.glow), lit);
+  // Aerial perspective, ramped on squared distance (no sqrt in this loop; the
+  // quadratic ramp also matches how haze actually builds — slow near, fast far).
+  const hazeT = Math.min(IMPOSTOR_HAZE_MAX,
+    Math.max(0, (d2 - 3969) / (IMPOSTOR_HAZE_FULL_D2 - 3969)) * IMPOSTOR_HAZE_MAX);
+  _impColor.lerp(_impGlow.setHex(IMPOSTOR_HAZE), hazeT);
   impostor.material.color.copy(_impColor);
-  const pulseOp = treeDim <= 0.06 ? 1 : (0.72 + 0.28 * pulse.op);
-  impostor.material.opacity = Math.min(0.95, lodOpacity * pulseOp * bio);
+  // Shape stays solid; only the LOD cross-fade and a slight breathing move it.
+  const pulseOp = 0.88 + 0.12 * pulse.op;
+  impostor.material.opacity = Math.min(1, lodOpacity * pulseOp);
 }
 
 // ================================================================
@@ -870,13 +955,16 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
     _frustum.setFromProjectionMatrix(_projScreenMatrix);
   }
 
-  // Adaptive-quality far-cull pull-in: at lower quality notches the outermost
-  // "hide entirely" radius shrinks so distant impostor sprites cull sooner
-  // (strictly fewer visible draws). lodScale is 1.0 at notch ≤ 2, so the band
-  // and all cross-fade thresholds below are byte-for-byte unchanged in normal
-  // play. Squared once here (lodScale² × radius²) — no per-instance sqrt/mult.
+  // Far cull. The whole distant forest is ONE draw call (the impostor point
+  // cloud), so hiding trees by distance buys nothing and costs the far half of
+  // the world: the old 115 m radius dropped 185 of 495 trees from the view of a
+  // player standing at the edge of a 90 m-radius world. The radius is now
+  // derived from the world so nothing in-world is ever culled, and it still
+  // pulls in at low quality notches (lodScale 0.85 → 183 m, still past the
+  // 180 m worst case). Squared once — no per-instance sqrt.
   const _lodS = getLodScale();
-  const _hideD2 = 13225 * _lodS * _lodS; // (115m)² scaled
+  const _hideR = WORLD_R * 2.4 * _lodS;
+  const _hideD2 = _hideR * _hideR;
 
   for (let ti = 0; ti < treeMeshes.length; ti++) {
     const mesh = treeMeshes[ti];
@@ -890,8 +978,7 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
       const posIdx = inst.posIdx;
       const impostor = treeImpostors[posIdx];
 
-      // Tier 3 (>115m): hidden entirely. Radius pulls in at lower quality
-      // notches (_hideD2); at full quality _hideD2 === 13225 (no behavior change).
+      // Tier 3: past the far-cull radius — nothing inside this world reaches it.
       if (d2 > _hideD2) {
         if (impostor) impostor.visible = false;
         continue;
@@ -911,34 +998,24 @@ export function updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wL
         }
       }
 
-      // Fade-out zone (105-115m): impostor fading to invisible
-      if (d2 > 11025) {
-        if (impostor) {
-          const d = Math.sqrt(d2);
-          impostor.visible = true;
-          const lodOp = lerp(0.65, 0, (d - 105) / 10);
-          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, lodOp);
-        }
-        continue;
-      }
-
-      // Tier 2 (75-105m): impostor at full opacity
+      // Tier 2 (75 m to the far edge of the world): impostor at full opacity.
+      // No fade-out band — the forest does not thin into nothing any more.
       if (d2 > 5625) {
         if (impostor) {
           impostor.visible = true;
-          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, 0.65);
+          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, IMPOSTOR_OPACITY, d2);
         }
         continue;
       }
 
-      // Cross-fade zone (63-75m): impostor fading out, 3D mesh also shown
+      // Tier 1→2 cross-fade (63-75 m): impostor fading in behind the 3D mesh
       if (d2 > 3969) {
         const d = Math.sqrt(d2);
         const fadeFrac = (d - 63) / 12; // 0 at 63m, 1 at 75m
         if (impostor) {
           impostor.visible = true;
-          const lodOp = lerp(0, 0.65, fadeFrac);
-          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, lodOp);
+          const lodOp = lerp(0, IMPOSTOR_OPACITY, fadeFrac);
+          _applyImpostorCanopyPulse(impostor, posIdx, t, treeDim, bioGlow, lodOp, d2);
         }
         // Also render the 3D mesh during cross-fade
         _dummy.position.set(inst.x, inst.y, inst.z);

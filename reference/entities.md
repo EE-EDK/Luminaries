@@ -107,14 +107,40 @@ Each creature type has a pitch band. The player must press F to hum and match th
 
 ## Tree LOD System
 
+Distances are to the tree's mid-canopy, compared as squared metres.
+
 | Tier | Distance | Detail | Draw Calls |
 |------|----------|--------|------------|
-| 0 | < 20m | Full detail + wind sway | 4 per template |
-| 1 | 20-70m | Reduced (no glow mesh) | 3 per template |
-| 2 | 70-110m | Impostor point in one shared `Points` cloud | 1 total |
-| 3 | > 110m | Hidden | 0 |
+| 0 | < 18 m | Full detail mesh + wind sway | 4 per template |
+| 1 | 18-63 m | Trunk / canopy / glow, no detail, no sway | 3 per template |
+| 1→2 | 63-75 m | Cross-fade: mesh still drawn, impostor fading in | as above |
+| 2 | 75 m → world edge | Impostor point in one shared `Points` cloud | 1 total |
+| 3 | > `WORLD_R` × 2.4 (216 m) | Hidden — nothing inside the world reaches it | 0 |
 
-**Total tree draw calls:** ~41 (10 templates x 4 meshes, culled by LOD, + 1 impostor cloud); measured 50 at the origin on 2026-09-16 including shadow passes
+**Total tree draw calls:** ~41 (10 templates × 4 meshes, culled by LOD, + 1 impostor cloud); measured 50 at the origin on 2026-09-16 including shadow passes.
+
+### The distant forest (rewritten 2026-09-18)
+
+The far tier used to hide every tree past 115 m and draw the ones inside it as an
+additive radial glow whose colour was multiplied by the forest dim factor. In a
+world of radius 90 m that cost a player at the edge 185 of 495 trees, and the
+survivors rendered at ~5 % luminance — the forest appeared to start at the 63 m
+mesh boundary with nothing behind it. Now:
+
+- **Nothing in-world is culled.** The cull radius is derived from `WORLD_R`, and
+  the whole far forest is one draw call regardless of how many trees it holds.
+- **The impostor is tree-shaped.** `getTreeImpostorTexture()` stamps a canopy
+  blob over a tapered trunk, with the trunk darker than the canopy in the texture
+  RGB. Normal blending, not additive, so a dimmed tree can render *darker* than
+  the sky — which is what a silhouette is.
+- **Tint is silhouette → glow.** `IMPOSTOR_SILHOUETTE` blended toward the
+  template's canopy glow by how lit the forest currently is, so the far forest
+  brightens as the quest restores it.
+- **Aerial perspective.** Every impostor mixes toward `IMPOSTOR_HAZE` with
+  distance (ramped on squared distance, no `sqrt` in the loop), so the forest
+  recedes in legible layers instead of merging into black.
+
+Pinned by `src/entities/flora/__tests__/treeLod.test.js`.
 
 ## Entity Color Palette Quick Reference
 

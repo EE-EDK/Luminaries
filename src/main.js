@@ -123,6 +123,20 @@ const CAM_STRAFE_ROLL = 0.02;   // radians at full strafe, about 1.1 degrees
 const CAM_BREATH_AMP = 0.006;   // radians of pitch once the player is still
 let _camRoll = 0;
 import { setTouchPlatform } from './narrative/controls.js';
+import { initSessionSummary, showSessionSummary } from './ui/sessionSummary.js';
+import { getDiscoveredKeys } from './state/narrativeState.js';
+
+// When this visit began, for the session summary. Wall clock, not world time.
+const _sessionStart = Date.now();
+let _summaryShown = false;
+function _sessionStats(restored) {
+  return {
+    orbs: getOrbsFound(),
+    discoveries: getDiscoveredKeys().length,
+    seconds: (Date.now() - _sessionStart) / 1000,
+    restored,
+  };
+}
 import { mobile as _isMobile } from './core/input.js';
 import {
   initSettings, getSetting, setSetting, onSetting,
@@ -946,8 +960,22 @@ try {
     }
   });
 
+  initSessionSummary();
+  // Once, when the world comes back — not on every re-entry to FREE_ROAM.
+  on(Events.QUEST_PHASE, (e) => {
+    if (e && e.phase === 'FREE_ROAM' && !_summaryShown) {
+      _summaryShown = true;
+      setTimeout(() => showSessionSummary(_sessionStats(true), 14), 6000);
+    }
+  });
+
   setDevSaveHooks(autosave);
-  window.addEventListener('pagehide', () => autosave.flush('pagehide'));
+  window.addEventListener('pagehide', () => {
+    autosave.flush('pagehide');
+    // Drawn but not read: pagehide is too late to render. It costs nothing and
+    // means a tab restored from the back-forward cache shows where they left off.
+    if (gameStarted) showSessionSummary(_sessionStats(false), 0);
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') autosave.flush('hidden');
   });

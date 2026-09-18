@@ -58,3 +58,43 @@ export function leanOffset(px, pz, tx, tz, progress, reach, out) {
   o.z = dz * inv * amp;
   return o;
 }
+
+/**
+ * @brief Camera roll from sideways movement — a lean into the strafe.
+ *
+ * Eased toward the target rather than set, so a tap of the strafe key does not
+ * snap the horizon. Sign is negated because rolling right means rotating the
+ * camera counter-clockwise about its forward axis.
+ *
+ * @param {number} current current roll in radians
+ * @param {number} strafe -1..1, sideways input
+ * @param {number} maxRoll radians at full strafe
+ * @param {number} dt seconds
+ * @param {number} rate approach rate per second
+ * @return {number} the new roll
+ */
+export function strafeRoll(current, strafe, maxRoll, dt, rate = 5) {
+  const s = Number.isFinite(strafe) ? (strafe < -1 ? -1 : (strafe > 1 ? 1 : strafe)) : 0;
+  const target = -s * maxRoll;
+  const k = Math.min(1, Math.max(0, (Number.isFinite(dt) ? dt : 0) * rate));
+  const c = Number.isFinite(current) ? current : 0;
+  return c + (target - c) * k;
+}
+
+/**
+ * @brief A slow breath for a camera that has been still.
+ *
+ * Two sines an octave apart so the loop does not read as a metronome. Returns
+ * a pitch offset in radians, zero until the player has actually stopped.
+ *
+ * @param {number} idleTime seconds since the player last moved
+ * @param {number} t elapsed seconds
+ * @param {number} amp radians at full depth
+ * @param {number} [after=3] seconds of stillness before it fades in
+ * @return {number} pitch offset in radians
+ */
+export function breathOffset(idleTime, t, amp, after = 3) {
+  if (!(idleTime > after)) return 0;
+  const fade = Math.min(1, (idleTime - after) / 2);      // two seconds to arrive
+  return (Math.sin(t * 0.9) * 0.7 + Math.sin(t * 1.8) * 0.3) * amp * fade;
+}

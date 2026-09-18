@@ -114,7 +114,14 @@ import { on, Events } from './kernel/eventBus.js';
 import { guardedStorage, readSave, clearSave, initAutosave } from './state/saveState.js';
 import { buildSnapshot, applySnapshot, validateOpts } from './state/worldSnapshot.js';
 import { getBootSeed } from './utils/rng.js';
-import { startLightLean } from './updates/playerVisuals.js';
+import { startLightLean, isCameraPanActive } from './updates/playerVisuals.js';
+import { strafeRoll, breathOffset } from './utils/math.js';
+import { isReducedMotion } from './core/player.js';
+
+// Camera character. Small enough to feel rather than see.
+const CAM_STRAFE_ROLL = 0.02;   // radians at full strafe, about 1.1 degrees
+const CAM_BREATH_AMP = 0.006;   // radians of pitch once the player is still
+let _camRoll = 0;
 import { setTouchPlatform } from './narrative/controls.js';
 import { mobile as _isMobile } from './core/input.js';
 import {
@@ -704,6 +711,19 @@ function animate() {
   }
   camera.rotation.y = finalYaw;
   camera.rotation.x = finalPitch;
+
+  // Two small things the camera does on its own, applied after the arbiter so
+  // a cutscene pan is never fought over: a lean into a strafe, and a slow
+  // breath once the player has genuinely stopped. Both are camera motion the
+  // player did not ask for, so reduced motion skips them entirely.
+  if (!isReducedMotion() && !isCameraPanActive()) {
+    _camRoll = strafeRoll(_camRoll, keys.a ? -1 : (keys.d ? 1 : 0), CAM_STRAFE_ROLL, dt);
+    camera.rotation.z = _camRoll;
+    camera.rotation.x = finalPitch + breathOffset(playerIdleTime, elapsed, CAM_BREATH_AMP);
+  } else if (_camRoll !== 0) {
+    _camRoll = 0;
+    camera.rotation.z = 0;
+  }
 
   updateHUD(dt, player.pos);
   postRender();

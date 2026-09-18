@@ -12,6 +12,11 @@
 //   The sun follows the forest.
 
 import { Color } from 'three';
+import { setImpostorHaze } from '../entities/flora/trees.js';
+
+// Scratch colours: the fog lerp runs every frame, so nothing here allocates.
+const _hazeOut = new Color();
+const _WHITE = new Color(0xffffff);
 import { setSkyBrightness, isSkyTransformed } from '../world/sky.js';
 import { emit, Events } from '../kernel/eventBus.js';
 import { C } from '../constants.js';
@@ -177,6 +182,10 @@ export function updateDayNight(dt) {
     _c1.copy(a.fog).lerp(b.fog, t);
     _c1.multiplyScalar(orbSkyMult);
     sceneRef.fog.color.copy(_c1);
+    // The far canopy dissolves into the same air everything else is in.
+    // Brightened a little: haze read at full fog colour sits too dark against
+    // the sky it is supposed to be melting into.
+    setImpostorHaze(_hazeOut.copy(_c1).lerp(_WHITE, 0.18));
     sceneRef.fog.density = lerp(a.fogDensity, b.fogDensity, t);
   }
 

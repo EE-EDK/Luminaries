@@ -11,7 +11,7 @@ import { getPlayerFrequency } from '../systems/attunement.js';
 import { player, isReducedMotion } from '../core/player.js';
 import { renderer, scene } from '../core/renderer.js';
 import { smoothstep, leanOffset } from '../utils/math.js';
-import { setSaturation, bloomPass } from '../core/postprocessing.js';
+import { setSaturation, setVignette, setGrain, setPostTime, bloomPass } from '../core/postprocessing.js';
 import { bloomStrengthFor, getQualityNotch } from '../systems/adaptiveQuality.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
 import { getOrbsFound } from '../quest/questState.js';
@@ -80,6 +80,10 @@ export function getLightLeanRemaining() { return _leanT; }
 export function clearLightLean() { _leanT = 0; }
 
 const _leanOut = { x: 0, z: 0 };
+
+// Post-pass look. Owner-tunable at runtime through LumiDebug.post().
+const VIGNETTE_MAX = 0.34;      // at full dimming; eases off as the world restores
+const GRAIN_BASE = 0.042;       // film, not noise
 
 export function isCameraPanActive() { return _camPanActive; }
 
@@ -221,6 +225,18 @@ export function updatePlayerVisuals(dt, elapsed) {
   const flashEaseDim = flashNormDim * flashNormDim;
 
   setSaturation(dimF + (flashActive ? flashEaseDim * 0.4 : 0));
+
+  // Vignette and grain. The vignette deepens as the world dims, so the
+  // restored forest opens up and the unrestored one closes in — it is the
+  // same cue the saturation is already carrying, not a fixed frame. Grain is
+  // motion the player did not ask for, so reduced motion turns it off.
+  setVignette(VIGNETTE_MAX * (1 - dimF * 0.55));
+  if (isReducedMotion()) {
+    setGrain(0);
+  } else {
+    setGrain(GRAIN_BASE);
+    setPostTime(elapsed);
+  }
   // Physical daytime sky needs much lower exposure — mieDirectionalG ~0.44 spreads
   // sun glow broadly; at night-forest levels (0.7–1.6) the sky blows out to white.
   // Sky shader output is pre-scaled by 0.086 (onBeforeCompile), so game exposure

@@ -20,6 +20,7 @@ import { isReducedMotion } from '../core/player.js';
 import { getQualityFloor } from './../systems/adaptiveQuality.js';
 import { getSettings } from '../state/settingsState.js';
 import { showNarrativeText } from '../systems/discoveries.js';
+import { getPostSettings, setPostOverride } from '../core/postprocessing.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
@@ -318,6 +319,18 @@ export function attachLumiDebugApi() {
             : null,
         },
       };
+    },
+
+    /**
+     * Read or force the post-pass look. post() reports; post({vignette, grain})
+     * overrides until released with post(null), which is what makes an A/B
+     * measurable — the per-frame driver would otherwise overwrite any value
+     * set from the console before the next screenshot.
+     */
+    post(over) {
+      if (over === null) { setPostOverride(null); return getPostSettings(); }
+      if (over) setPostOverride(over);
+      return getPostSettings();
     },
 
     /** Push a line through the real narrative display path. */

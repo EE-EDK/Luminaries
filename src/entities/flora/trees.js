@@ -687,6 +687,35 @@ const IMPOSTOR_SILHOUETTE = 0x24352c;
  * legible layers instead of falling off a cliff at the mesh boundary.
  */
 const IMPOSTOR_HAZE = 0x5c7c70;
+// The haze the far canopy dissolves into should be the air the player is
+// standing in, not a fixed green-grey. The fog colour already lerps across
+// dusk, night, deep night and dawn and is multiplied by the weather; the
+// impostors were the one thing in the distance that ignored all of it, so a
+// dawn sky met a permanently nocturnal treeline. Written once per phase
+// change rather than per frame — it is a colour, not an animation.
+const _hazeColor = new Color(IMPOSTOR_HAZE);
+let _hazeIsCustom = false;
+
+/**
+ * @brief Point the distant-canopy haze at the live fog colour.
+ * @param {import('three').Color|number|null} color null restores the constant
+ */
+export function setImpostorHaze(color) {
+  if (color === null || color === undefined) {
+    _hazeColor.setHex(IMPOSTOR_HAZE);
+    _hazeIsCustom = false;
+    return _hazeColor;
+  }
+  if (typeof color === 'number') _hazeColor.setHex(color);
+  else _hazeColor.copy(color);
+  _hazeIsCustom = true;
+  return _hazeColor;
+}
+
+/** @brief The haze colour in effect, and whether it is following the fog. */
+export function getImpostorHaze() {
+  return { color: _hazeColor, following: _hazeIsCustom };
+}
 /** Squared distance at which haze reaches full strength (~140 m). */
 const IMPOSTOR_HAZE_FULL_D2 = 19600;
 /** Haze never fully erases the tree. */
@@ -937,7 +966,7 @@ function _applyImpostorCanopyPulse(impostor, posIdx, time, treeDim, bioGlow, lod
   // quadratic ramp also matches how haze actually builds — slow near, fast far).
   const hazeT = Math.min(IMPOSTOR_HAZE_MAX,
     Math.max(0, (d2 - 3969) / (IMPOSTOR_HAZE_FULL_D2 - 3969)) * IMPOSTOR_HAZE_MAX);
-  _impColor.lerp(_impGlow.setHex(IMPOSTOR_HAZE), hazeT);
+  _impColor.lerp(_hazeColor, hazeT);
   impostor.material.color.copy(_impColor);
   // Shape stays solid; only the LOD cross-fade and a slight breathing move it.
   const pulseOp = 0.88 + 0.12 * pulse.op;

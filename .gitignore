@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Vite outDir (vite.config.js). Pages builds it from source in the workflow; never commit it.
+docs/
 .DS_Store
 *.log
 

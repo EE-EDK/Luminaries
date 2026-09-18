@@ -11,7 +11,7 @@ Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ 
 ```sh
 npm install          # First time
 npm run dev          # http://localhost:5173
-npm run build        # Production build to dist/
+npm run build        # Production build to docs/ (vite outDir; gitignored — Pages builds it from the workflow)
 npm test             # Run unit tests (kernel modules)
 ```
 
@@ -32,7 +32,7 @@ npm test             # Run unit tests (kernel modules)
 | `../../../tools/webgl-protocol-v5/00-hub.md` | **WebGL Protocol v5.0** — modular successor to v4.1. 46 composable modules + walking-sim recipe. Use for new Three.js work or understanding universal patterns. | New Three.js projects, architecture decisions |
 | `reference/phase-1-summary.md` | Everything built in Phase 1, completion checklist, known debt | Understanding current state |
 | `reference/phase-2-roadmap.md` | 21 prioritized implementation items for Phase 2 (from MANIFESTO.md) | Planning Phase 2 work |
-| `reference/phase-3-plan-2026-09-18.md` | **PROPOSED** Phase 3: persistence, onboarding, atmosphere, creature life, positional audio, field notebook, fauna GPU rig, mobile, accessibility — 10 workstreams in 4 sprints, measured baseline in §0 | Planning anything after the entity rework |
+| `reference/phase-3-plan-2026-09-18.md` | **APPROVED** Phase 3: persistence, onboarding, atmosphere, creature life, positional audio, field notebook, fauna GPU rig, mobile, accessibility — 11 workstreams in 5 sprints (narrative cohesion added by owner), measured baseline in §0, decisions in §5 | Planning anything after the entity rework |
 | `reference/MANIFESTO.md` | Full Phase 2 design: Symbiotic Attunement, The Dimming, dual-narrative, all mechanics | Understanding the vision |
 
 ## Current Phase
@@ -228,6 +228,8 @@ When a session touches this repo, align with the **root workspace** `END SESSION
 **2026-09-18 — Removed the mushroom-house picture-in-picture.** `ui/pufflingHomePreview.js` pinned an iframe of `public/assets/mushroom-house-puffling-home.html` to the bottom-right corner as a side-by-side reference while the in-game houses were being matched to it. It was gated on `import.meta.env.DEV`, so it never shipped — confirmed absent from the deployed bundle — but it sat over every dev session and every screenshot. Module deleted, import and call removed from `main.js`. The reference asset stays: `pufflingHomeDetailed.js`, `pufflingHomes.js`, `constants.js` and the open puffling-house readability TODO all cite it. Tests 270/270, build clean, no page errors and no iframe left in the DOM.
 
 **2026-09-18 — Phase 3 plan proposed.** `reference/phase-3-plan-2026-09-18.md`: 10 workstreams (persistence, onboarding, atmosphere, notebook, creature life, audio, performance, mobile, accessibility, hygiene) sequenced into 4 sprints, each ending deployed. §0 records the measured baseline it was written against (128 modules / 27,354 lines — CLAUDE.md's "86 / 14,000" is stale — 270 tests, 611–763 draw calls, no persistence, no 3D audio panner, no settings). §5 lists the four decisions the owner needs to make before Sprint 1. Nothing built.
+
+**2026-09-18 — Phase 3 plan approved; Pages now builds from the workflow.** Owner approved the sprint order and added a narrative-cohesion workstream (K, Sprint 3, ahead of the notebook): measured against `reference/narrative.md`, the Architect / parent layer that the bible calls the payoff has **zero** references in code, the intro's 79 strings are archival-only, the wizard speaks in a fourth register, and only ~20 of ~250 player-facing strings carry both voices. Decisions: A1 saves full world state with a Settings toggle and Clear-save / Regenerate-world in the dev hamburger; F1 uses HRTF on desktop and equal-power on touch. `docs/`: the first draft of J4 assumed the Actions workflow served the site; `gh api …/pages` showed Pages in *legacy* mode serving `main:/docs`, so the tracked bundle was load-bearing and the workflow's deploy step was decorative — which is why forgetting the rebuild on 2026-09-16 left the site stale. Switched Pages to `build_type=workflow`, untracked `docs/` (222 commits had touched it), ignored it, corrected the Quick Start line that still said `dist/`.
 
 ## Auto-Commit & Push
 

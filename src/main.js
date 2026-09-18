@@ -116,7 +116,6 @@ import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 import { initDebugConsole } from './debug/debugConsole.js';
 import { initDevSkipPanel } from './debug/devSkipPanel.js';
-import { initPufflingHomePreview } from './ui/pufflingHomePreview.js';
 import { getPufflingHouseCollision, updatePufflingHomes } from './entities/world/pufflingHomes.js';
 
 // ================================================================
@@ -843,8 +842,6 @@ try {
     flowers: flowers,
     reeds: reeds
   });
-
-  initPufflingHomePreview();
 
   // Wire up go callback
   setGoCallback(go);

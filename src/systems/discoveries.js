@@ -2,6 +2,7 @@
 // Discovery Moments — First Encounter Rewards
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
+import { resolveControls } from '../narrative/controls.js';
 import { getPerspective, isDiscovered, isTruthRevealed, markDiscovered } from '../state/narrativeState.js';
 import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, CREATURE_NAMES, QuestPhases } from '../quest/config.js';
 import { getOrbsFound } from '../quest/questState.js';
@@ -177,7 +178,10 @@ export function restoreGlyphs(indices) {
 }
 
 export function showNarrativeText(text, duration) {
-  fadeText = text;
+  // One choke point for control names: every player-facing line passes here,
+  // so {hum} and {pitch} come out right on a phone whether or not the author
+  // of that particular string remembered phones exist.
+  fadeText = resolveControls(text, { voice: getPerspective() });
   fadeTimer = dwellSec(duration ?? 5.0);
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
@@ -246,8 +250,8 @@ const IDLE_HINTS_CHILD = [
   [
     'Between silence and song the wood leans closer—what if you almost sang?',
     'The creatures know a breath that isn’t quite speech—stillness helps them hear you.',
-    'Press F to hum softly, then Q or E to sweep the pitch — the grove listens for that thin thread of sound.',
-    'Press F near friends and sweep pitch with Q or E — pufflings and others teach hums the gold will answer.',
+    '{humInstruction} — the grove listens for that thin thread of sound.',
+    '{hum} near friends and sweep pitch with {pitch} — pufflings and others teach hums the gold will answer.',
   ],
   [
     'What fell from the gray needle as five sleeping coals, and wakes only for stolen voices?',
@@ -272,8 +276,8 @@ const IDLE_HINTS_ADULT = [
   [
     'Sub-vocal carrier may couple to local fauna—test near-field harmonic injection.',
     'Fauna interface favors sustained sub-threshold tone—stillness improves SNR.',
-    'F: carrier injection; Q/E: sweep pitch; maintain carrier until coupling locks.',
-    'F near micro-fauna to sample teachable frequencies; Q/E for anchor-frequency sweep handshake.',
+    '{hum} injection; {pitch} pitch; maintain carrier until coupling locks.',
+    '{hum} near micro-fauna to sample teachable frequencies; {pitch} for anchor-frequency handshake.',
   ],
   [
     'Lattice log: five dormant ignitions; each demands a specific borrowed bio-key.',

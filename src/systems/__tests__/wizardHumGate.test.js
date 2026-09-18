@@ -13,6 +13,7 @@
  * the proclaim line. Everything that needs WebGL, audio or the DOM is mocked.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolveControls } from '../../narrative/controls.js';
 
 // Mutable hum state the input mock reads — hoisted so the vi.mock factory sees it.
 const hum = vi.hoisted(() => ({ active: false, mobile: true }));
@@ -104,19 +105,28 @@ describe('wizard hum gate', () => {
     expect(lines).toContain(PROCLAIM_LINE);
   });
 
-  it('mobile: the prompt names the slider, never the F key', () => {
+  // The wizard no longer bakes the platform into its own string: it emits a
+  // {hum} token that showNarrativeText resolves for whatever platform is in
+  // play. The guarantee is unchanged and still checked end to end -- what the
+  // player READS must never name a control their device lacks -- so these
+  // resolve the emitted line exactly as the display path would.
+  it('mobile: what the player reads names the slider, never the F key', () => {
     const lines = runEncounter({ mobileDevice: true, humFrom: 15 });
-    const prompt = lines.find((l) => l.startsWith('Hum to answer it'));
-    expect(prompt).toBeDefined();
+    const emitted = lines.find((l) => l.startsWith('Hum to answer it'));
+    expect(emitted).toBeDefined();
+    const prompt = resolveControls(emitted, { touch: true });
     expect(prompt).toContain('HUM slider');
     expect(prompt).not.toContain('F');
+    expect(prompt).not.toContain('{');          // no token left unresolved
   });
 
-  it('desktop: the prompt still names the F key', () => {
+  it('desktop: what the player reads still names the F key', () => {
     const lines = runEncounter({ mobileDevice: false, humFrom: 15 });
-    const prompt = lines.find((l) => l.startsWith('Hum to answer it'));
-    expect(prompt).toBeDefined();
+    const emitted = lines.find((l) => l.startsWith('Hum to answer it'));
+    expect(emitted).toBeDefined();
+    const prompt = resolveControls(emitted, { touch: false });
     expect(prompt).toContain('press F');
+    expect(prompt).not.toContain('{');
   });
 
   it('never humming leaves the wizard waiting', () => {

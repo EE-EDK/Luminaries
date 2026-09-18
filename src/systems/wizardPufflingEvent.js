@@ -468,10 +468,10 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _humWasArmed = isHumInputActive();
       // Name the control the player actually has. A phone has no F key: there,
       // holding the pitch slider is the hum.
-      const humPrompt = mobile
-        ? 'Hum to answer it… (hold the HUM slider)'
-        : 'Hum to answer it… (press F)';
-      if (_showNarrativeText) _showNarrativeText(humPrompt, 4);
+      // Resolved downstream by showNarrativeText, so this one string is
+      // right on both platforms instead of being a ternary that has to be
+      // remembered at every new call site.
+      if (_showNarrativeText) _showNarrativeText('Hum to answer it… ({hum})', 4);
     }
 
     focusVec.x = g.position.x;

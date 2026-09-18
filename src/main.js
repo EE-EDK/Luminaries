@@ -89,7 +89,7 @@ import { initOrbBurst, spawnOrbBurst, updateOrbBurst } from './particles/orbBurs
 import { initResonanceRings, updateResonanceRings } from './particles/resonanceRings.js';
 
 // Quest
-import { initQuestState, updateQuestState, getOrbsFound } from './quest/questState.js';
+import { initQuestState, updateQuestState, getOrbsFound, getQuestState } from './quest/questState.js';
 import { initQuestVisuals, updateQuestVisuals } from './quest/questVisuals.js';
 import { makeLaser } from './quest/lasers.js';
 
@@ -114,6 +114,9 @@ import { on, Events } from './kernel/eventBus.js';
 import { guardedStorage, readSave, clearSave, initAutosave } from './state/saveState.js';
 import { buildSnapshot, applySnapshot, validateOpts } from './state/worldSnapshot.js';
 import { getBootSeed } from './utils/rng.js';
+import { startLightLean } from './updates/playerVisuals.js';
+import { setTouchPlatform } from './narrative/controls.js';
+import { mobile as _isMobile } from './core/input.js';
 import {
   initSettings, getSetting, setSetting, onSetting,
 } from './state/settingsState.js';
@@ -870,6 +873,7 @@ try {
   // Loaded before the panel is built and before any consumer subscribes, so
   // each consumer's first call carries the stored value rather than a default
   // it would then have to be corrected away from.
+  setTouchPlatform(_isMobile);
   initSettings(saveStore);
 
   onSetting('masterVolume', () => applyMixerSettings());
@@ -912,6 +916,16 @@ try {
     Events.DISCOVERY, Events.PERSPECTIVE_CHANGED, Events.CREATURE_ATTUNED]) {
     on(e, () => autosave.request(e));
   }
+  // After an orb, the player's light drifts toward the next one for a second.
+  // Not a marker — just one direction made slightly brighter than the rest.
+  on(Events.ORB_COLLECTED, () => {
+    const st = getQuestState();
+    for (let i = 0; i < st.orbs.length; i++) {
+      const o = st.orbs[i];
+      if (!o.found) { startLightLean(o.x, o.z); break; }
+    }
+  });
+
   setDevSaveHooks(autosave);
   window.addEventListener('pagehide', () => autosave.flush('pagehide'));
   document.addEventListener('visibilitychange', () => {

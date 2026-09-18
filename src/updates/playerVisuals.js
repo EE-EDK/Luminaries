@@ -8,9 +8,9 @@ import { C, ORB_N, DIMMING_FACTOR, PLAYER_LIGHT_COLORS, PLAYER_LIGHT_INTENSITY, 
 import { getLocalGlow } from '../systems/dimming.js';
 import { isHumming, isLocked, getResonance, getResonanceType } from '../systems/spiritHum.js';
 import { getPlayerFrequency } from '../systems/attunement.js';
-import { player } from '../core/player.js';
+import { player, isReducedMotion } from '../core/player.js';
 import { renderer, scene } from '../core/renderer.js';
-import { smoothstep } from '../utils/math.js';
+import { smoothstep, leanOffset } from '../utils/math.js';
 import { setSaturation, bloomPass } from '../core/postprocessing.js';
 import { bloomStrengthFor, getQualityNotch } from '../systems/adaptiveQuality.js';
 import { playerLight, hemiLight } from '../core/lighting.js';
@@ -55,6 +55,31 @@ const CAM_PAN_TOTAL = CAM_PAN_LERP_IN + CAM_PAN_HOLD + CAM_PAN_LERP_OUT;
  * @param {number} n orbs found
  */
 export function syncCameraPanOrbs(n) { _camPanOrbsPrev = n; }
+
+// ----------------------------------------------------------------
+// Light lean — a nudge toward the next orb, not an arrow
+// ----------------------------------------------------------------
+// After an orb is collected the player's own light drifts a couple of metres
+// toward where the next one waits, then settles back. It reads as the forest
+// leaning rather than as a quest marker, which is the point: the game never
+// tells you where to go, it just makes one direction slightly brighter.
+const LEAN_DURATION = 1.0;      // seconds, there and back
+const LEAN_REACH = 2.2;         // metres at the peak
+
+let _leanT = 0;                 // counts down; 0 means no lean in progress
+let _leanTX = 0, _leanTZ = 0;   // where we are leaning toward, world space
+
+export function startLightLean(tx, tz) {
+  _leanTX = tx; _leanTZ = tz; _leanT = LEAN_DURATION;
+}
+
+/** @brief Seconds left in the current lean, 0 when idle. */
+export function getLightLeanRemaining() { return _leanT; }
+
+/** @brief Cancel any lean in progress (restore, reduced motion). */
+export function clearLightLean() { _leanT = 0; }
+
+const _leanOut = { x: 0, z: 0 };
 
 export function isCameraPanActive() { return _camPanActive; }
 
@@ -144,6 +169,21 @@ export function updateCameraPan(dt, liveYaw, livePitch) {
  * Returns the current dimF for use elsewhere if needed.
  */
 export function updatePlayerVisuals(dt, elapsed) {
+
+  // Light lean: applied on top of the position player.js already copied in.
+  if (_leanT > 0) {
+    _leanT -= dt;
+    if (_leanT < 0) _leanT = 0;
+    if (isReducedMotion()) {
+      _leanT = 0;                       // a moving light source is motion too
+    } else {
+      const prog = 1 - (_leanT / LEAN_DURATION);
+      leanOffset(playerLight.position.x, playerLight.position.z,
+        _leanTX, _leanTZ, prog, LEAN_REACH, _leanOut);
+      playerLight.position.x += _leanOut.x;
+      playerLight.position.z += _leanOut.z;
+    }
+  }
 
   // Player light evolution — color/intensity/range scales with orbs
   const _orbsFound = getOrbsFound();

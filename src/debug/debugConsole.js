@@ -19,6 +19,7 @@ import { getLookSensitivity, isInvertY } from '../core/input.js';
 import { isReducedMotion } from '../core/player.js';
 import { getQualityFloor } from './../systems/adaptiveQuality.js';
 import { getSettings } from '../state/settingsState.js';
+import { showNarrativeText } from '../systems/discoveries.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
@@ -318,6 +319,9 @@ export function attachLumiDebugApi() {
         },
       };
     },
+
+    /** Push a line through the real narrative display path. */
+    say(text, seconds = 4) { showNarrativeText(text, seconds); },
 
     /** Event bus, for watching what a restore does and does not fire. */
     bus: { on, off, Events },

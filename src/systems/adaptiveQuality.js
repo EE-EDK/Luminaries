@@ -93,14 +93,19 @@ export function makeQualityState() {
  * @param {number} dt           seconds since last step (clamped ≥ 0).
  * @returns {{notch:number, lowTime:number, highTime:number}} same object.
  */
-export function stepQuality(state, smoothedFps, dt) {
+export function stepQuality(state, smoothedFps, dt, maxNotch = MAX_NOTCH) {
   const fps = Number.isFinite(smoothedFps) ? smoothedFps : 0;
   const d = dt > 0 ? dt : 0;
+  // The player's quality floor caps how far the scaler may degrade. Clamped
+  // here rather than trusted: an out-of-range cap would otherwise let the
+  // notch walk past the end of the knob tables.
+  const cap = _clampNotch(maxNotch);
+  if (state.notch > cap) state.notch = cap;     // a lowered cap bites at once
 
   if (fps < DOWN_FPS) {
     state.lowTime += d;
     state.highTime = 0;
-    if (state.lowTime >= DOWN_HOLD_S && state.notch < MAX_NOTCH) {
+    if (state.lowTime >= DOWN_HOLD_S && state.notch < cap) {
       state.notch++;
       state.lowTime = 0;
     }
@@ -169,6 +174,7 @@ const _state = makeQualityState();
 let _emaFps = 60;          // seeded optimistic so we don't drop on the first frames
 let _bloomCur = _bloomStrength[MIN_NOTCH];
 let _enabled = true;       // owner can disable via LumiDebug for A/B comparison
+let _maxNotch = MAX_NOTCH; // player's quality floor: the scaler may not degrade past this
 let _frames = 0;           // frames sampled (lets us ignore the warm-up window)
 
 // Ignore the first handful of frames: clock warm-up, shader compile, and the
@@ -200,7 +206,7 @@ export function updateAdaptiveQuality(dt) {
   // Only let the machine react once past the warm-up window.
   if (_frames > WARMUP_FRAMES) {
     const prev = _state.notch;
-    stepQuality(_state, _emaFps, d);
+    stepQuality(_state, _emaFps, d, _maxNotch);
     if (_state.notch !== prev) _applyNotch();
   }
 
@@ -252,6 +258,30 @@ export function getLodScale() {
 export function getDensityScale() {
   return _densityScale[_state.notch];
 }
+/**
+ * @brief Cap how far the scaler may degrade quality.
+ *
+ * Notch 0 is full quality and MAX_NOTCH is the readability floor, so a LOWER
+ * cap means a prettier, possibly slower game. Applied immediately: a player
+ * who raises the floor mid-game should see it on the next frame, not after
+ * the scaler happens to climb back on its own.
+ * @param {number} maxNotch clamped into [MIN_NOTCH, MAX_NOTCH]
+ * @return {number} the cap in effect
+ */
+export function setQualityFloor(maxNotch) {
+  _maxNotch = _clampNotch(maxNotch);
+  if (_state.notch > _maxNotch) {
+    _state.notch = _maxNotch;
+    _state.lowTime = 0;
+    _state.highTime = 0;
+    _applyNotch();
+  }
+  return _maxNotch;
+}
+
+/** @returns {number} the current cap on notch degradation. */
+export function getQualityFloor() { return _maxNotch; }
+
 /** Enable/disable the scaler (owner A/B testing via LumiDebug). */
 export function setAdaptiveQualityEnabled(on) {
   _enabled = !!on;
@@ -281,6 +311,7 @@ export function getQualityReport() {
     bloomStrength: _bloomStrength[n],
     lodScale: _lodScale[n],
     densityScale: _densityScale[n],
+    maxNotch: _maxNotch,
     thresholds: { downFps: DOWN_FPS, upFps: UP_FPS, downHoldS: DOWN_HOLD_S, upHoldS: UP_HOLD_S },
   };
 }

@@ -6,6 +6,41 @@ import { on, emit, Events } from '../../kernel/eventBus.js';
 
 export let ctx = null;
 export let masterGain = null;
+
+// Volume plumbing. Read through getters so this module keeps working when
+// settings have not been initialised (tests, early boot).
+let _getVolume = () => 0.42;
+let _getMuted = () => false;
+const _volumeNow = () => { const v = _getVolume(); return Number.isFinite(v) ? v : 0.42; };
+const _mutedNow = () => !!_getMuted();
+
+/**
+ * @brief Point the mixer at the live settings.
+ * @param {() => number} getVolume
+ * @param {() => boolean} getMuted
+ */
+export function bindMixerSettings(getVolume, getMuted) {
+  if (getVolume) _getVolume = getVolume;
+  if (getMuted) _getMuted = getMuted;
+  applyMixerSettings();
+}
+
+/**
+ * @brief Push the current volume/mute to the mixer. Safe before init.
+ *
+ * Ramped rather than set: a step change in gain is an audible click, and the
+ * player is most likely to hear it while dragging the volume slider.
+ */
+export function applyMixerSettings() {
+  if (!masterGain || !ctx) return false;
+  const target = _mutedNow() ? 0 : _volumeNow();
+  try {
+    masterGain.gain.setTargetAtTime(target, ctx.currentTime, 0.02);
+  } catch (_) {
+    masterGain.gain.value = target;
+  }
+  return true;
+}
 export let reverbGain = null;
 let reverbDelay = null;
 export let initialized = false;
@@ -136,7 +171,10 @@ export function initAudio() {
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.42;
+      // The player's volume, not a hardcoded mix level. The AudioContext does
+      // not exist until the first gesture, so the setting is read HERE rather
+      // than pushed in from a subscriber that would have fired long ago.
+      masterGain.gain.value = _mutedNow() ? 0 : _volumeNow();
       masterGain.connect(ctx.destination);
 
       muffleFilter = ctx.createBiquadFilter();

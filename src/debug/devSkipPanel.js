@@ -12,7 +12,49 @@ import { QuestPhases } from '../quest/config.js';
 import { debugUnlockCreature } from './debugConsole.js';
 import { freeGrabMode, setFreeGrabMode } from './debugFlags.js';
 
+import { guardedStorage, clearSave, hasSave, SAVE_KEY } from '../state/saveState.js';
+import { SEED_KEY, DEFAULT_SEED, getBootSeed } from '../utils/rng.js';
+import { on, Events } from '../kernel/eventBus.js';
+import { setOpen as setSettingsOpen } from '../ui/settingsPanel.js';
+
 const ORB_CREATURES = ['puff', 'jelly', 'deer', 'moth', null];
+const _devStore = guardedStorage(typeof localStorage !== 'undefined' ? localStorage : null);
+let _saveLine = null;
+let _lastWriteAt = 0;
+let _requestSave = null;
+
+/**
+ * @brief Let main.js hand the panel its autosave handle.
+ * @param {{flush:Function}} autosave
+ */
+export function setDevSaveHooks(autosave) { _requestSave = autosave; }
+
+/** Human-readable age of the last write, or where the save stands. */
+function saveLineText() {
+  const seed = getBootSeed();
+  if (!hasSave(_devStore)) return `seed ${seed} · no save`;
+  if (!_lastWriteAt) return `seed ${seed} · saved earlier`;
+  const secs = Math.max(0, Math.round((Date.now() - _lastWriteAt) / 1000));
+  if (secs < 60) return `seed ${seed} · saved ${secs}s ago`;
+  return `seed ${seed} · saved ${Math.round(secs / 60)}m ago`;
+}
+
+function refreshSaveLine() {
+  if (_saveLine) _saveLine.textContent = saveLineText();
+}
+
+/** A new forest: write a seed and reload. The seed IS the world. */
+function regenerateWorld(seed) {
+  try {
+    if (seed === DEFAULT_SEED) localStorage.removeItem(SEED_KEY);
+    else localStorage.setItem(SEED_KEY, String(seed));
+    // The old save belongs to the old forest; applySnapshot would refuse it
+    // on the seed check anyway, so clear it rather than leave a Continue
+    // button that explodes when pressed.
+    localStorage.removeItem(SAVE_KEY);
+  } catch (_) { /* no storage, no new forest */ }
+  window.location.reload();
+}
 
 const STORE_KEY = 'lumi.devSkipPanel.open';
 const STATUS_MS = 1000;
@@ -231,13 +273,48 @@ export function initDevSkipPanel() {
     debugPauseTimers(true);
   }));
 
+  body.appendChild(separator());
+
+  _saveLine = document.createElement('div');
+  _saveLine.style.cssText =
+    'font-family:monospace;font-size:10px;color:rgba(170,255,204,.5);margin:0 0 5px;';
+  _saveLine.textContent = saveLineText();
+  body.appendChild(_saveLine);
+
+  body.appendChild(btn('Save now', () => {
+    if (_requestSave) _requestSave.flush('devPanel');
+    refreshSaveLine();
+  }));
+
+  body.appendChild(btn('Clear save + reload', () => {
+    clearSave(_devStore);
+    window.location.reload();
+  }));
+
+  body.appendChild(btn('Regenerate world', () => {
+    // Any seed but the current one, so the button always does something.
+    let next = getBootSeed();
+    while (next === getBootSeed()) next = 1 + Math.floor(Math.random() * 2147483645);
+    regenerateWorld(next);
+  }));
+
+  body.appendChild(btn('Reset seed to 42', () => regenerateWorld(DEFAULT_SEED)));
+
+  body.appendChild(btn('Settings...', () => setSettingsOpen(true)));
+
   wrap.appendChild(body);
   document.body.appendChild(wrap);
 
+  on(Events.SAVE_WRITTEN, (e) => {
+    _lastWriteAt = (e && e.at) || Date.now();
+    refreshSaveLine();
+  });
+
   // The orb counter shares this corner; step it left of the hamburger so the
   // two never stack. Scoped here so removing the panel restores the layout.
-  const orbHud = document.getElementById('orb-hud');
-  if (orbHud) orbHud.style.right = '64px';
+  // The settings panel owns the orb-HUD offset now: the gear sits at 64px and
+  // the count clears both it and this hamburger. Setting it here too would
+  // mean whichever panel initialised last won.
 
   // Backtick toggles. Captured so input.js's window handler never sees it —
   // that handler starts the game on any keypress, and a dev toggle must not.

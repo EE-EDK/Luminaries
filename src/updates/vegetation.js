@@ -14,6 +14,7 @@ import { updateTreeLOD, treeCanopyLivingPulse } from '../entities/flora/trees.js
 import { updateGrassGlobals } from '../entities/flora/grass.js';
 import { updateSnapthorns } from '../entities/flora/snapthorn.js';
 import { updateMotionGlobals } from '../entities/_motion.js';
+import { isReducedMotion } from '../core/player.js';
 import { updateAllInstancedFlora } from '../entities/_instancedFlora.js';
 import { createGround, updateGroundUniforms } from '../world/ground.js';
 import { player } from '../core/player.js';
@@ -79,7 +80,9 @@ export function updateVegetation(dt, t) {
   const curRain = getRainRate();
   const droop = isStorming ? 0.6 : (curRain > 0.3 ? curRain * 0.4 : 0);
   const bloom = Math.min(1, Math.max(0, (bioGlow - 0.65) / 0.85));
-  updateMotionGlobals(t, wAmp, wLeanX, wLeanZ, px, pz, droop, bloom);
+  // Reduced motion calms the canopy too: a forest swaying at full amplitude
+  // fills the whole screen with movement even when the camera is still.
+  updateMotionGlobals(t, isReducedMotion() ? wAmp * 0.35 : wAmp, wLeanX, wLeanZ, px, pz, droop, bloom);
 
   const treeDim = smoothedDimFactor * orbBoost;
   updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, camera, treeDim, bioGlow);

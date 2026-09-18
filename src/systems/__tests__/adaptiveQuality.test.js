@@ -15,6 +15,8 @@ vi.mock('../../core/postprocessing.js', () => ({
 import {
   makeQualityState,
   stepQuality,
+  setQualityFloor,
+  getQualityFloor,
   particleScaleFor,
   bloomStrengthFor,
   lodScaleFor,
@@ -192,5 +194,59 @@ describe('adaptiveQuality knob tables', () => {
     expect(particleScaleFor(-5)).toBe(particleScaleFor(MIN_NOTCH));
     expect(particleScaleFor(999)).toBe(particleScaleFor(MAX_NOTCH));
     expect(lodScaleFor(NaN)).toBe(lodScaleFor(MIN_NOTCH));
+  });
+});
+
+
+// ================================================================
+// Quality floor — the player's cap on how far the scaler may degrade.
+// ================================================================
+describe('quality floor', () => {
+  /** Starve it long enough that it would hit the bottom unaided. */
+  const starve = (state, seconds, cap) => {
+    for (let t = 0; t < seconds; t += 0.1) stepQuality(state, 5, 0.1, cap);
+    return state;
+  };
+
+  it('lets the scaler reach the bottom when the cap is wide open', () => {
+    expect(starve(makeQualityState(), 30, MAX_NOTCH).notch).toBe(MAX_NOTCH);
+  });
+
+  it('never degrades past the cap, however bad the frame rate gets', () => {
+    for (let cap = MIN_NOTCH; cap <= MAX_NOTCH; cap++) {
+      expect(starve(makeQualityState(), 30, cap).notch, `cap ${cap}`).toBe(cap);
+    }
+  });
+
+  it('pins quality entirely at a cap of zero', () => {
+    expect(starve(makeQualityState(), 30, MIN_NOTCH).notch).toBe(MIN_NOTCH);
+  });
+
+  it('bites immediately when the cap drops below the current notch', () => {
+    // The player raises the quality floor mid-sag; they should see it on the
+    // next frame, not whenever the scaler happens to climb back on its own.
+    const st = starve(makeQualityState(), 30, MAX_NOTCH);
+    expect(st.notch).toBe(MAX_NOTCH);
+    stepQuality(st, 5, 0.016, 1);
+    expect(st.notch).toBe(1);
+  });
+
+  it('clamps a nonsense cap instead of walking off the knob tables', () => {
+    expect(starve(makeQualityState(), 30, 999).notch).toBe(MAX_NOTCH);
+    expect(starve(makeQualityState(), 30, -5).notch).toBe(MIN_NOTCH);
+    expect(starve(makeQualityState(), 30, NaN).notch).toBe(MIN_NOTCH);
+  });
+
+  it('defaults to the full range when no cap is given', () => {
+    const st = makeQualityState();
+    for (let t = 0; t < 30; t += 0.1) stepQuality(st, 5, 0.1);
+    expect(st.notch).toBe(MAX_NOTCH);
+  });
+
+  it('records the runtime cap it was set to', () => {
+    expect(setQualityFloor(2)).toBe(2);
+    expect(getQualityFloor()).toBe(2);
+    expect(setQualityFloor(99)).toBe(MAX_NOTCH);
+    setQualityFloor(MAX_NOTCH);
   });
 });

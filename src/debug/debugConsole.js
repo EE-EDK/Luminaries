@@ -15,6 +15,10 @@ import { emit, on, off, Events } from '../kernel/eventBus.js';
 import { getQuestSnapshot } from '../quest/questState.js';
 import { getRestoredSectors } from '../systems/dimming.js';
 import { debugSkipIntro } from '../systems/intro.js';
+import { getLookSensitivity, isInvertY } from '../core/input.js';
+import { isReducedMotion } from '../core/player.js';
+import { getQualityFloor } from './../systems/adaptiveQuality.js';
+import { getSettings } from '../state/settingsState.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
@@ -291,6 +295,27 @@ export function attachLumiDebugApi() {
         stored: (() => {
           try { return localStorage.getItem('lumi.save.v1'); } catch (_) { return null; }
         })(),
+      };
+    },
+
+    /**
+     * What the settings SAY next to what the consumers are actually doing.
+     * Stored-but-not-applied is invisible from the panel, so the two are
+     * reported side by side rather than one at a time.
+     */
+    settings() {
+      const stored = getSettings();
+      return {
+        stored,
+        applied: {
+          lookSensitivity: getLookSensitivity(),
+          invertY: isInvertY(),
+          reducedMotion: isReducedMotion(),
+          qualityFloor: getQualityFloor(),
+          textScale: typeof document !== 'undefined'
+            ? getComputedStyle(document.documentElement).getPropertyValue('--lumi-text-scale').trim()
+            : null,
+        },
       };
     },
 

@@ -1,4 +1,21 @@
 import { MOUSE_SENS, MOVE_SPEED, SPRINT_MULT } from '../constants.js';
+
+// Look feel. One multiplier and one sign, shared by the mouse and the touch
+// drag so the two cannot drift apart — they were separate code paths before,
+// which is exactly how a sensitivity setting ends up working on desktop only.
+let _lookSens = 1;
+let _invertY = 1;
+
+/** @brief Multiplier on MOUSE_SENS. Clamped by settingsState, not here. */
+export function setLookSensitivity(mult) {
+  _lookSens = Number.isFinite(mult) && mult > 0 ? mult : 1;
+}
+/** @brief Invert the vertical look axis. */
+export function setInvertY(on) { _invertY = on ? -1 : 1; }
+/** @brief Current look multiplier, for tests and the settings panel. */
+export function getLookSensitivity() { return _lookSens; }
+/** @brief True when the vertical axis is inverted. */
+export function isInvertY() { return _invertY < 0; }
 import { renderer } from './renderer.js';
 
 // ================================================================
@@ -117,8 +134,8 @@ window.addEventListener('mousemove', (e) => {
   if (!pointerLocked && !mouseDown) return;
   // Ignore look delta while a cinematic owns the camera (no stale accumulation → no hand-back snap).
   if (_lookSuppressed) return;
-  yaw -= e.movementX * MOUSE_SENS;
-  pitch -= e.movementY * MOUSE_SENS;
+  yaw -= e.movementX * MOUSE_SENS * _lookSens;
+  pitch -= e.movementY * MOUSE_SENS * _lookSens * _invertY;
   pitch = Math.max(-1, Math.min(1, pitch));
 });
 
@@ -301,8 +318,8 @@ renderer.domElement.addEventListener('touchmove', (e) => {
       // Keep the drag anchor current even while suppressed, so lifting suppression
       // does not apply one giant accumulated delta (would snap the view).
       if (!_lookSuppressed) {
-        yaw -= (t.clientX - lx) * MOUSE_SENS;
-        pitch -= (t.clientY - ly) * MOUSE_SENS;
+        yaw -= (t.clientX - lx) * MOUSE_SENS * _lookSens;
+        pitch -= (t.clientY - ly) * MOUSE_SENS * _lookSens * _invertY;
         pitch = Math.max(-1, Math.min(1, pitch));
       }
       lx = t.clientX; ly = t.clientY;

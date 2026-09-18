@@ -18,6 +18,15 @@ let headBobPhase = 0, headBobAmp = 0;
 export let cameraBobY = 0;
 let currentFOV = 65, targetFOV = 65;
 let landingDip = 0, wasOnGround = true, landingVelY = 0;
+
+// Reduced motion: head bob, sprint FOV kick and the landing cushion are the
+// three things that move the camera without the player asking. They are the
+// usual causes of motion sickness in a first-person game, so all three go.
+let _reducedMotion = false;
+/** @brief Turn off camera motion the player did not ask for. */
+export function setReducedMotion(on) { _reducedMotion = !!on; }
+/** @brief Whether reduced motion is in effect. */
+export function isReducedMotion() { return _reducedMotion; }
 export let playerIdleTime = 0;
 
 // Temporary Boosts (Bubble rewards)
@@ -117,7 +126,7 @@ export function updatePlayer(dt) {
     // Landing detection
     if (!wasOnGround && landingVelY < -3) {
       const impactStrength = Math.min(Math.abs(landingVelY) / JUMP_IMPULSE, 1);
-      landingDip = impactStrength * 0.15;
+      landingDip = _reducedMotion ? 0 : impactStrength * 0.15;
       if (spawnDustBurstFn) spawnDustBurstFn(player.pos.x, player.pos.z, Math.floor(3 + impactStrength * 5));
       if (onLandFn) onLandFn(impactStrength);
       emit(Events.LAND, { impactStrength });
@@ -196,7 +205,7 @@ export function updatePlayer(dt) {
   const speed2 = inp.x * inp.x + inp.z * inp.z;
   const moving = speed2 > 0.25 && player.onGround;
   if (moving) playerIdleTime = 0; else playerIdleTime += dt;
-  const bobTarget = moving ? (sprinting ? 0.06 : 0.035) : 0;
+  const bobTarget = _reducedMotion ? 0 : (moving ? (sprinting ? 0.06 : 0.035) : 0);
   headBobAmp += (bobTarget - headBobAmp) * dt * 6;
   if (moving) headBobPhase += dt * (sprinting ? 12 : 8);
   const bobOffset = Math.sin(headBobPhase) * headBobAmp;
@@ -211,7 +220,7 @@ export function updatePlayer(dt) {
   }
 
   // --- Sprint FOV ---
-  targetFOV = (sprinting && moving) ? 78 : 65;
+  targetFOV = (sprinting && moving && !_reducedMotion) ? 78 : 65;
   currentFOV += (targetFOV - currentFOV) * dt * 4;
   if (Math.abs(camera.fov - currentFOV) > 0.01) {
     camera.fov = currentFOV;

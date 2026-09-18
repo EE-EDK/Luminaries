@@ -59,7 +59,7 @@ export function initDiscoveries() {
   discoveryEl.id = 'discovery-text';
   discoveryEl.style.cssText =
     'position:fixed;top:28%;left:50%;transform:translateX(-50%);' +
-    'font-family:Georgia,serif;font-size:22px;color:#ccffee;' +
+    'font-family:Georgia,serif;font-size:calc(22px * var(--lumi-text-scale));color:#ccffee;' +
     'text-shadow:0 0 12px #44ffaa,0 0 30px #228866;' +
     'pointer-events:none;opacity:0;transition:opacity 0.6s;z-index:100;' +
     'letter-spacing:3px;text-transform:uppercase;';

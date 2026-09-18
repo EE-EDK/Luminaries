@@ -114,12 +114,20 @@ import { on, Events } from './kernel/eventBus.js';
 import { guardedStorage, readSave, clearSave, initAutosave } from './state/saveState.js';
 import { buildSnapshot, applySnapshot, validateOpts } from './state/worldSnapshot.js';
 import { getBootSeed } from './utils/rng.js';
+import {
+  initSettings, getSetting, setSetting, onSetting,
+} from './state/settingsState.js';
+import { initSettingsPanel } from './ui/settingsPanel.js';
+import { setLookSensitivity, setInvertY } from './core/input.js';
+import { setReducedMotion } from './core/player.js';
+import { bindMixerSettings, applyMixerSettings } from './systems/audio.js';
+import { setQualityFloor } from './systems/adaptiveQuality.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 import { initDebugConsole } from './debug/debugConsole.js';
-import { initDevSkipPanel } from './debug/devSkipPanel.js';
+import { initDevSkipPanel, setDevSaveHooks } from './debug/devSkipPanel.js';
 import { getPufflingHouseCollision, updatePufflingHomes } from './entities/world/pufflingHomes.js';
 
 // ================================================================
@@ -501,8 +509,8 @@ let gameStarted = false;
 // forest you can walk through.
 const saveStore = guardedStorage(typeof localStorage !== 'undefined' ? localStorage : null);
 const SAVING_KEY = 'lumi.save.enabled';
-/** @brief Remember-progress toggle. Defaults on; the settings panel writes it. */
-function isSavingEnabled() { return saveStore.get(SAVING_KEY) !== '0'; }
+/** @brief Remember-progress toggle, owned by settingsState. */
+function isSavingEnabled() { return getSetting('rememberProgress') !== false; }
 let autosave = { request() {}, flush() { return false; }, suspend() {}, resume() {}, dispose() {}, lastWrite() { return 0; } };
 
 function go() {
@@ -857,6 +865,33 @@ try {
   });
 
   // ================================================================
+  // Settings
+  // ================================================================
+  // Loaded before the panel is built and before any consumer subscribes, so
+  // each consumer's first call carries the stored value rather than a default
+  // it would then have to be corrected away from.
+  initSettings(saveStore);
+
+  onSetting('masterVolume', () => applyMixerSettings());
+  onSetting('muted', () => applyMixerSettings());
+  bindMixerSettings(() => getSetting('masterVolume'), () => getSetting('muted'));
+  onSetting('lookSensitivity', (v) => setLookSensitivity(v));
+  onSetting('invertY', (v) => setInvertY(v));
+  onSetting('reducedMotion', (v) => setReducedMotion(v));
+  onSetting('qualityFloor', (v) => setQualityFloor(v));
+  onSetting('textSize', (v) => {
+    document.documentElement.style.setProperty('--lumi-text-scale', String(v));
+  });
+
+  initSettingsPanel({
+    onClearSave: () => { clearSave(saveStore); autosave.suspend(); autosave.resume(); },
+  });
+  // The gear sits where the orb count used to; move the count clear of both it
+  // and the dev hamburger.
+  const _orbHud = document.getElementById('orb-hud');
+  if (_orbHud) _orbHud.style.right = '118px';
+
+  // ================================================================
   // Save / restore
   // ================================================================
   // Everything the restore touches is initialised by now: populate, dimming,
@@ -877,6 +912,7 @@ try {
     Events.DISCOVERY, Events.PERSPECTIVE_CHANGED, Events.CREATURE_ATTUNED]) {
     on(e, () => autosave.request(e));
   }
+  setDevSaveHooks(autosave);
   window.addEventListener('pagehide', () => autosave.flush('pagehide'));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') autosave.flush('hidden');

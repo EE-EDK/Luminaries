@@ -54,13 +54,15 @@ describe('getQuestSnapshot', () => {
 });
 
 describe('restoreQuestState', () => {
-  let seen;
+  let seen, unsubs;
   beforeEach(() => {
     fresh();
     seen = [];
-    for (const e of WATCHED) on(e, () => seen.push(e));
+    // Keep the unsubscribes: off(event) without the exact listener removes
+    // nothing, and a leftover listener pushes into the NEXT test's array.
+    unsubs = WATCHED.map((e) => on(e, () => seen.push(e)));
   });
-  afterEach(() => { for (const e of WATCHED) off(e); });
+  afterEach(() => { for (const u of unsubs) u(); });
 
   it('emits nothing at all', () => {
     restoreQuestState({

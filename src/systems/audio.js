@@ -46,7 +46,7 @@ export function toggleMute() {
 }
 
 // Re-export everything from sub-modules
-export { initAudio, setAudioOrbCount, isMuted, isAudioInitialized } from './audio/core.js';
+export { initAudio, setAudioOrbCount, isMuted, isAudioInitialized, bindMixerSettings, applyMixerSettings } from './audio/core.js';
 export { updateAudio } from './audio/ambient.js';
 export { initCrystalClusters, updateCrystalResonance } from './audio/crystals.js';
 export {

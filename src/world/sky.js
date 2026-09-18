@@ -884,15 +884,35 @@ function createConstellations() {
 }
 
 // Called when an orb is collected — reveal the next constellation
-export function revealConstellation(orbIndex) {
+/**
+ * @brief Reveal a constellation.
+ * @param {number} orbIndex collection ordinal (0-4)
+ * @param {{instant?:boolean}} [opts] instant skips the 3 s fade — a restored
+ *   save should show a sky the player already earned, not five fades replaying.
+ */
+export function revealConstellation(orbIndex, opts = {}) {
   if (!constellationsCreated) createConstellations();
   if (orbIndex < 0 || orbIndex >= constellations.length) return;
   const c = constellations[orbIndex];
   if (c.revealed) return;
   c.revealed = true;
-  c.revealTimer = 0;
+  c.revealTimer = opts.instant ? 3.0 : 0;
   c.lines.visible = true;
   c.starPoints.visible = true;
+  if (opts.instant) {
+    c.lineMat.opacity = 0.15;
+    c.starMat.opacity = 0.25;
+  }
+}
+
+/** @brief Which shooting-star wishes have already fired (for saves). */
+export function getWishesTriggered() { return wishesTriggered.slice(); }
+
+/** @brief Restore fired wishes so a load does not hand the player the same line twice. */
+export function setWishesTriggered(arr) {
+  if (!Array.isArray(arr)) return false;
+  for (let i = 0; i < wishesTriggered.length; i++) wishesTriggered[i] = !!arr[i];
+  return true;
 }
 
 // Get constellation center direction as {theta, phi} for camera look

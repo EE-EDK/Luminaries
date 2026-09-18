@@ -664,6 +664,18 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
  * idle trigger. Call once at the start of a new run so stale state from a prior session does
  * not leak into the next one.
  */
+/** @brief Has the wizard encounter already played out this session? */
+export function isWizardEncounterDone() { return _state === 'done'; }
+
+/**
+ * @brief Mark the encounter finished (restored save). The 18 s walk trigger
+ * must not re-arm for a player who already met him.
+ */
+export function setWizardEncounterDone() {
+  _state = 'done';
+  _movingTimer = 0;
+}
+
 export function resetWizardEncounter() {
   cleanupLaser();
   if (_smoke) {

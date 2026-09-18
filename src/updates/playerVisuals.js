@@ -48,6 +48,14 @@ const CAM_PAN_LERP_OUT = 1.5;
 const CAM_PAN_TOTAL = CAM_PAN_LERP_IN + CAM_PAN_HOLD + CAM_PAN_LERP_OUT;
 
 /** True while a constellation pan owns the camera (read by the main.js arbiter). */
+/**
+ * @brief Tell the constellation-pan trigger that this many orbs are already
+ * accounted for. Without it, a restored save looks like five orbs arriving at
+ * once and the camera pans away from the player on the first frame.
+ * @param {number} n orbs found
+ */
+export function syncCameraPanOrbs(n) { _camPanOrbsPrev = n; }
+
 export function isCameraPanActive() { return _camPanActive; }
 
 // Pre-allocated result for updateCameraPan — avoids a per-frame object literal

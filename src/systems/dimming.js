@@ -115,6 +115,29 @@ export function notifyOrbCollected(orbIndex) {
 // ================================================================
 // Update — advance wave timers, call once per frame
 // ================================================================
+/**
+ * @brief Mark a sector restored directly, with the wave already finished.
+ *
+ * `notifyOrbCollected` starts an animated wave that sweeps out to 100 m over a
+ * couple of seconds — right for a collection, wrong for a load, where the
+ * player would watch five waves replay across a world that is already restored.
+ * @param {number} orbIndex sector index (= orb index)
+ * @param {{instant?:boolean}} [opts] instant (default) skips the wave entirely
+ */
+export function setSectorRestored(orbIndex, opts = {}) {
+  if (orbIndex < 0 || orbIndex >= restoredSectors.length) return false;
+  if (opts.instant === false) { notifyOrbCollected(orbIndex); return true; }
+  restoredSectors[orbIndex] = true;
+  const w = waves[orbIndex];
+  if (w) { w.active = false; w.elapsed = 0; w.radius = 1e4; }
+  return true;
+}
+
+/** @brief Which sectors are restored, as booleans (for saves). */
+export function getRestoredSectors() {
+  return restoredSectors.slice();
+}
+
 export function updateDimming(dt) {
   for (let i = 0; i < waves.length; i++) {
     const w = waves[i];

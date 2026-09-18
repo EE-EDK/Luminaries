@@ -223,4 +223,43 @@ export function updateWeather(dt, t, playerPos) {
   return curRainRate;
 }
 
+/** Every weather state name a save may carry. Used by the save validator. */
+export const WEATHER_STATE_NAMES = Object.freeze(Object.keys(STATES));
+
+/**
+ * @brief Snapshot the weather state machine (for saves). Wind and mist are
+ * transient and re-derive within a second, so they are not captured.
+ * @return {{cur:string, next:string|null, stateTimer:number, transTimer:number, transDuration:number, blending:boolean}}
+ */
+export function getWeatherSnapshot() {
+  return {
+    cur: curState,
+    next: nxtState,
+    stateTimer,
+    transTimer,
+    transDuration,
+    blending,
+  };
+}
+
+/**
+ * @brief Restore a weather snapshot. Silent — no WEATHER_CHANGE emit, because a
+ * load is not a weather event and the subscribers would replay their entrances.
+ * @param {ReturnType<typeof getWeatherSnapshot>} snap
+ */
+export function restoreWeatherSnapshot(snap) {
+  if (!snap || !STATES[snap.cur]) return false;
+  curState = snap.cur;
+  nxtState = snap.next && STATES[snap.next] ? snap.next : null;
+  stateTimer = snap.stateTimer;
+  transTimer = snap.transTimer;
+  transDuration = snap.transDuration || 0;
+  blending = !!snap.blending && !!nxtState;
+  blend = blending && transDuration > 0 ? Math.min(1, transTimer / transDuration) : 0;
+  weatherState = curState;
+  isStorming = curState === 'LUMINOUS_STORM';
+  // Interpolated values re-derive on the next updateWeather() call.
+  return true;
+}
+
 export function getRainRate() { return curRainRate; }

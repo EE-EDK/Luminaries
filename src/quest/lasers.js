@@ -42,7 +42,17 @@ function buildBendGeo(fromX, fromZ, skyY, tipY) {
 }
 
 // Create a laser that shoots up from orb pos, then bends to obelisk tip
-export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
+/**
+ * @brief Build a laser column from an orb site to the obelisk tip.
+ * @param {number} fromX
+ * @param {number} fromZ
+ * @param {number} floatY
+ * @param {number} obeliskTipY
+ * @param {{instant?:boolean}} [opts] instant starts in the steady breathing
+ *   phase — a restored save shows lasers that were raised long ago, not five
+ *   1.3 s build-ups firing at once.
+ */
+export function makeLaser(fromX, fromZ, floatY, obeliskTipY, opts = {}) {
   const tipY = obeliskTipY || (OBELISK_H + 2);
   const skyY = floatY + 15;
 
@@ -88,6 +98,13 @@ export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
     fromX, fromZ, floatY, skyY, tipY,
     animPhase: 0, animTimer: 0
   };
+  if (opts.instant) {
+    beam.animPhase = 2;
+    upMat.opacity = 0.8;
+    upGlowMat.opacity = 0.3;
+    bendMat.opacity = 0.7;
+    bendGlowMat.opacity = 0.2;
+  }
   laserBeams.push(beam);
 
   // Create inter-laser connections to all existing beams
@@ -115,7 +132,7 @@ export function makeLaser(fromX, fromZ, floatY, obeliskTipY) {
     });
     const connGlow = new Mesh(new TubeGeometry(connCurve, 10, 0.1, 4, false), connGlowMat);
     scene.add(connGlow);
-    interLines.push({ tube: connTube, glow: connGlow, mat: connMat, glowMat: connGlowMat, opacity: 0 });
+    interLines.push({ tube: connTube, glow: connGlow, mat: connMat, glowMat: connGlowMat, opacity: opts.instant ? 0.3 : 0 });
   }
 
   return beam;

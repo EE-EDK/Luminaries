@@ -38,7 +38,8 @@ export function initQuestState(orbs) {
     flashTimer: 0,
     flyUp: false,
     flyY: 0,
-    laserActive: false
+    laserActive: false,
+    creature: null
   }));
   _orbsFound = 0;
   _questPhase = QuestPhases.SEEK;
@@ -159,6 +160,7 @@ export function debugGrantOrbs(targetCount) {
     o.flyUp = false;
     o.flyY = 31;
     o.laserActive = true;
+    o.creature = ORB_CREATURE_SEQUENCE[idx] || 'any';
     _orbsFound++;
     _targetObeliskY = -25 + _orbsFound * RUNG_H;
 
@@ -206,6 +208,7 @@ export function attemptCollectOrb(index, playerPos) {
       o.flashing = true;
       o.flashTimer = 0;
       o.flyY = 1.5; // Initial height
+      o.creature = freq;   // which frequency opened it — drives the rune colour and the save
       _orbsFound++;
 
       // Increment obelisk target
@@ -277,4 +280,62 @@ export function debugPauseTimers(paused) {
 
 export function isTimersPaused() {
   return _timersPaused;
+}
+
+
+// ================================================================
+// Save / restore
+// ================================================================
+// A load must NOT go through debugGrantOrbs: that emits ORB_COLLECTED per orb,
+// which replays restoration waves, constellation fades, rune fades, audio
+// stings, discovery text and a camera pan. These two functions move the state
+// directly and emit nothing; worldSnapshot.js drives the visuals to match.
+
+/**
+ * @brief Capture quest progress. Transient finale phases are quantised to the
+ * nearest phase a load can safely re-enter, so a save taken mid-cinematic
+ * resumes at its start rather than halfway through a 62-second sequence.
+ * @return {{phase:string, collected:{orbIndex:number, creature:string}[], obeliskY:number}}
+ */
+export function getQuestSnapshot() {
+  let phase = _questPhase;
+  if (phase === QuestPhases.FINALE) phase = QuestPhases.COMPLETE;
+  if (phase === QuestPhases.TRANSFORM) phase = _transformDone ? QuestPhases.FREE_ROAM : QuestPhases.COMPLETE;
+  const collected = [];
+  for (let i = 0; i < _orbs.length; i++) {
+    const o = _orbs[i];
+    if (o.found) collected.push({ orbIndex: i, creature: o.creature || 'any' });
+  }
+  return { phase, collected, obeliskY: _obeliskY };
+}
+
+/**
+ * @brief Restore quest progress without emitting anything.
+ * @param {ReturnType<typeof getQuestSnapshot>} snap
+ */
+export function restoreQuestState(snap) {
+  if (!snap || !Array.isArray(snap.collected)) return false;
+  for (let i = 0; i < _orbs.length; i++) {
+    const o = _orbs[i];
+    o.found = false; o.flashing = false; o.flashTimer = 0;
+    o.flyUp = false; o.flyY = 0; o.laserActive = false; o.creature = null;
+  }
+  for (const c of snap.collected) {
+    const o = _orbs[c.orbIndex];
+    if (!o) continue;
+    o.found = true; o.flashing = false; o.flashTimer = 0;
+    o.flyUp = false; o.flyY = 31; o.laserActive = true;
+    o.creature = c.creature || 'any';
+  }
+  _orbsFound = snap.collected.length;
+  _questPhase = snap.phase;
+  _targetObeliskY = -25 + _orbsFound * RUNG_H;
+  const past = _questPhase === QuestPhases.COMPLETE || _questPhase === QuestPhases.FREE_ROAM;
+  _obeliskY = past ? 0 : Math.min(snap.obeliskY, _targetObeliskY);
+  if (past) _targetObeliskY = 0;
+  _finaleTimer = 0; _finalePhaseTimer = 0; _transformTimer = 0; _freeRoamTimer = 0;
+  _transformDone = _questPhase === QuestPhases.FREE_ROAM;
+  _orbLasersCleaned = _questPhase === QuestPhases.FREE_ROAM;
+  _rejectCooldown = 0;
+  return true;
 }

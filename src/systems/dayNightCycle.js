@@ -234,4 +234,23 @@ export function updateDayNight(dt) {
 }
 
 export function getWorldTime() { return worldTime; }
+
+/**
+ * @brief Set the world clock (for saves). Recomputes the phase label so the
+ * next frame does not fire a spurious DAY_PHASE_CHANGE for a change that
+ * happened while the game was closed.
+ * @param {number} t fraction of the cycle, wrapped into [0,1)
+ */
+export function setWorldTime(t) {
+  if (!Number.isFinite(t)) return false;
+  worldTime = ((t % 1) + 1) % 1;
+  const seg = worldTime * 4;
+  const i = Math.floor(seg) % 4;
+  const j = (i + 1) % 4;
+  const raw = seg - Math.floor(seg);
+  const k = 0.5 - 0.5 * Math.cos(raw * Math.PI);
+  phase = k < 0.5 ? KF[i].label : KF[j].label;
+  _prevPhase = phase;
+  return true;
+}
 export function getPhase() { return phase; }

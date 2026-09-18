@@ -11,7 +11,10 @@
 // Enabled when: Vite DEV, or URL ?debug=1, or localStorage lumiDebug=1,
 // or after opening the in-game terminal (sets lumiDebug).
 
-import { emit, Events } from '../kernel/eventBus.js';
+import { emit, on, off, Events } from '../kernel/eventBus.js';
+import { getQuestSnapshot } from '../quest/questState.js';
+import { getRestoredSectors } from '../systems/dimming.js';
+import { debugSkipIntro } from '../systems/intro.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
@@ -268,6 +271,31 @@ export function attachLumiDebugApi() {
     },
 
     phases: QuestPhases,
+
+    /** Skip the cinematic and hand straight over to the player. */
+    skipIntro() { debugSkipIntro(); },
+
+    /**
+     * Read-only view of what a save would carry, plus what the world is
+     * actually showing. The two disagreeing is the whole failure mode a
+     * restore has, so they are reported together rather than one at a time.
+     */
+    save() {
+      const quest = getQuestSnapshot();
+      return {
+        orbsFound: quest.collected.length,
+        questPhase: quest.phase,
+        obeliskY: quest.obeliskY,
+        collected: quest.collected,
+        restoredSectors: getRestoredSectors(),
+        stored: (() => {
+          try { return localStorage.getItem('lumi.save.v1'); } catch (_) { return null; }
+        })(),
+      };
+    },
+
+    /** Event bus, for watching what a restore does and does not fire. */
+    bus: { on, off, Events },
 
     /** Truth hint + all four creatures (staggered) + 5 orbs — smoke-test everything */
     unlockEverything() {

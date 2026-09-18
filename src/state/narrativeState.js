@@ -77,3 +77,21 @@ export const isDiscovered = (key) => !!_discovered[key];
 export const markDiscovered = (key) => {
   _discovered[key] = true;
 };
+
+/** @brief Every discovery key marked so far (for saves). Grows at runtime — glyph and house keys are added by discoveries.js. */
+export const getDiscoveredKeys = () => Object.keys(_discovered).filter((k) => _discovered[k]);
+
+/**
+ * @brief Restore narrative state silently — no PERSPECTIVE_CHANGED emit.
+ *
+ * A load is not a perspective change and not a truth reveal. Emitting would let
+ * any future subscriber treat a restored save as the moment it happened.
+ * @param {{perspective?:string, truthRevealed?:boolean, discovered?:string[]}} snap
+ */
+export const restoreNarrative = (snap) => {
+  if (!snap) return false;
+  if (snap.perspective === 'child' || snap.perspective === 'adult') _perspective = snap.perspective;
+  if (snap.truthRevealed) _truthRevealed = true;
+  if (Array.isArray(snap.discovered)) for (const k of snap.discovered) _discovered[k] = true;
+  return true;
+};

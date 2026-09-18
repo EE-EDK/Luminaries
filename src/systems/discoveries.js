@@ -152,6 +152,30 @@ export function showOrbDiscovery(orbIndex) {
   renderDiscovery(primary, secondary);
 }
 
+/** @brief Indices of revealed ground glyphs (for saves). */
+export function getRevealedGlyphs() {
+  const out = [];
+  for (let i = 0; i < glyphs_data.length; i++) if (glyphs_data[i].revealed) out.push(i);
+  return out;
+}
+
+/**
+ * @brief Restore revealed glyphs without showing their discovery text.
+ * The player already read it; a load should not replay 12 lines.
+ * @param {number[]} indices
+ */
+export function restoreGlyphs(indices) {
+  if (!Array.isArray(indices)) return false;
+  for (const i of indices) {
+    const g = glyphs_data[i];
+    if (!g) continue;
+    g.revealed = true;
+    g.timer = 1.5;
+    g.mat.opacity = 0.4;
+  }
+  return true;
+}
+
 export function showNarrativeText(text, duration) {
   fadeText = text;
   fadeTimer = dwellSec(duration ?? 5.0);

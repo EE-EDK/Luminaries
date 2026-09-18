@@ -2,7 +2,7 @@
 // Audio Core — AudioContext, reverb, noise buffers, shared helpers
 // ================================================================
 
-import { on, Events } from '../../kernel/eventBus.js';
+import { on, emit, Events } from '../../kernel/eventBus.js';
 
 export let ctx = null;
 export let masterGain = null;
@@ -173,6 +173,11 @@ export function initAudio() {
       // Subscribe to kernel events
       if (_eventSubscriber) _eventSubscriber();
 
+      // Anything that needs an AudioContext but ran before the first gesture
+      // (a restored save's standing laser hums, the settings panel's volume)
+      // waits on this.
+      emit(Events.AUDIO_READY, {});
+
     } catch (e) {
       console.warn('Audio init failed:', e);
     }
@@ -216,5 +221,8 @@ export function toggleMute() {
   if (masterGain) masterGain.gain.value = muted ? 0 : 0.42;
   return muted;
 }
+
+/** @brief True once the AudioContext exists (first user gesture). */
+export function isAudioInitialized() { return initialized; }
 
 export function isMuted() { return muted; }

@@ -109,7 +109,11 @@ import { initRain, updateRain } from './particles/rain.js';
 import { initAudio, updateAudio, playFootstep, playJumpSound, playLandSound, updateStepCooldown, updateAmbientSounds, playOrbWarble, playLaserZap, playLaserHum, updateLaserHums, stopLaserHums, updateMusic, startResonanceDrone, setAudioOrbCount, initCrystalClusters, updateCrystalResonance, playPufflingVocal } from './systems/audio.js';
 
 // Intro cinematic (Phase 2)
-import { initIntro, startIntro, enableTitleClick, updateIntro, introActive } from './systems/intro.js';
+import { initIntro, startIntro, enableTitleClick, enableContinue, updateIntro, introActive, debugSkipIntro } from './systems/intro.js';
+import { on, Events } from './kernel/eventBus.js';
+import { guardedStorage, readSave, clearSave, initAutosave } from './state/saveState.js';
+import { buildSnapshot, applySnapshot, validateOpts } from './state/worldSnapshot.js';
+import { getBootSeed } from './utils/rng.js';
 
 // UI
 import { initHUD, updateHUD } from './ui/hud.js';
@@ -492,6 +496,15 @@ function _directorDiscoveryChecks(dt, t, ctx) {
 let elapsed = 0;
 let gameStarted = false;
 
+// Save plumbing. The store is guarded because localStorage throws outright in
+// a private window and on a full quota — a forest you cannot save is still a
+// forest you can walk through.
+const saveStore = guardedStorage(typeof localStorage !== 'undefined' ? localStorage : null);
+const SAVING_KEY = 'lumi.save.enabled';
+/** @brief Remember-progress toggle. Defaults on; the settings panel writes it. */
+function isSavingEnabled() { return saveStore.get(SAVING_KEY) !== '0'; }
+let autosave = { request() {}, flush() { return false; }, suspend() {}, resume() {}, dispose() {}, lastWrite() { return 0; } };
+
 function go() {
   // Re-arm the wizard encounter so stale state from a prior session never leaks into a new run.
   resetWizardEncounter();
@@ -842,6 +855,55 @@ try {
     flowers: flowers,
     reeds: reeds
   });
+
+  // ================================================================
+  // Save / restore
+  // ================================================================
+  // Everything the restore touches is initialised by now: populate, dimming,
+  // quest state and quest visuals. A save is offered only if one reads back
+  // clean — readSave throws a corrupt payload away rather than half-applying
+  // it, so a Continue button on screen means there is really something behind
+  // it.
+  autosave = initAutosave({
+    collect: buildSnapshot,
+    // Not during the intro, and not before the player has a world to save.
+    isActive: () => gameStarted && !introActive() && isSavingEnabled(),
+    store: saveStore,
+    seed: getBootSeed(),
+    validateOpts,
+  });
+
+  for (const e of [Events.ORB_COLLECTED, Events.QUEST_PHASE, Events.WORLD_TRANSFORMED,
+    Events.DISCOVERY, Events.PERSPECTIVE_CHANGED, Events.CREATURE_ATTUNED]) {
+    on(e, () => autosave.request(e));
+  }
+  window.addEventListener('pagehide', () => autosave.flush('pagehide'));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') autosave.flush('hidden');
+  });
+
+  const saved = readSave(saveStore, validateOpts);
+  if (saved) {
+    enableContinue(() => {
+      try {
+        resetWizardEncounter();
+        applySnapshot(saved, { autosave });
+      } catch (err) {
+        // A save we cannot apply is worse than none: the world is now half
+        // restored. Throw it out and start clean rather than hand the player
+        // a forest that disagrees with itself.
+        console.error('[save] restore failed, starting a new forest:', err);
+        clearSave(saveStore);
+        window.location.reload();
+        return;
+      }
+      gameStarted = true;
+      setStarted(true);
+      showGame();
+      debugSkipIntro();
+      autosave.request('restored');
+    });
+  }
 
   // Wire up go callback
   setGoCallback(go);

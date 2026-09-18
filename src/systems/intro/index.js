@@ -419,6 +419,58 @@ export function enableTitleClick() {
 }
 
 // ================================================================
+// Continue — offered only when there is a save to continue from
+// ================================================================
+// The container listens for click and touchstart anywhere and starts the
+// cinematic, so this button must stop the event from reaching it. Without
+// stopPropagation the player would get both: the forest they saved AND the
+// three-minute opening they have already watched.
+let continueEl = null;
+
+/**
+ * @brief Put a Continue button on the title card.
+ * @param {Function} onContinue run instead of the intro; restores and hands off
+ * @return {HTMLElement|null} the button, or null if the title card is gone
+ */
+export function enableContinue(onContinue) {
+  if (!container || !titleSubEl || continueEl) return continueEl;
+
+  continueEl = document.createElement('button');
+  continueEl.id = 'intro-continue';
+  continueEl.type = 'button';
+  continueEl.textContent = 'continue';
+  continueEl.style.cssText =
+    'position:absolute;top:57%;left:50%;transform:translate(-50%,-50%);' +
+    'font-family:\'Courier New\',monospace;font-size:13px;letter-spacing:3px;' +
+    'color:#aaffdd;background:rgba(10,30,24,.55);border:1px solid #2f6b55;' +
+    'border-radius:3px;padding:7px 20px;cursor:pointer;opacity:0;' +
+    'transition:opacity 2s ease 1.2s,background .25s ease,color .25s ease;';
+  continueEl.addEventListener('mouseenter', () => {
+    continueEl.style.background = 'rgba(20,60,46,.75)';
+    continueEl.style.color = '#ddfff0';
+  });
+  continueEl.addEventListener('mouseleave', () => {
+    continueEl.style.background = 'rgba(10,30,24,.55)';
+    continueEl.style.color = '#aaffdd';
+  });
+
+  const take = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (started || phase !== 'TITLE') return;
+    started = true;                      // shut the door on onTitleClick
+    onContinue();
+  };
+  continueEl.addEventListener('click', take);
+  continueEl.addEventListener('touchstart', take, { passive: false });
+
+  container.appendChild(continueEl);
+  titleSubEl.textContent = 'click to begin a new forest';
+  requestAnimationFrame(() => { if (continueEl) continueEl.style.opacity = '0.85'; });
+  return continueEl;
+}
+
+// ================================================================
 // Update — called each frame from animate loop
 // ================================================================
 export function updateIntro(dt, camera) {

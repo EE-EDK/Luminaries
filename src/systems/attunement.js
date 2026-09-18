@@ -352,6 +352,31 @@ export function getJellyPostTimer() {
 }
 
 /** DEV: full creature carrier + attunement bar (jelly post-attune timer held high). */
+/**
+ * @brief Restore the carried frequency from a save.
+ *
+ * Unlike debugForceAttuned this keeps the real remaining jelly window instead
+ * of pinning it open, so a restored jelly attunement expires when it would have.
+ * @param {string|null} type creature key, or null for "carrying nothing"
+ * @param {number} [jellyTimer=0] seconds left on the jelly post-attune window
+ */
+export function restorePlayerFrequency(type, jellyTimer = 0) {
+  if (!type) { playerFrequency = null; attunement = 0; attunementTarget = null; _jellyPostTimer = 0; return true; }
+  if (!['puff', 'jelly', 'deer', 'moth'].includes(type)) return false;
+  playerFrequency = type;
+  attunement = 1;
+  attunementTarget = type;
+  flashPending = false;
+  flashCreaturePos = null;
+  _jellyTapTimes = [];
+  _jellyPostTimer = type === 'jelly' ? Math.max(0, jellyTimer) : 0;
+  _jellySyncFlash = 0;
+  return true;
+}
+
+/** @brief Seconds left on the jelly post-attune window (for saves). */
+export function getJellyPostTimerRaw() { return _jellyPostTimer; }
+
 export function debugForceAttuned(type) {
   if (!['puff', 'jelly', 'deer', 'moth'].includes(type)) return false;
   playerFrequency = type;

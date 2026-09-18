@@ -269,6 +269,76 @@ function onOrbLaserStart(d) {
   if (playLaserHumFn) playLaserHumFn(o.x, o.z);
 }
 
+/**
+ * @brief Put the obelisk, runes, lasers and HUD into the state a restored save
+ * describes, without replaying a single reveal.
+ *
+ * Mirrors onOrbCollected / onOrbLaserStart, but instant: runes are already
+ * faded in (revealTimer past the 2 s ramp), lasers start in their steady
+ * breathing phase, the constellation fade is skipped, and no burst, sting or
+ * drone fires. Called by state/worldSnapshot.js after restoreQuestState().
+ */
+export function restoreQuestVisuals() {
+  const state = getQuestState();
+  const count = state.orbsFound;
+
+  const hud = orbHudEl || document.getElementById('orb-hud');
+  if (hud) hud.innerHTML = state.questPhase === QuestPhases.FREE_ROAM ? '✦ Luminaries' : '✦ ' + count + ' / ' + ORB_N;
+
+  // Runes: one face per collection ordinal, coloured by the creature that opened it.
+  let ordinal = 0;
+  for (let i = 0; i < state.orbs.length; i++) {
+    if (!state.orbs[i].found) continue;
+    const face = runeFaces[ordinal];
+    ordinal++;
+    if (!face) continue;
+    const creature = state.orbs[i].creature;
+    let col = C.obeliskPink;
+    if (creature === 'jelly') col = C.jellyGlow;
+    if (creature === 'puff') col = C.puffGlow;
+    if (creature === 'deer') col = C.deerGlow;
+    if (creature === 'moth') col = C.mothGlow;
+    face.mat.color.set(col);
+    face.revealed = true;
+    face.revealTimer = 2.0;          // fade already complete
+    for (let m = 0; m < face.meshes.length; m++) face.meshes[m].visible = true;
+  }
+  if (count >= ORB_N) revealAllObeliskDetails();
+
+  if (state.questPhase === QuestPhases.FREE_ROAM) {
+    // The finale already happened: lasers are gone, the pinnacle is lit, the
+    // moat and rainbows stand. Mirrors the FREE_ROAM branch of updateQuestVisuals.
+    orbLasersCleaned = true;
+    glitterExploded = true;
+    if (pinnacleOrb) {
+      pinnacleOrb.mesh.visible = true;
+      pinnacleOrb.mesh.scale.setScalar(1.2);
+      pinnacleOrb.haze.scale.setScalar(1.8);
+      pinnacleOrb.mat.opacity = 0.9;
+      pinnacleOrb.hazeMat.opacity = 0.4;
+    }
+    for (let ri = 0; ri < pinnacleRings.length; ri++) pinnacleRings[ri].mesh.visible = false;
+    if (moatMesh) moatMesh.visible = true;
+    if (moatMat) moatMat.opacity = 0.6;
+    for (let i = 0; i < rainbowArcs.length; i++) {
+      rainbowArcs[i].mesh.visible = true;
+      rainbowArcs[i].mat.opacity = 0.45;
+    }
+    if (obeliskMat) obeliskMat.emissiveIntensity = 1.5;
+    if (obeliskGlowMat) obeliskGlowMat.emissiveIntensity = 2.5;
+    transformTreesAndGround();
+  } else {
+    // Lasers stand from every collected orb, already raised.
+    const tipY = getObeliskTipY();
+    for (let i = 0; i < state.orbs.length; i++) {
+      if (!state.orbs[i].found) continue;
+      const o = orbs[i];
+      if (!o || o.laserLine) continue;
+      o.laserLine = makeLaserFn(o.x, o.z, 0, tipY, { instant: true });
+    }
+  }
+}
+
 export function updateQuestVisuals(dt, t, ctx) {
   const state = getQuestState();
   const timers = getTimers();

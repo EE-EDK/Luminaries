@@ -40,6 +40,11 @@ export const Events = {
   DISCOVERY:          'discovery:trigger',
   NARRATIVE_TEXT:      'narrative:text',
   PERSPECTIVE_CHANGED: 'narrative:perspectiveChanged',
+
+  // Session plumbing (save / settings / audio readiness)
+  AUDIO_READY:        'audio:ready',       // AudioContext created on the first gesture
+  SETTINGS_CHANGED:   'settings:changed',  // { key, value }
+  SAVE_WRITTEN:       'save:written',      // { at, reason }
 };
 
 // Pre-allocated listener arrays per event type

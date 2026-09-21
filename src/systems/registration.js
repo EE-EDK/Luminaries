@@ -8,6 +8,7 @@
 import { addSystem, Phase } from '../kernel/scheduler.js';
 import { updateDynamicEntityHash } from '../state/entityStore.js';
 import { updateAdaptiveQuality } from './adaptiveQuality.js';
+import { updateRenderScale } from './renderScaleDriver.js';
 
 // ================================================================
 // Nearest-creature tracking
@@ -35,6 +36,7 @@ export function registerAllSystems(deps) {
   // import.meta.env.DEV.
   addSystem('adaptiveQuality', Phase.ADAPTIVE_QUALITY, (dt, t, ctx) => {
     updateAdaptiveQuality(ctx.time.frameDt);
+    updateRenderScale(ctx.time.frameDt); // resolution first; sits above the notch thresholds
   });
 
   // --- Spatial Hash Update ---

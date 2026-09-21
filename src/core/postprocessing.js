@@ -165,22 +165,41 @@ function clamp01(v) {
   return n < 0 ? 0 : (n > 1 ? 1 : n);
 }
 
+// Re-cap bloom resolution after any composer resize. composer.setSize() calls
+// UnrealBloomPass.setSize(fullW, fullH), which sizes render targets from its
+// ARGUMENTS (width/2 x height/2) and never reads .resolution — so writing
+// bloomPass.resolution here was a no-op and the targets reverted to uncapped
+// half-viewport. Re-calling setSize with 2x the capped size yields capped
+// internal targets (setSize halves its inputs).
+function capBloom() {
+  if (bloomPass) {
+    const w = Math.min(448, Math.floor(window.innerWidth / 2));
+    const h = Math.min(448, Math.floor(window.innerHeight / 2));
+    bloomPass.setSize(w * 2, h * 2);
+  }
+}
+
+/**
+ * @brief Match the composer's targets to the renderer's current pixel ratio.
+ * EffectComposer caches the ratio at construction, so a dynamic resolution
+ * change must be pushed here after renderer.setPixelRatio.
+ */
+export function syncComposerPixelRatio() {
+  if (bloomEnabled && composer) {
+    composer.setPixelRatio(renderer.getPixelRatio());
+    capBloom();
+  }
+}
+
 // Handle resize — composer uses full resolution, bloom pass internally uses reduced
 // (NOTE: renderer.js and input.js also listen for 'resize')
 window.addEventListener('resize', () => {
   if (bloomEnabled && composer) {
+    // renderer.js's listener has already re-applied the pixel ratio (it is
+    // registered first: this module imports it).
+    composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(window.innerWidth, window.innerHeight);
-    // Re-cap bloom resolution after resize. composer.setSize() calls
-    // UnrealBloomPass.setSize(fullW, fullH), which sizes render targets from its
-    // ARGUMENTS (width/2 x height/2) and never reads .resolution — so writing
-    // bloomPass.resolution here was a no-op and the targets reverted to uncapped
-    // half-viewport. Re-calling setSize with 2x the capped size yields capped
-    // internal targets (setSize halves its inputs).
-    if (bloomPass) {
-      const w = Math.min(448, Math.floor(window.innerWidth / 2));
-      const h = Math.min(448, Math.floor(window.innerHeight / 2));
-      bloomPass.setSize(w * 2, h * 2);
-    }
+    capBloom();
   }
 });
 

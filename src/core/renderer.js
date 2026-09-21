@@ -1,5 +1,6 @@
 import { ACESFilmicToneMapping, Clock, Color, FogExp2, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
 import { C } from '../constants.js';
+import { pixelRatioAt } from './renderScale.js';
 
 // ================================================================
 // PHASE 0 — Scaffold
@@ -9,8 +10,16 @@ import { C } from '../constants.js';
 // Keep looking. There are notes in here — left by people who studied
 // this place before you. Some of them are... still here.
 export const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'default' });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+
+// Drawing-buffer resolution is base pixel ratio x a dynamic scale (see
+// renderScale.js). Index 0 is the old fixed behavior: min(devicePixelRatio, 1.5).
+let _scaleIndex = 0;
+export function applyRenderScale(index = _scaleIndex) {
+  _scaleIndex = index;
+  renderer.setPixelRatio(pixelRatioAt(window.devicePixelRatio, index));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+applyRenderScale(0);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 renderer.toneMapping = ACESFilmicToneMapping;
@@ -29,7 +38,7 @@ scene.fog = new FogExp2(C.fog, 0.010);
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  applyRenderScale(); // also re-reads devicePixelRatio (browser zoom / monitor change)
 });
 
 // Pause when tab hidden (prevents dt spike on return)

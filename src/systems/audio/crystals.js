@@ -7,6 +7,7 @@
 
 import { ctx, initialized, muted, masterGain, connectWithReverb } from './core.js';
 import { emit, Events } from '../../kernel/eventBus.js';
+import { voicePanner, releasePannerAfter } from './spatial.js';
 
 // Major Pentatonic (C D E G A)
 const SCALE = [0, 2, 4, 7, 9];
@@ -20,6 +21,10 @@ function noteFreq(degree, octShift) {
 }
 
 let clusterNodes = [];
+let clusterPanner = null;
+// The listener position the cluster panner was placed against. Updated each
+// frame so a cluster started while standing still is still placed correctly.
+let playerAt = { x: 0, y: 0, z: 0 };
 let clusterGains = [];
 let activeClusterIdx = -1;
 let currentChainSize = 0;
@@ -73,6 +78,7 @@ export function initCrystalClusters(crys_data) {
 
 export function updateCrystalResonance(dt, playerPos) {
   if (!initialized || muted || !playerPos) return;
+  playerAt = playerPos;
 
   let nearestIdx = -1;
   let minDistSq = Infinity;
@@ -122,19 +128,29 @@ function startClusterHarmonies(idx) {
   currentChainSize = cluster.indices.length;
   const now = ctx.currentTime;
 
+  // One panner for the whole bed, at the cluster's centre. A cluster is one
+  // sound source with several voices in it, not several sources — giving each
+  // harmonic its own position would smear the chord across the field and cost
+  // four HRTF convolutions where one will do. The player walks INTO this
+  // sound, so it has to swing around them as they turn, which volume alone
+  // never did.
+  clusterPanner = voicePanner(ctx, { x: cluster.x, z: cluster.z }, playerAt, 0);
+  const dest = clusterPanner || masterGain;
+  if (clusterPanner) clusterPanner.connect(masterGain);
+
   // Root drone
   const rootFreq = noteFreq(0, -2);
-  addHarmonicLayer(rootFreq, 0.04, 'sine');
+  addHarmonicLayer(rootFreq, 0.04, 'sine', dest);
 
   // Harmonized layers based on chain size
   if (currentChainSize >= 3) {
-    addHarmonicLayer(noteFreq(2, -2), 0.02, 'sine'); // Fifth
+    addHarmonicLayer(noteFreq(2, -2), 0.02, 'sine', dest); // Fifth
   }
   if (currentChainSize >= 5) {
-    addHarmonicLayer(noteFreq(4, -1), 0.015, 'triangle'); // Octave + Third
+    addHarmonicLayer(noteFreq(4, -1), 0.015, 'triangle', dest); // Octave + Third
   }
   if (currentChainSize >= 8) {
-    addHarmonicLayer(noteFreq(7, -1), 0.01, 'sine'); // Octave + Fifth
+    addHarmonicLayer(noteFreq(7, -1), 0.01, 'sine', dest); // Octave + Fifth
   }
 
   // Shimmer layer
@@ -151,7 +167,7 @@ function startClusterHarmonies(idx) {
   lfo.connect(lfoGain).connect(shimmerGain.gain);
   
   shimmerOsc.connect(shimmerGain);
-  connectWithReverb(shimmerGain, masterGain, 0.8);
+  connectWithReverb(shimmerGain, dest, 0.8);
   
   shimmerOsc.start(now);
   lfo.start(now);
@@ -159,14 +175,14 @@ function startClusterHarmonies(idx) {
   clusterGains.push(shimmerGain);
 }
 
-function addHarmonicLayer(freq, vol, type) {
+function addHarmonicLayer(freq, vol, type, dest) {
   const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.value = freq;
   const gain = ctx.createGain();
   gain.gain.value = 0;
   osc.connect(gain);
-  connectWithReverb(gain, masterGain, 0.6);
+  connectWithReverb(gain, dest || masterGain, 0.6);
   osc.start();
   clusterNodes.push(osc);
   clusterGains.push(gain);
@@ -186,4 +202,6 @@ function stopClusterHarmonies() {
   clusterNodes = [];
   clusterGains = [];
   currentChainSize = 0;
+  // After the 1 s fade, not during it.
+  if (clusterPanner) { releasePannerAfter(clusterPanner, 1.2); clusterPanner = null; }
 }

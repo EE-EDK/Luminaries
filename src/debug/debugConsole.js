@@ -15,12 +15,13 @@ import { emit, on, off, Events } from '../kernel/eventBus.js';
 import { getQuestSnapshot } from '../quest/questState.js';
 import { getRestoredSectors } from '../systems/dimming.js';
 import { debugSkipIntro } from '../systems/intro.js';
-import { getLookSensitivity, isInvertY } from '../core/input.js';
+import { getLookSensitivity, isInvertY, setYaw, setPitch } from '../core/input.js';
 import { isReducedMotion } from '../core/player.js';
 import { getQualityFloor } from './../systems/adaptiveQuality.js';
 import { getSettings } from '../state/settingsState.js';
 import { showNarrativeText } from '../systems/discoveries.js';
 import { getPostSettings, setPostOverride } from '../core/postprocessing.js';
+import { audioStageReport } from '../systems/audio.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { nearest } from '../systems/registration.js';
@@ -332,6 +333,16 @@ export function attachLumiDebugApi() {
       if (over) setPostOverride(over);
       return getPostSettings();
     },
+
+    /**
+     * Point the camera. For checks that need a known heading: a real mouse
+     * drag on the canvas takes pointer lock, and in headless Chromium the lock
+     * request never resolves, so the drag hangs forever.
+     */
+    look(yaw, pitch = 0) { setYaw(yaw); setPitch(pitch); return { yaw, pitch }; },
+
+    /** The spatial audio stage: listener, panning model, panner pool. */
+    audio() { return audioStageReport(); },
 
     /** Push a line through the real narrative display path. */
     say(text, seconds = 4) { showNarrativeText(text, seconds); },

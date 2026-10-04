@@ -144,7 +144,7 @@ import {
 import { initSettingsPanel } from './ui/settingsPanel.js';
 import { setLookSensitivity, setInvertY } from './core/input.js';
 import { setReducedMotion } from './core/player.js';
-import { bindMixerSettings, applyMixerSettings } from './systems/audio.js';
+import { bindMixerSettings, applyMixerSettings, updateAudioListener, setSpatialPlatform } from './systems/audio.js';
 import { setQualityFloor } from './systems/adaptiveQuality.js';
 
 // UI
@@ -739,6 +739,12 @@ function animate() {
     camera.rotation.z = 0;
   }
 
+  // The listener rides the camera, after the arbiter has settled where the
+  // camera actually is — reading yaw/pitch before a cutscene pan has had its
+  // say would put the ears somewhere the eyes are not.
+  updateAudioListener(player.pos.x, player.pos.y, player.pos.z,
+    camera.rotation.y, camera.rotation.x);
+
   updateHUD(dt, player.pos);
   postRender();
 }
@@ -908,6 +914,8 @@ try {
   // each consumer's first call carries the stored value rather than a default
   // it would then have to be corrected away from.
   setTouchPlatform(_isMobile);
+  // HRTF costs real CPU per voice; a phone gets the cheap directional model.
+  setSpatialPlatform(_isMobile);
   initSettings(saveStore);
 
   onSetting('masterVolume', () => applyMixerSettings());

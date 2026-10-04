@@ -3,6 +3,7 @@
 // ================================================================
 
 import { ctx, initialized, muted, masterGain, connectWithReverb, whiteBuf } from './core.js';
+import { voicePanner, releasePannerAfter } from './spatial.js';
 
 const laserHums = [];
 
@@ -72,7 +73,11 @@ export function playLaserHum(x, z) {
   const gain = ctx.createGain();
   gain.gain.value = 0;
 
-  const panner = ctx.createStereoPanner();
+  // A laser hum is a fixed world object that runs until the finale, so its
+  // panner is held for the life of the voice rather than pooled. Position is
+  // set once here: unlike the old stereo pan, it does not need re-deriving
+  // every frame — the listener moves, the obelisk beam does not.
+  const panner = voicePanner(ctx, { x, z }, { x, y: 0, z }, 0);
 
   osc.connect(filter).connect(gain).connect(panner).connect(masterGain);
   mod.start(now); osc.start(now);
@@ -90,8 +95,9 @@ export function updateLaserHums(playerPos) {
     const dist = Math.sqrt(d2);
     const vol = d2 < 625 ? Math.max(0, 1 - dist / 25) * 0.04 : 0;
     h.gain.gain.linearRampToValueAtTime(vol, now + 0.1);
-    const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-    h.panner.pan.linearRampToValueAtTime(pan, now + 0.1);
+    // No pan to compute: the panner holds a world position and the listener
+    // moves under it. This loop used to ramp a pan value every frame for every
+    // hum, including the silent ones beyond 25 m.
     h.filter.frequency.value = 180 + Math.sin(now * 0.5 + i) * 40;
   }
 }
@@ -104,6 +110,10 @@ export function stopLaserHums() {
     h.gain.gain.linearRampToValueAtTime(0, now + 0.5);
     h.osc.stop(now + 0.6);
     h.mod.stop(now + 0.6);
+    // Back to the pool once the fade is actually finished. Releasing now would
+    // disconnect the node mid-fade and cut the sound instead of easing it out,
+    // and releasing after `laserHums.length = 0` would release nothing at all.
+    releasePannerAfter(h.panner, 0.7);
   }
   laserHums.length = 0;
 }

@@ -3,6 +3,7 @@
 // ================================================================
 
 import { ctx, initialized, muted, masterGain, connectWithReverb, whiteBuf } from './core.js';
+import { voicePanner } from './spatial.js';
 
 export function playBubblePop(position, playerPos) {
   if (!initialized || muted) return;
@@ -19,7 +20,12 @@ export function playBubblePop(position, playerPos) {
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(vol, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-  osc.connect(gain).connect(masterGain);
+  // A pop is a small, sharp, clearly located sound — exactly the kind that
+  // reads as wrong when it comes from the middle of your head. It had no
+  // panning at all before, only volume.
+  const panner = voicePanner(ctx, position, playerPos, 0.3);
+  if (panner) osc.connect(gain).connect(panner).connect(masterGain);
+  else osc.connect(gain).connect(masterGain);
   osc.start(); osc.stop(now + 0.15);
 }
 

@@ -3,6 +3,13 @@
 // ================================================================
 
 import { ctx, initialized, muted, masterGain, connectWithReverb, creatureCooldowns, cooldownMult } from './core.js';
+import { voicePanner } from './spatial.js';
+
+// How long each voice can still be audible, so its panner goes back to the
+// pool after the sound rather than during it. Generous on purpose: returning
+// a node early cuts the tail off.
+const VOICE_TAIL = 2.0;     // one-shot calls, arpeggios, babble
+const DRONE_TAIL = 8.0;     // the attunement drone's 7.2 s swell
 
 // Major Pentatonic scale matched to music.js: C D E G A
 const SING_SCALE = [0, 2, 4, 7, 9];
@@ -37,10 +44,7 @@ export function playCreatureSound(type, position, playerPos) {
 
   const dist = Math.sqrt(d2);
   const vol = Math.max(0, 1 - dist / 30) * 0.10;
-  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = pan;
+  const panner = voicePanner(ctx, position, playerPos, VOICE_TAIL);
   const now = ctx.currentTime;
 
   switch (type) {
@@ -149,10 +153,7 @@ export function playPufflingSinging(position, playerPos, sectorRestored, attunem
 
   const dist = Math.sqrt(d2);
   const vol = Math.max(0, 1 - dist / 30) * 0.06;
-  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = pan;
+  const panner = voicePanner(ctx, position, playerPos, VOICE_TAIL);
   const now = ctx.currentTime;
 
   let noteCount, noteDur, octave, degrees;
@@ -235,10 +236,7 @@ export function playAttunementFlash(position, playerPos, creatureType) {
   if (d2 > 900) return;
 
   const dist = Math.sqrt(d2);
-  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = pan;
+  const panner = voicePanner(ctx, position, playerPos, VOICE_TAIL);
   const now = ctx.currentTime;
 
   const degrees = [0, 1, 2, 3, 4];
@@ -296,8 +294,11 @@ export function playAttunementFlash(position, playerPos, creatureType) {
     case 'puff':  droneHz = 550; break;
   }
   const droneFreqs = [droneHz, droneHz * 1.5, droneHz * 2];
-  const dronePanner = ctx.createStereoPanner();
-  dronePanner.pan.value = pan * 0.3;
+  // A narrow image for the drone: it runs for seven seconds under the
+  // arpeggio, and a bed that swings hard across the head is distracting.
+  // width 0.3 pulls the source most of the way to the listener, which is what
+  // scaling the old stereo pan by 0.3 amounted to.
+  const dronePanner = voicePanner(ctx, position, playerPos, DRONE_TAIL, { width: 0.3 });
   connectWithReverb(dronePanner, masterGain, 0.7);
 
   for (let di = 0; di < droneFreqs.length; di++) {
@@ -326,10 +327,7 @@ export function playPufflingVocal(text, position, playerPos, opts = {}) {
 
   const dist = Math.sqrt(d2);
   const vol = Math.max(0, 1 - dist / 20) * 0.05;
-  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = pan;
+  const panner = voicePanner(ctx, position, playerPos, VOICE_TAIL);
   const now = ctx.currentTime;
 
   const syllables = Math.min(Math.ceil(text.length / 2), 16);
@@ -381,10 +379,7 @@ export function playWizardApproachLaLa(position, playerPos) {
 
   const dist = Math.sqrt(d2);
   const vol = Math.max(0, 1 - dist / 55) * 0.055;
-  const pan = Math.max(-1, Math.min(1, dx / Math.max(dist, 1)));
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = pan;
+  const panner = voicePanner(ctx, position, playerPos, VOICE_TAIL);
   const now = ctx.currentTime;
 
   const degrees = [2, 1, 0, 2, 4, 2, 1, 2];

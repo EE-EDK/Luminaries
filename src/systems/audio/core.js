@@ -3,6 +3,7 @@
 // ================================================================
 
 import { on, emit, Events } from '../../kernel/eventBus.js';
+import { updateListener, cameraForward, panningModel, poolStats } from './spatial.js';
 
 export let ctx = null;
 export let masterGain = null;
@@ -165,6 +166,47 @@ export function connectWithReverb(node, dryDest, wetAmount) {
 let _eventSubscriber = null;
 export function setEventSubscriber(fn) { _eventSubscriber = fn; }
 
+/**
+ * @brief Put the audio listener on the camera. Call once per frame.
+ *
+ * Lives here because this module owns `ctx`; the alternative was exporting the
+ * AudioContext so main.js could reach into it, which makes every future caller
+ * able to rewire the graph.
+ *
+ * @param {number} x @param {number} y @param {number} z camera position
+ * @param {number} yaw @param {number} pitch camera angles, radians
+ * @return {boolean} false before the context exists
+ */
+export function updateAudioListener(x, y, z, yaw, pitch) {
+  if (!initialized || !ctx) return false;
+  cameraForward(yaw, pitch, _fwd);
+  return updateListener(ctx, x, y, z, _fwd.x, _fwd.y, _fwd.z);
+}
+
+const _fwd = { x: 0, y: 0, z: 0 };
+
+/**
+ * @brief Read-only view of the spatial stage, for the measurement scripts.
+ * @return {object|null} null before the context exists
+ */
+export function audioStageReport() {
+  if (!ctx) return null;
+  const L = ctx.listener;
+  const at = L && L.positionX && typeof L.positionX.value === 'number'
+    ? { x: L.positionX.value, y: L.positionY.value, z: L.positionZ.value,
+        fx: L.forwardX.value, fy: L.forwardY.value, fz: L.forwardZ.value }
+    : null;
+  return {
+    initialized,
+    hasListener: !!L,
+    listenerParams: !!(L && L.positionX),
+    listenerAt: at,
+    model: panningModel(),
+    pool: poolStats(),
+    state: ctx.state,
+  };
+}
+
 export function initAudio() {
   const handler = () => {
     if (initialized) return;
@@ -256,7 +298,11 @@ export function setThunderTimer(v) { thunderTimer = v; }
 // ================================================================
 export function toggleMute() {
   muted = !muted;
-  if (masterGain) masterGain.gain.value = muted ? 0 : 0.42;
+  // Was `masterGain.gain.value = muted ? 0 : 0.42` — unmuting threw away the
+  // player's volume setting and snapped back to the shipped default, and did
+  // it as a step change, which clicks. applyMixerSettings ramps to whatever
+  // the player actually chose.
+  applyMixerSettings();
   return muted;
 }
 

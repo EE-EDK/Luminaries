@@ -22,8 +22,12 @@ import { getSettings } from '../state/settingsState.js';
 import { showNarrativeText } from '../systems/discoveries.js';
 import { getPostSettings, setPostOverride } from '../core/postprocessing.js';
 import { audioStageReport } from '../systems/audio.js';
+import { deers, puffs, moths, jellies } from '../state/entityStore.js';
+import { phase as dayPhase, setWorldTime } from '../systems/dayNightCycle.js';
+import { isStorming, getRainRate } from '../systems/weather.js';
 import { player } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
+import { EYE_H } from '../constants.js';
 import { nearest } from '../systems/registration.js';
 import { debugForcePitchLock, resetLock } from '../systems/spiritHum.js';
 import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
@@ -340,6 +344,85 @@ export function attachLumiDebugApi() {
      * request never resolves, so the drag hangs forever.
      */
     look(yaw, pitch = 0) { setYaw(yaw); setPitch(pitch); return { yaw, pitch }; },
+
+    /**
+     * Move the world clock. 0 is dusk, 0.25 night, 0.5 deep night, 0.75 dawn.
+     * The daily rhythm is otherwise the slowest thing in the game to observe.
+     */
+    setTime(t) { setWorldTime(t); return { t, phase: dayPhase }; },
+
+    /**
+     * Stand somewhere else. Lands the player on the ground at x,z so a check
+     * can get close enough to a creature for it to be simulated at all.
+     */
+    teleport(x, z) {
+      player.pos.set(x, getGroundY(x, z) + EYE_H, z);
+      player.vel.set(0, 0, 0);
+      player.onGround = true;
+      return { x, z };
+    },
+
+    /**
+     * Stand near the nearest creature of a type, so it runs its update at all.
+     *
+     * The standoff matters more than it looks: a deer inside its alert radius
+     * (12 m walking, 18 m if you are sprinting) flips to `alert` before its
+     * state machine runs, so its walk timer never advances and it can never
+     * reach a grazing, resting or bedding decision. Watching deer behaviour
+     * from 8 m away shows you deer watching you, and nothing else. Default 30 m
+     * is outside that and well inside the 60 m simulation radius.
+     */
+    goTo(type, standoff = 30) {
+      const f = this.fauna();
+      const n = f[type] && f[type].nearest;
+      if (!n) return null;
+      const k = standoff / Math.SQRT2;
+      return this.teleport(n.x + k, n.z + k);
+    },
+
+    /**
+     * What every creature is doing right now, as a state histogram per type.
+     * The quickest way to see whether the daily rhythm is actually running:
+     * at dawn the deer should be bedding down and the moths resting.
+     */
+    fauna() {
+      // Each update loop culls beyond its own radius and `continue`s, so a
+      // creature outside it is frozen in whatever state it last held. Counting
+      // those alongside the live ones makes a rhythm that is not running look
+      // identical to one that is, so only simulated creatures are tallied and
+      // the frozen count is reported separately.
+      const CULL_D2 = { deer: 3600, puff: 1600, moth: 2025, jelly: 3025 };
+      const look = (arr, field, cull) => {
+        const states = {};
+        let live = 0, frozen = 0, nearest = null, nearestD2 = Infinity;
+        for (let i = 0; i < arr.length; i++) {
+          const e = arr[i];
+          const g = e.group;
+          const dx = (g ? g.position.x : 0) - player.pos.x;
+          const dz = (g ? g.position.z : 0) - player.pos.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < nearestD2) {
+            nearestD2 = d2;
+            nearest = { x: Math.round((g ? g.position.x : 0) * 10) / 10,
+              z: Math.round((g ? g.position.z : 0) * 10) / 10 };
+          }
+          if (d2 > cull) { frozen++; continue; }
+          live++;
+          const k = e[field] || 'none';
+          states[k] = (states[k] || 0) + 1;
+        }
+        return { states, live, frozen, nearest, nearestDist: Math.round(Math.sqrt(nearestD2) * 10) / 10 };
+      };
+      return {
+        phase: dayPhase,
+        storming: isStorming,
+        rain: Math.round(getRainRate() * 100) / 100,
+        deer: look(deers, 'state', CULL_D2.deer),
+        puff: look(puffs, 'state', CULL_D2.puff),
+        moth: look(moths, '_state', CULL_D2.moth),
+        jelly: look(jellies, '_state', CULL_D2.jelly),
+      };
+    },
 
     /** The spatial audio stage: listener, panning model, panner pool. */
     audio() { return audioStageReport(); },

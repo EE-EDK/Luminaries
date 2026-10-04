@@ -1,5 +1,5 @@
 import { DirectionalLight, HemisphereLight, PointLight } from 'three';
-import { C, MAX_CRYSTAL_LIGHTS } from '../constants.js';
+import { C, MAX_CRYSTAL_LIGHTS, PLAYER_LIGHT_INTENSITY, PLAYER_LIGHT_RANGE } from '../constants.js';
 import { scene } from './renderer.js';
 
 // ================================================================
@@ -37,6 +37,30 @@ scene.add(moon2);
 // Player carry light (always illuminates nearby)
 export const playerLight = new PointLight(C.playerLight, 0.6, 20);
 scene.add(playerLight);
+
+// The brightest the player's lantern ever gets, from the constants table: six
+// orbs' worth of intensity times six orbs' worth of range. Read from the table
+// rather than typed as a number so adding a seventh entry cannot silently make
+// `getPlayerLightLevel` stop reaching 1.
+const _PL_MAX = PLAYER_LIGHT_INTENSITY[PLAYER_LIGHT_INTENSITY.length - 1]
+  * PLAYER_LIGHT_RANGE[PLAYER_LIGHT_RANGE.length - 1];
+
+/**
+ * @brief How bright the player reads to a creature, 0 to 1.
+ *
+ * Intensity alone is not enough: a dim light with a long reach and a bright
+ * one with a short reach look about the same from five metres away, and it is
+ * the product that decides whether a deer notices you standing there. Includes
+ * the orb-collection flare, so walking up to something right after an orb is
+ * genuinely more startling.
+ *
+ * @return {number} 0..1
+ */
+export function getPlayerLightLevel() {
+  const v = (playerLight.intensity * playerLight.distance) / _PL_MAX;
+  if (!Number.isFinite(v)) return 0;
+  return v < 0 ? 0 : (v > 1 ? 1 : v);
+}
 
 // Priority Light Pooler — manages the limited point light budget
 // Budget: 1 Hemi + 2 Dir + 1 Player + 4 Dynamic Slots = 8 Hardware Lights

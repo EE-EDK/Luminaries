@@ -14,6 +14,9 @@ import { player, playerIdleTime } from '../../core/player.js';
 import { keys, touchSprint } from '../../core/input.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
+import { getRainRate } from '../../systems/weather.js';
+import { pufflingWantsHome } from '../../systems/ai/rhythm.js';
+import { nearestHouse } from '../../entities/world/pufflingHomes.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashTimer, attuneFlashType } from '../../state/gameState.js';
 import { puffs, deers, orbs } from '../../state/entityStore.js';
 import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
@@ -94,6 +97,32 @@ export function updatePuffs(dt, t) {
         p.wanderAng = Math.atan2(ddx, ddz); p.hopTimer = 0;
         playCreatureSound('puff', { x: px, z: pz }, player.pos);
         emit(Events.CREATURE_SOUND, { type: 'puff', position: { x: px, z: pz }, playerPos: player.pos });
+      }
+    }
+
+    // Dusk, or weather bad enough to drive them in: head for the nearest
+    // house. Checked before huddling, because a puffling with a door to go
+    // through should use it rather than stand in the rain pressed against a
+    // neighbour. Huddling stays for the case where home is too far.
+    if (p.state !== 'startled' && p.state !== 'home' && p.state !== 'syncing'
+        && pufflingWantsHome(dayPhase, isStorming, getRainRate())) {
+      const house = nearestHouse(px, pz, 2500);     // 50 m: further than that, huddle
+      if (house) {
+        p.state = 'home';
+        p._homeTgt = house;
+        p._homeT = 6 + Math.random() * 6;
+      }
+    }
+
+    // Leaving home again once the hour and the sky allow it.
+    if (p.state === 'home') {
+      p._homeT -= dt;
+      if (p._homeT <= 0) {
+        if (pufflingWantsHome(dayPhase, isStorming, getRainRate())) {
+          p._homeT = 5 + Math.random() * 5;
+        } else {
+          p.state = 'idle'; p.idleTimer = 1 + Math.random() * 2; p._homeTgt = null;
+        }
       }
     }
 
@@ -283,6 +312,24 @@ export function updatePuffs(dt, t) {
           }
         }
         g.rotation.y = p.wanderAng;
+        break;
+      }
+      case 'home': {
+        // Walk to the door and settle against it. No door animation exists, so
+        // the puffling sits at the threshold rather than vanishing inside —
+        // a puffling that disappears reads as a despawn bug, not as bedtime.
+        const hTgt = p._homeTgt;
+        if (hTgt) {
+          const hdx = hTgt.x - px, hdz = hTgt.z - pz;
+          const hd2 = hdx * hdx + hdz * hdz;
+          const stop = (hTgt.colR + 0.6) * (hTgt.colR + 0.6);
+          if (hd2 > stop) {
+            const hAng = Math.atan2(hdx, hdz);
+            g.position.x += Math.sin(hAng) * p.speed * 0.9 * dt;
+            g.position.z += Math.cos(hAng) * p.speed * 0.9 * dt;
+            g.rotation.y = hAng;
+          }
+        }
         break;
       }
       case 'huddle': {

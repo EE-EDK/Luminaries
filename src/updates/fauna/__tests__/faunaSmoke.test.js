@@ -108,6 +108,7 @@ vi.mock('../../../systems/dayNightCycle.js', () => ({
 // weather — imports Three.js + scene
 vi.mock('../../../systems/weather.js', () => ({
   isStorming: false,
+  getRainRate: () => 0,
   weatherState: 'CLEAR',
   windX: 0,
   windZ: 0,
@@ -506,6 +507,121 @@ describe('updateLuminids', () => {
 
     expect(() => {
       for (let i = 0; i < 5; i++) updateLuminids(0.05, i * 0.05);
+    }).not.toThrow();
+  });
+});
+
+// ================================================================
+// Daily rhythm: the new states must run without throwing.
+// ================================================================
+// The decision logic itself is tested in systems/ai/__tests__/rhythm.test.js.
+// What these cover is the other half — that each new branch inside the update
+// loops actually executes. A state the FSM can enter but whose case body
+// throws is worse than one that was never added, because it only fails once
+// the clock reaches that hour.
+describe('daily rhythm states', () => {
+  it('a bedded deer updates without throwing, with and without a tree', () => {
+    const withTree = makeDeerStub(40, 40);
+    withTree.state = 'bed';
+    withTree._stT = 5;
+    withTree._bedTgt = { x: 43, z: 40 };
+    // The no-tree case has to stay bedded and stay simulated for its null path
+    // to run at all: deer are culled past 60 m (pDist2 > 3600), and a short
+    // timer leaves the state before the body executes. The first version of
+    // this test did both, so removing the null guard changed nothing and the
+    // seeded defect survived.
+    const noTree = makeDeerStub(45, 20);
+    noTree.state = 'bed';
+    noTree._stT = 999;
+    noTree._bedTgt = null;
+    deers.push(withTree, noTree);
+
+    expect(() => {
+      for (let i = 0; i < 40; i++) updateDeers(0.05, i * 0.05);
+    }).not.toThrow();
+    expect(noTree.state, 'the null-target deer must still be in bed').toBe('bed');
+  });
+
+  it('a bedded deer walks toward its tree and settles', () => {
+    // Well away from the mocked player at the origin: a deer standing on the
+    // player flees, and flee outranks every other state. The first version of
+    // this test put it at (0,0) and measured a deer running for its life.
+    const d = makeDeerStub(40, 40);
+    d.state = 'bed';
+    d._stT = 999;                    // stay bedded for the whole run
+    d._bedTgt = { x: 50, z: 40 };
+    deers.push(d);
+    const startD2 = 100;
+    for (let i = 0; i < 60; i++) updateDeers(0.05, i * 0.05);
+    const dx = d.group.position.x - 50, dz = d.group.position.z - 40;
+    expect(d.state).toBe('bed');
+    expect(dx * dx + dz * dz).toBeLessThan(startD2);
+  });
+
+  it('a deer whose bed timer expires in fair weather gets up', () => {
+    const d = makeDeerStub(40, 40);
+    d.state = 'bed';
+    d._stT = 0.1;
+    d._bedTgt = { x: 40.5, z: 40 };
+    deers.push(d);
+    for (let i = 0; i < 10; i++) updateDeers(0.05, i * 0.05);
+    // The mocked clock says NIGHT and the mocked sky is clear, so there is no
+    // reason to stay down.
+    expect(d.state).toBe('walk');
+  });
+
+  it('a puffling heading home updates without throwing', () => {
+    const p1 = makePuffStub(25, 0);
+    p1.state = 'home';
+    p1._homeT = 5;
+    p1._homeTgt = { x: 31, z: 0, colR: 1.2 };
+    // Long hold, not a short one: with _homeT near zero the pre-switch block
+    // sends it back to idle before the null-target path in the switch ever
+    // runs, which made this assertion vacuous.
+    const p2 = makePuffStub(20, 6);
+    p2.state = 'home';
+    p2._homeT = 999;
+    p2._homeTgt = null;              // no house found: must not crash
+    puffs.push(p1, p2);
+
+    expect(() => {
+      for (let i = 0; i < 40; i++) updatePuffs(0.05, i * 0.05);
+    }).not.toThrow();
+    expect(p2.state, 'the null-target puffling must still be heading home').toBe('home');
+  });
+
+  it('a puffling walks toward its house and stops at the door', () => {
+    // Far enough from the player not to be startled, close enough to still be
+    // simulated: pufflings are culled outright beyond 40 m (pDist2 > 1600), so
+    // a stub parked at 56 m never runs its update at all. The first version of
+    // this test sat outside that band and measured a creature that was asleep.
+    const p = makePuffStub(25, 0);
+    p.state = 'home';
+    p._homeT = 999;
+    p._homeTgt = { x: 33, z: 0, colR: 1.0 };
+    puffs.push(p);
+    for (let i = 0; i < 200; i++) updatePuffs(0.05, i * 0.05);
+    const dx = p.group.position.x - 33, dz = p.group.position.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    expect(d).toBeLessThan(3);        // arrived
+    expect(d).toBeGreaterThan(0.3);   // did not climb inside the geometry
+  });
+
+  it('a resting moth updates without throwing when the timer expires', () => {
+    const m = makeMothStub(0, 0);
+    m._state = 'rest';
+    m._stT = 0.05;
+    m._restTree = { x: 1, z: 1, h: 6 };
+    moths.push(m);
+    expect(() => {
+      for (let i = 0; i < 30; i++) updateMoths(0.05, i * 0.05);
+    }).not.toThrow();
+  });
+
+  it('jellies update without throwing while the bloom is being pushed down', () => {
+    jellies.push(makeJellyStub(0, 0), makeJellyStub(6, 6));
+    expect(() => {
+      for (let i = 0; i < 20; i++) updateJellies(0.05, i * 0.05);
     }).not.toThrow();
   });
 });

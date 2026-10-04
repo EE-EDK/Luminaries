@@ -168,6 +168,28 @@ export function getPufflingHouseCollision() {
   return _pufflingHouseCollision;
 }
 
+/**
+ * @brief The placed house nearest a point, for pufflings heading home at dusk.
+ *
+ * Reuses the collision list rather than keeping a second roster: it already
+ * holds every house that was actually placed, and a separate list would be one
+ * more thing to forget to clear when the world regenerates.
+ *
+ * @param {number} x @param {number} z
+ * @param {number} [maxD2=Infinity] squared search radius
+ * @return {{x:number, z:number, colR:number}|null}
+ */
+export function nearestHouse(x, z, maxD2 = Infinity) {
+  let best = null, bestD2 = maxD2;
+  for (let i = 0; i < _pufflingHouseCollision.length; i++) {
+    const h = _pufflingHouseCollision[i];
+    const dx = h.x - x, dz = h.z - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestD2) { bestD2 = d2; best = h; }
+  }
+  return best;
+}
+
 function clusterCenterOk(x, z, centers) {
   if (x * x + z * z < OBELISK_EXCLUSION_R2) return false;
   for (let i = 0; i < centers.length; i++) {

@@ -11,6 +11,8 @@ import { emit, Events, on } from '../../kernel/eventBus.js';
 import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
 import { isStorming } from '../../systems/weather.js';
+import { getRainRate } from '../../systems/weather.js';
+import { jellyWantsDepth } from '../../systems/ai/rhythm.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
 import {
   isLocked,
@@ -345,7 +347,11 @@ export function updateJellies(dt, t) {
     _jg.visible = true;
     const j = jellies[i], g = j.group;
     const jx = g.position.x, jz = g.position.z;
-    const jFloatY = j.floatY + jellyAltMod;
+    // Dawn and rain push the whole bloom down toward the ground. Subtracted
+    // from the float height rather than from the final position so every
+    // existing bob, pulse and ritual offset still reads on top of it, and
+    // capped in rhythm.js so they never sink through the terrain.
+    const jFloatY = j.floatY + jellyAltMod - jellyWantsDepth(dayPhase, isStorming, getRainRate());
 
     const _jhd2 = _jdx * _jdx + _jdz * _jdz;
     applyDetailLod(j, _jhd2);

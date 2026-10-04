@@ -10,6 +10,8 @@ import { getAttunement, getAttunementTarget } from '../../systems/attunement.js'
 import { emit, Events } from '../../kernel/eventBus.js';
 import { player, playerIdleTime } from '../../core/player.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
+import { isStorming, getRainRate } from '../../systems/weather.js';
+import { mothWantsGround, mothRestRate } from '../../systems/ai/rhythm.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
 import { moths, crys_data, fairyRings } from '../../state/entityStore.js';
 import { queryNearTrees } from '../../utils/spatialHash.js';
@@ -100,7 +102,12 @@ export function updateMoths(dt, t) {
           emit(Events.CREATURE_SOUND, { type: 'moth', position: { x: mx, z: mz }, playerPos: player.pos });
         }
       }
-      const restChance = dayPhase === 'DAWN' ? 0.005 : (dayPhase === 'DEEP_NIGHT' ? 0.0003 : 0.001);
+      // Wet wings do not work: heavy rain or a storm makes settling effectively
+      // immediate, and dawn makes it a matter of a few seconds.
+      // Per second, scaled by dt — the old form rolled a flat per-frame chance,
+      // so moths settled six times as often at 60 fps as at 10 and a slow
+      // machine could run a whole dawn with nothing landing.
+      const restChance = mothRestRate(dayPhase, isStorming, getRainRate()) * dt;
       if (Math.random() < restChance) {
         let bestD2 = Infinity, bestTree = null;
         const _restQ = queryNearTrees(mx, mz, 20);
@@ -161,6 +168,12 @@ export function updateMoths(dt, t) {
       }
       case 'rest': {
         m._stT -= dt;
+        // Still raining: hold the trunk rather than taking off into it. Without
+        // this the moth lifts off the instant its timer runs out and lands
+        // again a frame later, which reads as a twitch, not as weather.
+        if (m._stT <= 0 && mothWantsGround(dayPhase, isStorming, getRainRate())) {
+          m._stT = 4 + Math.random() * 5;
+        }
         if (!m._restTree || m._stT <= 0) {
           m._state = 'patrol'; m._restTree = null;
           m.centerX = g.position.x; m.centerZ = g.position.z;

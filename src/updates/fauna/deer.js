@@ -14,6 +14,9 @@ import { separation, cohesion, worldBounds, avoidObstacles } from '../../systems
 import { player, playerIdleTime } from '../../core/player.js';
 import { keys, touchSprint } from '../../core/input.js';
 import { bioGlow, phase as dayPhase } from '../../systems/dayNightCycle.js';
+import { isStorming, getRainRate } from '../../systems/weather.js';
+import { deerWantsCover, restBias, grazeBias, noticesLight, LOOK_HOLD_S } from '../../systems/ai/rhythm.js';
+import { getPlayerLightLevel } from '../../core/lighting.js';
 import { orbBoost, humResonanceType, humResonanceStr, echoTimer, attuneFlashType } from '../../state/gameState.js';
 import { deers, ponds } from '../../state/entityStore.js';
 import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
@@ -156,8 +159,26 @@ export function updateDeers(dt, t) {
         d.walkTimer -= dt;
         if (d.walkTimer <= 0) {
           const r = Math.random();
-          const grazeThresh = dayPhase === 'DUSK' ? 0.55 : 0.4;
-          const restThresh = dayPhase === 'DEEP_NIGHT' ? 0.25 : 0.1;
+          const grazeThresh = grazeBias(dayPhase);
+          const restThresh = restBias(dayPhase);
+          // Dawn, heavy rain or a storm and this deer is done wandering: find
+          // the nearest trunk and bed down under it until the weather or the
+          // hour turns. Checked before the dice, so cover is a decision rather
+          // than a roll the deer can lose while standing in a downpour.
+          if (deerWantsCover(dayPhase, isStorming, getRainRate())) {
+            const _bedNear = queryNearTrees(gx, gz, 14);
+            let bedBest = null, bedBestD2 = Infinity;
+            for (let bi = 0; bi < _bedNear.length; bi++) {
+              const tr = _bedNear.items[bi];
+              const bdx = tr.x - gx, bdz = tr.z - gz;
+              const bd2 = bdx * bdx + bdz * bdz;
+              if (bd2 < bedBestD2) { bedBestD2 = bd2; bedBest = tr; }
+            }
+            d.state = 'bed';
+            d._bedTgt = bedBest;
+            d._stT = 10 + Math.random() * 10;
+            break;
+          }
           if (r < 0.25) { d.state = 'pause'; d.pauseTimer = 2 + Math.random() * 3; }
           else if (r < grazeThresh) { d.state = 'graze'; d._stT = dayPhase === 'DUSK' ? (5 + Math.random() * 6) : (3 + Math.random() * 4); }
           else if (r < grazeThresh + 0.1 && ponds.length > 0) {
@@ -186,6 +207,34 @@ export function updateDeers(dt, t) {
         const walkAvoid = avoidObstacles(_deerPos, d.wanderAng, _walkNear.items, 2.5, 1.2, _walkNear.length);
         if (walkAvoid.x * walkAvoid.x + walkAvoid.z * walkAvoid.z > 0.01) {
           d.wanderAng += Math.atan2(walkAvoid.z, walkAvoid.x) * 0.4;
+        }
+        break;
+      }
+      case 'bed': {
+        // Walk to the trunk, then sink like `rest` and stay. The hold is
+        // re-checked rather than set once: a deer that bedded down for a squall
+        // should get up when it passes, not sleep through to dawn.
+        d._stT -= dt;
+        const bedTgt = d._bedTgt;
+        if (bedTgt) {
+          const bdx = bedTgt.x - gx, bdz = bedTgt.z - gz;
+          if (bdx * bdx + bdz * bdz > 4) {
+            isMoving = true;
+            moveSpeed = d.speed * 0.8;
+            d.wanderAng = Math.atan2(bdx, bdz);
+          } else {
+            d.headBob = -0.35;
+          }
+        } else {
+          d.headBob = -0.35;
+        }
+        if (d._stT <= 0) {
+          if (deerWantsCover(dayPhase, isStorming, getRainRate())) {
+            d._stT = 8 + Math.random() * 8;
+          } else {
+            d.state = 'walk'; d.walkTimer = 2 + Math.random() * 4;
+            d.headBob = 0; d._bedTgt = null;
+          }
         }
         break;
       }
@@ -329,6 +378,20 @@ export function updateDeers(dt, t) {
     d.neckMidPivot.rotation.x += (targetBob * 0.5 - 0.1 + walkBob * 0.5 - d.neckMidPivot.rotation.x) * dt * 3;
 
     // Head look/tilt (curiosity)
+    // Noticing the lantern. A deer close to a bright light turns its head
+    // toward it for most of a second — not alarm, which is what `alert` is
+    // for, just the small acknowledgement that something luminous walked up.
+    // Applied after every state has had its say so it reads on a bedded deer
+    // too, and skipped while fleeing, where looking anywhere but away is wrong.
+    if (d.state !== 'flee') {
+      if (noticesLight(getPlayerLightLevel(), pDist2) && d.state !== 'alert') {
+        d._lookT = LOOK_HOLD_S;
+      }
+      if (d._lookT > 0) {
+        d._lookT -= dt;
+        d.headLook += (pAng - d.wanderAng - d.headLook) * Math.min(1, dt * 3);
+      }
+    }
     d.headPivot.rotation.y += (d.headLook - d.headPivot.rotation.y) * dt * 4;
     d.headPivot.rotation.z = Math.sin(t * 0.4 + d.phase) * 0.15; // idle tilt
 

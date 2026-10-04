@@ -28,7 +28,7 @@ vi.mock('../../../core/player.js', () => ({
   playerIdleTime: 0,
 }));
 vi.mock('../../../systems/dayNightCycle.js', () => ({ bioGlow: 1.0, phase: 'NIGHT' }));
-vi.mock('../../../systems/weather.js', () => ({ isStorming: false }));
+vi.mock('../../../systems/weather.js', () => ({ isStorming: false, getRainRate: () => 0 }));
 vi.mock('../../../state/gameState.js', () => ({
   orbBoost: 1, humResonanceType: null, humResonanceStr: 0, echoTimer: 0, attuneFlashType: null,
 }));

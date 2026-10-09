@@ -8,6 +8,7 @@
 // remember from childhood. The forest chose it. We didn't.
 
 import { whiteBuf } from './audio/core.js';
+import { musicDensity } from './environment.js';
 
 // ---- Injected dependencies (set via setupMusic) ----
 let ctx = null;
@@ -313,8 +314,13 @@ function generateChimeCluster() {
 // ================================================================
 // Update — called every frame from audio.js delegation
 // ================================================================
-export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
+export function updateMusic(dt, dayPhase, playerSpeed, nearMagical, restoredFrac) {
   if (!musicInited || !ctx) return;
+
+  // How full the score should be. At zero orbs the forest is nearly silent and
+  // fills in as it is restored, so the music is part of the progression rather
+  // than a soundtrack that was always playing. Rates come back per second.
+  const _d = musicDensity(restoredFrac, dayPhase, playerSpeed);
 
   // 1. Harmonic progression (16s per chord)
   droneTimer -= dt;
@@ -326,27 +332,37 @@ export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
   }
 
   // 2. Bass pulse (every 8s)
+  // The bass pulse is for a player who is actually moving.
   bassTimer -= dt;
   if (bassTimer <= 0) {
-    playBassPulse(currentChordRoot);
-    bassTimer = 8;
+    if (_d.bass) playBassPulse(currentChordRoot);
+    bassTimer = _d.bass ? 4 : 8;
   }
 
-  // 3. Harp arpeggios
+  // 3. Harp arpeggios — the backbone, and the voice that thickens most.
   harpTimer -= dt;
   if (harpTimer <= 0) {
-    harpTimer = generateHarpArpeggio();
+    const gap = generateHarpArpeggio();
+    // The phrase sets its own length; the density decides the rest between
+    // phrases. Divided rather than replaced so a restored forest plays the
+    // same figures more often instead of different ones.
+    harpTimer = gap / Math.max(0.05, _d.harpRate / 0.3);
   }
 
-  // 4. Flute melodies
+  // 4. Flute melodies — held back entirely until something has been restored.
   fluteTimer -= dt;
   if (fluteTimer <= 0) {
-    fluteTimer = generateFlutePhrase();
+    if (_d.fluteChance > 0 && Math.random() < _d.fluteChance) {
+      fluteTimer = generateFlutePhrase();
+    } else {
+      fluteTimer = 6 + Math.random() * 8;     // stay quiet, try again later
+    }
   }
 
-  // 5. Chimes
+  // 5. Chimes — dawn's voice.
   chimeTimer -= dt;
   if (chimeTimer <= 0) {
-    chimeTimer = generateChimeCluster();
+    const gap = generateChimeCluster();
+    chimeTimer = gap / Math.max(0.05, _d.chimeRate / 0.12);
   }
 }

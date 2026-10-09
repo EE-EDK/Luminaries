@@ -27,7 +27,7 @@ import { toggleMute as _coreToggleMute } from './audio/core.js';
 setEventSubscriber(() => {
   on(Events.ORB_COLLECTED, () => { playOrbCollect(); });
   on(Events.ORB_REJECTED, () => { playOrbReject(); });
-  on(Events.FOOTSTEP, (d) => { playFootstep(d.sprinting, d.nearWater); });
+  on(Events.FOOTSTEP, (d) => { playFootstep(d.sprinting, d.kind !== undefined ? d.kind : d.nearWater); });
   on(Events.JUMP, () => { playJumpSound(); });
   on(Events.LAND, (d) => { playLandSound(d.impactStrength); });
   on(Events.FAIRY_BOUNCE, () => { playFairyBounce(); });

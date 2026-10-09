@@ -7,10 +7,44 @@ import {
   forestGain, forest2Gain, windGain, windFilter, rainGain, rainFilter,
   waterGain, creatureCooldowns, thunderTimer, setThunderTimer
 } from './core.js';
+import { getGust } from '../weather.js';
+import { queryNearTrees } from '../../utils/spatialHash.js';
 
 // ================================================================
 // Update (called per frame)
 // ================================================================
+let _rumble = null;
+
+/**
+ * @brief Is the player under a canopy? One squared check against the nearest
+ * trees, not a raycast — this runs every frame.
+ */
+function underCanopy(playerPos) {
+  if (!playerPos) return false;
+  const near = queryNearTrees(playerPos.x, playerPos.z, 5);
+  for (let i = 0; i < near.length; i++) {
+    const t = near.items[i];
+    const dx = t.x - playerPos.x, dz = t.z - playerPos.z;
+    if (dx * dx + dz * dz < 16) return true;      // within 4 m of a trunk
+  }
+  return false;
+}
+
+/** A low bed that sits under a storm between the cracks. */
+function startStormRumble() {
+  if (!ctx || !brownBuf) return null;
+  const src = ctx.createBufferSource();
+  src.buffer = brownBuf;
+  src.loop = true;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 110; lp.Q.value = 0.7;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  src.connect(lp).connect(gain).connect(masterGain);
+  src.start();
+  return gain;
+}
+
 export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFlash, phase, playerPos, ponds) {
   if (!initialized || muted) return;
 
@@ -21,17 +55,32 @@ export function updateAudio(dt, windStrength, rainRate, isStorming, lightningFla
   forestGain.gain.linearRampToValueAtTime(forestVol, now + 0.1);
   forest2Gain.gain.linearRampToValueAtTime(forestVol * 0.6, now + 0.1);
 
-  // Wind — driven by weather windStrength
-  const windVol = Math.min(windStrength * 0.12, 0.18);
-  const windFreq = 200 + windStrength * 600;
+  // Wind — the steady wind plus whatever the gust is doing. The gust was
+  // visible in the canopy but inaudible, so a gust crossing the forest moved
+  // the trees in silence.
+  const _gust = getGust();
+  const _wind = windStrength + _gust;
+  const windVol = Math.min(_wind * 0.12, 0.22);
+  const windFreq = 200 + _wind * 600;
   windGain.gain.linearRampToValueAtTime(windVol, now + 0.1);
   windFilter.frequency.linearRampToValueAtTime(windFreq, now + 0.1);
 
-  // Rain — driven by weather rainRate
-  const rainVol = rainRate * 0.15;
-  const rainFreq = 1200 + rainRate * 2000;
+  // Rain — louder and brighter the harder it falls. Under a canopy it is
+  // quieter but duller: the leaves take the top off before it reaches you,
+  // which is most of what being under a tree in rain sounds like.
+  const _canopy = underCanopy(playerPos);
+  const rainVol = rainRate * (_canopy ? 0.11 : 0.15);
+  const rainFreq = (1200 + rainRate * 2000) * (_canopy ? 0.55 : 1);
   rainGain.gain.linearRampToValueAtTime(rainVol, now + 0.1);
   rainFilter.frequency.linearRampToValueAtTime(rainFreq, now + 0.1);
+
+  // A storm has a floor under it, not just thunder cracks. isStorming was
+  // imported and passed into this function and never read — the whole storm
+  // bed was missing, and a thunderstorm sounded like ordinary rain between
+  // strikes.
+  const rumbleTarget = isStorming ? 0.055 : 0;
+  if (_rumble) _rumble.gain.setTargetAtTime(rumbleTarget, now, 1.2);
+  else if (isStorming) _rumble = startStormRumble();
 
   // Thunder
   if (lightningFlash > 0.5 && thunderTimer <= 0) {

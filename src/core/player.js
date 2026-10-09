@@ -3,7 +3,7 @@ import { GRAVITY, MOVE_SPEED, SPRINT_MULT, JUMP_IMPULSE, EYE_H, WORLD_R } from '
 import { camera } from './renderer.js';
 import { playerLight } from './lighting.js';
 import { getInput, keys, yaw, pitch, touchJump, setTouchJump, touchSprint } from './input.js';
-import { getGroundY } from '../world/terrain.js';
+import { getGroundY, groundKind } from '../world/terrain.js';
 import { emit, Events } from '../kernel/eventBus.js';
 
 // Player state
@@ -214,7 +214,10 @@ export function updatePlayer(dt) {
     const curSign = Math.sin(headBobPhase) >= 0 ? 1 : -1;
     if (prevBobSign > 0 && curSign < 0) {
       onStepFn(sprinting);
-      emit(Events.FOOTSTEP, { sprinting, nearWater: false });
+      // `nearWater: false` was hardcoded, so the water voice was unreachable
+      // from here and every step sounded like dry ground wherever you were.
+      const kind = groundKind(player.pos.x, player.pos.z);
+      emit(Events.FOOTSTEP, { sprinting, kind, nearWater: kind === 'water' });
     }
     prevBobSign = curSign;
   }

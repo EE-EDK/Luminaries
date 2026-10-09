@@ -19,7 +19,7 @@ import { updateAllInstancedFlora } from '../entities/_instancedFlora.js';
 import { createGround, updateGroundUniforms } from '../world/ground.js';
 import { player } from '../core/player.js';
 import { camera } from '../core/renderer.js';
-import { windStrength, windX, windZ, isStorming, weatherState, getRainRate } from '../systems/weather.js';
+import { windStrength, windX, windZ, isStorming, weatherState, getRainRate, getGustFront } from '../systems/weather.js';
 import { bioGlow } from '../systems/dayNightCycle.js';
 import { isSkyTransformed } from '../world/sky.js';
 import { orbBoost, addVisitedCrystal, lastVisitedCrystals, setCrystalChainBoost } from '../state/gameState.js';
@@ -82,7 +82,8 @@ export function updateVegetation(dt, t) {
   const bloom = Math.min(1, Math.max(0, (bioGlow - 0.65) / 0.85));
   // Reduced motion calms the canopy too: a forest swaying at full amplitude
   // fills the whole screen with movement even when the camera is still.
-  updateMotionGlobals(t, isReducedMotion() ? wAmp * 0.35 : wAmp, wLeanX, wLeanZ, px, pz, droop, bloom);
+  updateMotionGlobals(t, isReducedMotion() ? wAmp * 0.35 : wAmp, wLeanX, wLeanZ, px, pz, droop, bloom,
+    isReducedMotion() ? null : getGustFront());
 
   const treeDim = smoothedDimFactor * orbBoost;
   updateTreeLOD(treeMeshes, treeImpostors, px, py, pz, t, wAmp, wLeanX, wLeanZ, camera, treeDim, bioGlow);

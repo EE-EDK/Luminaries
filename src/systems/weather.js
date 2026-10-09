@@ -11,6 +11,7 @@ import { emit, Events } from '../kernel/eventBus.js';
 import { sr } from '../utils/rng.js';
 import { C } from '../constants.js';
 import { lerp } from '../utils/math.js';
+import { gustPhaseRate, GUST_WAVELENGTH } from './environment.js';
 
 // Live exports (read by main.js and other systems)
 export let windX = 0;
@@ -53,6 +54,7 @@ let blend = 0; // 0..1
 let windAngle = sr() * Math.PI * 2;
 let gustTimer = 0;
 let gustPower = 0;
+let gustPhase = 0;
 
 // Mist planes
 const mistPlanes = [];
@@ -173,6 +175,11 @@ export function updateWeather(dt, t, playerPos) {
   gustTimer -= dt;
   if (gustTimer <= 0) { gustTimer = 2 + sr() * 6; gustPower = sr() * 0.8; }
   gustPower *= Math.pow(0.3, dt);
+  // The gust front travels: phase advances with the wind speed so a strong
+  // gust crosses the forest faster than a light one. Before this every plant
+  // leaned at the same instant, which reads as the forest being shoved.
+  gustPhase += gustPhaseRate(windStrength + gustPower) * dt;
+  if (gustPhase > 1e6) gustPhase -= 1e6;       // keep the float honest
   const totalWind = windStrength + gustPower;
   windX = Math.cos(windAngle) * totalWind;
   windZ = Math.sin(windAngle) * totalWind;
@@ -263,3 +270,24 @@ export function restoreWeatherSnapshot(snap) {
 }
 
 export function getRainRate() { return curRainRate; }
+
+/** @brief Gust strength on top of the steady wind, 0..~0.8. */
+export function getGust() { return gustPower; }
+
+/**
+ * @brief The travelling gust front, for the motion shader and the wind bed.
+ * @return {{phase:number, dirX:number, dirZ:number, k:number, amount:number}}
+ */
+export function getGustFront() {
+  _front.phase = gustPhase;
+  _front.dirX = Math.cos(windAngle);
+  _front.dirZ = Math.sin(windAngle);
+  _front.k = (Math.PI * 2) / GUST_WAVELENGTH;
+  // How much the wave is allowed to modulate the lean. A steady breeze barely
+  // ripples; a real gust nearly doubles the lean at the crest.
+  _front.amount = Math.min(1.2, gustPower * 1.5);
+  return _front;
+}
+
+// Reused every frame: this is called from the per-frame vegetation update.
+const _front = { phase: 0, dirX: 1, dirZ: 0, k: (Math.PI * 2) / GUST_WAVELENGTH, amount: 0 };

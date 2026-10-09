@@ -1,4 +1,7 @@
 import { WORLD_R, TERRAIN_PLANE_SIZE, TERRAIN_PLANE_SEGS } from '../constants.js';
+import { classifyGround } from '../systems/environment.js';
+import { ponds, rocks_data } from '../state/entityStore.js';
+import { getRainRate } from '../systems/weather.js';
 
 // ================================================================
 // Procedural terrain heightmap — gentle rolling hills
@@ -404,6 +407,33 @@ export function getMeshGroundY(x, z) {
 }
 
 // Get terrain normal at a point (for entity alignment)
+/**
+ * @brief What the player is standing on, for the footstep voice.
+ *
+ * Gathers the two distances and hands them to classifyGround, which owns the
+ * ordering. Squared distances throughout and no square roots: this runs on
+ * every footstep, which at a sprint is three times a second.
+ *
+ * @param {number} x @param {number} z
+ * @return {string} one of GROUND
+ */
+export function groundKind(x, z) {
+  let pondD2 = Infinity;
+  for (let i = 0; i < ponds.length; i++) {
+    const dx = ponds[i].x - x, dz = ponds[i].z - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < pondD2) pondD2 = d2;
+  }
+  let rockD2 = Infinity;
+  for (let i = 0; i < rocks_data.length; i++) {
+    const r = rocks_data[i];
+    const dx = r.x - x, dz = r.z - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < rockD2) rockD2 = d2;
+  }
+  return classifyGround(pondD2, rockD2, getRainRate());
+}
+
 export function getGroundNormal(x, z) {
   const e = 0.35; // sample offset — slightly wider on steeper slopes for stable tilts
   const hC = getGroundY(x, z);

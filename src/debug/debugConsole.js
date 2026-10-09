@@ -39,6 +39,11 @@ import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
 import { list as listSystems } from '../kernel/scheduler.js';
 import { getQualityReport, setAdaptiveQualityEnabled } from '../systems/adaptiveQuality.js';
+import { groundKind } from '../world/terrain.js';
+import { getGust, getGustFront } from '../systems/weather.js';
+import { gustWaveAt, musicDensity } from '../systems/environment.js';
+import { getOrbsFound } from '../quest/questState.js';
+import { ORB_N } from '../constants.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -421,6 +426,31 @@ export function attachLumiDebugApi() {
         puff: look(puffs, 'state', CULL_D2.puff),
         moth: look(moths, '_state', CULL_D2.moth),
         jelly: look(jellies, '_state', CULL_D2.jelly),
+      };
+    },
+
+    /**
+     * The environment couplings: what the ground under the player is, where the
+     * gust front has got to, and how full the score should be. Reads the live
+     * modules, so a value here that disagrees with the weather means a wire is
+     * loose rather than a rule being wrong.
+     */
+    env() {
+      const g = getGustFront();
+      return {
+        ground: groundKind(player.pos.x, player.pos.z),
+        rain: Math.round(getRainRate() * 100) / 100,
+        storming: isStorming,
+        gust: Math.round(getGust() * 1000) / 1000,
+        gustPhase: Math.round(g.phase * 100) / 100,
+        gustDir: { x: Math.round(g.dirX * 100) / 100, z: Math.round(g.dirZ * 100) / 100 },
+        gustAmount: Math.round(g.amount * 1000) / 1000,
+        // How the wave reads at the player versus a quarter wavelength away:
+        // if a gust is running these must differ.
+        waveHere: Math.round(gustWaveAt(player.pos.x, player.pos.z, g.phase, g.dirX, g.dirZ) * 1000) / 1000,
+        waveAcross: Math.round(gustWaveAt(
+          player.pos.x + g.dirX * 13, player.pos.z + g.dirZ * 13, g.phase, g.dirX, g.dirZ) * 1000) / 1000,
+        music: musicDensity(getOrbsFound() / ORB_N, dayPhase, 0),
       };
     },
 

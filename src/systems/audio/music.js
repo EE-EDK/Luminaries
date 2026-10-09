@@ -13,9 +13,9 @@ function initMusic() {
   setupMusic(ctx, masterGain, connectWithReverb);
 }
 
-export function updateMusic(dt, dayPhase, playerSpeed, nearMagical) {
+export function updateMusic(dt, dayPhase, playerSpeed, nearMagical, restoredFrac) {
   if (!initialized || muted) return;
   if (!musicInited) initMusic();
   if (!musicInited) return;
-  _updateMusic(dt, dayPhase, playerSpeed, nearMagical);
+  _updateMusic(dt, dayPhase, playerSpeed, nearMagical, restoredFrac);
 }

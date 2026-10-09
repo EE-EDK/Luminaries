@@ -23,7 +23,7 @@ import { initCrystalLights, crystalLights, playerLight, orbLight, moon, hemiLigh
 import { keys, yaw, pitch, setGoCallback, setStarted, touchSprint, setLookSuppressed, setMoveSuppressed, unlockTruthControlHint } from './core/input.js';
 // Constants
 import {
-  WORLD_R, EYE_H, STARMOTE_N,
+  WORLD_R, EYE_H, STARMOTE_N, ORB_N,
   FAIRY_SKY_GRAV_UP, FAIRY_SKY_GRAV_DOWN, FAIRY_SKY_FEATHER_S,
   C
 } from './constants.js';
@@ -591,7 +591,7 @@ function animate() {
       if (dx * dx + dz * dz < 144) { nearMagic = true; break; } // 12m
     }
   }
-  updateMusic(dt, dayPhase, pSpeed, nearMagic);
+  updateMusic(dt, dayPhase, pSpeed, nearMagic, getOrbsFound() / ORB_N);
 
   // Pass wind to particle systems (Item 9)
   setSporeWind(windX, windZ);

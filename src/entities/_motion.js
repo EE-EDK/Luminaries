@@ -43,6 +43,14 @@ export const MOTION = Object.freeze({
 export const motionUniforms = {
   uTime: { value: 0 },
   uWindAmp: { value: 1.0 },
+  // Gust front: a phase that advances with the wind, and the direction it
+  // travels. The lean term below is multiplied by how much of the wave has
+  // reached each plant, so the canopy moves as a wave rather than all at once.
+  uGustPhase: { value: 0 },
+  uGustDirX: { value: 1 },
+  uGustDirZ: { value: 0 },
+  uGustK: { value: (Math.PI * 2) / 26 },
+  uGustAmt: { value: 0 },
   uWindLeanX: { value: 0 },
   uWindLeanZ: { value: 0 },
   uPlayerX: { value: 0 },
@@ -62,7 +70,7 @@ export const motionUniforms = {
  * @param {number} droop storm droop 0..1
  * @param {number} bloom night-bloom factor 0..1 (petal opening)
  */
-export function updateMotionGlobals(t, wAmp, leanX, leanZ, px, pz, droop, bloom) {
+export function updateMotionGlobals(t, wAmp, leanX, leanZ, px, pz, droop, bloom, gust) {
   motionUniforms.uTime.value = t;
   motionUniforms.uWindAmp.value = wAmp;
   motionUniforms.uWindLeanX.value = leanX;
@@ -71,6 +79,13 @@ export function updateMotionGlobals(t, wAmp, leanX, leanZ, px, pz, droop, bloom)
   motionUniforms.uPlayerZ.value = pz;
   motionUniforms.uDroop.value = droop;
   if (bloom !== undefined) motionUniforms.uBloom.value = bloom;
+  if (gust) {
+    motionUniforms.uGustPhase.value = gust.phase;
+    motionUniforms.uGustDirX.value = gust.dirX;
+    motionUniforms.uGustDirZ.value = gust.dirZ;
+    motionUniforms.uGustK.value = gust.k;
+    motionUniforms.uGustAmt.value = gust.amount;
+  }
 }
 
 const VERT_PARS = /* glsl */`
@@ -84,6 +99,11 @@ attribute float aInstPhase;
 #endif
 uniform float uTime;
 uniform float uWindAmp;
+uniform float uGustPhase;
+uniform float uGustDirX;
+uniform float uGustDirZ;
+uniform float uGustK;
+uniform float uGustAmt;
 uniform float uWindLeanX;
 uniform float uWindLeanZ;
 uniform float uPlayerX;
@@ -161,8 +181,15 @@ const VERT_BODY = /* glsl */`
     float _hf = aSway, _hf2 = aSway * aSway;
     float _swX = (sin(uTime * 0.7 + _wp.x * 0.05 + _ph) * 0.06 + sin(uTime * 1.3 + _wp.z * 0.08) * 0.03) * uWindAmp * _hf2;
     float _swZ = (sin(uTime * 0.9 + _wp.z * 0.06 + _ph) * 0.04 + sin(uTime * 1.7 + _wp.x * 0.04) * 0.02) * uWindAmp * _hf2;
-    _p.x += _swX + uWindLeanX * _hf;
-    _p.z += _swZ + uWindLeanZ * _hf;
+    // How much of the travelling gust has reached this plant. Projecting the
+    // world position onto the wind direction means everything on a line across
+    // the wind leans together, which is what a gust front looks like from
+    // inside it. 0..1, never negative — a negative scale would lean the plant
+    // into the wind.
+    float _gAlong = _wp.x * uGustDirX + _wp.z * uGustDirZ;
+    float _gust = 1.0 + uGustAmt * (sin(uGustPhase - _gAlong * uGustK) + 1.0) * 0.5;
+    _p.x += _swX + uWindLeanX * _hf * _gust;
+    _p.z += _swZ + uWindLeanZ * _hf * _gust;
     float _pdx = _wp.x - uPlayerX, _pdz = _wp.z - uPlayerZ;
     float _pd2 = _pdx * _pdx + _pdz * _pdz;
     if (_pd2 < 1.44 && _mode < 8.5) {

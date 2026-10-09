@@ -13,7 +13,7 @@
 
 import { emit, on, off, Events } from '../kernel/eventBus.js';
 import { getQuestSnapshot } from '../quest/questState.js';
-import { getRestoredSectors } from '../systems/dimming.js';
+import { getRestoredSectors, setSectorRestored, prepareLocalGlowFrame } from '../systems/dimming.js';
 import { debugSkipIntro } from '../systems/intro.js';
 import { getLookSensitivity, isInvertY, setYaw, setPitch } from '../core/input.js';
 import { isReducedMotion } from '../core/player.js';
@@ -44,6 +44,7 @@ import { getGust, getGustFront } from '../systems/weather.js';
 import { gustWaveAt, musicDensity } from '../systems/environment.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { ORB_N } from '../constants.js';
+import { getPufflingHouseCollision, getDetailedHouseRoots } from '../entities/world/pufflingHomes.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -454,7 +455,52 @@ export function attachLumiDebugApi() {
       };
     },
 
-    /** The spatial audio stage: listener, panning model, panner pool. */
+/**
+     * Where the puffling houses are. Exposed here rather than reached through
+     * a dynamic import, which under the dev server can hand back a second copy
+     * of the module whose house list is empty — indistinguishable from a world
+     * with no villages in it.
+     */
+/**
+     * Light every sector without touching the quest. grantOrbs(5) also fires
+     * the finale, which transforms the world and takes the camera — useless
+     * for measuring what restoration alone does to a view.
+     */
+    restoreAll() {
+      for (let i = 0; i < ORB_N; i++) setSectorRestored(i, { instant: true });
+      prepareLocalGlowFrame();
+      return getRestoredSectors();
+    },
+
+        villages() {
+      const h = getPufflingHouseCollision();
+      // The live emissive intensities off the real materials, not a formula:
+      // the scene drifts about ten luma between screenshots, which is a fifth
+      // of a village's brightness, so a pixel A/B cannot resolve what the
+      // windows are doing. This reads what the running game has actually set.
+      const lit = [];
+      for (const root of getDetailedHouseRoots()) {
+        const m = root.userData && root.userData.pufflingMats;
+        if (!m) continue;
+        lit.push({
+          brick: m.brickMat ? Math.round(m.brickMat.emissiveIntensity * 1000) / 1000 : null,
+          glass: m.glassMat ? Math.round(m.glassMat.emissiveIntensity * 1000) / 1000 : null,
+          knob: m.knobMat ? Math.round(m.knobMat.emissiveIntensity * 1000) / 1000 : null,
+        });
+      }
+      const mean = (k) => {
+        const vals = lit.map((e) => e[k]).filter((v) => typeof v === 'number');
+        return vals.length ? Math.round((vals.reduce((a, v) => a + v, 0) / vals.length) * 1000) / 1000 : null;
+      };
+      return {
+        count: h.length,
+        first: h.length ? { x: Math.round(h[0].x * 10) / 10, z: Math.round(h[0].z * 10) / 10 } : null,
+        litHouses: lit.length,
+        emissive: { brick: mean('brick'), glass: mean('glass'), knob: mean('knob') },
+      };
+    },
+
+        /** The spatial audio stage: listener, panning model, panner pool. */
     audio() { return audioStageReport(); },
 
     /** Push a line through the real narrative display path. */

@@ -343,6 +343,9 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
   const doorMat = new MeshStandardMaterial({ color: theme.door, roughness: theme.doorRoughness ?? 0.9, metalness: theme.doorRoughness !== undefined ? 0.08 : 0, fog: false });
   const doorFrameMat = new MeshStandardMaterial({ color: theme.doorFrame ?? 0x4b4038, roughness: 1.0, fog: false });
   const doorGrooveMat = new MeshStandardMaterial({ color: theme.doorGroove ?? 0x150805, roughness: 0.95, fog: false });
+  // baseEmissiveInt is what the per-frame pass scales from. Without it a
+  // window lit once at build time stays at that brightness for the whole game,
+  // which is why the bricks already carried one and the glass did not.
   const knobMat = new MeshStandardMaterial({
     color: theme.knob,
     emissive: theme.knobEmissive,
@@ -359,6 +362,8 @@ export function createPufflingHomeDetailedGroup(theme, seed) {
     opacity: 0.85,
     fog: false
   });
+  knobMat.userData.baseEmissiveInt = theme.knobEmissiveInt ?? 1.5;
+  glassMat.userData.baseEmissiveInt = theme.glassEmissiveInt ?? 1.0;
 
   const root = new Group();
   root.scale.setScalar(PUFF_HOME_WORLD_SCALE);

@@ -32,6 +32,7 @@ const CLUSTER_N = 20;
 const HOUSE_CULL_DIST2 = 2025;  // 45 m — full 3D mesh visible inside this radius
 const HOUSE_XFADE2      = 1600;  // 40 m — impostor begins fading in
 const IMP_FULL_OP       = 0.72;
+const IMP_FAR_FLOOR     = 0.45;  // never fades below this inside a 90 m world
 const IMP_FADE_START    = 80;    // m — impostor begins fading out
 const IMP_FAR2          = 9025;  // 95 m — impostor fully invisible beyond this
 // Linear distances derived once from the squared constants (previously the update
@@ -97,6 +98,9 @@ function getPufflingImpostorTexture() {
   return _impTexture;
 }
 
+// A window stays readable even in a dimmed sector: at zero the village reads
+// as silhouettes, which looks like the houses are empty rather than dim.
+const GLASS_EMISSIVE_FLOOR = 0.22;
 const _IMP_COLOR_BIO     = 0x00ffaa;
 const _IMP_COLOR_COTTAGE = 0xff9988;
 
@@ -167,6 +171,9 @@ let _pufflingHouseCollision = [];
 export function getPufflingHouseCollision() {
   return _pufflingHouseCollision;
 }
+
+/** @brief The built house roots, for the measurement scripts. Read-only. */
+export function getDetailedHouseRoots() { return _detailedRoots; }
 
 /**
  * @brief The placed house nearest a point, for pufflings heading home at dusk.
@@ -449,11 +456,32 @@ export function updatePufflingHomes() {
       // Feed brick emissive through getLocalGlow so houses brighten in restored
       // sectors, with a floor that survives the dimmed-sector saturation crush.
       const mats = h.userData.pufflingMats;
-      if (mats && mats.brickMat) {
-        const base = mats.brickMat.userData.baseEmissiveInt ?? 0;
-        if (base > 0) {
-          const localGlow = getLocalGlow(h.position.x, h.position.z, glowBase);
-          mats.brickMat.emissiveIntensity = Math.max(BRICK_EMISSIVE_FLOOR, base * localGlow);
+      if (mats) {
+        const localGlow = getLocalGlow(h.position.x, h.position.z, glowBase);
+        if (mats.brickMat) {
+          const base = mats.brickMat.userData.baseEmissiveInt ?? 0;
+          if (base > 0) {
+            mats.brickMat.emissiveIntensity = Math.max(BRICK_EMISSIVE_FLOOR, base * localGlow);
+          }
+        }
+        // Windows and door knobs are the part of a village you actually read at
+        // night, and they were lit once at build time and never touched again:
+        // a house in a dimmed sector had bricks that went dark and windows that
+        // stayed exactly as bright as a restored one's. They swing harder than
+        // the bricks on purpose — a lit window is the thing that says someone
+        // is home — and keep a higher floor so a dim sector still reads as a
+        // village rather than as silhouettes.
+        if (mats.glassMat) {
+          const gb = mats.glassMat.userData.baseEmissiveInt ?? 0;
+          if (gb > 0) {
+            mats.glassMat.emissiveIntensity = Math.max(GLASS_EMISSIVE_FLOOR, gb * (0.35 + localGlow * 1.3));
+          }
+        }
+        if (mats.knobMat) {
+          const kb = mats.knobMat.userData.baseEmissiveInt ?? 0;
+          if (kb > 0) {
+            mats.knobMat.emissiveIntensity = Math.max(GLASS_EMISSIVE_FLOOR, kb * (0.4 + localGlow * 1.1));
+          }
         }
       }
     }
@@ -469,8 +497,12 @@ export function updatePufflingHomes() {
       imp.visible = true;
       if (d >= HOUSE_CULL_D) {
         // Beyond mesh cull: full impostor zone, fading out past IMP_FADE_START
+        // No fade to nothing. The world is 90 m in radius, so a village fading
+        // out from 80 m and gone by 95 m disappears while the player can still
+        // see the ground it stands on — the same mistake the tree impostors
+        // had. It thins toward a floor and holds there instead.
         const op = d > IMP_FADE_START
-          ? Math.max(0, 1 - (d - IMP_FADE_START) / (IMP_FAR - IMP_FADE_START)) * IMP_FULL_OP
+          ? Math.max(IMP_FAR_FLOOR, 1 - (d - IMP_FADE_START) / (IMP_FAR - IMP_FADE_START)) * IMP_FULL_OP
           : IMP_FULL_OP;
         imp.material.opacity = op * (0.7 + 0.3 * glowBase);
       } else {

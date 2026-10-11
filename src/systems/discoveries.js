@@ -2,9 +2,9 @@
 // Discovery Moments — First Encounter Rewards
 // ================================================================
 import { on, emit, Events } from '../kernel/eventBus.js';
-import { resolveControls } from '../narrative/controls.js';
+import { dualLine, dualText, pairAt, speak } from '../narrative/voice.js';
 import { getPerspective, isDiscovered, isTruthRevealed, markDiscovered } from '../state/narrativeState.js';
-import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, CREATURE_NAMES, QuestPhases } from '../quest/config.js';
+import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE, QuestPhases } from '../quest/config.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
@@ -40,20 +40,30 @@ function renderDiscovery(primary, secondary) {
 }
 
 /**
- * Picks the dual-narrative line(s) from a {child, adult} label set.
- * Once the truth is revealed, both lines are shown (child primary,
- * adult secondary). Before that, only the active perspective's line.
- * @returns {{primary: string, secondary: string|null}}
+ * The render context: who is reading, and whether they have been shown that
+ * both readings are true. Read fresh on every call — a line shown before the
+ * wizard and a line shown after it are the same line in two different states.
+ * @return {{voice:'child'|'adult', truthRevealed:boolean}}
  */
-function dualLine(set) {
-  const child = set.child;
-  const adult = set.adult;
-  if (isTruthRevealed() && child && adult && child !== adult) {
-    return { primary: child, secondary: adult };
-  }
-  const perspective = getPerspective();
-  return { primary: set[perspective] || child, secondary: null };
+function ctx() {
+  return { voice: getPerspective(), truthRevealed: isTruthRevealed() };
 }
+
+/**
+ * The glossary key for a creature slot. ORB_CREATURE_SEQUENCE speaks in quest
+ * keys ('puff', 'any'); the glossary's catch-all is 'carrier' because "any" is
+ * not a thing the player can be told to go and find.
+ * @param {string} questKey
+ * @return {string}
+ */
+function creatureTerm(questKey) {
+  return questKey === 'any' ? 'carrier' : (questKey || 'carrier');
+}
+
+/** The line currently on screen, kept so Tab can re-render it in the other
+ *  voice without waiting for it to fade. Either a pair or a single string. */
+let liveSet = null;
+let liveText = null;
 
 export function initDiscoveries() {
   discoveryEl = document.createElement('div');
@@ -69,11 +79,10 @@ export function initDiscoveries() {
   // Subscribe to kernel events
   on(Events.ORB_COLLECTED, (d) => {
     showOrbDiscovery(d.orbsFound - 1);
-    const perspective = getPerspective();
-    const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
-    const nextHint = stageHints[Math.min(d.orbsFound, stageHints.length - 1)];
-    if (nextHint && d.orbsFound < 5) {
-      setTimeout(() => { showNarrativeText(nextHint, 5.5); }, 900);
+    const i = Math.min(d.orbsFound, ORB_STAGE_HINTS.child.length - 1);
+    const nextHint = pairAt(ORB_STAGE_HINTS.child, ORB_STAGE_HINTS.adult, i);
+    if (d.orbsFound < 5) {
+      setTimeout(() => { showNarrativePair(nextHint, 5.5); }, 900);
     }
   });
 
@@ -89,6 +98,23 @@ export function initDiscoveries() {
   // chain of ≥3 crystals) previously had no listener, making the 'crystalChain'
   // discovery label unreachable.
   on(Events.CRYSTAL_VISITED, () => showDiscovery('crystalChain'));
+
+  // Tab, and the wizard's reveal, re-render whatever is on screen right now.
+  // PERSPECTIVE_CHANGED has been emitted since the perspective toggle shipped
+  // and until now had no subscriber that showed anything: a player who pressed
+  // Tab mid-line watched the old voice finish its five seconds. The fade timer
+  // is left alone — this is the same line, in the other register, not a new
+  // one earning fresh reading time.
+  on(Events.PERSPECTIVE_CHANGED, () => {
+    if (fadeTimer <= 0) return;
+    if (liveSet) {
+      const { primary, secondary } = dualLine(liveSet, ctx());
+      if (primary) renderDiscovery(primary, secondary);
+    } else if (liveText) {
+      fadeText = speak(liveText, getPerspective());
+      if (discoveryEl) discoveryEl.textContent = fadeText;
+    }
+  });
 }
 
 export function updateDiscoveries(dt, t) {
@@ -138,17 +164,18 @@ export function showDiscovery(key) {
   const labelSet = DISCOVERY_LABELS[key];
   if (!labelSet) return;
 
-  const { primary, secondary } = dualLine(labelSet);
+  liveSet = labelSet; liveText = null;
+  const { primary, secondary } = dualLine(labelSet, ctx());
   fadeTimer = dwellSec(5.0);
   renderDiscovery(primary, secondary);
   emit(Events.DISCOVERY, { key, text: fadeText, perspective });
 }
 
 export function showOrbDiscovery(orbIndex) {
-  const childText = ORB_NARRATIVE.child[orbIndex];
-  const adultText = ORB_NARRATIVE.adult[orbIndex];
-  const { primary, secondary } = dualLine({ child: childText, adult: adultText });
-  if (!primary) return;
+  const set = pairAt(ORB_NARRATIVE.child, ORB_NARRATIVE.adult, orbIndex);
+  const { primary, secondary } = dualLine(set, ctx());
+  if (!primary) return;          // an index past the end of the table
+  liveSet = set; liveText = null;
   fadeTimer = dwellSec(6.0);
   renderDiscovery(primary, secondary);
 }
@@ -178,10 +205,18 @@ export function restoreGlyphs(indices) {
 }
 
 export function showNarrativeText(text, duration) {
-  // One choke point for control names: every player-facing line passes here,
-  // so {hum} and {pitch} come out right on a phone whether or not the author
-  // of that particular string remembered phones exist.
-  fadeText = resolveControls(text, { voice: getPerspective() });
+  // One choke point for control names and story terms: every single-voice
+  // line passes here, so {hum}, {pitch} and {t:orb} come out right on a phone
+  // and in the chosen register whether or not the author of that particular
+  // string remembered either exists.
+  //
+  // Deliberately NOT routed through dualLine. One string is one voice: a line
+  // whose only variable part is a control name would otherwise come out twice
+  // after the reveal — "press F" above "F: carrier" — which is a rendering
+  // fault wearing the costume of a second register. Surfaces that have two
+  // real halves call showNarrativePair instead.
+  liveText = text; liveSet = null;
+  fadeText = speak(text, getPerspective());
   fadeTimer = dwellSec(duration ?? 5.0);
   if (discoveryEl) {
     discoveryEl.textContent = fadeText;
@@ -189,23 +224,34 @@ export function showNarrativeText(text, duration) {
   }
 }
 
-export function showFinaleText() {
-  const perspective = getPerspective();
-  const text = perspective === 'child' ? 'The Obelisk Is Whole!' : 'Structural Alignment Complete';
-  showNarrativeText(text, 8.0);
+/**
+ * @brief Show a {child, adult} pair — one voice now, both after the reveal.
+ * @param {{child?:string, adult?:string}} set
+ * @param {number} [duration] seconds before it fades
+ */
+export function showNarrativePair(set, duration) {
+  const { primary, secondary } = dualLine(set, ctx());
+  if (!primary) return;
+  liveSet = set; liveText = null;
+  fadeTimer = dwellSec(duration ?? 5.0);
+  renderDiscovery(primary, secondary);
 }
 
-export function showTransformText() {
-  const perspective = getPerspective();
-  const text = perspective === 'child' ? 'The Forest Is Awakening!' : 'Planetary Biome Re-Initialization';
-  showNarrativeText(text, 10.0);
-}
+// The three endgame cards. The child half named the thing "the Obelisk",
+// which is the word the source code uses for it and the word neither voice
+// uses — the glossary's {t:obelisk} says "Big Crystal" to a child and
+// "Central Archive Index" to a routine.
+const ENDGAME = {
+  finale:    { child: 'The {t:obelisk} Is Whole!',  adult: 'Structural Alignment Complete' },
+  transform: { child: 'The Forest Is Awakening!',   adult: 'Planetary Biome Re-Initialization' },
+  freeRoam:  { child: 'A New Dawn for the Forest',  adult: 'Stable Equilibrium Achieved' },
+};
 
-export function showFreeRoamText() {
-  const perspective = getPerspective();
-  const text = perspective === 'child' ? 'A New Dawn for the Forest' : 'Stable Equilibrium Achieved';
-  showNarrativeText(text, 12.0);
-}
+export function showFinaleText() { showNarrativePair(ENDGAME.finale, 8.0); }
+
+export function showTransformText() { showNarrativePair(ENDGAME.transform, 10.0); }
+
+export function showFreeRoamText() { showNarrativePair(ENDGAME.freeRoam, 12.0); }
 
 // ================================================================
 // Proximity-Based First Encounter Discoveries
@@ -256,7 +302,7 @@ const IDLE_HINTS_CHILD = [
   [
     'What fell from the gray needle as five sleeping coals, and wakes only for stolen voices?',
     'Five borrowed songs fit five hidden locks—the tower counts, but never tells which first.',
-    'Five golden sun-seeds hide in the wild; each opens only to the creature lesson it names.',
+    'Five golden {t:orbs|lower} hide in the wild; each opens only to the creature lesson it names.',
     'Find five glowing orbs—carry puffling, jelly, deer, then moth songs to them in order.',
   ],
   [
@@ -281,7 +327,7 @@ const IDLE_HINTS_ADULT = [
   ],
   [
     'Lattice log: five dormant ignitions; each demands a specific borrowed bio-key.',
-    'Five offline anchors—staged key schedule; obelisk enforces order without broadcasting it.',
+    'Five offline anchors—staged key schedule; the {t:obelisk} enforces order without broadcasting it.',
     'Recover five orbital nodes; sequence fixed—match carrier species to stage index.',
     'Objective: five gold resonance orbs—pair each collection with the required carried frequency.',
   ],
@@ -305,13 +351,13 @@ const SEEK_HUD_LABELS = {
   child: [
     'The needle dreams of five stolen sparks...',
     'Five gold sleeps wait—each yields to a borrowed voice.',
-    'Seek five sun-seeds; wake them in the grove’s order.',
+    'Seek five {t:orbs|lower}; wake them in the grove’s order.',
     'Find a {creature}—borrow its hum, then touch the orb.',
   ],
   adult: [
     'Lattice: five dormant anchor ignitions.',
     'Five offline nodes—staged bio-keys required.',
-    'Recover five resonance anchors in enforced order.',
+    'Recover five {t:orbs|lower} in enforced order.',
     'Attune to {creature}, then collect the next orb.',
   ],
 };
@@ -329,19 +375,26 @@ export function getHintClarityTier(idleTime) {
 /** SEEK-phase HUD line — escalates with the same tier model as idle hints.
  *  Tier 3 (most explicit) injects the required creature name so a stuck player
  *  eventually sees the concrete species they need to attune to. */
-export function getSeekHudLabel() {
-  const perspective = getPerspective();
-  const tier = getHintClarityTier(playerIdleTime);
-  const rows = SEEK_HUD_LABELS[perspective] || SEEK_HUD_LABELS.child;
-  let label = rows[tier];
-  if (label && label.indexOf('{creature}') !== -1) {
-    const orbCount = getOrbsFound();
-    const creatureKey = ORB_CREATURE_SEQUENCE[Math.min(orbCount, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
-    const names = CREATURE_NAMES[perspective] || CREATURE_NAMES.child;
-    const creatureName = names[creatureKey] || creatureKey;
-    label = label.replace('{creature}', creatureName);
-  }
-  return label;
+/**
+ * @param {number} [idleTime] seconds since last movement. Injectable because
+ *   the most explicit tier — the only one that names a species — needs over
+ *   two minutes of standing still to reach, and a gate that waited that long
+ *   would instead be a gate that checked the cryptic tier and called it done.
+ */
+export function getSeekHudLabel(idleTime = playerIdleTime) {
+  const tier = getHintClarityTier(idleTime);
+  const set = pairAt(SEEK_HUD_LABELS.child, SEEK_HUD_LABELS.adult, tier);
+  // {creature} becomes a glossary token rather than a looked-up name, so each
+  // half names the species in its own register — "moon moth" above "orbital
+  // pollinator" — instead of both halves carrying whichever one the current
+  // perspective happened to pick.
+  const orbCount = getOrbsFound();
+  const questKey = ORB_CREATURE_SEQUENCE[Math.min(orbCount, ORB_CREATURE_SEQUENCE.length - 1)] || 'any';
+  const token = `{t:${creatureTerm(questKey)}}`;
+  const withName = (t) => (t ? t.replace('{creature}', token) : t);
+  // The HUD title is one text node: no room for a subtitle, so both registers
+  // land on the one line once the veil is lifted.
+  return dualText({ child: withName(set.child), adult: withName(set.adult) }, ctx());
 }
 
 /**
@@ -360,10 +413,8 @@ export function checkIdleHints(idleTime, dt = 0.016) {
   if (orbCount < 5) {
     stageHintTimer += dt;
     if (stageHintTimer >= 60) {
-      const perspective = getPerspective();
-      const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
-      const nextHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
-      if (nextHint) showNarrativeText(nextHint, 5.0);
+      const i = Math.min(orbCount, ORB_STAGE_HINTS.child.length - 1);
+      showNarrativePair(pairAt(ORB_STAGE_HINTS.child, ORB_STAGE_HINTS.adult, i), 5.0);
       stageHintTimer = 0;
       hintCooldown = Math.max(hintCooldown, 45);
       return;
@@ -371,13 +422,14 @@ export function checkIdleHints(idleTime, dt = 0.016) {
   }
   if (hintCooldown > 0) { hintCooldown -= dt; return; }
   if (idleTime < 15) return;
-  const perspective = getPerspective();
-  const table = perspective === 'child' ? IDLE_HINTS_CHILD : IDLE_HINTS_ADULT;
   const tier = getHintClarityTier(idleTime);
-  lastHintIndex = (lastHintIndex + 1) % table.length;
+  // The two hint tables are parallel: same four slots, same four tiers. The
+  // rotation is over slots and must stay in step across a perspective change,
+  // so it is indexed once and both halves come from the same cell.
+  lastHintIndex = (lastHintIndex + 1) % IDLE_HINTS_CHILD.length;
   idleHintsShownSession += 1;
-  const text = table[lastHintIndex][tier];
-  showNarrativeText(text, tier >= 2 ? 5.2 : 4.2);
+  showNarrativePair(pairAt(IDLE_HINTS_CHILD[lastHintIndex], IDLE_HINTS_ADULT[lastHintIndex], tier),
+    tier >= 2 ? 5.2 : 4.2);
   hintCooldown = 30;
 }
 
@@ -390,47 +442,45 @@ export function checkIdleHints(idleTime, dt = 0.016) {
  * @param {string|null} got  creature key the player is carrying, or null if no carrier
  */
 export function showOrbRejectHint(required, got) {
-  const perspective = getPerspective();
-  const names = CREATURE_NAMES[perspective] || CREATURE_NAMES.child;
-  const requiredName = names[required] || required || 'a forest friend';
+  // Species names are glossary tokens, not names looked up in the current
+  // perspective: the adult half of this pair has to say "biological
+  // metronome" even while the child half above it says "deer".
+  const want = `{t:${creatureTerm(required)}}`;
+  const have = `{t:${creatureTerm(got)}}`;
 
-  let rejectText;
+  let set;
   if (got === null || got === undefined) {
-    // No carrier at all — tell them which species to find
-    rejectText = perspective === 'child'
-      ? `The orb hums quietly... seek a ${requiredName} and hum with it first`
-      : `No carrier frequency — attune to ${requiredName} before approaching`;
+    // No carrier at all — name the species to go and find.
+    set = {
+      child: `The {t:orb|lower} hums quietly... seek a ${want} and hum with it first`,
+      adult: `No carrier frequency — attune to ${want} before approaching`,
+    };
   } else if (required === 'any') {
-    // 'any' slot rejected — shouldn't normally happen; fall back gracefully
-    rejectText = perspective === 'child'
-      ? 'The orb hums quietly... it wants to hear you hum back'
-      : 'No carrier frequency detected — initiate spirit hum [F]';
+    // An 'any' slot refusing a carrier should not happen; say something true.
+    set = {
+      child: 'The {t:orb|lower} hums quietly... it wants to hear you hum back',
+      adult: 'No carrier frequency detected — initiate spirit hum ({hum})',
+    };
   } else {
-    // Wrong creature — name both what they have and what's needed
-    const gotName = names[got] || got;
-    rejectText = perspective === 'child'
-      ? `The orb doesn't know that voice... it listens for a ${requiredName}`
-      : `Frequency mismatch — ${gotName} signal rejected; ${requiredName} signature required`;
+    // Wrong creature — name what they are carrying and what is wanted.
+    set = {
+      child: `The {t:orb|lower} doesn't know that voice... it listens for a ${want}`,
+      adult: `Frequency mismatch — ${have} signal rejected; ${want} signature required`,
+    };
   }
+  showNarrativePair(set, 4.2);
 
-  // First call: show the reject reason immediately
-  showNarrativeText(rejectText, 4.2);
-
-  // Second call: follow up ~9 s later with the poetic stage hint
-  const orbCount = getOrbsFound();
-  const stageHints = ORB_STAGE_HINTS[perspective] || ORB_STAGE_HINTS.child;
-  const stageHint = stageHints[Math.min(orbCount, stageHints.length - 1)];
-  if (stageHint) {
-    // Reset stage hint timer so the next proactive hint doesn't double-fire too soon
-    stageHintTimer = 0;
-    setTimeout(() => { showNarrativeText(stageHint, 5.0); }, 9000);
-  }
+  // Then, ~9 s later, the poetic stage hint for where they are in the quest.
+  const i = Math.min(getOrbsFound(), ORB_STAGE_HINTS.child.length - 1);
+  const stageHint = pairAt(ORB_STAGE_HINTS.child, ORB_STAGE_HINTS.adult, i);
+  // Reset the timer so the next proactive hint does not double-fire.
+  stageHintTimer = 0;
+  setTimeout(() => { showNarrativePair(stageHint, 5.0); }, 9000);
 }
 
 export function showOrbListening() {
-  const perspective = getPerspective();
-  const text = perspective === 'child'
-    ? 'The orb is listening...'
-    : 'Node entering receptive state...';
-  showNarrativeText(text, 2.5);
+  showNarrativePair({
+    child: 'The {t:orb|lower} is listening...',
+    adult: 'Node entering receptive state...',
+  }, 2.5);
 }

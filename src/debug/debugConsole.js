@@ -19,7 +19,9 @@ import { getLookSensitivity, isInvertY, setYaw, setPitch } from '../core/input.j
 import { isReducedMotion } from '../core/player.js';
 import { getQualityFloor } from './../systems/adaptiveQuality.js';
 import { getSettings } from '../state/settingsState.js';
-import { showNarrativeText } from '../systems/discoveries.js';
+import {
+  showNarrativeText, showNarrativePair, showFinaleText, getSeekHudLabel,
+} from '../systems/discoveries.js';
 import { getPostSettings, setPostOverride } from '../core/postprocessing.js';
 import { audioStageReport } from '../systems/audio.js';
 import { deers, puffs, moths, jellies } from '../state/entityStore.js';
@@ -34,7 +36,7 @@ import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
 import { debugGrantOrbs, debugForcePhase, debugPauseTimers } from '../quest/questState.js';
 import { QuestPhases } from '../quest/config.js';
 import { unlockTruthControlHint } from '../core/input.js';
-import { revealTruth } from '../state/narrativeState.js';
+import { revealTruth, getPerspective, setPerspective, isTruthRevealed } from '../state/narrativeState.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
 import { list as listSystems } from '../kernel/scheduler.js';
@@ -505,6 +507,40 @@ export function attachLumiDebugApi() {
 
     /** Push a line through the real narrative display path. */
     say(text, seconds = 4) { showNarrativeText(text, seconds); },
+
+    /**
+     * The narrative voice: who is reading, whether they have been shown both
+     * readings, and the words actually in the overlay right now.
+     *
+     * `onScreen` is read off the DOM rather than from a module variable on
+     * purpose: the thing being checked is what the player can see, and a
+     * reporter that read the intended text would have agreed with itself
+     * through the whole bug where Tab changed the register and left the old
+     * sentence on screen until it faded.
+     */
+    voice() {
+      const el = typeof document !== 'undefined' ? document.getElementById('discovery-text') : null;
+      return {
+        perspective: getPerspective(),
+        truthRevealed: isTruthRevealed(),
+        onScreen: el ? el.textContent : null,
+        showingBoth: !!(el && el.querySelector('span')),
+        visible: !!(el && el.style.opacity === '1'),
+        seekHud: getSeekHudLabel(),
+        // Tier 3, the only one that names a species, reached by asking for it
+        // rather than by standing still for 135 seconds.
+        seekHudPlain: getSeekHudLabel(300),
+      };
+    },
+
+    /** Flip the register through the real event, the way Tab does. */
+    setVoice(v) { setPerspective(v === 'adult' ? 'adult' : 'child'); return this.voice(); },
+
+    /** Push a {child, adult} pair through the real dual-voice path. */
+    pair(child, adult, seconds = 8) { showNarrativePair({ child, adult }, seconds); return this.voice(); },
+
+    /** The finale card, as this reader would see it. */
+    finale() { showFinaleText(); return this.voice(); },
 
     /** Event bus, for watching what a restore does and does not fire. */
     bus: { on, off, Events },

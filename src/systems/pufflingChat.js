@@ -9,6 +9,7 @@ import { camera } from '../core/renderer.js';
 import { Vector3 } from 'three';
 import { getPerspective } from '../state/narrativeState.js';
 import { READ_DWELL_MULT } from './discoveries.js';
+import { speak } from '../narrative/voice.js';
 
 // ================================================================
 // Message pools — context-sensitive cryptic text
@@ -32,7 +33,7 @@ const MESSAGES_DIMMED = {
     'Sector status: DEGRADED',
     'Bioluminescent yield: < 5%',
     'Entropy spike detected',
-    'Chronophage influence: HIGH',
+    '{t:dimming} influence: HIGH',
     'Resource nodes: OFFLINE',
     'Atmospheric static rising',
     'Signal-to-noise ratio critical',
@@ -60,7 +61,7 @@ const MESSAGES_RESTORED = {
     'Sector status: OPERATIONAL',
     'Bioluminescent yield: NOMINAL',
     'Resonance frequency stable',
-    'Chronophage regression noted',
+    '{t:dimming} regression noted',
     'Resource nodes: SYNCHED',
     'Harmonic alignment: 98%',
     'Ecosystem coherence: OPTIMAL',
@@ -244,7 +245,10 @@ function pickMessage(sectorRestored, nearOrb, attunement, hasFrequency) {
     poolSet = MESSAGES_DIMMED;
   }
   const pool = poolSet[perspective] || poolSet.child;
-  return pool[Math.floor(Math.random() * pool.length)];
+  // Through speak() so a story term in a line comes out as the glossary spells
+  // it in this register. A puffling bubble is one voice by nature — it is one
+  // creature saying one thing — so there is no pair to render here.
+  return speak(pool[Math.floor(Math.random() * pool.length)], perspective);
 }
 
 // ================================================================

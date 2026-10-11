@@ -37,7 +37,7 @@ export const CREATURE_NAMES = {
     deer:  'deer',
     moth:  'moon moth',
     puff:  'puffling',
-    any:   'a forest friend',
+    any:   'forest friend',   // no article: the sentences supply one, and two read 'a a'
   },
   adult: {
     jelly: 'bioluminescent drifter',
@@ -81,17 +81,17 @@ export const DISCOVERY_LABELS = {
 // Per-orb narrative text — shown when each orb is collected
 export const ORB_NARRATIVE = {
   child: [
-    'The First Little Sun-Seed!',
+    'The First Little {t:orb}!',
     'The Forest Remembers You',
     'Roots of Radiance',
     'The Light Grows Stronger',
-    'All the Sun-Seeds Are Home!'
+    'All the {t:orbs} Are Home!'
   ],
   adult: [
     'Zone 1 Recalibrated',
-    'Chronophage Regression: 40%',
+    '{t:dimming} Regression: 40%',
     'Deep Root Network Restored',
     'Temporal Coherence: 80%',
-    'SYNCHRONIZATION INDEX: 5/5'
+    '{t:progress|upper}: 5/5'
   ]
 };

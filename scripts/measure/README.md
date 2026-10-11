@@ -34,8 +34,13 @@ npm i -D playwright pngjs && npx playwright install chromium
 | `settings-reach.mjs` | Writes every setting, then reads the **consumers** — input sensitivity, reduced motion, the quality-floor cap, the text-scale CSS variable. A setting that persists but never reaches anything looks identical to a working one from the panel. |
 | `control-names.mjs` | Runs a touch-emulated context and reads the resolved hint text back out of the DOM. No player-facing line may name a control the device lacks, and no `{token}` may reach the screen. |
 | `atmosphere.mjs` | Pixel-measures the vignette by forcing it off and on over the same pixels, with an A/A control first. Confirms the grain moves without swamping the frame, and that reduced motion silences it. |
+| `spatial-audio.mjs` | Reads the live audio graph: listener on the camera, panning model per platform, panner pool reuse. Code-verified only — whether it *sounds* right is the owner's ear. |
+| `creature-rhythm.mjs` | Drives one creature past its own cull radius to its decision point, then permutes day phase and weather. Counts live creatures, never frozen ones: a rhythm that is not running looks identical to one that is if you count culled bodies. |
+| `environment-coupling.mjs` | Ground classification under the player, the gust front crossing the forest, music density against restoration. Asserts the frame loop does not throw, which is the failure a build cannot see. |
+| `village-night.mjs` | Reads the live house materials across every village — window, knob and brick emissive — then confirms with pixels. A dynamic import returned an empty house list and a pixel-only A/B drowned in scene drift before this settled. |
+| `dual-voice.mjs` | Puts a line on screen, flips the register, and reads the **DOM**: both voices must reach the player, Tab must re-render the line already showing, and a single-voice line must not come out twice after the reveal. |
 
-## Two traps these scripts are built around
+## The traps these scripts are built around
 
 **The live scene drifts.** Creatures move and the clock advances, so two
 screenshots differ with nothing changed. `atmosphere.mjs` takes an A/A pair
@@ -56,3 +61,24 @@ before the cause was found; nothing was wrong with the game.
 enough that a 250 ms debounce can land seven seconds late. Wait on the
 condition (`waitForFunction`), never on a fixed sleep, and never conclude from
 a fixed sleep that something did not happen.
+
+**A build cannot see a missing import.** It is a runtime `ReferenceError`, not a
+syntax error, and `npm run build` passes clean. It has shipped from this repo
+once. So the first assertion of every gate is that the frame loop is turning,
+read off the game's own frame counter — under SwiftShader this scene renders in
+single digits, so a threshold on a *rate* is a threshold on the software
+rasteriser. What separates a running loop from a dead one is that the counter
+moves at all.
+
+**A gate that throws must still report.** `page.evaluate` propagates a page
+error straight out of the script, which exits with a stack trace and no
+report — indistinguishable from a gate that never ran. `dual-voice.mjs` wraps
+every probe so a throw becomes a named failure; a seeded missing import there
+turned into seven named failures instead of one traceback.
+
+**A check can pass on an empty list.** The coverage checks assert a floor on
+how many lines they read before they assert anything about them, because a
+silently broken extractor makes "no problems found" and "nothing examined"
+look the same. Every new check in these scripts and in the suite is run
+against a seeded version of the defect it is for, and the kill is recorded in
+the commit.

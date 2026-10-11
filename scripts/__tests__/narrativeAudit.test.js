@@ -7,7 +7,7 @@
  * measurement, so each of those three bugs is now a fixture.
  */
 import { describe, it, expect } from 'vitest';
-import { extractFromSource, pairRows } from '../narrative-audit.mjs';
+import { extractFromSource, pairRows, termsIn, hardcodedIn } from '../narrative-audit.mjs';
 
 const extract = (src) => {
   const { rows, counts } = extractFromSource(src);
@@ -158,5 +158,86 @@ fetch('./data/strings.json');
   it('does not mistake a code identifier for a line of dialogue', () => {
     const { rows } = extract("const k = 'MESSAGES_CARRYING';\nconst n = 'abc';\n");
     expect(rows).toHaveLength(0);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Bug 4: a brace inside a player-facing string was counted as structure.
+// ---------------------------------------------------------------------------
+// The depth counter read every { and } on the line, including the ones inside
+// quotes. It stayed harmless while the only braces in player text were
+// balanced control tokens; glossary tokens made it bite, and the failure was
+// not an error but a believable number — four tokenised lines in
+// quest/config.js came back as seven single-voice rows, and pufflingChat grew
+// fourteen missing halves that were not there.
+describe('braces inside a string are text, not nesting', () => {
+  const FIXTURE = `
+export const ORB_NARRATIVE = {
+  child: [
+    'The First Little {t:orb}!',
+    'The Forest Remembers You',
+    'All the {t:orbs} Are Home!'
+  ],
+  adult: [
+    'Zone 1 Recalibrated',
+    '{t:dimming} Regression: 40%',
+    '{t:progress|upper}: 5/5'
+  ]
+};
+`;
+
+  it('keeps the voice block open across a tokenised line', () => {
+    const { rows } = extractFromSource(FIXTURE, 'fixture.js', '');
+    expect(rows.filter((r) => r.half === 'child')).toHaveLength(3);
+    expect(rows.filter((r) => r.half === 'adult')).toHaveLength(3);
+    expect(rows.filter((r) => r.single)).toHaveLength(0);
+  });
+
+  it('pairs all three rows and reports no missing half', () => {
+    const paired = pairRows(extractFromSource(FIXTURE, 'fixture.js', '').rows);
+    expect(paired).toHaveLength(3);
+    expect(paired.filter((r) => !r.child || !r.adult)).toEqual([]);
+    expect(paired[2].child).toBe('All the {t:orbs} Are Home!');
+    expect(paired[2].adult).toBe('{t:progress|upper}: 5/5');
+  });
+
+  it('still closes the block on a real bracket', () => {
+    const { rows } = extractFromSource(FIXTURE + "const AFTER = ['plain words here'];\n", 'fixture.js', '');
+    expect(rows.filter((r) => r.single).map((r) => r.single)).toEqual(['plain words here']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The raw-word count must not count the fix as the problem.
+// ---------------------------------------------------------------------------
+describe('term counting', () => {
+  it('counts a story word typed out in prose', () => {
+    expect(termsIn('the obelisk hums')).toContain('obelisk');
+  });
+
+  it('does not count the key inside a glossary token', () => {
+    // {t:obelisk} is a line naming the obelisk *through* the glossary. Counting
+    // it made the headline number rise as lines were converted, which rewards
+    // the bug and punishes the fix.
+    expect(termsIn('the {t:obelisk} hums')).toEqual([]);
+    expect(termsIn('five {t:orbs|lower} wait')).toEqual([]);
+  });
+
+  it('catches a named glossary form typed out by hand', () => {
+    expect(hardcodedIn('The Obelisk Is Whole!')).toEqual(['Obelisk']);
+    expect(hardcodedIn('The First Little Sun-Seed!')).toEqual(['Sun-Seed']);
+    expect(hardcodedIn('{t:dimming} Regression: 40%')).toEqual([]);
+    // This is the case that needs the token stripped: the enforced form
+    // "Obelisk" is a substring of the token that replaces it, so a check that
+    // read the raw line would flag every line that had been fixed.
+    expect(hardcodedIn('The {t:obelisk} Is Whole!')).toEqual([]);
+  });
+
+  it('leaves the poetic synonyms alone', () => {
+    // "needle", "tower" and "coals" are the cryptic tier's own words, not
+    // glossary forms. A check that failed on those is a check that gets
+    // switched off.
+    expect(hardcodedIn('What fell from the gray needle as five sleeping coals?')).toEqual([]);
   });
 });

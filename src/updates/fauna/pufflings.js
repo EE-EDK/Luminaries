@@ -24,6 +24,7 @@ import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../..
 import { triggerPufflingChat } from '../../systems/pufflingChat.js';
 import { getOrbsFound } from '../../quest/questState.js';
 import { isTruthRevealed } from '../../state/narrativeState.js';
+import { writePufflingPose } from '../../entities/fauna/pufflingRig.js';
 
 // ================================================================
 // Module-scope allocation-free buffers (no per-frame GC)
@@ -448,6 +449,9 @@ export function updatePuffs(dt, t) {
         p.mouth.position.y += (0.595 - p.mouth.position.y) * Math.min(1, dt * 14);
       }
     }
+
+    // Publish the ear angles and eye scales written above to the GPU rig.
+    writePufflingPose(p);
 
     // Sparkle motes
     const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0;

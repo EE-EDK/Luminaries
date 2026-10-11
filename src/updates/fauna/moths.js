@@ -3,6 +3,7 @@
 // ================================================================
 
 import { applyDetailLod } from '../../entities/_bake.js';
+import { writeMothPose } from '../../entities/fauna/mothRig.js';
 import { getGroundY } from '../../world/terrain.js';
 import { WORLD_R } from '../../constants.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -280,6 +281,7 @@ export function updateMoths(dt, t) {
         m.antennae[ai].rotation.z = Math.sin(t * 1.2 + m.phase + ai * 1.5) * 0.06;
       }
     }
+    writeMothPose(m);
 
     // Dust motes
     if (m.dustMotes) {

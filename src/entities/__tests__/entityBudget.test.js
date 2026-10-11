@@ -67,7 +67,12 @@ import { getReedType } from '../flora/reeds.js';
 
 const BAKED_ATTRS = ['color', 'aEmis', 'aSway', 'aMotion', 'aPivot'];
 
-/** Mesh ceilings measured 2026-09-16 after the bake pass (deterministic builders). */
+/**
+ * Mesh ceilings measured 2026-09-16 after the bake pass (deterministic builders).
+ * deer: 3 since the GPU rig (body, unlit, trail); was 17.
+ * moth: 3 since the GPU rig (fur, glow, unlit); was 8.
+ * puffling: 6 since the GPU rig (body+ears, belly, dark+eyes, core, mouth, spores); was 10. Wizard: 8; was 13.
+ */
 const CEILINGS = [
   ['dandelion', () => makeDandelion(0, 0), 2],
   ['crystal', () => makeCrystal(0, 0), 3],
@@ -80,10 +85,10 @@ const CEILINGS = [
   ['lanternpod', () => makeLanternPod(0, 0), 3],
   ['veilmoss', () => makeVeilMoss(0, 0), 2],
   ['jelly', () => makeJelly(0, 2, 0), 7],
-  ['puffling', () => makePuff(0, 0), 10],
-  ['puffling (wizard)', () => makePuff(0, 0, { wizardHat: true }), 13],
-  ['deer', () => makeDeer(0, 0), 17],
-  ['moth', () => makeMoth(0, 2, 0), 8],
+  ['puffling', () => makePuff(0, 0), 6],
+  ['puffling (wizard)', () => makePuff(0, 0, { wizardHat: true }), 8],
+  ['deer', () => makeDeer(0, 0), 3],
+  ['moth', () => makeMoth(0, 2, 0), 3],
   ['luminid', () => makeLuminid(0, 0), 17],
   ['wisp', () => makeWisp(0, 2, 0), 6],
   ['bubble', () => makeBubble(0, 2, 0), 2],
@@ -101,7 +106,13 @@ function collectMeshes(root) {
 function isMotionMaterial(mat) {
   if (!mat || typeof mat.customProgramCacheKey !== 'function') return false;
   const k = mat.customProgramCacheKey();
-  return k === 'lumMotionStd' || k === 'lumMotionBasic';
+  // 'lumMotionStd', 'lumMotionBasic', and the rigged forms 'lumMotionStd:rig14' ...
+  return k === 'lumMotionStd' || k === 'lumMotionBasic' || /^lumMotion(Std|Basic):rig\d+s?$/.test(k);
+}
+
+/** A rigged material on a geometry without aJoint reads the attribute's default (0): every vertex rides joint 0. */
+function isRigMaterial(mat) {
+  return /:rig\d+s?$/.test(mat.customProgramCacheKey());
 }
 
 function assertBaked(meshes, label) {
@@ -117,6 +128,12 @@ function assertBaked(meshes, label) {
     const n = geo.attributes.position.count;
     for (const a of BAKED_ATTRS) {
       expect(geo.attributes[a].count, `${label}: "${a}" count must match position count`).toBe(n);
+    }
+    if (isRigMaterial(m.material)) {
+      for (const a of ['aJoint', 'aJointW']) {
+        expect(geo.attributes[a], `${label}: rigged material on mesh without baked "${a}"`).toBeDefined();
+        expect(geo.attributes[a].count, `${label}: "${a}" count must match position count`).toBe(n);
+      }
     }
   }
 }

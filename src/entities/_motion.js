@@ -4,9 +4,10 @@
 // One vertex-shader chunk drives every "lifelike" movement that used to be a
 // per-frame CPU write on a tiny Mesh: wind sway, player brush-aside, storm
 // droop, and nine per-part motion modes (bob, orbit, pendulum, wave, breathe,
-// spin, flutter, flicker, reach). The baker (`_bake.js`) writes the four attributes
-// the chunk reads; the CPU only updates the handful of shared uniforms below
-// once per frame. Zero allocations, zero per-entity work.
+// spin, flutter, flicker, reach) plus a rigid joint rig (RIG). The baker
+// (`_bake.js`) writes the attributes the chunk reads; the CPU only updates the
+// handful of shared uniforms below once per frame. Zero allocations, zero
+// per-entity work.
 //
 // FIELD NOTE (Dr. Chen, instrumentation log):
 //   We stopped trying to model each frond individually. The forest does not
@@ -21,6 +22,14 @@
 //   aPivot  vec3   pivot point in mesh-local space for orbit / pendulum /
 //                  breathe / spin / flutter
 //   aEmis   float  emissive (or basic-colour) multiplier for the part
+// Rigged meshes (material built with a rig, see createRig in _bake.js) also read:
+//   aJoint  float  joint index per vertex, -1 = not on any joint
+//   aJointW float  joint weight (1.0 for rigid parts, 0 where aJoint = -1)
+//   uJoints   vec4[N] root-space joint rotation, composed down the chain on the CPU
+//   uJointPos vec3[N] root-space translation: v' = rotate(uJoints[j], v) + uJointPos[j]
+// A rig built with scale support (createRig(defs, {scale: true})) also has
+//   uJointScale vec3[N] non-uniform scale about the joint's pivot, applied before the rotation:
+//   v' = rotate(uJoints[j], v * uJointScale[j]) + uJointPos[j]   (uJointPos already folds the pivot in)
 // Instanced meshes additionally carry:
 //   aInstGlow  vec3   per-instance emissive tint × intensity
 //   aInstPhase float  per-instance phase offset so neighbours desynchronise
@@ -36,8 +45,16 @@ export const MOTION = Object.freeze({
   SPIN: 6,      // continuous rotation about pivot's Y axis
   FLUTTER: 7,   // small fast rotation about pivot's Z axis
   FLICKER: 8,   // emissive-only twinkle, no displacement
-  REACH: 9      // WAVE + lean toward the player within 3.5 m (snapthorn tentacles)
+  REACH: 9,     // WAVE + lean toward the player within 3.5 m (snapthorn tentacles)
+  RIG: 10       // rigid part on a joint (aJoint); no per-mode displacement of its own
 });
+
+/**
+ * Most joints a rig may have. The uniform arrays are sized to the rig's own joint
+ * count, not to this; this is the ceiling that keeps two vec arrays comfortably
+ * inside WebGL2's 256-vec4 vertex-uniform minimum next to the standard material.
+ */
+export const RIG_MAX_JOINTS = 24;
 
 /** Shared uniforms — updated once per frame by updateMotionGlobals(). */
 export const motionUniforms = {
@@ -88,7 +105,7 @@ export function updateMotionGlobals(t, wAmp, leanX, leanZ, px, pz, droop, bloom,
   }
 }
 
-const VERT_PARS = /* glsl */`
+const VERT_PARS_BASE = /* glsl */`
 attribute float aSway;
 attribute vec4 aMotion;
 attribute vec3 aPivot;
@@ -113,7 +130,7 @@ uniform float uBloom;
 varying vec3 vEmisMul;
 `;
 
-const VERT_BODY = /* glsl */`
+const VERT_BODY_TEMPLATE = /* glsl */`
 {
   float _mode = aMotion.x;
   float _amp = aMotion.y;
@@ -153,7 +170,7 @@ const VERT_BODY = /* glsl */`
     _p = aPivot + vec3(_rel.x * _cz - _rel.y * _sz, _rel.x * _sz + _rel.y * _cz, _rel.z);
   } else if (_mode < 8.5 && _mode > 7.5) {
     _emis *= 0.55 + 0.45 * sin(_t) * sin(_t * 2.3 + 1.0);
-  } else if (_mode > 8.5) {
+  } else if (_mode > 8.5 && _mode < 9.5) {
     // REACH: tentacle wave that also leans toward the player inside 3.5 m
     float _w = aSway; float _ww = _w * _w;
     _p.x += _amp * _ww * sin(_t + _w * 2.5);
@@ -172,6 +189,7 @@ const VERT_BODY = /* glsl */`
     }
   }
 
+//@RIG@
   if (aSway > 0.001) {
     vec3 _lw = _p;
     #ifdef USE_INSTANCING
@@ -192,7 +210,7 @@ const VERT_BODY = /* glsl */`
     _p.z += _swZ + uWindLeanZ * _hf * _gust;
     float _pdx = _wp.x - uPlayerX, _pdz = _wp.z - uPlayerZ;
     float _pd2 = _pdx * _pdx + _pdz * _pdz;
-    if (_pd2 < 1.44 && _mode < 8.5) {
+    if (_pd2 < 1.44 && (_mode < 8.5 || _mode > 9.5)) {
       float _prox = 1.0 - sqrt(_pd2) / 1.2;
       float _f = _prox * _prox * 0.5 * _hf;
       float _il = inversesqrt(max(_pd2, 1e-4));
@@ -214,39 +232,125 @@ const FRAG_PARS = /* glsl */`
 varying vec3 vEmisMul;
 `;
 
-function _onBeforeCompileStandard(shader) {
-  Object.assign(shader.uniforms, motionUniforms);
-  shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\n' + VERT_PARS)
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + VERT_BODY);
-  shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\n' + FRAG_PARS)
-    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vEmisMul;\n');
+/** Declarations for a rig of `n` joints. The arrays are sized exactly, so the program is per joint count (and per scale flag). */
+function _rigPars(n, scaled) {
+  return /* glsl */`
+attribute float aJoint;
+attribute float aJointW;
+uniform vec4 uJoints[${n}];
+uniform vec3 uJointPos[${n}];${scaled ? `
+uniform vec3 uJointScale[${n}];` : ''}
+vec3 lumRigRotate(vec4 q, vec3 v) {
+  vec3 t = 2.0 * cross(q.xyz, v);
+  return v + q.w * t + cross(q.xyz, t);
+}
+`;
 }
 
-function _onBeforeCompileBasic(shader) {
+// Applied after the per-mode displacement (so a mane plane flutters about its own
+// pivot in the rest frame, then the whole neck moves) and before wind.
+const RIG_STAGE = /* glsl */`
+  if (aJoint > -0.5) {
+    int _rj = int(aJoint + 0.5);
+    vec3 _rp = lumRigRotate(uJoints[_rj], _p) + uJointPos[_rj];
+    _p = mix(_p, _rp, aJointW);
+  }
+`;
+// Scaled rig: the scale is taken about the joint pivot, before the rotation. uJointPos on the CPU side already
+// carries the pivot term (see createRig), so the shader only multiplies.
+const RIG_STAGE_SCALED = /* glsl */`
+  if (aJoint > -0.5) {
+    int _rj = int(aJoint + 0.5);
+    vec3 _rp = lumRigRotate(uJoints[_rj], _p * uJointScale[_rj]) + uJointPos[_rj];
+    _p = mix(_p, _rp, aJointW);
+  }
+`;
+
+// Lit materials only: the normal turns with the limb, as it did when the limb was a mesh.
+const RIG_NORMAL = /* glsl */`
+  if (aJoint > -0.5) {
+    int _rjn = int(aJoint + 0.5);
+    objectNormal = normalize(mix(objectNormal, lumRigRotate(uJoints[_rjn], objectNormal), aJointW));
+  }
+`;
+// A non-uniform scale tilts the normal by the inverse of the scale (inverse-transpose of a diagonal matrix).
+const RIG_NORMAL_SCALED = /* glsl */`
+  if (aJoint > -0.5) {
+    int _rjn = int(aJoint + 0.5);
+    objectNormal = normalize(mix(objectNormal, lumRigRotate(uJoints[_rjn], objectNormal / uJointScale[_rjn]), aJointW));
+  }
+`;
+
+function _checkRigCount(n) {
+  if (!Number.isInteger(n) || n < 0 || n > RIG_MAX_JOINTS) {
+    throw new Error(`motion: rig joint count ${n} is outside 0..${RIG_MAX_JOINTS}`);
+  }
+}
+
+/**
+ * @brief Vertex declarations for the motion chunk.
+ * @param {number} [rigCount=0] joints in the material's rig; 0 = not rigged
+ * @param {boolean} [scaled=false] the rig has per-joint scale (uJointScale)
+ * @return {string} GLSL
+ */
+export function buildMotionVertexPars(rigCount = 0, scaled = false) {
+  _checkRigCount(rigCount);
+  return VERT_PARS_BASE + (rigCount > 0 ? _rigPars(rigCount, !!scaled) : '');
+}
+
+/**
+ * @brief Vertex body of the motion chunk. Exported so tests can read the branch
+ * conditions the GPU will run (the chunk is assembled here, in JS).
+ * @param {number} [rigCount=0] joints in the material's rig; 0 = not rigged
+ * @param {boolean} [scaled=false] the rig has per-joint scale (uJointScale)
+ * @return {string} GLSL
+ */
+export function buildMotionVertexBody(rigCount = 0, scaled = false) {
+  _checkRigCount(rigCount);
+  return VERT_BODY_TEMPLATE.replace('//@RIG@', rigCount > 0 ? (scaled ? RIG_STAGE_SCALED : RIG_STAGE) : '');
+}
+
+function _compile(shader, lit, rig) {
+  const n = rig ? rig.count : 0;
+  const scaled = !!(rig && rig.scaled);
   Object.assign(shader.uniforms, motionUniforms);
-  shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\n' + VERT_PARS)
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + VERT_BODY);
+  if (rig) Object.assign(shader.uniforms, rig.uniforms);
+  let vs = shader.vertexShader.replace('#include <common>', '#include <common>\n' + buildMotionVertexPars(n, scaled));
+  if (rig && lit) vs = vs.replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n' + (scaled ? RIG_NORMAL_SCALED : RIG_NORMAL));
+  shader.vertexShader = vs.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + buildMotionVertexBody(n, scaled));
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + FRAG_PARS)
-    .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vEmisMul;\n');
+    .replace(
+      lit ? '#include <emissivemap_fragment>' : '#include <color_fragment>',
+      (lit ? '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vEmisMul;\n' : '#include <color_fragment>\n  diffuseColor.rgb *= vEmisMul;\n')
+    );
 }
 
 /**
  * @brief Attach the shared motion chunk to a material (in place).
  * Standard materials scale emissive by aEmis; basic materials scale colour.
+ * With `opts.rig` (from createRig in _bake.js) the material also moves vertices
+ * by their aJoint. The rig's uniform objects are shared by reference, so every
+ * material built from one rig sees the same pose; the program key carries the
+ * joint count (and the scale flag) so every deer shares one program.
  * @param {import('three').Material} mat
+ * @param {{rig?: {count:number, uniforms:object}}} [opts]
  * @return {import('three').Material} the same material
  */
-export function applyMotion(mat) {
-  if (mat.isMeshStandardMaterial) {
-    mat.onBeforeCompile = _onBeforeCompileStandard;
-    mat.customProgramCacheKey = () => 'lumMotionStd';
+export function applyMotion(mat, opts) {
+  const rig = opts && opts.rig ? opts.rig : null;
+  const lit = !!mat.isMeshStandardMaterial;
+  if (rig) {
+    if (!Number.isInteger(rig.count) || rig.count < 1 || rig.count > RIG_MAX_JOINTS) {
+      throw new Error(`applyMotion: rig has ${rig.count} joints (1..${RIG_MAX_JOINTS})`);
+    }
+    mat.userData.lumRig = rig;
+    mat.onBeforeCompile = (shader) => _compile(shader, lit, rig);
   } else {
-    mat.onBeforeCompile = _onBeforeCompileBasic;
-    mat.customProgramCacheKey = () => 'lumMotionBasic';
+    mat.onBeforeCompile = (shader) => _compile(shader, lit, null);
   }
+  // The scale variant is a different program (an extra uniform array and multiply), so it gets its own key suffix.
+  const key = (lit ? 'lumMotionStd' : 'lumMotionBasic') + (rig ? ':rig' + rig.count + (rig.scaled ? 's' : '') : '');
+  mat.customProgramCacheKey = () => key;
   return mat;
 }

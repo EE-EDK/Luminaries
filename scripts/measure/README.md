@@ -40,6 +40,8 @@ npm i -D playwright pngjs && npx playwright install chromium
 | `village-night.mjs` | Reads the live house materials across every village — window, knob and brick emissive — then confirms with pixels. A dynamic import returned an empty house list and a pixel-only A/B drowned in scene drift before this settled. |
 | `dual-voice.mjs` | Puts a line on screen, flips the register, and reads the **DOM**: both voices must reach the player, Tab must re-render the line already showing, and a single-voice line must not come out twice after the reveal. |
 | `narrative-voices.mjs` | Drives every M3.3/M3.4 line to the **DOM**: the title says tap on a touch device, the wizard's five beats arrive in both registers (Tab is flipped while a beat is up), a house memory at dusk, a glyph echo, the five fragments and the joining line, and Tab at the obelisk turning the rune colours — read from the rune materials, not from the code that sets them. Port from `LUMI_URL`. |
+| `deer-rig.mjs` | The deer's GPU rig. Frame loop first, then draw calls for one isolated deer (shown vs hidden, main-scene render only), then four known poses written through the same state fields the update loop writes. Each pose is screenshotted with the deer in and out of the scene (two empty frames, so scene drift cannot be credited to the deer), and every joint's vertices are projected to the screen **twice** — where the rig put them, and where the un-posed mesh would be — and the silhouette is read at both. `LUMI_SAVE=dir` on the pre-rig build, `LUMI_BASELINE=dir` on the new one compares silhouettes across versions. Cannot judge how the deer *reads* on a real GPU; that is eyes. |
+| `creature-rig.mjs` | The moth, puffling and jelly GPU rigs (M5.2), one script, `LUMI_CREATURE=moth\|puffling\|jelly`. Same method as `deer-rig.mjs`: frame loop, per-mesh draw calls for one isolated creature (spliced out of its entityStore array), known poses written through the state fields the update loop writes, shown-vs-two-empty-frames silhouettes, every jointed vertex projected posed and un-posed. Adds: a markings check (moth eyespots must show over the translucent wings, compared with the pre-rig render at the same pixels) and a blink check (puffling: eye-colour pixels inside boxes around the eyes, closed vs open, compared with the pre-rig ratio). `jelly` has no rig and only measures draw calls. `LUMI_SAVE=dir` on the pre-rig build, `LUMI_BASELINE=dir` on the new one. |
 
 ## The traps these scripts are built around
 
@@ -77,9 +79,17 @@ report — indistinguishable from a gate that never ran. `dual-voice.mjs` wraps
 every probe so a throw becomes a named failure; a seeded missing import there
 turned into seven named failures instead of one traceback.
 
+**The browser can vanish mid-run on a shared machine.** Twice, while other jobs were using the same box, the run ended with "page.screenshot: ... browser has been closed" and no page error; the cause was not established. A gate that dies this way has told you nothing about the game: rerun it. `deer-rig.mjs` takes `LUMI_BROWSER=<path>` so a renamed copy of the browser binary can be used when something else is clearing browser processes by name.
+
 **A check can pass on an empty list.** The coverage checks assert a floor on
 how many lines they read before they assert anything about them, because a
 silently broken extractor makes "no problems found" and "nothing examined"
 look the same. Every new check in these scripts and in the suite is run
 against a seeded version of the defect it is for, and the kill is recorded in
 the commit.
+
+**Look at the sky, not the grass, when you need a silhouette.** `creature-rig.mjs` pitches the camera up (`LUMI_PITCH`, default 0.5) and puts the creature on the view ray. With the camera level, the empty-versus-empty drift in the creature's region was 12,000 pixels against a silhouette of 2,600 (wind in the grass and bloom, measured on the same moth); pitched up at the sky it was 1,100. Every "differs from both empty frames" test in these scripts is only as good as that drift number, which the script prints next to every silhouette.
+
+**A joint that turns about its own centre is a poor silhouette witness.** A puffling's ear is a fat cone: rotated a few tenths of a radian its tip is still inside its own un-posed footprint, and "posed" and "un-posed" both read 1.00 (twice, in this gate, before the pose angles were made large enough). If a moved-joint check reports equal numbers, ask whether the pose moved anything the picture can resolve before suspecting the shader.
+
+**Editing a served source tree reloads every open page.** Seeding a defect into the directory a dev server watches, or syncing a copy over it, fires a page reload; a gate that is mid-boot then finds an empty entity store. Seed into a separate copy served on its own port, wait ~20 s for the watcher to settle, then start the gate.

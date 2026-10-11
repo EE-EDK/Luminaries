@@ -3,6 +3,7 @@
 // ================================================================
 
 import { applyDetailLod } from '../../entities/_bake.js';
+import { writeDeerPose } from '../../entities/fauna/deerRig.js';
 import { WORLD_R, DEER_FLEE_R, DEER_FLEE_SPEED_MULT } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -448,6 +449,11 @@ export function updateDeers(dt, t) {
       d.tailPivot.rotation.x = Math.sin(t * 0.8 + d.phase) * 0.06;
       d.tailPivot.rotation.z *= 0.92;
     }
+
+    // Every joint angle above is final for this frame: hand them to the GPU rig.
+    // (The pivots are plain {rotation} objects now - without this call the deer
+    // would hold its last pose on screen while its state kept changing.)
+    writeDeerPose(d);
 
     // Emissive
     const deerGlow = getLocalGlow(gx, gz, bioGlow * orbBoost);

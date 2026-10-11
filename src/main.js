@@ -90,12 +90,12 @@ import { initResonanceRings, updateResonanceRings } from './particles/resonanceR
 
 // Quest
 import { initQuestState, updateQuestState, getOrbsFound, getQuestState } from './quest/questState.js';
-import { initQuestVisuals, updateQuestVisuals } from './quest/questVisuals.js';
+import { initQuestVisuals, updateQuestVisuals, requestRuneFlip } from './quest/questVisuals.js';
 import { makeLaser } from './quest/lasers.js';
 
 // Narrative
-import { togglePerspective, getPerspective, revealTruth } from './state/narrativeState.js';
-import { showNarrativeText, showOrbDiscovery, initDiscoveries, updateDiscoveries, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
+import { togglePerspective, revealTruth } from './state/narrativeState.js';
+import { showNarrativePair, showOrbDiscovery, initDiscoveries, updateDiscoveries, checkDiscoveries, showOrbRejectHint, showOrbListening, checkIdleHints } from './systems/discoveries.js';
 
 // Population
 import { populate as _populate } from './populate.js';
@@ -152,7 +152,10 @@ import { initHUD, updateHUD } from './ui/hud.js';
 import { initOverlay, getOrbHudEl, showGame } from './ui/overlay.js';
 import { initDebugConsole } from './debug/debugConsole.js';
 import { initDevSkipPanel, setDevSaveHooks } from './debug/devSkipPanel.js';
-import { getPufflingHouseCollision, updatePufflingHomes } from './entities/world/pufflingHomes.js';
+import { getPufflingHouseCollision, updatePufflingHomes, nearestHouse } from './entities/world/pufflingHomes.js';
+import { queueReveal, updateFragments, resetFragments } from './systems/fragments.js';
+import { checkHouseMemory, checkGlyphEcho, humBandType } from './systems/memories.js';
+import { isHumming, getResonance, getResonanceType, isLocked, getLockType } from './systems/spiritHum.js';
 
 // ================================================================
 // Entity arrays (centralized in state/entityStore.js)
@@ -433,8 +436,8 @@ function _directorAttunement(dt, t, ctx) {
 }
 
 function _directorSkyWish(dt, t, ctx) {
-  const _wishText = checkShootingStarWish(pitch, ctx.env.orbsFound, getPerspective());
-  if (_wishText) showNarrativeText(_wishText, 5.0);
+  const _wish = checkShootingStarWish(pitch, ctx.env.orbsFound);
+  if (_wish) showNarrativePair(_wish, 5.0);
 }
 
 function _directorRocks(dt, t, ctx) {
@@ -519,6 +522,13 @@ function _directorDiscoveryChecks(dt, t, ctx) {
   checkDiscoveries(p.pos, deers, puffs, jellies, moths, fairyRings, ponds, 0);
   checkIdleHints(p.idleTime, dt);
   updateDiscoveries(dt, t);
+  // Small noticings, on the same throttled beat as the discoveries they sit
+  // beside: a village at dusk, a glyph that answers a hum, and whichever
+  // fragment is next in line.
+  checkHouseMemory(p.pos.x, p.pos.z, p.idleTime, dayPhase, nearestHouse);
+  checkGlyphEcho(p.pos.x, p.pos.z,
+    humBandType(isHumming(), getResonance(), getResonanceType(), isLocked(), getLockType()), glyphs_data);
+  updateFragments(dt);
   timeEnd('discoveryChecks');
 }
 
@@ -540,6 +550,7 @@ let autosave = { request() {}, flush() { return false; }, suspend() {}, resume()
 function go() {
   // Re-arm the wizard encounter so stale state from a prior session never leaks into a new run.
   resetWizardEncounter();
+  resetFragments();
   // Trigger intro cinematic — startIntro guards against double-call
   startIntro();
 }
@@ -848,7 +859,7 @@ try {
   initDiscoveries();
   initPufflingChat();
   initWizardPufflingEvent({
-    showNarrativeText,
+    showNarrativePair,
     playPufflingVocal,
     getGroundY,
     onTruthUnlocked: () => { revealTruth(); unlockTruthControlHint(); }
@@ -901,6 +912,7 @@ try {
     spawnOrbBurst: spawnOrbBurst,
     startResonanceDrone: startResonanceDrone,
     runeFaces: getRuneFaces(),
+    onRuneRevealed: queueReveal,
     grassPatches: grassPatches,
     ferns: ferns,
     flowers: flowers,
@@ -1016,7 +1028,13 @@ try {
 
   // Narrative perspective toggle (Tab key)
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Tab') { e.preventDefault(); togglePerspective(); }
+    if (e.code === 'Tab') {
+      e.preventDefault();
+      togglePerspective();
+      // After the truth, Tab at the obelisk also turns its runes between the
+      // two worlds' colours; anywhere else this does nothing.
+      requestRuneFlip(player.pos.x, player.pos.z, yaw);
+    }
   });
 
   // Register director subsystems with kernel scheduler

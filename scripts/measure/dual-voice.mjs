@@ -53,7 +53,7 @@ function report() {
 
 try {
   await page.goto('http://localhost:5173/', { waitUntil: 'load' });
-  await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: 120000 });
   await probe('the debug surface is reachable', () => window.LumiDebug.skipIntro());
 
   // 1. The frame loop, measured by the game's own counter rather than by a

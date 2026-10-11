@@ -5,6 +5,8 @@ import { makePuff } from '../entities/fauna/pufflings.js';
 import { playWizardApproachLaLa } from './audio/creatures.js';
 import { isHumInputActive, mobile, pitch, yaw } from '../core/input.js';
 import { player } from '../core/player.js';
+import { WIZARD } from '../narrative/lines.js';
+import { speak } from '../narrative/voice.js';
 
 /**
  * When true: short wander trigger, approach ends at 'halt' (no confront/beam/smite),
@@ -32,10 +34,15 @@ const PROCLAIM_SEC = 3.5;
 /** Pause after TAB before sky beam */
 const PREBEAM_SEC = 2.5;
 /** On-screen hint when camera first locks onto the approaching wizard */
-const APPROACH_HINT_TEXT = 'A wizard approaches?';
 const APPROACH_HINT_SEC = 3.6;
-const DEAD_SOUL_LINE = 'Another dead soul';
-const TAB_LINE = 'NOW you see BOTH worlds at once!';
+// The five lines of the encounter live in narrative/lines.js as pairs, so both
+// registers speak at every beat. The named constants stay as aliases because
+// the beats below read better as "the dead-soul line" than as WIZARD.deadSoul.
+const APPROACH_HINT = WIZARD.approach;
+const DEAD_SOUL_LINE = WIZARD.deadSoul;
+const HUM_PROMPT = WIZARD.humPrompt;
+const TAB_LINE = WIZARD.proclaim;
+const SCREAM_LINE = WIZARD.scream;
 /** Confront: inspect + dead soul line, then wait for F (spirit hum). */
 const CONFRONT_DEAD_SOUL_AT = 0.85;
 const CONFRONT_TO_WAIT_HUM = 6.8;
@@ -51,6 +58,7 @@ const SMITE_TOTAL = SMITE_SMOKE_AT + SMITE_BEAM_FADE_OUT;
 const SMITE_RISE_H = 2.6;
 
 let _showNarrativeText = null;
+let _showNarrativePair = null;
 let _playPufflingVocal = null;
 let _getGroundY = null;
 let _onTruthUnlocked = null;
@@ -214,6 +222,22 @@ function spawnWizardNearPlayer(playerPos, yawRad) {
   _waitHumT = 0;
 }
 
+/** Show one beat's {child, adult} pair through whichever display was injected. */
+function sayPair(set, seconds) {
+  if (_showNarrativePair) _showNarrativePair(set, seconds);
+  else if (_showNarrativeText) _showNarrativeText(set.child, seconds);
+}
+
+/**
+ * The babble the wizard makes while a line is up. The vocaliser only measures
+ * the length of what it is handed, so the child half — the one that is spoken
+ * aloud in the story — is resolved and passed.
+ */
+function vocalise(set, g, playerPos) {
+  if (!_playPufflingVocal) return;
+  _playPufflingVocal(speak(set.child, 'child'), { x: g.position.x, z: g.position.z }, playerPos, { maxDist2: 900 });
+}
+
 function removeWizard() {
   if (!_wizard) return;
   scene.remove(_wizard.group);
@@ -293,8 +317,20 @@ function updateSmoke(dt) {
   }
 }
 
+/**
+ * @brief Wire the encounter to the game's display and audio.
+ *
+ * `showNarrativePair` is how every beat is shown: one voice before the
+ * reveal, both after it. `showNarrativeText` is the older single-string
+ * injection and is only used when no pair display is given, in which case the
+ * child half is shown, so a host that has not been updated still sees the
+ * encounter play out and still gets text it can read.
+ * @param {{showNarrativePair?:Function, showNarrativeText?:Function, playPufflingVocal?:Function,
+ *   getGroundY:Function, onTruthUnlocked?:Function}} config
+ */
 export function initWizardPufflingEvent(config) {
-  _showNarrativeText = config.showNarrativeText;
+  _showNarrativeText = config.showNarrativeText || null;
+  _showNarrativePair = config.showNarrativePair || null;
   _playPufflingVocal = config.playPufflingVocal;
   _getGroundY = config.getGroundY;
   _onTruthUnlocked = config.onTruthUnlocked || null;
@@ -330,7 +366,7 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
   if (_state === 'approach' && _wizard) {
     if (!WIZARD_APPROACH_DEBUG_ONLY && !_approachHintShown) {
       _approachHintShown = true;
-      if (_showNarrativeText) _showNarrativeText(APPROACH_HINT_TEXT, APPROACH_HINT_SEC);
+      sayPair(APPROACH_HINT, APPROACH_HINT_SEC);
     }
     _phaseTimer += dt;
     const g = _wizard.group;
@@ -455,10 +491,8 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
 
     if (!_deadSoulShown && _confrontT >= CONFRONT_DEAD_SOUL_AT) {
       _deadSoulShown = true;
-      if (_showNarrativeText) _showNarrativeText(DEAD_SOUL_LINE, 9);
-      if (_playPufflingVocal) {
-        _playPufflingVocal(DEAD_SOUL_LINE, { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
-      }
+      sayPair(DEAD_SOUL_LINE, 9);
+      vocalise(DEAD_SOUL_LINE, g, ctx.player.pos);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 4);
     }
 
@@ -467,11 +501,10 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       _waitHumT = 0;
       _humWasArmed = isHumInputActive();
       // Name the control the player actually has. A phone has no F key: there,
-      // holding the pitch slider is the hum.
-      // Resolved downstream by showNarrativeText, so this one string is
-      // right on both platforms instead of being a ternary that has to be
-      // remembered at every new call site.
-      if (_showNarrativeText) _showNarrativeText('Hum to answer it… ({hum})', 4);
+      // holding the pitch slider is the hum. Both halves carry a {hum} token
+      // that the display path resolves, so each register is right on both
+      // platforms without a ternary at this call site.
+      sayPair(HUM_PROMPT, 4);
     }
 
     focusVec.x = g.position.x;
@@ -509,11 +542,9 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
     if (proceed) {
       _state = 'proclaim';
       _phaseTimer = 0;
-      if (_showNarrativeText) _showNarrativeText(TAB_LINE, PROCLAIM_SEC + 0.8);
+      sayPair(TAB_LINE, PROCLAIM_SEC + 0.8);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, PROCLAIM_SEC);
-      if (_playPufflingVocal) {
-        _playPufflingVocal(TAB_LINE, { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
-      }
+      vocalise(TAB_LINE, g, ctx.player.pos);
     }
 
     focusVec.x = g.position.x;
@@ -567,11 +598,9 @@ export function updateWizardPufflingEvent(dt, t, ctx) {
       // Hold on the elevated vanish point (where the wizard rises to) after he despawns.
       _smiteFocus.y = baseY + SMITE_RISE_H + 0.38;
       _smiteFocus.z = g.position.z;
-      if (_showNarrativeText) _showNarrativeText('AhhhhHHHH!', 2.2);
+      sayPair(SCREAM_LINE, 2.2);
       _wizard._talkTimer = Math.max(_wizard._talkTimer || 0, 1.6);
-      if (_playPufflingVocal) {
-        _playPufflingVocal('AhhhhHHHH!', { x: g.position.x, z: g.position.z }, ctx.player.pos, { maxDist2: 900 });
-      }
+      vocalise(SCREAM_LINE, g, ctx.player.pos);
     }
     focusVec.x = g.position.x;
     focusVec.y = baseY + 0.38;

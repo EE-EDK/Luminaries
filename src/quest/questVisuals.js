@@ -14,10 +14,13 @@ import { on, emit, Events } from '../kernel/eventBus.js';
 import { QuestPhases, ORB_CREATURE_SEQUENCE } from './config.js';
 import { getQuestState, getTimers, attemptCollectOrb } from './questState.js';
 import { transformSky } from '../world/sky.js';
+import { isTruthRevealed } from '../state/narrativeState.js';
+import { RUNE_FLIP_SEC, runeFlipEligible, runeFlipMix } from './runeFlip.js';
 
 const _orbGoldColor = new Color(C.orbGold);
 const _whiteColor = new Color(C.white);
 const _orbActivatedPink = new Color(C.orbActivatedPink);
+const _obeliskPink = new Color(C.obeliskPink);
 
 // Reject-flash scratch (C3) — pre-allocated, no loop allocs
 const _rejectFlashColor = new Color();
@@ -65,6 +68,18 @@ let startResonanceDroneFn = null;
 
 // Rune face references
 let runeFaces = [];
+// Called when a live collection lights a rune: (faceIndex, constellationName).
+// Injected, like the audio callbacks, so this file does not reach into the
+// text layer; a restore never calls it because restoreQuestVisuals does not.
+let onRuneRevealedFn = null;
+
+// Rune flip (Tab at the obelisk, after the truth): the blend between each lit
+// rune's creature colour (0) and the archive pink (1), and the turn in flight.
+let _flipMix = 0;
+let _flipFrom = 0;
+let _flipTo = 0;
+let _flipT = RUNE_FLIP_SEC;     // at rest: the turn is over
+let _flipDirty = false;         // colours need writing this frame
 
 // Entity arrays for finale gathering
 let deers = [], puffs = [], jellies = [], moths = [];
@@ -213,6 +228,7 @@ export function initQuestVisuals(config) {
   spawnOrbBurstFn = config.spawnOrbBurst || null;
   startResonanceDroneFn = config.startResonanceDrone || null;
   runeFaces = config.runeFaces || [];
+  onRuneRevealedFn = config.onRuneRevealed || null;
   grassPatchesRef = config.grassPatches || [];
   fernsRef = config.ferns || [];
   flowersRef = config.flowers || [];
@@ -230,8 +246,8 @@ export function initQuestVisuals(config) {
 function onOrbCollected(d) {
   if (spawnOrbBurstFn) spawnOrbBurstFn(d.x, orbs[d.orbIndex].group.position.y, d.z);
   if (startResonanceDroneFn) startResonanceDroneFn(d.orbsFound);
-  revealConstellation(d.orbsFound - 1);
-  
+  const constellationName = revealConstellation(d.orbsFound - 1);
+
   const hud = orbHudEl || document.getElementById('orb-hud');
   if (hud) hud.innerHTML = '✦ ' + d.orbsFound + ' / ' + ORB_N;
 
@@ -244,14 +260,53 @@ function onOrbCollected(d) {
     if (d.creatureType === 'deer')  col = C.deerGlow;
     if (d.creatureType === 'moth')  col = C.mothGlow;
     face.mat.color.set(col);
+    rememberRuneColor(face, col);
     face.revealed = true;
     face.revealTimer = 0;
     for (let m = 0; m < face.meshes.length; m++) {
       face.meshes[m].visible = true;
     }
+    // The rune is lit: this is the moment its fragment is owed.
+    if (onRuneRevealedFn) onRuneRevealedFn(faceIdx, constellationName);
   }
   if (d.orbsFound >= ORB_N) revealAllObeliskDetails();
 }
+
+/** The colour a rune was lit in, kept so the flip can blend back to it. */
+function rememberRuneColor(face, hex) {
+  if (!face.base) face.base = new Color();
+  face.base.set(hex);
+}
+
+/**
+ * @brief Turn the lit runes between the archive pink and their creature colours.
+ *
+ * Called when Tab is pressed. Does nothing unless the wizard has lifted the
+ * veil, the player is within 30 m of the obelisk and looking at it, and at
+ * least one rune is lit. A press mid-turn reverses from wherever the blend
+ * has got to, so mashing Tab never snaps a colour.
+ *
+ * @param {number} px player x
+ * @param {number} pz player z
+ * @param {number} yaw player yaw, radians
+ * @return {boolean} whether a turn began
+ */
+export function requestRuneFlip(px, pz, yaw) {
+  const ox = obeliskGroup ? obeliskGroup.position.x : 0;
+  const oz = obeliskGroup ? obeliskGroup.position.z : 0;
+  if (!runeFlipEligible(isTruthRevealed(), px, pz, yaw, ox, oz)) return false;
+  let lit = false;
+  for (let i = 0; i < runeFaces.length; i++) if (runeFaces[i].revealed) { lit = true; break; }
+  if (!lit) return false;
+  _flipFrom = _flipMix;
+  _flipTo = _flipTo === 1 ? 0 : 1;
+  _flipT = 0;
+  _flipDirty = true;
+  return true;
+}
+
+/** @brief Where the rune blend is, 0 = creature colours, 1 = archive pink. For the debug console. */
+export function getRuneFlipMix() { return _flipMix; }
 
 function onOrbRejected(d) {
   // A1: forward required creature first, then got
@@ -299,6 +354,7 @@ export function restoreQuestVisuals() {
     if (creature === 'deer') col = C.deerGlow;
     if (creature === 'moth') col = C.mothGlow;
     face.mat.color.set(col);
+    rememberRuneColor(face, col);
     face.revealed = true;
     face.revealTimer = 2.0;          // fade already complete
     for (let m = 0; m < face.meshes.length; m++) face.meshes[m].visible = true;
@@ -471,10 +527,21 @@ export function updateQuestVisuals(dt, t, ctx) {
     }
   }
 
+  // Rune flip: advance the blend, and write colours only while it is moving.
+  if (_flipT < RUNE_FLIP_SEC) {
+    _flipT += dt;
+    _flipMix = runeFlipMix(_flipFrom, _flipTo, _flipT);
+    _flipDirty = true;
+  }
+
   // Rune reveal
   for (let fi = 0; fi < runeFaces.length; fi++) {
     const face = runeFaces[fi];
     if (!face.revealed) continue;
+    if (_flipDirty && face.base) {
+      face.mat.color.copy(face.base).lerp(_obeliskPink, _flipMix);
+      face.mat.emissive.copy(face.mat.color);
+    }
     face.revealTimer += dt;
     const fadeIn = Math.min(face.revealTimer / 2.0, 1.0);
     const pulse = Math.sin(t * 1.5 + fi * 1.57) * 0.1 + 0.9;
@@ -483,6 +550,8 @@ export function updateQuestVisuals(dt, t, ctx) {
       face.mat.emissiveIntensity = fadeIn * (1.6 + pulse * 1.2);
     }
   }
+  // The final frame of a turn has been written; stop touching the colours.
+  if (_flipT >= RUNE_FLIP_SEC) _flipDirty = false;
 
   // A3: Prospective rune pre-light — dim hint on the NEXT rune face (index orbsFound)
   // showing the required creature's color at ~25% opacity to telegraph what's needed.

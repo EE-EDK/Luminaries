@@ -39,6 +39,7 @@ npm i -D playwright pngjs && npx playwright install chromium
 | `environment-coupling.mjs` | Ground classification under the player, the gust front crossing the forest, music density against restoration. Asserts the frame loop does not throw, which is the failure a build cannot see. |
 | `village-night.mjs` | Reads the live house materials across every village — window, knob and brick emissive — then confirms with pixels. A dynamic import returned an empty house list and a pixel-only A/B drowned in scene drift before this settled. |
 | `dual-voice.mjs` | Puts a line on screen, flips the register, and reads the **DOM**: both voices must reach the player, Tab must re-render the line already showing, and a single-voice line must not come out twice after the reveal. |
+| `narrative-voices.mjs` | Drives every M3.3/M3.4 line to the **DOM**: the title says tap on a touch device, the wizard's five beats arrive in both registers (Tab is flipped while a beat is up), a house memory at dusk, a glyph echo, the five fragments and the joining line, and Tab at the obelisk turning the rune colours — read from the rune materials, not from the code that sets them. Port from `LUMI_URL`. |
 
 ## The traps these scripts are built around
 

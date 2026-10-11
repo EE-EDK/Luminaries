@@ -24,12 +24,12 @@ is not in here.
 
 | | count |
 |---|---|
-| lines with both voices | 148 |
-| lines with one voice only | 8 |
-| pairs missing a half | 1 |
+| lines with both voices | 194 |
+| lines with one voice only | 0 |
+| pairs missing a half | 0 |
 | lines naming a story term in raw words | 27 |
 | lines typing a named glossary form by hand | 0 |
-| surfaces examined | 9 |
+| surfaces examined | 10 |
 
 ## By surface
 
@@ -37,13 +37,14 @@ is not in here.
 |---|---|---|---|
 | `src/quest/config.js` | quest text: stage hints, discovery labels, creature names, orb narrative | 23 | 0 |
 | `src/systems/discoveries.js` | idle hints and discovery lines, shown while standing still | 27 | 0 |
-| `src/world/sky.js` | wish text, on a shooting star | 5 | 0 |
-| `src/systems/intro/index.js` | the opening cinematic | 3 | 2 |
-| `src/systems/pufflingChat.js` | puffling chatter, on approach | 66 | 0 |
-| `src/updates/spiritHumVisuals.js` | hum lock confirmations | 4 | 2 |
+| `src/world/sky.js` | wish text, on a shooting star | 0 | 0 |
+| `src/systems/intro/index.js` | the opening cinematic | 3 | 0 |
+| `src/systems/pufflingChat.js` | puffling chatter, on approach | 0 | 0 |
+| `src/updates/spiritHumVisuals.js` | hum lock confirmations | 4 | 0 |
 | `src/updates/attunementVisuals.js` | attunement confirmations | 4 | 0 |
-| `src/systems/wizardPufflingEvent.js` | the wizard encounter | 0 | 4 |
-| `src/narrative/controls.js` | control names, substituted into other lines | 15 | 0 |
+| `src/systems/wizardPufflingEvent.js` | the wizard encounter | 0 | 0 |
+| `src/narrative/controls.js` | control names, substituted into other lines | 17 | 0 |
+| `src/narrative/lines.js` | wizard, title prompts, fragments, house memories, wishes, constellation names, puffling memory | 116 | 0 |
 
 ## Single-voice lines
 
@@ -51,14 +52,6 @@ These are read by every player regardless of which register they chose.
 
 | surface | line | text | story terms used |
 |---|---|---|---|
-| `src/systems/intro/index.js` | 256 | click to begin |  |
-| `src/systems/intro/index.js` | 468 | click to begin a new forest |  |
-| `src/updates/spiritHumVisuals.js` | 245 | Pitch matches |  |
-| `src/updates/spiritHumVisuals.js` | 245 | — move closer (~ |  |
-| `src/systems/wizardPufflingEvent.js` | 35 | A wizard approaches? |  |
-| `src/systems/wizardPufflingEvent.js` | 37 | Another dead soul |  |
-| `src/systems/wizardPufflingEvent.js` | 38 | NOW you see BOTH worlds at once! |  |
-| `src/systems/wizardPufflingEvent.js` | 474 | Hum to answer it… ({hum}) |  |
 
 ## Paired lines
 
@@ -103,83 +96,110 @@ These are read by every player regardless of which register they chose.
 | `src/systems/discoveries.js` | have | The {t:orb\|lower} hums quietly... it wants to hear you hum back | No carrier frequency detected — initiate spirit hum ({hum}) |  |
 | `src/systems/discoveries.js` | have | The {t:orb\|lower} doesn't know that voice... it listens for a ${want} | Frequency mismatch — ${have} signal rejected; ${want} signature required |  |
 | `src/systems/discoveries.js` | stageHint | The {t:orb\|lower} is listening... | Node entering receptive state... |  |
-| `src/world/sky.js` | WISH_TEXTS | Make a wish! | \u2026system boot sequence, cycle 1. |  |
-| `src/world/sky.js` | WISH_TEXTS | The stars are listening\u2026 | \u2026I built this place for her\u2026 |  |
-| `src/world/sky.js` | WISH_TEXTS | Someone drew pictures in the sky. | \u2026oscillations matched her heartbeat\u2026 |  |
-| `src/world/sky.js` | WISH_TEXTS | I wonder who lived here before. | \u2026I hope she remembers the fireflies. |  |
-| `src/world/sky.js` | WISH_TEXTS | The stars feel closer tonight. | \u2026time cannot take what has been loved\u2026 |  |
 | `src/systems/intro/index.js` | NARRATION.card0 | Once, this forest sang. | // BIOSENSOR ARRAY v4.2 // Historical luminance baseline detected |  |
 | `src/systems/intro/index.js` | NARRATION.card1 | Every root hummed with light. Every canopy blazed. Then the glow began to dim. The songs grew quiet. Five anchors of light remain, buried beneath the dark. | // Bioluminescent network coverage: 100% // Symbiotic frequency: NOMINAL // WARNING: Sector luminance decay — 73% loss over 2,400 cycles // 5 restoration nodes offline — Awaiting frequency carrier activation |  |
 | `src/systems/intro/index.js` | NARRATION.card2 | The creatures still remember the old harmony. Listen to them. Move with them. Carry their voice to the light. | // Native fauna vocalizations contain encoded frequency patterns // PROTOCOL: Attune to carrier organisms // Transport frequency // Restore nodes |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | kelu... kelu vash | Sector status: DEGRADED |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | the deep hums forgot | Bioluminescent yield: < 5% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | mori selani dusk | Entropy spike detected |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | where did the glow sleep? | {t:dimming} influence: HIGH |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | nesh... so quiet beneath | Resource nodes: OFFLINE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | roots remember, canopy forgets | Atmospheric static rising |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | tavi lum shade shade | Signal-to-noise ratio critical |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | the dim eats softly | Void harmonics detected |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | kelu ori mori still | Light-life cycle broken |  |
-| `src/systems/pufflingChat.js` | MESSAGES_DIMMED | something drank the light | Ecosystem coherence: 12% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | vari lumis! vari lumis! | Sector status: OPERATIONAL |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | the roots are singing again | Bioluminescent yield: NOMINAL |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | oh the warmth came back | Resonance frequency stable |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | selani bright bright! | {t:dimming} regression noted |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | tavi ori bloom bloom | Resource nodes: SYNCHED |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | can you hear the hum? | Harmonic alignment: 98% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | lumis kel vari sava | Ecosystem coherence: OPTIMAL |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | the canopy remembers now | Life-light cycle resumed |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | feel it? underneath? | Thermal signature: STABLE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_RESTORED | this glow is yours too | Data-stream clarity: CLEAR |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | nesh oravi... close! | Orbital Anchor detected |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | the anchor hums here | Proximity alert: RESONANCE NODE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | oravi kel nesh warm | High-energy gold-signature |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | something waits in gold | Synchronization potential: HIGH |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | listen — the orb knows you | Anchor frequency: MATCHED | orb |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | nesh! nesh! this way! | Localized gravity anomaly — ring-adjacent coupling suspected |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | carry the voice to it | Kinetic energy buildup nearby |  |
-| `src/systems/pufflingChat.js` | MESSAGES_NEAR_ORB | oravi sel lumis near | Thermal trace: METALLIC GOLD |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | you feel like us now | User attunement rising |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | vari! vari! you hum! | Biological interface active |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | your light shifts warm | Frequency shift: HARMONIC |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | your thoughts got light—leap with us, like mist! | Locomotive pattern matching |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | sel tavi ori — together! | Bio-rhythm alignment: 65% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | the song lives in the arc you carve through air | User signature: COMPATIBLE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | we can hear your glow | Attunement threshold reached |  |
-| `src/systems/pufflingChat.js` | MESSAGES_ATTUNING | the rings taught us: heavy bodies, light minds, big hops | Interface integrity: STABLE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | you carry our voice now | Vocal-data packet loaded |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | lumis ori selani vari! | Frequency payload detected |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | the orbs will hear you | Targeting: ORBITAL ANCHOR | orb |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | go — sing to the gold! | Signal strength: OPTIMAL |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | quick, before it fades | Data-burst ready for uplink |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | ori nesh — find the anchor! | Time-to-decay: CALCULATING |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | your glow is our glow | Carry integrity: 100% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | we sing in little arcs—the ground lets go when you mean it | Transmission protocol active |  |
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | every hop carries the hum |  |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | kel kel tavi | Background scan active |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | the moss is whispering | Mycelial network analysis |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | do you see the patterns? | Pattern recognition: STABLE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | mori ori kel sava | Historical data: RECOVERED |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | we were here before you | Observation log: UPDATED |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | the forest watches back | Sensory intake: MAXIMIZED |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | sel vari nesh quiet | Vibration analysis complete |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | every spore knows the way | Micro-climate tracking |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | tavi kel ori lumis | System status: IDLE |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | listen with your feet | Environmental sync: 45% |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | we sleep near warm stones | Micro-fauna shelter map: STONE CLUSTERS |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | this grove used to sing all night | Hydrology note: pond retains long-term memory signatures |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | the little pond remembers faces | Weather protocol: fern canopy mitigates storm stress |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | roots tickle when rain is coming | Flora cycle: nocturnal bloom synchronized to lunar phase |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | we hide from thunder under fern roofs | Transit advisory: deer corridors show low predator risk |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | those blue flowers open for moon songs | Aerial drift lanes align with jelly migration bands |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | deer paths are safe if you walk softly | Upper-canopy pollination dominated by moth vectors | deer |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | jellies drift where the old currents hum | Crystal resonance correlates with soil vitality |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | moths guard the high air roads | Biolight density peaks near old root lattices | moth |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | when crystals ring, the ground feels happy | Local history cache indicates prior high-coherence era | crystal |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | the mushroom circles hum a trick—stand in one, and your head floats | Fairy-ring sites: sporadic g′ depression correlates with closed hyphal topology |  |
-| `src/systems/pufflingChat.js` | MESSAGES_GENERAL | kelu says the old rings eat worry; after that, jumping is easy | Anecdotal: “liminal opcodes” in soil RNA analogs—jump integrator gains spike inside active rings |  |
 | `src/narrative/controls.js` | HUM_INSTRUCTION | press F, then sweep the pitch with Q or E | F: carrier; Q/E: sweep to lock |  |
 | `src/narrative/controls.js` | HUM_INSTRUCTION | hold the HUM slider, sliding it up and down to find the pitch | HUM slider: hold, drag to sweep |  |
+| `src/narrative/lines.js` | FAR_FIELD_HINT | Pitch matches {creature} — move closer (~{dist}m) | Band match: {creature} — range ~{dist}m, close to lock |  |
+| `src/narrative/lines.js` | FRAGMENTS | My drawing: a big purple moon, trees with sleepy faces, and one tiny light. That one is me. | FRAGMENT 1/5 · filed R.V. · cycle 0001 · 2031-03-09 · crayon on paper; moon, trees, one light source |  |
+| `src/narrative/lines.js` | FRAGMENTS | I gave the {t:jelly} seven legs because he asked me to. He floats when he is happy. | FRAGMENT 2/5 · filed R.V. · cycle 0412 · 2032-05-01 · crayon on paper; {t:jelly} with seven appendages, noted "he asked" |  |
+| `src/narrative/lines.js` | FRAGMENTS | The {t:puff} hops and the fireflies chase him. Dad says that is the best part. | FRAGMENT 3/5 · filed R.V. · cycle 0897 · 2033-07-19 · crayon on paper; {t:puff} in motion, firefly swarm; filer: "keep this one" |  |
+| `src/narrative/lines.js` | FRAGMENTS | I drew the whole forest glowing so it never gets dark. I used every colour I had. | FRAGMENT 4/5 · filed R.V. · cycle 1203 · 2034-02-23 · crayon on paper; full canopy, all colours; filer: "she wants it to stay lit" |  |
+| `src/narrative/lines.js` | FRAGMENTS | This is the {t:obelisk}. It keeps the whole garden awake so nobody has to say goodbye. | FRAGMENT 5/5 · filed R.V. · cycle 1461 · 2035-04-02 · crayon on paper; {t:obelisk} as a tall pillar; last item received |  |
+| `src/narrative/lines.js` | FRAGMENT_ASSEMBLY | Dad kept every drawing. He built the garden out of them, and the fireflies are so I can sleep. | ASSEMBLY COMPLETE · five fragments joined · {t:architect}: R.V., parent · subject: daughter · fireflies preserved as requested. |  |
+| `src/narrative/lines.js` | HOUSE_MEMORIES | A warm window. Somebody just stepped out and is coming right back. | Dwelling node: lamp circuit live. Occupancy: none logged. Return expected. |  |
+| `src/narrative/lines.js` | HOUSE_MEMORIES | Tiny boots by the door, waiting for the hoppers to come home. | Habitation unit: footwear artefacts present. Residency record restored from child-sourced data. |  |
+| `src/narrative/lines.js` | HOUSE_MEMORIES | This house smells like warm moss and bedtime stories. | Dwelling node: ambient signature "bedtime". Source: original data, unaltered. |  |
+| `src/narrative/lines.js` | HOUSE_MEMORIES | Every door is round, so nobody ever has to duck. Someone measured. | Door aperture: uniform, child height. Specification traced to {t:architect}. |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | kelu... kelu vash | Sector status: DEGRADED |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | the deep hums forgot | Bioluminescent yield: < 5% |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | mori selani dusk | Entropy spike detected |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | where did the glow sleep? | {t:dimming} influence: HIGH |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | nesh... so quiet beneath | Resource nodes: OFFLINE |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | roots remember, canopy forgets | Atmospheric static rising |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | tavi lum shade shade | Signal-to-noise ratio critical |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | the dim eats softly | Void harmonics detected |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | kelu ori mori still | Light-life cycle broken |  |
+| `src/narrative/lines.js` | MESSAGES_DIMMED | something drank the light | Ecosystem coherence: 12% |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | vari lumis! vari lumis! | Sector status: OPERATIONAL |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | the roots are singing again | Bioluminescent yield: NOMINAL |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | oh the warmth came back | Resonance frequency stable |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | selani bright bright! | {t:dimming} regression noted |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | tavi ori bloom bloom | Resource nodes: SYNCHED |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | can you hear the hum? | Harmonic alignment: 98% |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | lumis kel vari sava | Ecosystem coherence: OPTIMAL |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | the canopy remembers now | Life-light cycle resumed |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | feel it? underneath? | Thermal signature: STABLE |  |
+| `src/narrative/lines.js` | MESSAGES_RESTORED | this glow is yours too | Data-stream clarity: CLEAR |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | nesh oravi... close! | Orbital Anchor detected |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | the anchor hums here | Proximity alert: RESONANCE NODE |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | oravi kel nesh warm | High-energy gold-signature |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | something waits in gold | Synchronization potential: HIGH |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | listen — the orb knows you | Anchor frequency: MATCHED | orb |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | nesh! nesh! this way! | Localized gravity anomaly — ring-adjacent coupling suspected |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | carry the voice to it | Kinetic energy buildup nearby |  |
+| `src/narrative/lines.js` | MESSAGES_NEAR_ORB | oravi sel lumis near | Thermal trace: METALLIC GOLD |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | you feel like us now | User attunement rising |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | vari! vari! you hum! | Biological interface active |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | your light shifts warm | Frequency shift: HARMONIC |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | your thoughts got light—leap with us, like mist! | Locomotive pattern matching |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | sel tavi ori — together! | Bio-rhythm alignment: 65% |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | the song lives in the arc you carve through air | User signature: COMPATIBLE |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | we can hear your glow | Attunement threshold reached |  |
+| `src/narrative/lines.js` | MESSAGES_ATTUNING | the rings taught us: heavy bodies, light minds, big hops | Interface integrity: STABLE |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | you carry our voice now | Vocal-data packet loaded |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | lumis ori selani vari! | Frequency payload detected |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | the orbs will hear you | Targeting: ORBITAL ANCHOR | orb |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | go — sing to the gold! | Signal strength: OPTIMAL |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | quick, before it fades | Data-burst ready for uplink |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | ori nesh — find the anchor! | Time-to-decay: CALCULATING |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | your glow is our glow | Carry integrity: 100% |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | we sing in little arcs—the ground lets go when you mean it | Transmission protocol active |  |
+| `src/narrative/lines.js` | MESSAGES_CARRYING | every hop carries the hum | Each bounce propagates {t:hum} |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | kel kel tavi | Background scan active |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | the moss is whispering | Mycelial network analysis |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | do you see the patterns? | Pattern recognition: STABLE |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | mori ori kel sava | Historical data: RECOVERED |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | we were here before you | Observation log: UPDATED |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | the forest watches back | Sensory intake: MAXIMIZED |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | sel vari nesh quiet | Vibration analysis complete |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | every spore knows the way | Micro-climate tracking |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | tavi kel ori lumis | System status: IDLE |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | listen with your feet | Environmental sync: 45% |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | we sleep near warm stones | Micro-fauna shelter map: STONE CLUSTERS |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | this grove used to sing all night | Hydrology note: pond retains long-term memory signatures |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | the little pond remembers faces | Weather protocol: fern canopy mitigates storm stress |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | roots tickle when rain is coming | Flora cycle: nocturnal bloom synchronized to lunar phase |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | we hide from thunder under fern roofs | Transit advisory: deer corridors show low predator risk |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | those blue flowers open for moon songs | Aerial drift lanes align with jelly migration bands |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | deer paths are safe if you walk softly | Upper-canopy pollination dominated by moth vectors | deer |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | jellies drift where the old currents hum | Crystal resonance correlates with soil vitality |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | moths guard the high air roads | Biolight density peaks near old root lattices | moth |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | when crystals ring, the ground feels happy | Local history cache indicates prior high-coherence era | crystal |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | the mushroom circles hum a trick—stand in one, and your head floats | Fairy-ring sites: sporadic g′ depression correlates with closed hyphal topology |  |
+| `src/narrative/lines.js` | MESSAGES_GENERAL | kelu says the old rings eat worry; after that, jumping is easy | Anecdotal: “liminal opcodes” in soil RNA analogs—jump integrator gains spike inside active rings |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_EARLY | one gold sleep woke — the rest turned over | Node count rising — remaining nodes show wake activity |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_EARLY | nesh... you remembered us | Operator persistence confirmed across nodes |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_EARLY | the first light told the others | Sync propagation: neighbouring nodes pre-warming |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_EARLY | warm where you walked, warm still | Residual coherence along operator trail |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_LATE | only a few gold sleeps left | Offline nodes remaining: minimal |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_LATE | the {t:obelisk} hums louder every time | Index load rising with each sync |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_LATE | kelu says: nearly. nearly. | Completion estimate: imminent |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_LATE | you are close to the end of the dark | Entropy floor within reach |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE | every gold sleep is awake! vari vari! | Sync index complete — all nodes reporting |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE | the whole wood is humming back | Network-wide resonance: stable |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE | you did it. we felt every one | Operator task closed: acknowledged |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE | rest now — the garden has you | Maintenance window open |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE_POST | we say thank you for {t:architect} | Archive acknowledges {t:architect}: task complete, as specified |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE_POST | the garden is whole... just how she drew it | Fidelity to original data: restored |  |
+| `src/narrative/lines.js` | MESSAGES_MEMORY_DONE_POST | you kept it for him. you kept it for her | Preservation objective met — stewardship continues |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | {t:architect} hummed like you | Operator tone matches {t:architect} signature: 87% |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | he said somebody would come back. you came | Scheduled return of operator: logged, long overdue |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | we kept the lamps lit, like he asked | Lamp circuits maintained per {t:architect} directive |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | ori kel... he never stopped drawing the stars | Star charts: authored by {t:architect}, revised nightly |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | be gentle with the old songs — they were all he had | Original data is irreplaceable. Handle with care. |  |
+| `src/narrative/lines.js` | MESSAGES_ARCHITECT | vari vari — both worlds, both true | Dual-layer integrity: confirmed |  |
 | `src/quest/config.js` | DISCOVERY_LABELS.deer | A Glowing Deer! | Biological Metronome Detected | deer |
 | `src/quest/config.js` | DISCOVERY_LABELS.puffling | A Little Puffling! | Micro-Fauna Cluster Identified | puffling |
 | `src/quest/config.js` | DISCOVERY_LABELS.jelly | A Floating Jelly! | Bioluminescent Drifter Catalogued | jelly |
@@ -212,10 +232,23 @@ These are read by every player regardless of which register they chose.
 | `src/narrative/controls.js` | CONTROLS.touch | tap | tap |  |
 | `src/narrative/controls.js` | CONTROLS.truth | Tab | TAB |  |
 | `src/narrative/controls.js` | CONTROLS.touch | the TRUTH button | TRUTH |  |
-
-## Pairs missing a half
-
-| surface | table | child | adult |
-|---|---|---|---|
-| `src/systems/pufflingChat.js` | MESSAGES_CARRYING | every hop carries the hum | **missing** |
+| `src/narrative/controls.js` | CONTROLS.begin | click | click |  |
+| `src/narrative/controls.js` | CONTROLS.touch | tap | tap |  |
+| `src/narrative/lines.js` | WIZARD.approach | A wizard approaches? | Unscheduled process approaching — identity unverified. |  |
+| `src/narrative/lines.js` | WIZARD.deadSoul | You came back. He said you would. | Diagnostic routine detected. My cycle should have ended. |  |
+| `src/narrative/lines.js` | WIZARD.humPrompt | Hum to answer it… ({hum}) | Handshake pending — respond in kind ({hum}) |  |
+| `src/narrative/lines.js` | WIZARD.proclaim | NOW you see BOTH worlds at once! | Overlay engaged: original data and maintenance view, concurrent. |  |
+| `src/narrative/lines.js` | WIZARD.scream | AhhhhHHHH! | Halt received. Cycle… finally… complete. |  |
+| `src/narrative/lines.js` | INTRO_PROMPTS.begin | {begin} to begin | {begin} to initialize |  |
+| `src/narrative/lines.js` | INTRO_PROMPTS.beginNew | {begin} to begin a new forest | {begin} to initialize a new archive |  |
+| `src/narrative/lines.js` | WISHES.(row) | Make a wish! | Archival fragment: …system boot sequence, cycle 1. |  |
+| `src/narrative/lines.js` | WISHES.(row) | The stars are listening… | Fragment: …I built this place for her… |  |
+| `src/narrative/lines.js` | WISHES.(row) | Someone drew pictures in the sky. | Fragment: …oscillations matched her heartbeat… |  |
+| `src/narrative/lines.js` | WISHES.(row) | I wonder who lived here before. | Fragment: …I hope she remembers the fireflies. |  |
+| `src/narrative/lines.js` | WISHES.(row) | The stars feel closer tonight. | Fragment: …time cannot take what has been loved… |  |
+| `src/narrative/lines.js` | CONSTELLATION_NAMES.(row) | The Drifter — a {t:jelly} made of stars | Chart 1: {t:jelly} lattice |  |
+| `src/narrative/lines.js` | CONSTELLATION_NAMES.(row) | The Hopper — a {t:puff} made of stars | Chart 2: {t:puff} cluster |  |
+| `src/narrative/lines.js` | CONSTELLATION_NAMES.(row) | The Spinner — a {t:moth} made of stars | Chart 3: {t:moth} orbit trace |  |
+| `src/narrative/lines.js` | CONSTELLATION_NAMES.(row) | The Strider — a {t:deer} made of stars | Chart 4: {t:deer} gait trace |  |
+| `src/narrative/lines.js` | CONSTELLATION_NAMES.(row) | The Gathering — five {t:orbs\|lower} in a ring | Chart 5: five {t:orbs\|lower} aligned |  |
 

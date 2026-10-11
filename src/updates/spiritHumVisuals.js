@@ -10,7 +10,9 @@ import { startHum, stopHum, updateHum, isHumming, isLocked, getLockType, getHumP
 import { startSpiritHumAudio, updateSpiritHumAudio, stopSpiritHumAudio, playPitchLockSound } from '../systems/audio.js';
 import { spawnResonanceRing } from '../particles/resonanceRings.js';
 import { getGroundY } from '../world/terrain.js';
-import { getPerspective } from '../state/narrativeState.js';
+import { getPerspective, isTruthRevealed } from '../state/narrativeState.js';
+import { farFieldPair } from '../narrative/lines.js';
+import { dualText } from '../narrative/voice.js';
 import { showNarrativeText } from '../systems/discoveries.js';
 import { setAttuneFlash, setHumResonance } from '../state/gameState.js';
 import { nearest } from '../systems/registration.js';
@@ -46,9 +48,6 @@ const _humBandColors = {
   puff:  'rgba(255,170,136,',
 };
 
-// A6: display names for creature types
-const _creatureNames = { deer: 'deer', moth: 'moth', jelly: 'jellyfish', puff: 'puffling' };
-
 let _humSliderDirty = false;
 
 // A6: dirty-check state for desktop slider visibility
@@ -57,8 +56,13 @@ let _sliderDesktopVisible = false;
 // A6: dirty-check for thumb position (0–1 norm → bottom px within track height 280)
 let _lastThumbNorm = -1;
 
-// B2: dirty-check for far-field hint content
+// B2: dirty-check for far-field hint content. The text is rebuilt only when
+// one of these changes: the creature, its rounded range, or the reader's
+// register (Tab must re-word a hint that is already up).
 let _lastFarfieldType = null;
+let _lastFarfieldDist = -1;
+let _lastFarfieldVoice = null;
+let _lastFarfieldTruth = false;
 
 // C1: dirty-check for jelly bar
 let _lastJellyBarPct = -1;
@@ -233,16 +237,28 @@ export function updateSpiritHumVisuals(dt) {
   if (_humFarfieldEl) {
     const _ffh = getFarFieldHint();
     const _ffType = _ffh ? _ffh.type : null;
-    if (_ffType !== _lastFarfieldType) {
+    const _ffDist = _ffh ? Math.round(_ffh.dist) : -1;
+    const _ffVoice = getPerspective();
+    const _ffTruth = isTruthRevealed();
+    if (_ffType !== _lastFarfieldType || _ffDist !== _lastFarfieldDist
+        || _ffVoice !== _lastFarfieldVoice || _ffTruth !== _lastFarfieldTruth) {
+      const _typeChanged = _ffType !== _lastFarfieldType;
       _lastFarfieldType = _ffType;
+      _lastFarfieldDist = _ffDist;
+      _lastFarfieldVoice = _ffVoice;
+      _lastFarfieldTruth = _ffTruth;
       if (_ffType) {
-        const _ffDist = Math.round(_ffh.dist);
-        const _ffName = _creatureNames[_ffType] || _ffType;
-        const _ffColor = _humBandColors[_ffType] ? _humBandColors[_ffType] + '1)' : '#88ffcc';
-        _humFarfieldEl.style.display = 'block';
-        _humFarfieldEl.style.color = _ffColor;
-        _humFarfieldEl.style.borderColor = _ffColor.replace(',1)', ',.35)');
-        _humFarfieldEl.textContent = 'Pitch matches ' + _ffName + ' — move closer (~' + _ffDist + 'm)';
+        // The name is a glossary token inside the pair, so each register
+        // names the species its own way; this used to be a lookup table of
+        // child words concatenated into the sentence.
+        _humFarfieldEl.textContent = dualText(farFieldPair(_ffType, _ffDist),
+          { voice: _ffVoice, truthRevealed: _ffTruth });
+        if (_typeChanged) {
+          const _ffColor = _humBandColors[_ffType] ? _humBandColors[_ffType] + '1)' : '#88ffcc';
+          _humFarfieldEl.style.display = 'block';
+          _humFarfieldEl.style.color = _ffColor;
+          _humFarfieldEl.style.borderColor = _ffColor.replace(',1)', ',.35)');
+        }
       } else {
         _humFarfieldEl.style.display = 'none';
       }

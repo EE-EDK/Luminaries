@@ -15,6 +15,9 @@
 //   to explain itself. To anyone who would listen.
 
 import { EYE_H } from '../../constants.js';
+import { INTRO_PROMPTS } from '../../narrative/lines.js';
+import { dualText } from '../../narrative/voice.js';
+import { getPerspective, isTruthRevealed } from '../../state/narrativeState.js';
 import { buildTree, buildMushrooms, buildPufflings } from './elements.js';
 import { initEffects, animateTitle, cleanupEffects } from './effects.js';
 
@@ -103,6 +106,16 @@ let narrationCardTime = 0;
 let _narrationFantasyCardIndex = -1;
 let sweepProgress = 0;
 let onComplete = null; // callback when cinematic ends
+
+/**
+ * @brief The title screen's prompt, in the register being read and with the
+ * verb this device actually has — "tap" on a phone, "click" on a desktop.
+ * @param {{child:string, adult:string}} pair a prompt from narrative/lines.js
+ * @return {string}
+ */
+function promptText(pair) {
+  return dualText(pair, { voice: getPerspective(), truthRevealed: isTruthRevealed() });
+}
 
 // DOM elements
 let container = null;
@@ -253,7 +266,7 @@ export function initIntro(completeFn) {
     'position:absolute;top:51%;left:50%;transform:translate(-50%,-50%);' +
     'font-family:\'Courier New\',monospace;font-size:12px;color:#66ccaa;letter-spacing:2px;' +
     'text-align:center;opacity:0;transition:opacity 1s ease;';
-  titleSubEl.textContent = 'click to begin';
+  titleSubEl.textContent = promptText(INTRO_PROMPTS.begin);
   container.appendChild(titleSubEl);
 
   // ================================================================
@@ -465,7 +478,7 @@ export function enableContinue(onContinue) {
   continueEl.addEventListener('touchstart', take, { passive: false });
 
   container.appendChild(continueEl);
-  titleSubEl.textContent = 'click to begin a new forest';
+  titleSubEl.textContent = promptText(INTRO_PROMPTS.beginNew);
   requestAnimationFrame(() => { if (continueEl) continueEl.style.opacity = '0.85'; });
   return continueEl;
 }

@@ -10,191 +10,20 @@ import { Vector3 } from 'three';
 import { getPerspective } from '../state/narrativeState.js';
 import { READ_DWELL_MULT } from './discoveries.js';
 import { speak } from '../narrative/voice.js';
+import {
+  MESSAGES_DIMMED, MESSAGES_RESTORED, MESSAGES_NEAR_ORB, MESSAGES_ATTUNING,
+  MESSAGES_CARRYING, MESSAGES_GENERAL, MESSAGES_MEMORY_EARLY, MESSAGES_MEMORY_LATE,
+  MESSAGES_MEMORY_DONE, MESSAGES_MEMORY_DONE_POST, MESSAGES_ARCHITECT,
+} from '../narrative/lines.js';
+import { ORB_N } from '../constants.js';
 
 // ================================================================
 // Message pools — context-sensitive cryptic text
 // ================================================================
-
-// When in dimmed / unrestored sector
-const MESSAGES_DIMMED = {
-  child: [
-    'kelu... kelu vash',
-    'the deep hums forgot',
-    'mori selani dusk',
-    'where did the glow sleep?',
-    'nesh... so quiet beneath',
-    'roots remember, canopy forgets',
-    'tavi lum shade shade',
-    'the dim eats softly',
-    'kelu ori mori still',
-    'something drank the light',
-  ],
-  adult: [
-    'Sector status: DEGRADED',
-    'Bioluminescent yield: < 5%',
-    'Entropy spike detected',
-    '{t:dimming} influence: HIGH',
-    'Resource nodes: OFFLINE',
-    'Atmospheric static rising',
-    'Signal-to-noise ratio critical',
-    'Void harmonics detected',
-    'Light-life cycle broken',
-    'Ecosystem coherence: 12%',
-  ]
-};
-
-// When in restored sector
-const MESSAGES_RESTORED = {
-  child: [
-    'vari lumis! vari lumis!',
-    'the roots are singing again',
-    'oh the warmth came back',
-    'selani bright bright!',
-    'tavi ori bloom bloom',
-    'can you hear the hum?',
-    'lumis kel vari sava',
-    'the canopy remembers now',
-    'feel it? underneath?',
-    'this glow is yours too',
-  ],
-  adult: [
-    'Sector status: OPERATIONAL',
-    'Bioluminescent yield: NOMINAL',
-    'Resonance frequency stable',
-    '{t:dimming} regression noted',
-    'Resource nodes: SYNCHED',
-    'Harmonic alignment: 98%',
-    'Ecosystem coherence: OPTIMAL',
-    'Life-light cycle resumed',
-    'Thermal signature: STABLE',
-    'Data-stream clarity: CLEAR',
-  ]
-};
-
-// When near an unfound orb (within 20m)
-const MESSAGES_NEAR_ORB = {
-  child: [
-    'nesh oravi... close!',
-    'the anchor hums here',
-    'oravi kel nesh warm',
-    'something waits in gold',
-    'listen — the orb knows you',
-    'nesh! nesh! this way!',
-    'carry the voice to it',
-    'oravi sel lumis near',
-  ],
-  adult: [
-    'Orbital Anchor detected',
-    'Proximity alert: RESONANCE NODE',
-    'High-energy gold-signature',
-    'Synchronization potential: HIGH',
-    'Anchor frequency: MATCHED',
-    'Localized gravity anomaly — ring-adjacent coupling suspected',
-    'Kinetic energy buildup nearby',
-    'Thermal trace: METALLIC GOLD',
-  ]
-};
-
-// When player has attunement > 0.5 (building connection)
-const MESSAGES_ATTUNING = {
-  child: [
-    'you feel like us now',
-    'vari! vari! you hum!',
-    'your light shifts warm',
-    'your thoughts got light—leap with us, like mist!',
-    'sel tavi ori — together!',
-    'the song lives in the arc you carve through air',
-    'we can hear your glow',
-    'the rings taught us: heavy bodies, light minds, big hops',
-  ],
-  adult: [
-    'User attunement rising',
-    'Biological interface active',
-    'Frequency shift: HARMONIC',
-    'Locomotive pattern matching',
-    'Bio-rhythm alignment: 65%',
-    'User signature: COMPATIBLE',
-    'Attunement threshold reached',
-    'Interface integrity: STABLE',
-  ]
-};
-
-// When player carries frequency
-const MESSAGES_CARRYING = {
-  child: [
-    'you carry our voice now',
-    'lumis ori selani vari!',
-    'the orbs will hear you',
-    'go — sing to the gold!',
-    'quick, before it fades',
-    'ori nesh — find the anchor!',
-    'your glow is our glow',
-    'we sing in little arcs—the ground lets go when you mean it',
-    'every hop carries the hum',
-  ],
-  adult: [
-    'Vocal-data packet loaded',
-    'Frequency payload detected',
-    'Targeting: ORBITAL ANCHOR',
-    'Signal strength: OPTIMAL',
-    'Data-burst ready for uplink',
-    'Time-to-decay: CALCULATING',
-    'Carry integrity: 100%',
-    'Transmission protocol active',
-  ]
-};
-
-// General / idle following
-const MESSAGES_GENERAL = {
-  child: [
-    'kel kel tavi',
-    'the moss is whispering',
-    'do you see the patterns?',
-    'mori ori kel sava',
-    'we were here before you',
-    'the forest watches back',
-    'sel vari nesh quiet',
-    'every spore knows the way',
-    'tavi kel ori lumis',
-    'listen with your feet',
-    'we sleep near warm stones',
-    'this grove used to sing all night',
-    'the little pond remembers faces',
-    'roots tickle when rain is coming',
-    'we hide from thunder under fern roofs',
-    'those blue flowers open for moon songs',
-    'deer paths are safe if you walk softly',
-    'jellies drift where the old currents hum',
-    'moths guard the high air roads',
-    'when crystals ring, the ground feels happy',
-    'the mushroom circles hum a trick—stand in one, and your head floats',
-    'kelu says the old rings eat worry; after that, jumping is easy',
-  ],
-  adult: [
-    'Background scan active',
-    'Mycelial network analysis',
-    'Pattern recognition: STABLE',
-    'Historical data: RECOVERED',
-    'Observation log: UPDATED',
-    'Sensory intake: MAXIMIZED',
-    'Vibration analysis complete',
-    'Micro-climate tracking',
-    'System status: IDLE',
-    'Environmental sync: 45%',
-    'Micro-fauna shelter map: STONE CLUSTERS',
-    'Hydrology note: pond retains long-term memory signatures',
-    'Weather protocol: fern canopy mitigates storm stress',
-    'Flora cycle: nocturnal bloom synchronized to lunar phase',
-    'Transit advisory: deer corridors show low predator risk',
-    'Aerial drift lanes align with jelly migration bands',
-    'Upper-canopy pollination dominated by moth vectors',
-    'Crystal resonance correlates with soil vitality',
-    'Biolight density peaks near old root lattices',
-    'Local history cache indicates prior high-coherence era',
-    'Fairy-ring sites: sporadic g′ depression correlates with closed hyphal topology',
-    'Anecdotal: “liminal opcodes” in soil RNA analogs—jump integrator gains spike inside active rings',
-  ]
-};
+// The pools themselves live in narrative/lines.js, with every other line the
+// game says: the audit pairs a table's halves by position within one file, and
+// the new pre/post-reveal pools had to sit beside the old ones to be checked
+// against them. This file decides WHICH pool; lines.js decides what it says.
 
 // ================================================================
 // State
@@ -227,16 +56,63 @@ export function initPufflingChat() {
 // ================================================================
 // Select message based on context
 // ================================================================
-function pickMessage(sectorRestored, nearOrb, attunement, hasFrequency) {
+/** Chance a puffling remembers the player's progress instead of the usual line. */
+const MEMORY_CHANCE = 0.2;
+/** Chance, after the wizard, that a puffling speaks of the one who made the garden. */
+const ARCHITECT_CHANCE = 0.3;
+
+/**
+ * @brief The pool a puffling's progress memory draws from, or null.
+ *
+ * Three tiers by how many anchors have been woken, and the last one has a
+ * second version for after the wizard: the same moment, now that the
+ * pufflings may say who it was for.
+ * @param {number} orbsFound
+ * @param {boolean} truthRevealed
+ * @return {{child:string[], adult:string[]}|null}
+ */
+function memoryPool(orbsFound, truthRevealed) {
+  if (orbsFound >= ORB_N) return truthRevealed ? MESSAGES_MEMORY_DONE_POST : MESSAGES_MEMORY_DONE;
+  if (orbsFound >= 3) return MESSAGES_MEMORY_LATE;
+  if (orbsFound >= 1) return MESSAGES_MEMORY_EARLY;
+  return null;
+}
+
+/**
+ * @brief Pick what a puffling says, from where the player is and how far on.
+ *
+ * Priority is unchanged for the moments that matter to play — carrying a
+ * hum, attuning, a gold anchor close by — so a hint is never crowded out by
+ * a reminiscence. Below those, a puffling may remember: the player's
+ * progress, and once the veil is lifted, the one who made the garden. Only
+ * then the ambient lines.
+ *
+ * @param {boolean} sectorRestored
+ * @param {boolean} nearOrb an unfound anchor within 20 m
+ * @param {number} attunement 0..1
+ * @param {boolean} hasFrequency the player is carrying a creature's hum
+ * @param {number} [orbsFound=0] anchors woken so far
+ * @param {boolean} [truthRevealed=false] the wizard has lifted the veil
+ * @param {() => number} [rand=Math.random] cosmetic variety only: which line a
+ *   puffling happens to say never touches the world, so it is not seeded
+ * @return {string} the line, resolved in the register being read
+ */
+export function pickMessage(sectorRestored, nearOrb, attunement, hasFrequency,
+                            orbsFound = 0, truthRevealed = false, rand = Math.random) {
   const perspective = getPerspective();
   let poolSet;
+  const memory = memoryPool(orbsFound, truthRevealed);
   if (hasFrequency) {
     poolSet = MESSAGES_CARRYING;
   } else if (attunement > 0.5) {
     poolSet = MESSAGES_ATTUNING;
   } else if (nearOrb) {
     poolSet = MESSAGES_NEAR_ORB;
-  } else if (Math.random() < 0.25) {
+  } else if (truthRevealed && rand() < ARCHITECT_CHANCE) {
+    poolSet = MESSAGES_ARCHITECT;
+  } else if (memory && rand() < MEMORY_CHANCE) {
+    poolSet = memory;
+  } else if (rand() < 0.25) {
     // 25% chance of a general idle line regardless of sector state
     poolSet = MESSAGES_GENERAL;
   } else if (sectorRestored) {
@@ -248,16 +124,28 @@ function pickMessage(sectorRestored, nearOrb, attunement, hasFrequency) {
   // Through speak() so a story term in a line comes out as the glossary spells
   // it in this register. A puffling bubble is one voice by nature — it is one
   // creature saying one thing — so there is no pair to render here.
-  return speak(pool[Math.floor(Math.random() * pool.length)], perspective);
+  return speak(pool[Math.floor(rand() * pool.length)], perspective);
 }
 
 // ================================================================
 // Trigger — called when a puffling wants to speak
 // ================================================================
-export function triggerPufflingChat(puffGroup, sectorRestored, nearOrb, attunement, hasFrequency) {
+/**
+ * @brief Make a puffling speak, unless one spoke recently.
+ * @param {{position:{x:number,y:number,z:number}}} puffGroup the speaker, for the bubble
+ * @param {boolean} sectorRestored
+ * @param {boolean} nearOrb
+ * @param {number} attunement
+ * @param {boolean} hasFrequency
+ * @param {number} [orbsFound=0] threaded from the caller so a puffling can remember progress
+ * @param {boolean} [truthRevealed=false] threaded from the caller for the same reason
+ * @return {string|null} the line, for the caller to voice, or null on cooldown
+ */
+export function triggerPufflingChat(puffGroup, sectorRestored, nearOrb, attunement, hasFrequency,
+                                    orbsFound = 0, truthRevealed = false) {
   if (chatCooldown > 0 || !chatEl) return null;
 
-  const message = pickMessage(sectorRestored, nearOrb, attunement, hasFrequency);
+  const message = pickMessage(sectorRestored, nearOrb, attunement, hasFrequency, orbsFound, truthRevealed);
   chatEl.textContent = message;
   chatEl.style.opacity = '1';
   chatTimer = 5.0 * READ_DWELL_MULT;

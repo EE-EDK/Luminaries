@@ -39,6 +39,11 @@ export const CONTROLS = Object.freeze({
                touch:   { child: 'tap',                  adult: 'tap' } },
   truth:     { desktop: { child: 'Tab',                  adult: 'TAB' },
                touch:   { child: 'the TRUTH button',     adult: 'TRUTH' } },
+  // The title screen's "click to begin". Same word in both voices on purpose:
+  // the title is the one line a player reads before they have chosen a
+  // register, and a phone has nothing to click.
+  begin:     { desktop: { child: 'click',                adult: 'click' },
+               touch:   { child: 'tap',                  adult: 'tap' } },
 });
 
 let _touch = typeof window !== 'undefined'

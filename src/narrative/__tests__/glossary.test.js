@@ -10,7 +10,7 @@
  *
  * So two checks have teeth here:
  *   1. every {t:…} token anywhere in src/ resolves to a real term, and
- *   2. no player-facing string in the nine narrative surfaces types a named
+ *   2. no player-facing string in the ten narrative surfaces types a named
  *      term out by hand instead of using its token.
  *
  * The second one reads the surfaces with the audit's own extractor rather than
@@ -26,7 +26,7 @@ import {
 import { CREATURE_NAMES } from '../../quest/config.js';
 import { extractFromSource } from '../../../scripts/narrative-audit.mjs';
 
-/** The nine files the audit reads. Kept here so adding a surface fails loudly. */
+/** The ten files the audit reads. Kept here so adding a surface fails loudly. */
 const SURFACES = [
   'src/quest/config.js',
   'src/systems/discoveries.js',
@@ -37,6 +37,7 @@ const SURFACES = [
   'src/updates/attunementVisuals.js',
   'src/systems/wizardPufflingEvent.js',
   'src/narrative/controls.js',
+  'src/narrative/lines.js',
 ];
 
 const ROOT = resolve(import.meta.dirname, '../../..');

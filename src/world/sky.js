@@ -3,6 +3,7 @@ import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflar
 import { SKY_R, C } from '../constants.js';
 import { saveSeed, restoreSeed, sr } from '../utils/rng.js';
 import { scene } from '../core/renderer.js';
+import { WISHES, CONSTELLATION_NAMES } from '../narrative/lines.js';
 
 // ================================================================
 // PROCEDURAL CANVAS SKY DOME — realistic fantasy night sky
@@ -454,26 +455,18 @@ export function updateSky(dt, t) {
 // Shooting Star Wishes — narrative fragments when sky-watching
 // ================================================================
 const wishesTriggered = [false, false, false, false, false]; // one per sync level
-const WISH_TEXTS = {
-  child: [
-    'Make a wish!',
-    'The stars are listening\u2026',
-    'Someone drew pictures in the sky.',
-    'I wonder who lived here before.',
-    'The stars feel closer tonight.'
-  ],
-  adult: [
-    '\u2026system boot sequence, cycle 1.',
-    '\u2026I built this place for her\u2026',
-    '\u2026oscillations matched her heartbeat\u2026',
-    '\u2026I hope she remembers the fireflies.',
-    '\u2026time cannot take what has been loved\u2026'
-  ]
-};
 
-// Check if a wish should trigger this frame
-// Returns wish text or null
-export function checkShootingStarWish(playerPitch, orbsFound, perspectiveStr) {
+// Check if a wish should trigger this frame.
+// Returns the wish as a {child, adult} pair (narrative/lines.js WISHES) or null.
+// A pair rather than a string so the caller can show both registers once the
+// veil is lifted; picking a half here threw the other one away.
+/**
+ * @brief The shooting-star wish due this frame, if any.
+ * @param {number} playerPitch camera pitch, radians; below -0.5 counts as looking up
+ * @param {number} orbsFound sync level, which picks the wish
+ * @return {{child:string, adult:string}|null}
+ */
+export function checkShootingStarWish(playerPitch, orbsFound) {
   if (playerPitch > -0.5) return null; // not looking up enough
   const idx = Math.min(orbsFound, 4);
   if (wishesTriggered[idx]) return null;
@@ -484,8 +477,7 @@ export function checkShootingStarWish(playerPitch, orbsFound, perspectiveStr) {
   }
   if (!hasActive) return null;
   wishesTriggered[idx] = true;
-  const texts = WISH_TEXTS[perspectiveStr] || WISH_TEXTS.child;
-  return texts[idx] || null;
+  return WISHES[idx] || null;
 }
 
 let _skyTransformed = false;
@@ -768,9 +760,12 @@ const constellations = [];
 let constellationsCreated = false;
 
 // Star positions on sky dome (theta, phi in radians) → world coords
-// Each constellation: { stars: [{theta,phi},...], edges: [[i,j],...], color: hex }
+// Each constellation: { name: {child, adult}, stars: [{theta,phi},...], edges: [[i,j],...], color: hex }
+// The name is data, not a label typed at the reveal: the same pair is what the
+// player is shown when it lights, in whichever register they are reading.
 const CONSTELLATION_DEFS = [
   { // The Drifter (jellyfish) — Orb 1
+    name: CONSTELLATION_NAMES[0],
     stars: [
       { theta: 1.2, phi: 0.25 }, { theta: 1.35, phi: 0.2 }, { theta: 1.5, phi: 0.25 },
       { theta: 1.15, phi: 0.38 }, { theta: 1.35, phi: 0.35 }, { theta: 1.55, phi: 0.38 },
@@ -780,6 +775,7 @@ const CONSTELLATION_DEFS = [
     color: C.skyConstJelly
   },
   { // The Hopper (puffling) — Orb 2
+    name: CONSTELLATION_NAMES[1],
     stars: [
       { theta: 3.0, phi: 0.2 }, { theta: 3.15, phi: 0.15 }, { theta: 2.85, phi: 0.15 },
       { theta: 2.9, phi: 0.3 }, { theta: 3.1, phi: 0.3 },
@@ -789,6 +785,7 @@ const CONSTELLATION_DEFS = [
     color: C.skyConstPuff
   },
   { // The Orbiter (moth) — Orb 3
+    name: CONSTELLATION_NAMES[2],
     stars: [
       { theta: 4.8, phi: 0.22 }, // body center
       { theta: 4.55, phi: 0.15 }, { theta: 4.55, phi: 0.32 }, // left wing
@@ -799,6 +796,7 @@ const CONSTELLATION_DEFS = [
     color: C.skyConstMoth
   },
   { // The Strider (deer) — Orb 4
+    name: CONSTELLATION_NAMES[3],
     stars: [
       { theta: 0.3, phi: 0.18 }, { theta: 0.25, phi: 0.1 }, { theta: 0.35, phi: 0.1 }, // head + antlers
       { theta: 0.3, phi: 0.28 }, // body
@@ -809,6 +807,7 @@ const CONSTELLATION_DEFS = [
     color: C.skyConstDeer
   },
   { // The Convergence (pentagon) — Orb 5
+    name: CONSTELLATION_NAMES[4],
     stars: [
       { theta: 5.8, phi: 0.12 }, { theta: 6.05, phi: 0.2 }, { theta: 5.95, phi: 0.38 },
       { theta: 5.65, phi: 0.38 }, { theta: 5.55, phi: 0.2 }
@@ -878,7 +877,7 @@ function createConstellations() {
     constellations.push({
       lines, lineMat, starPoints, starMat,
       revealed: false, revealTimer: 0, targetOpacity: 0.2,
-      centerTheta, centerPhi
+      centerTheta, centerPhi, name: def.name
     });
   }
 }
@@ -889,12 +888,16 @@ function createConstellations() {
  * @param {number} orbIndex collection ordinal (0-4)
  * @param {{instant?:boolean}} [opts] instant skips the 3 s fade — a restored
  *   save should show a sky the player already earned, not five fades replaying.
+ * @return {{child:string, adult:string}|null} the constellation's name pair when
+ *   this call is the one that revealed it, so the caller can announce it. Null
+ *   for an instant (restored) reveal, a repeat, or an index out of range: a
+ *   load must not announce a sky the player already read the names of.
  */
 export function revealConstellation(orbIndex, opts = {}) {
   if (!constellationsCreated) createConstellations();
-  if (orbIndex < 0 || orbIndex >= constellations.length) return;
+  if (orbIndex < 0 || orbIndex >= constellations.length) return null;
   const c = constellations[orbIndex];
-  if (c.revealed) return;
+  if (c.revealed) return null;
   c.revealed = true;
   c.revealTimer = opts.instant ? 3.0 : 0;
   c.lines.visible = true;
@@ -902,7 +905,9 @@ export function revealConstellation(orbIndex, opts = {}) {
   if (opts.instant) {
     c.lineMat.opacity = 0.15;
     c.starMat.opacity = 0.25;
+    return null;
   }
+  return c.name;
 }
 
 /** @brief Which shooting-star wishes have already fired (for saves). */

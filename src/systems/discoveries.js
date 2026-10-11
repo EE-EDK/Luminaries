@@ -8,6 +8,7 @@ import { DISCOVERY_LABELS, ORB_NARRATIVE, ORB_STAGE_HINTS, ORB_CREATURE_SEQUENCE
 import { getOrbsFound } from '../quest/questState.js';
 import { glyphs_data } from '../state/entityStore.js';
 import { player, playerIdleTime } from '../core/player.js';
+import { entityPosition } from '../utils/entityPos.js';
 
 /** Multiplier for on-screen narrative / discovery copy so lines remain readable (intro uses separate timings). */
 export const READ_DWELL_MULT = 1.5;
@@ -225,6 +226,16 @@ export function showNarrativeText(text, duration) {
 }
 
 /**
+ * @brief Is a line still on screen?
+ *
+ * For callers that queue lines and would rather wait their turn than cut
+ * another one off: the fragments, which are the rarest text in the game and
+ * the worst to lose half a sentence of.
+ * @return {boolean}
+ */
+export function isNarrativeBusy() { return fadeTimer > 0; }
+
+/**
  * @brief Show a {child, adult} pair — one voice now, both after the reveal.
  * @param {{child?:string, adult?:string}} set
  * @param {number} [duration] seconds before it fades
@@ -271,9 +282,12 @@ export function checkDiscoveries(pos, deers, puffs, jellies, moths, fairyRings, 
 function checkEntityGroup(px, pz, entities, key) {
   if (isDiscovered(key) || !entities || entities.length === 0) return;
   for (let i = 0; i < entities.length; i++) {
-    const e = entities[i];
-    const ep = e.position || e;
-    const dx = (ep.x || 0) - px, dz = (ep.z || 0) - pz;
+    // Where the thing actually is — see entityPos.js for the origin bug this
+    // closed. A record with no readable position is skipped, not treated as
+    // standing at (0, 0).
+    const ep = entityPosition(entities[i]);
+    if (!ep) continue;
+    const dx = ep.x - px, dz = ep.z - pz;
     if (dx * dx + dz * dz < DISCOVERY_RANGE_SQ) {
       showDiscovery(key);
       return;

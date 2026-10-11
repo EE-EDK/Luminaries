@@ -31,6 +31,7 @@ const SURFACES = [
   ['src/updates/attunementVisuals.js', 'attunement confirmations'],
   ['src/systems/wizardPufflingEvent.js', 'the wizard encounter'],
   ['src/narrative/controls.js', 'control names, substituted into other lines'],
+  ['src/narrative/lines.js', 'wizard, title prompts, fragments, house memories, wishes, constellation names, puffling memory'],
 ];
 
 /**

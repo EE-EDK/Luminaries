@@ -22,6 +22,8 @@ import { puffs, deers, orbs } from '../../state/entityStore.js';
 import { queryNearTrees, buildNamedDynamicHash, queryNamedDynamic } from '../../utils/spatialHash.js';
 import { playCreatureSound, playPufflingSinging, playPufflingVocal } from '../../systems/audio.js';
 import { triggerPufflingChat } from '../../systems/pufflingChat.js';
+import { getOrbsFound } from '../../quest/questState.js';
+import { isTruthRevealed } from '../../state/narrativeState.js';
 
 // ================================================================
 // Module-scope allocation-free buffers (no per-frame GC)
@@ -219,7 +221,7 @@ export function updatePuffs(dt, t) {
             if (odx * odx + odz * odz < 400) { nearOrb = true; break; }
           }
           const hasFreq = getPlayerFrequency() !== null;
-          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
+          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq, getOrbsFound(), isTruthRevealed());
           if (msg) {
             playPufflingVocal(msg, { x: px, z: pz }, player.pos);
             p._talkTimer = Math.max(p._talkTimer || 0, 1.6);
@@ -297,7 +299,7 @@ export function updatePuffs(dt, t) {
             if (odx * odx + odz * odz < 400) { nearOrb = true; break; }
           }
           const hasFreq = getPlayerFrequency() !== null;
-          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq);
+          const msg = triggerPufflingChat(g, restored, nearOrb, curAttune, hasFreq, getOrbsFound(), isTruthRevealed());
           if (msg) {
             playPufflingVocal(msg, { x: px, z: pz }, player.pos);
             p._talkTimer = Math.max(p._talkTimer || 0, 1.6);

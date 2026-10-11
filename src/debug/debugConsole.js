@@ -24,10 +24,10 @@ import {
 } from '../systems/discoveries.js';
 import { getPostSettings, setPostOverride } from '../core/postprocessing.js';
 import { audioStageReport } from '../systems/audio.js';
-import { deers, puffs, moths, jellies } from '../state/entityStore.js';
+import { deers, puffs, moths, jellies, glyphs_data } from '../state/entityStore.js';
 import { phase as dayPhase, setWorldTime } from '../systems/dayNightCycle.js';
 import { isStorming, getRainRate } from '../systems/weather.js';
-import { player } from '../core/player.js';
+import { player, playerIdleTime } from '../core/player.js';
 import { getGroundY } from '../world/terrain.js';
 import { EYE_H } from '../constants.js';
 import { nearest } from '../systems/registration.js';
@@ -36,7 +36,10 @@ import { debugForceAttuned, consumeFrequency } from '../systems/attunement.js';
 import { debugGrantOrbs, debugForcePhase, debugPauseTimers } from '../quest/questState.js';
 import { QuestPhases } from '../quest/config.js';
 import { unlockTruthControlHint } from '../core/input.js';
-import { revealTruth, getPerspective, setPerspective, isTruthRevealed } from '../state/narrativeState.js';
+import { revealTruth, getPerspective, setPerspective, isTruthRevealed, getDiscoveredKeys } from '../state/narrativeState.js';
+import { fragmentsRevealed, pendingFragmentLines } from '../systems/fragments.js';
+import { getRuneFlipMix } from '../quest/questVisuals.js';
+import { getRuneFaces } from '../entities/world/obelisk.js';
 import { debugSpawnWizardEncounter } from '../systems/wizardPufflingEvent.js';
 import { getFpsStats, getTopTimings, getRendererInfo } from '../systems/perfMonitor.js';
 import { list as listSystems } from '../kernel/scheduler.js';
@@ -46,7 +49,7 @@ import { getGust, getGustFront } from '../systems/weather.js';
 import { gustWaveAt, musicDensity } from '../systems/environment.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { ORB_N } from '../constants.js';
-import { getPufflingHouseCollision, getDetailedHouseRoots } from '../entities/world/pufflingHomes.js';
+import { getPufflingHouseCollision, getDetailedHouseRoots, nearestHouse } from '../entities/world/pufflingHomes.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -130,6 +133,7 @@ function buildHelpText() {
   quality()                                      — adaptive-quality notch + smoothed FPS + active knobs
   quality(false|true)                            — disable/enable the adaptive scaler (A/B FPS testing)
   unlockTruth()                                 — TAB discovery hint in control bar
+  fragments() / runeFlip() / glyphs() / where() — read-back: hidden-layer progress, rune colours, glyph state, player/dusk/house
   resetAttune()                                  — consumeFrequency + resetLock
   stopSequence()                                 — cancel pending unlockSequence`;
 }
@@ -541,6 +545,47 @@ export function attachLumiDebugApi() {
 
     /** The finale card, as this reader would see it. */
     finale() { showFinaleText(); return this.voice(); },
+
+    /**
+     * The hidden layer, read back rather than assumed: how many fragments the
+     * orbs entitle the player to (derived), how many lines are still waiting
+     * their turn, and the narrative keys on record (house:<n>, echo:<creature>).
+     */
+    fragments() {
+      return {
+        revealed: fragmentsRevealed(getOrbsFound()),
+        pending: pendingFragmentLines(),
+        keys: getDiscoveredKeys().filter((k) => k.startsWith('house:') || k.startsWith('echo:')),
+      };
+    },
+
+    /**
+     * What the quiet interactions read: where the player stands, how long they
+     * have stood still, the day phase, and the nearest house with its distance from the wall.
+     */
+    where() {
+      const p = player.pos;
+      const h = nearestHouse(p.x, p.z, 256);
+      return {
+        x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10,
+        idle: Math.round(playerIdleTime * 100) / 100,
+        phase: dayPhase,
+        house: h ? { cluster: h.cluster, wall: Math.round((Math.hypot(h.x - p.x, h.z - p.z) - h.colR) * 10) / 10 } : null,
+      };
+    },
+
+    /** The lit runes as the materials hold them: the colour a player would see. */
+    runeFlip() {
+      return {
+        mix: getRuneFlipMix(),
+        faces: getRuneFaces().map((f) => ({ revealed: f.revealed, color: f.mat.color.getHex() })),
+      };
+    },
+
+    /** Where the ground glyphs are and which have been read. */
+    glyphs() {
+      return glyphs_data.map((g, i) => ({ i, x: Math.round(g.x * 10) / 10, z: Math.round(g.z * 10) / 10, revealed: !!g.revealed }));
+    },
 
     /** Event bus, for watching what a restore does and does not fire. */
     bus: { on, off, Events },

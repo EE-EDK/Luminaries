@@ -165,7 +165,7 @@ function registerClusterPad(cx, cz, houses) {
   registerHousePlateau(cx, cz, padR, padY);
 }
 
-/** @type {Array<{ x: number, z: number, colR: number }>} */
+/** @type {Array<{ x: number, z: number, colR: number, cluster: number }>} */
 let _pufflingHouseCollision = [];
 
 export function getPufflingHouseCollision() {
@@ -184,7 +184,8 @@ export function getDetailedHouseRoots() { return _detailedRoots; }
  *
  * @param {number} x @param {number} z
  * @param {number} [maxD2=Infinity] squared search radius
- * @return {{x:number, z:number, colR:number}|null}
+ * @return {{x:number, z:number, colR:number, cluster:number}|null} `cluster` is
+ *   the index of the village the house stands in
  */
 export function nearestHouse(x, z, maxD2 = Infinity) {
   let best = null, bestD2 = maxD2;
@@ -358,6 +359,9 @@ export function placePufflingHomeClusters(ctx) {
     registerClusterPad(cx, cz, houses);
 
     for (let h = 0; h < houses.length; h++) {
+      // Which village this house belongs to, so a line meant for a village is
+      // said once for all of it rather than once per doorstep.
+      houses[h].cluster = ci;
       placements.push(houses[h]);
     }
     clusterCenters.push({ x: cx, z: cz });
@@ -373,7 +377,7 @@ export function placePufflingHomeClusters(ctx) {
     const fz = -WORLD_R * 0.21;
     const fb = housesInCluster(fx, fz, 3, () => false, () => 'clear', sr, placedAcc, treesData, rocksData);
     registerClusterPad(fx, fz, fb);
-    for (let hi = 0; hi < fb.length; hi++) placements.push(fb[hi]);
+    for (let hi = 0; hi < fb.length; hi++) { fb[hi].cluster = 0; placements.push(fb[hi]); }
     if (keepOutZones) keepOutZones.push({ x: fx, z: fz, r2: 100 });
     nInst = placements.length;
     if (nInst === 0) {
@@ -391,7 +395,7 @@ export function placePufflingHomeClusters(ctx) {
   const houseColR = pufflingHomeCollisionRadius();
   for (let ci = 0; ci < placements.length; ci++) {
     const pl = placements[ci];
-    _pufflingHouseCollision.push({ x: pl.x, z: pl.z, colR: houseColR });
+    _pufflingHouseCollision.push({ x: pl.x, z: pl.z, colR: houseColR, cluster: pl.cluster | 0 });
   }
 
   _houseImpostors = [];

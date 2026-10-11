@@ -64,6 +64,14 @@ export const Notch = {
 export const MIN_NOTCH = 0;
 export const MAX_NOTCH = 4;
 
+// Where a touch device begins. A phone has a fraction of a desktop's fill rate,
+// and the first seconds are the worst ones (shader compile, the whole forest
+// streaming in), so it opens with the bloom already halved rather than
+// spending its first drop finding that out. Notch 2 is the cheapest step that
+// is still hard to see; the climb back is the ordinary one (UP_FPS held for
+// UP_HOLD_S), so a phone that can carry full quality gets it in a few seconds.
+export const MOBILE_START_NOTCH = Notch.BLOOM_CUT;
+
 // Hysteresis thresholds. DOWN < target < UP, with a dead-band between them so
 // the scaler never ping-pongs across adjacent notches. UP_HOLD is longer than
 // DOWN_HOLD so we react fast to drops but restore quality conservatively.
@@ -74,10 +82,29 @@ export const UP_HOLD_S = 3.0;    // must stay above UP_FPS this long to rise
 
 /**
  * Create a fresh, pure notch-machine state. No side effects.
+ * @param {number} [startNotch=MIN_NOTCH] where the machine begins; clamped into range
  * @returns {{notch:number, lowTime:number, highTime:number}}
  */
-export function makeQualityState() {
-  return { notch: MIN_NOTCH, lowTime: 0, highTime: 0 };
+export function makeQualityState(startNotch = MIN_NOTCH) {
+  return { notch: _clampNotch(startNotch), lowTime: 0, highTime: 0 };
+}
+
+/**
+ * @brief The notch a session should open at.
+ *
+ * A touch device starts at MOBILE_START_NOTCH, but never lower quality than the
+ * player's own floor allows: someone who set "always full" on their phone asked
+ * for exactly that, and a default has no business overruling it. Desktop opens
+ * at full quality as it always has.
+ *
+ * @param {boolean} touch whether the device is a touch device
+ * @param {number} [floor=MAX_NOTCH] the player's quality-floor cap; a value that is not a number counts as "no cap"
+ * @return {number} a notch in [MIN_NOTCH, MAX_NOTCH]
+ */
+export function startNotchFor(touch, floor = MAX_NOTCH) {
+  if (!touch) return MIN_NOTCH;
+  const cap = Number.isFinite(floor) ? _clampNotch(floor) : MAX_NOTCH;
+  return Math.min(MOBILE_START_NOTCH, cap);
 }
 
 /**
@@ -293,6 +320,27 @@ export function setQualityFloor(maxNotch) {
 
 /** @returns {number} the current cap on notch degradation. */
 export function getQualityFloor() { return _maxNotch; }
+
+/**
+ * @brief Open the live scaler at the notch this platform should start on.
+ *
+ * Call once at boot. Desktop is left exactly as it is — not reset, not
+ * touched — so calling it with false can never move a scaler that is already
+ * working. On touch it honours the floor in force at the call; if the stored
+ * floor has not been applied yet it is clamped when it arrives
+ * (setQualityFloor lowers a notch that is above its cap), so the order of the
+ * two calls does not matter.
+ * @param {boolean} touch
+ * @return {number} the notch in effect afterwards
+ */
+export function applyPlatformStart(touch) {
+  if (!touch) return _state.notch;
+  _state.notch = startNotchFor(true, _maxNotch);
+  _state.lowTime = 0;
+  _state.highTime = 0;
+  _applyNotch();
+  return _state.notch;
+}
 
 /** Enable/disable the scaler (owner A/B testing via LumiDebug). */
 export function setAdaptiveQualityEnabled(on) {

@@ -15,6 +15,7 @@ import { dualText } from '../narrative/voice.js';
 import { getPerspective, isTruthRevealed } from '../state/narrativeState.js';
 import { onSetting } from '../state/settingsState.js';
 import { captionFor, captionGate } from '../narrative/captions.js';
+import { safeInset } from '../utils/dom.js';
 
 const SHOW_MS = 3200;
 
@@ -72,8 +73,8 @@ export function initSoundCaptions(deps) {
   el.setAttribute('role', 'status');
   el.setAttribute('aria-live', 'polite');
   el.style.cssText =
-    'position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:120;' +
-    'max-width:min(560px,92vw);padding:5px 12px;border-radius:6px;pointer-events:none;' +
+    'position:fixed;left:50%;bottom:' + safeInset('bottom', 64) + ';transform:translateX(-50%);z-index:120;' +
+    'max-width:min(560px,calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px));padding:5px 12px;border-radius:6px;pointer-events:none;' +
     'font-family:monospace;text-align:center;color:#cfeedd;opacity:0;transition:opacity .3s;' +
     'background:rgba(0,8,4,.78);border:1px solid rgba(100,255,180,.2);' +
     'font-size:calc(13px * var(--lumi-text-scale));text-shadow:0 0 4px rgba(100,255,180,.4);';

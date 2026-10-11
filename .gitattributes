@@ -1,0 +1,22 @@
+# Line endings: the repository stores LF; checkouts get LF on every platform.
+# The workstation is Windows (KunzPrime) and a Linux CI would otherwise see
+# every file touched by an editor with CRLF settings as wholly rewritten.
+* text=auto eol=lf
+
+# The only binary assets under version control (checked with git ls-files).
+# Listed by extension rather than by path so a new image cannot be mangled by
+# eol conversion before anyone remembers to add it here.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.mp3  binary
+*.ogg  binary
+*.wav  binary
+*.glb  binary

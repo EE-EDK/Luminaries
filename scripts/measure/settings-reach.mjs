@@ -22,11 +22,12 @@ await p.waitForFunction(() => !!window.LumiDebug, null, { timeout:30000 });
 const gear = await p.$('#settings-handle');
 check('the gear is on screen', !!gear);
 check('the orb count clears the gear and the hamburger',
-  await p.evaluate(() => document.querySelector('#orb-hud')?.style.right === '118px'),
+  // calc(118px + the right-hand safe-area inset): 118px on a screen with no cut-out.
+  await p.evaluate(() => /^calc\(118px \+ env\(safe-area-inset-right/.test(document.querySelector('#orb-hud')?.style.right || '')),
   await p.evaluate(() => document.querySelector('#orb-hud')?.style.right));
 
 // Open it and count the controls the player actually gets.
-if (gear) await gear.click({ force:true, timeout:10000 });
+if (gear) await gear.click({ force:true, timeout:60000 });
 const controls = await p.evaluate(() => {
   const panel = document.querySelector('#settings-panel');
   if (!panel) return null;

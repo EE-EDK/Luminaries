@@ -17,6 +17,11 @@ import {
   stepQuality,
   setQualityFloor,
   getQualityFloor,
+  startNotchFor,
+  applyPlatformStart,
+  getQualityNotch,
+  updateAdaptiveQuality,
+  MOBILE_START_NOTCH,
   particleScaleFor,
   bloomStrengthFor,
   lodScaleFor,
@@ -248,5 +253,107 @@ describe('quality floor', () => {
     expect(getQualityFloor()).toBe(2);
     expect(setQualityFloor(99)).toBe(MAX_NOTCH);
     setQualityFloor(MAX_NOTCH);
+  });
+});
+
+
+// ================================================================
+// Where a session opens — touch devices start cut down, and can climb back.
+// ================================================================
+describe('mobile start', () => {
+  it('opens a touch device at the bloom-cut notch and a desktop at full quality', () => {
+    expect(MOBILE_START_NOTCH).toBe(Notch.BLOOM_CUT);
+    expect(startNotchFor(true)).toBe(2);
+    expect(startNotchFor(false)).toBe(MIN_NOTCH);
+  });
+
+  it('never starts a touch device below the quality the player\'s floor allows', () => {
+    // The floor is the cap on degradation: floor 1 means "never worse than notch 1".
+    expect(startNotchFor(true, 4)).toBe(2);
+    expect(startNotchFor(true, 2)).toBe(2);
+    expect(startNotchFor(true, 1)).toBe(1);
+    expect(startNotchFor(true, 0)).toBe(0);
+  });
+
+  it('treats a floor it cannot read as no cap, and clamps one out of range', () => {
+    expect(startNotchFor(true, undefined)).toBe(2);
+    expect(startNotchFor(true, NaN)).toBe(2);
+    expect(startNotchFor(true, 99)).toBe(2);
+    expect(startNotchFor(true, -3)).toBe(0);
+  });
+
+  it('leaves desktop alone whatever the floor says', () => {
+    for (const f of [0, 1, 2, 3, 4]) expect(startNotchFor(false, f)).toBe(MIN_NOTCH);
+  });
+
+  it('builds a machine that opens where it is told, and still climbs on good frames', () => {
+    const s = makeQualityState(startNotchFor(true));
+    expect(s.notch).toBe(2);
+    feed(s, UP_FPS + 6, UP_HOLD_S + 0.2);
+    expect(s.notch, 'one step up after the hold').toBe(1);
+    feed(s, UP_FPS + 6, UP_HOLD_S + 0.2);
+    expect(s.notch, 'and back to full').toBe(MIN_NOTCH);
+  });
+
+  it('still steps down from the mobile start on a bad frame rate', () => {
+    const s = makeQualityState(2);
+    feed(s, DOWN_FPS - 8, DOWN_HOLD_S + 0.1);
+    expect(s.notch).toBe(3);
+  });
+
+  it('clamps a nonsense start into the knob tables', () => {
+    expect(makeQualityState(99).notch).toBe(MAX_NOTCH);
+    expect(makeQualityState(-1).notch).toBe(MIN_NOTCH);
+    expect(makeQualityState(NaN).notch).toBe(MIN_NOTCH);
+    expect(makeQualityState().notch).toBe(MIN_NOTCH);
+  });
+});
+
+describe('mobile start on the live scaler', () => {
+  const reset = () => { setQualityFloor(MAX_NOTCH); };
+
+  it('does not touch a desktop scaler, including one that has already degraded', () => {
+    reset();
+    expect(applyPlatformStart(false)).toBe(getQualityNotch());
+    expect(getQualityNotch()).toBe(MIN_NOTCH);
+    // Starve it until it has really dropped, then ask for the desktop start.
+    // Resetting a working scaler to full quality would be the visible bug, and
+    // it can only show against a notch that is not already zero.
+    for (let i = 0; i < 400 && getQualityNotch() < 3; i++) updateAdaptiveQuality(0.5);
+    const dropped = getQualityNotch();
+    expect(dropped, 'the scaler should have degraded').toBeGreaterThanOrEqual(3);
+    expect(applyPlatformStart(false)).toBe(dropped);
+    expect(getQualityNotch()).toBe(dropped);
+    reset();
+    applyPlatformStart(true);
+    for (let i = 0; i < 4000 && getQualityNotch() > MIN_NOTCH; i++) updateAdaptiveQuality(1 / 60);
+  });
+
+  it('moves a touch scaler to notch 2', () => {
+    reset();
+    expect(applyPlatformStart(true)).toBe(2);
+    expect(getQualityNotch()).toBe(2);
+  });
+
+  it('honours the saved floor whichever order the two calls arrive in', () => {
+    // Floor first (the setting was applied before the platform start).
+    setQualityFloor(1);
+    expect(applyPlatformStart(true)).toBe(1);
+    // Platform start first, then the stored floor lands and clamps it.
+    reset();
+    applyPlatformStart(true);
+    expect(getQualityNotch()).toBe(2);
+    setQualityFloor(0);
+    expect(getQualityNotch()).toBe(0);
+    reset();
+  });
+
+  it('is climbed out of by the ordinary frame driver', () => {
+    reset();
+    applyPlatformStart(true);
+    // Past the warm-up window, then a steady 60 fps for long enough to climb twice.
+    for (let i = 0; i < 40; i++) updateAdaptiveQuality(1 / 60);
+    for (let t = 0; t < 2 * UP_HOLD_S + 2; t += 1 / 60) updateAdaptiveQuality(1 / 60);
+    expect(getQualityNotch()).toBe(MIN_NOTCH);
   });
 });

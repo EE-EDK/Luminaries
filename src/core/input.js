@@ -1,4 +1,5 @@
-import { MOUSE_SENS, MOVE_SPEED, SPRINT_MULT } from '../constants.js';
+import { MOVE_SPEED, SPRINT_MULT } from '../constants.js';
+import { lookStepX, lookStepY, clampPitch } from './lookMath.js';
 
 // Look feel. One multiplier and one sign, shared by the mouse and the touch
 // drag so the two cannot drift apart — they were separate code paths before,
@@ -151,9 +152,9 @@ window.addEventListener('mousemove', (e) => {
   if (!pointerLocked && !mouseDown) return;
   // Ignore look delta while a cinematic owns the camera (no stale accumulation → no hand-back snap).
   if (_lookSuppressed) return;
-  yaw -= e.movementX * MOUSE_SENS * _lookSens;
-  pitch -= e.movementY * MOUSE_SENS * _lookSens * _invertY;
-  pitch = Math.max(-1, Math.min(1, pitch));
+  yaw -= lookStepX(e.movementX, _lookSens);
+  pitch -= lookStepY(e.movementY, _lookSens, _invertY);
+  pitch = clampPitch(pitch);
 });
 
 // --- Mobile detection & joystick ---
@@ -335,9 +336,9 @@ renderer.domElement.addEventListener('touchmove', (e) => {
       // Keep the drag anchor current even while suppressed, so lifting suppression
       // does not apply one giant accumulated delta (would snap the view).
       if (!_lookSuppressed) {
-        yaw -= (t.clientX - lx) * MOUSE_SENS * _lookSens;
-        pitch -= (t.clientY - ly) * MOUSE_SENS * _lookSens * _invertY;
-        pitch = Math.max(-1, Math.min(1, pitch));
+        yaw -= lookStepX(t.clientX - lx, _lookSens);
+        pitch -= lookStepY(t.clientY - ly, _lookSens, _invertY);
+        pitch = clampPitch(pitch);
       }
       lx = t.clientX; ly = t.clientY;
     }

@@ -226,7 +226,7 @@ export function initNotebook(deps = {}) {
   root.setAttribute('aria-hidden', 'true');
   root.style.cssText =
     'display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:300;' +
-    'width:min(540px,92vw);max-height:78vh;overflow-y:auto;padding:12px;font-family:monospace;' +
+    'width:min(540px,calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px));max-height:78vh;overflow-y:auto;padding:12px;font-family:monospace;' +
     'border:1px solid rgba(100,255,180,.35);border-radius:6px;' +
     'background:rgba(8,24,18,.95);backdrop-filter:blur(3px);box-shadow:0 8px 40px rgba(0,0,0,.6);';
   // Same reasoning as the settings panel: a click that falls through to the

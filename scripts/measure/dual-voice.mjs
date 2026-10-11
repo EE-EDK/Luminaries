@@ -26,6 +26,10 @@
  */
 import { chromium } from 'playwright';
 
+const URL = process.env.LUMI_URL || 'http://localhost:5173/';
+// Ceiling for page load and boot: shared machine, software rasteriser.
+const T = Number(process.env.LUMI_TIMEOUT || 120000);
+
 const ok = [], bad = [];
 const check = (n, pass, d) => (pass ? ok : bad).push(`${n}${d ? ` — ${d}` : ''}`);
 
@@ -52,8 +56,8 @@ function report() {
 }
 
 try {
-  await page.goto('http://localhost:5173/', { waitUntil: 'load' });
-  await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: 120000 });
+  await page.goto(URL, { waitUntil: 'load', timeout: T });
+  await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: T });
   await probe('the debug surface is reachable', () => window.LumiDebug.skipIntro());
 
   // 1. The frame loop, measured by the game's own counter rather than by a

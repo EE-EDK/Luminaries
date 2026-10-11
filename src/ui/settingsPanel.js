@@ -10,6 +10,7 @@ import {
   SETTINGS_SCHEMA, getSetting, setSetting, resetSettings,
 } from '../state/settingsState.js';
 import { btn, toggleBtn, slider, separator, heading } from './panelKit.js';
+import { safeInset } from '../utils/dom.js';
 
 const GEAR = '⚙';
 const CLOSE_MARK = '✕';
@@ -35,7 +36,10 @@ export function initSettingsPanel(deps = {}) {
 
   root = document.createElement('div');
   root.id = 'settings-panel-root';
-  root.style.cssText = 'position:fixed;top:12px;right:64px;z-index:400;font-family:monospace;';
+  // Pinned with the same insets as the dev hamburger beside it, so the pair
+  // moves together clear of a camera cut-out and the gap between them holds.
+  root.style.cssText = 'position:fixed;top:' + safeInset('top', 12) + ';right:' + safeInset('right', 64) +
+    ';z-index:400;font-family:monospace;';
 
   handle = document.createElement('button');
   handle.type = 'button';

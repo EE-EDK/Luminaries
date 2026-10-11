@@ -52,6 +52,22 @@ export const INTRO_PROMPTS = {
 };
 
 // ----------------------------------------------------------------
+// The landscape prompt
+// ----------------------------------------------------------------
+// Shown over everything while a touch device is held upright. The forest is
+// drawn wide and the thumbs live at the bottom corners; held tall, the stick
+// and the buttons cover most of what there is to see. Said once, kindly, and
+// it can be waved away: a phone with rotation locked is not a broken phone.
+export const LANDSCAPE_PROMPT = {
+  title: { child: 'Turn me sideways!', adult: 'Rotate to landscape' },
+  sub: {
+    child: 'The {t:orbs} hide in wide places. Tip your screen over so you can spot them.',
+    adult: 'Viewport too narrow to locate {t:orbs}. Orient the device horizontally.',
+  },
+  dismiss: { child: 'or tap to stay as you are', adult: 'tap to continue in portrait' },
+};
+
+// ----------------------------------------------------------------
 // The hum far-field hint
 // ----------------------------------------------------------------
 // Shown while the pitch is inside a creature's band and that creature is out

@@ -15,7 +15,7 @@ import { emit, on, off, Events } from '../kernel/eventBus.js';
 import { getQuestSnapshot } from '../quest/questState.js';
 import { getRestoredSectors, setSectorRestored, prepareLocalGlowFrame } from '../systems/dimming.js';
 import { debugSkipIntro } from '../systems/intro.js';
-import { getLookSensitivity, isInvertY, setYaw, setPitch } from '../core/input.js';
+import { getLookSensitivity, isInvertY, setYaw, setPitch, yaw as liveYaw, pitch as livePitch } from '../core/input.js';
 import { isReducedMotion } from '../core/player.js';
 import { getQualityFloor } from './../systems/adaptiveQuality.js';
 import { getSettings } from '../state/settingsState.js';
@@ -361,8 +361,14 @@ export function attachLumiDebugApi() {
      * Point the camera. For checks that need a known heading: a real mouse
      * drag on the canvas takes pointer lock, and in headless Chromium the lock
      * request never resolves, so the drag hangs forever.
+     *
+     * With no arguments it points nothing and reports where the live look is,
+     * which is how a gate reads back what a synthetic drag actually did.
      */
-    look(yaw, pitch = 0) { setYaw(yaw); setPitch(pitch); return { yaw, pitch }; },
+    look(yaw, pitch = 0) {
+      if (yaw === undefined) return { yaw: liveYaw, pitch: livePitch };
+      setYaw(yaw); setPitch(pitch); return { yaw, pitch };
+    },
 
     /**
      * Move the world clock. 0 is dusk, 0.25 night, 0.5 deep night, 0.75 dawn.

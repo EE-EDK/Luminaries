@@ -11,6 +11,9 @@
 import { chromium } from 'playwright';
 
 const URL = process.env.LUMI_URL || 'http://localhost:5173/';
+// Ceiling for every wait. This box is shared and the scene renders in software;
+// 30 s was enough until another job was running beside it.
+const T = Number(process.env.LUMI_TIMEOUT || 120000);
 const ok = [], bad = [];
 const check = (name, pass, detail) => (pass ? ok : bad).push(`${name}${detail ? ` — ${detail}` : ''}`);
 
@@ -23,8 +26,8 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
-await page.goto(URL, { waitUntil: 'load' });
-await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: 30000 });
+await page.goto(URL, { waitUntil: 'load', timeout: T });
+await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: T });
 
 // --- Start a run, grant two orbs, wait for the autosave to land -------------
 await page.evaluate(() => document.querySelector('#intro-continue')?.remove());
@@ -38,7 +41,7 @@ await page.evaluate(() => window.LumiDebug.grantOrbs(2));
 // late; that is this harness, not the game.
 const tWrite = Date.now();
 const landed = await page.waitForFunction(
-  () => !!localStorage.getItem('lumi.save.v1'), null, { timeout: 30000 },
+  () => !!localStorage.getItem('lumi.save.v1'), null, { timeout: T },
 ).then(() => true).catch(() => false);
 check('the autosave writes during play', landed, landed ? `after ${Date.now() - tWrite} ms` : 'never wrote');
 
@@ -56,7 +59,7 @@ if (savedRaw) {
 
 // --- Reload and continue ----------------------------------------------------
 await page.reload({ waitUntil: 'load' });
-await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: 30000 });
+await page.waitForFunction(() => !!window.LumiDebug, null, { timeout: T });
 
 const btn = await page.$('#intro-continue');
 check('Continue is offered on the title card', !!btn);
@@ -92,7 +95,7 @@ await page.evaluate(() => {
 await btn.click({ force: true, timeout: 15000 });
 // Same story: the title card is removed on a 100 ms timer that slips here.
 await page.waitForFunction(
-  () => !document.querySelector('#intro-cinematic'), null, { timeout: 30000 },
+  () => !document.querySelector('#intro-cinematic'), null, { timeout: T },
 ).catch(() => {});
 await page.waitForTimeout(1500);
 

@@ -16,7 +16,7 @@ const errors = [];
 p.on('pageerror', e => errors.push(String(e)));
 p.on('console', m => { if (m.type()==='error') errors.push(m.text()); });
 
-await p.goto('http://localhost:5173/', { waitUntil:'load' });
+await p.goto(process.env.LUMI_URL || 'http://localhost:5173/', { waitUntil:'load' });
 await p.waitForFunction(() => !!window.LumiDebug, null, { timeout:30000 });
 
 const touchDetected = await p.evaluate(() => ('ontouchstart' in window) || navigator.maxTouchPoints > 0);

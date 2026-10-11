@@ -13,6 +13,7 @@ import { debugUnlockCreature } from './debugConsole.js';
 import { freeGrabMode, setFreeGrabMode } from './debugFlags.js';
 
 import { guardedStorage, clearSave, hasSave, SAVE_KEY } from '../state/saveState.js';
+import { safeInset } from '../utils/dom.js';
 import { SEED_KEY, DEFAULT_SEED, getBootSeed } from '../utils/rng.js';
 import { on, Events } from '../kernel/eventBus.js';
 import { setOpen as setSettingsOpen } from '../ui/settingsPanel.js';
@@ -204,7 +205,7 @@ export function initDevSkipPanel() {
   wrap = document.createElement('div');
   wrap.id = 'dev-skip-wrap';
   wrap.style.cssText =
-    'position:fixed;top:10px;right:10px;z-index:400;display:flex;' +
+    'position:fixed;top:' + safeInset('top', 10) + ';right:' + safeInset('right', 10) + ';z-index:400;display:flex;' +
     'flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;';
 
   // --- Hamburger ---

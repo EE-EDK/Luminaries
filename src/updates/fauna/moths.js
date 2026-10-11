@@ -4,6 +4,7 @@
 
 import { applyDetailLod } from '../../entities/_bake.js';
 import { writeMothPose } from '../../entities/fauna/mothRig.js';
+import { poseBands, poseBandBegin, poseBandOffer, poseBandHas, poseBandEnd } from '../../entities/_poseBand.js';
 import { getGroundY } from '../../world/terrain.js';
 import { WORLD_R } from '../../constants.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -28,6 +29,9 @@ export function updateMoths(dt, t) {
   const nearestPos = _result.nearestPos;
   nearestPos.x = 0; nearestPos.y = 0; nearestPos.z = 0;
 
+  const poseBand = poseBands.moth;
+  poseBandBegin(poseBand);
+
   for (let i = 0; i < moths.length; i++) {
     const m = moths[i], g = m.group;
     const mx = g.position.x, mz = g.position.z;
@@ -37,6 +41,7 @@ export function updateMoths(dt, t) {
     if (_mhd2 > 2025) { g.visible = false; continue; }
     g.visible = true;
     applyDetailLod(m, _mhd2, 625);
+    poseBandOffer(poseBand, m, _mhd2);
 
     if (_mhd2 < nearestDist2) {
       nearestDist2 = _mhd2;
@@ -281,7 +286,7 @@ export function updateMoths(dt, t) {
         m.antennae[ai].rotation.z = Math.sin(t * 1.2 + m.phase + ai * 1.5) * 0.06;
       }
     }
-    writeMothPose(m);
+    if (poseBandHas(poseBand, m)) writeMothPose(m);   // nearest few only (entities/_poseBand.js)
 
     // Dust motes
     if (m.dustMotes) {
@@ -302,6 +307,8 @@ export function updateMoths(dt, t) {
     if (echoTimer > 0 && attuneFlashType !== 'moth' && _mhd2 < 900) m.wingMat.emissiveIntensity += echoTimer * 0.35;
     m.wingMat.opacity = 0.45 + pulse * 0.25;
   }
+
+  poseBandEnd(poseBand);
 
   _result.nearestDist2 = nearestDist2;
   return _result;

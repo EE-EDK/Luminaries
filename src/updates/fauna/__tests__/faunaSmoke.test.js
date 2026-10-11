@@ -778,6 +778,9 @@ describe('puffling rig upload', () => {
     let sawBlink = false, sawWiggle = false;
     for (let i = 0; i < 400 && !(sawBlink && sawWiggle); i++) {
       updatePuffs(0.05, i * 0.05);
+      // The pose band decides a frame ahead (entities/_poseBand.js): the first frame a creature is simulated it has not
+      // been selected yet and shows its rest pose. Every frame after that the rig holds the frame's own angles.
+      if (i === 0) continue;
       for (let e = 0; e < 2; e++) {
         const want = qOf(p.ears[e].mesh.rotation), got = rigQ(p, PUFF_JOINT.EAR_0 + e);
         expect(Math.abs(want.dot(got)), `ear ${e} at step ${i}`).toBeCloseTo(1, 5);
@@ -807,6 +810,127 @@ describe('puffling rig upload', () => {
     expect(w.shell.scale.set).toBeTypeOf('function');
     expect(w.ears.map((e) => e.side)).toEqual([-1, 1]);
     expect(w.eyes.length).toBe(2);
+  });
+});
+
+// ================================================================
+// The pose band in the real loops: only the nearest N are written.
+// ================================================================
+// The unit tests of _poseBand.js prove the selector. These prove the loops use it:
+// the near creatures move on the GPU, the far ones (still simulated, still drawn)
+// hold the pose they last had while their own joint angles keep changing. The
+// failure this guards is silent: a loop that offers nobody freezes every creature,
+// a loop that ignores the answer writes everyone and the cap is decoration.
+import { poseBands, setPoseBandScale } from '../../../entities/_poseBand.js';
+
+/** Which creatures' rig arrays changed during one call of `step`. */
+function changedBy(list, step) {
+  const snap = (c) => JSON.stringify([Array.from(c.rig.quats), Array.from(c.rig.scales || [])]);
+  const before = list.map(snap);
+  step();
+  return list.map((c, i) => before[i] !== snap(c));
+}
+
+describe('pose band in the loops', () => {
+  it('deer: the nearest N are posed every frame, the farther ones hold their rest pose while their legs swing', () => {
+    const cap = poseBands.deer.capacity;
+    const near = Array.from({ length: cap }, (_, i) => makeDeer(22 + i, 0));
+    const far = Array.from({ length: 4 }, (_, i) => makeDeer(-(50 + i), 0));
+    for (const d of [...near, ...far]) { d.state = 'walk'; d.walkTimer = 999; deers.push(d); }
+    for (let i = 0; i < 3; i++) deers.push(makeDeer(300 + i, 300));      // past the cull: must not occupy band slots
+    const restFar = far.map((d) => Array.from(d.rig.quats));
+    for (let i = 0; i < 6; i++) updateDeers(0.05, i * 0.05);      // settle: membership is decided a frame ahead
+    const everNear = near.map(() => false);
+    let farSwing = 0;
+    for (let i = 6; i < 26; i++) {
+      const ch = changedBy([...near, ...far], () => updateDeers(0.05, i * 0.05));
+      near.forEach((_, k) => { if (ch[k]) everNear[k] = true; });
+      far.forEach((_, k) => expect(ch[near.length + k], `far deer ${k} was written at frame ${i}`).toBe(false));
+      for (const d of far) for (let li = 0; li < 4; li++) farSwing = Math.max(farSwing, Math.abs(d.legPivots[li].upper.rotation.x));
+    }
+    expect(everNear.every(Boolean), 'a deer inside the band never moved on the GPU').toBe(true);
+    expect(farSwing, 'the far deer were not walking, so holding still proves nothing').toBeGreaterThan(0.05);
+    far.forEach((d, k) => expect(Array.from(d.rig.quats)).toEqual(restFar[k]));
+  });
+
+  it('moths: the nearest N are posed, the farther ones hold, and the wing state of the far ones is still flapping', () => {
+    const cap = poseBands.moth.capacity;
+    const near = Array.from({ length: cap }, (_, i) => makeMoth(8 + (i % 7), 3, (i < 7 ? 1 : -1) * (6 + i % 3)));
+    const far = Array.from({ length: 5 }, (_, i) => makeMoth(-(38 + i), 3, 5));
+    for (const m of [...near, ...far]) moths.push(m);
+    for (let i = 0; i < 3; i++) moths.push(makeMoth(300 + i, 3, 300));   // past the cull: must not occupy band slots
+    const restFar = far.map((m) => Array.from(m.rig.quats));
+    for (let i = 0; i < 6; i++) updateMoths(0.05, i * 0.05);
+    const everNear = near.map(() => false);
+    let farFlap = 0;
+    for (let i = 6; i < 26; i++) {
+      const ch = changedBy([...near, ...far], () => updateMoths(0.05, i * 0.05));
+      near.forEach((_, k) => { if (ch[k]) everNear[k] = true; });
+      far.forEach((_, k) => expect(ch[near.length + k], `far moth ${k} was written at frame ${i}`).toBe(false));
+      for (const m of far) farFlap = Math.max(farFlap, Math.abs(m.group._wingPivots[0].pivot.rotation.z));
+    }
+    expect(everNear.every(Boolean), 'a moth inside the band never moved on the GPU').toBe(true);
+    expect(farFlap, 'the far moths were not flapping, so holding still proves nothing').toBeGreaterThan(0.05);
+    far.forEach((m, k) => expect(Array.from(m.rig.quats)).toEqual(restFar[k]));
+  });
+
+  it('pufflings: the nearest N are posed, the farther ones hold, and their ears still wiggle in state', () => {
+    const cap = poseBands.puff.capacity;
+    const near = Array.from({ length: cap }, (_, i) => makePuff(16 + (i % 6) * 1.5, (i < 6 ? 1 : -1) * (3 + (i % 3))));
+    const far = Array.from({ length: 4 }, (_, i) => makePuff(-(33 + i), 4));
+    for (const p of [...near, ...far]) puffs.push(p);
+    for (let i = 0; i < 3; i++) puffs.push(makePuff(300 + i, 300));       // past the cull: must not occupy band slots
+    const restFar = far.map((p) => [Array.from(p.rig.quats), Array.from(p.rig.scales || [])]);
+    for (let i = 0; i < 6; i++) updatePuffs(0.05, i * 0.05);
+    let anyNear = false, farWiggle = 0;
+    for (let i = 6; i < 700; i++) {
+      const ch = changedBy([...near, ...far], () => updatePuffs(0.05, i * 0.05));
+      if (near.some((_, k) => ch[k])) anyNear = true;
+      far.forEach((_, k) => expect(ch[near.length + k], `far puffling ${k} was written at frame ${i}`).toBe(false));
+      for (const p of far) for (const e of p.ears) farWiggle = Math.max(farWiggle, Math.abs(e.mesh.rotation.z - e.baseRotZ));
+    }
+    expect(anyNear, 'no puffling inside the band ever moved on the GPU').toBe(true);
+    expect(farWiggle, 'the far pufflings\' ears never moved in state, so holding still proves nothing').toBeGreaterThan(0.01);
+    far.forEach((p, k) => expect([Array.from(p.rig.quats), Array.from(p.rig.scales || [])]).toEqual(restFar[k]));
+  });
+
+  it('shrinking the band (the quality scaler) takes effect in the loop, and widening it brings the held creatures back', () => {
+    const cap = poseBands.deer.capacity;
+    const crowd = Array.from({ length: cap }, (_, i) => makeDeer(22 + 2 * i, 0));
+    for (const d of crowd) { d.state = 'walk'; d.walkTimer = 999; deers.push(d); }
+    try {
+      for (let i = 0; i < 6; i++) updateDeers(0.05, i * 0.05);
+      let ch = changedBy(crowd, () => updateDeers(0.05, 0.3));
+      expect(ch.filter(Boolean).length).toBe(cap);
+      setPoseBandScale(0.5);
+      for (let i = 0; i < 4; i++) updateDeers(0.05, 0.35 + i * 0.05);
+      let writes = 0;
+      for (let i = 0; i < 10; i++) writes = Math.max(writes, changedBy(crowd, () => updateDeers(0.05, 0.6 + i * 0.05)).filter(Boolean).length);
+      expect(writes, 'the halved band still wrote more than half the deer').toBeLessThanOrEqual(Math.floor(cap * 0.5 + 0.5));
+      expect(writes).toBeGreaterThan(0);
+      setPoseBandScale(1);
+      for (let i = 0; i < 4; i++) updateDeers(0.05, 1.2 + i * 0.05);
+      const seen = crowd.map(() => false);
+      for (let i = 0; i < 8; i++) changedBy(crowd, () => updateDeers(0.05, 1.5 + i * 0.05)).forEach((c, k) => { if (c) seen[k] = true; });
+      expect(seen.every(Boolean), 'a held deer never came back').toBe(true);
+    } finally { setPoseBandScale(1); }
+  });
+
+  it('a held creature that returns to the band shows its CURRENT angles, not the stale ones', () => {
+    const crowd = Array.from({ length: poseBands.deer.capacity }, (_, i) => makeDeer(22 + 2 * i, 0));
+    for (const d of crowd) { d.state = 'walk'; d.walkTimer = 999; deers.push(d); }
+    const last = crowd[crowd.length - 1];
+    try {
+      setPoseBandScale(0.2);       // limit 2 of 8: the last deer is held
+      for (let i = 0; i < 30; i++) updateDeers(0.05, i * 0.05);
+      const held = Array.from(last.rig.quats);
+      setPoseBandScale(1);
+      for (let i = 30; i < 40; i++) updateDeers(0.05, i * 0.05);
+      const rq = (j) => new Quaternion(last.rig.quats[j * 4], last.rig.quats[j * 4 + 1], last.rig.quats[j * 4 + 2], last.rig.quats[j * 4 + 3]);
+      const want = new Quaternion().setFromEuler(new Euler(last.legPivots[0].upper.rotation.x, last.legPivots[0].upper.rotation.y, last.legPivots[0].upper.rotation.z));
+      expect(Math.abs(want.dot(rq(DEER_JOINT.UPPER_0))), 'the deer came back with a stale pose').toBeCloseTo(1, 5);
+      expect(Array.from(last.rig.quats)).not.toEqual(held);
+    } finally { setPoseBandScale(1); }
   });
 });
 

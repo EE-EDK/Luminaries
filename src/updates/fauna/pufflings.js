@@ -25,6 +25,7 @@ import { triggerPufflingChat } from '../../systems/pufflingChat.js';
 import { getOrbsFound } from '../../quest/questState.js';
 import { isTruthRevealed } from '../../state/narrativeState.js';
 import { writePufflingPose } from '../../entities/fauna/pufflingRig.js';
+import { poseBands, poseBandBegin, poseBandOffer, poseBandHas, poseBandEnd } from '../../entities/_poseBand.js';
 
 // ================================================================
 // Module-scope allocation-free buffers (no per-frame GC)
@@ -67,6 +68,9 @@ export function updatePuffs(dt, t) {
   nearestPos.x = 0; nearestPos.z = 0;
   const curAttune = getAttunement();
 
+  const poseBand = poseBands.puff;
+  poseBandBegin(poseBand);
+
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i], g = p.group;
     const px = g.position.x, pz = g.position.z;
@@ -76,6 +80,7 @@ export function updatePuffs(dt, t) {
     if (pDist2 > 1600) { g.visible = false; continue; }
     g.visible = true;
     applyDetailLod(p, pDist2, 400);
+    poseBandOffer(poseBand, p, pDist2);
 
     if (pDist2 < nearestDist2) {
       nearestDist2 = pDist2;
@@ -451,7 +456,8 @@ export function updatePuffs(dt, t) {
     }
 
     // Publish the ear angles and eye scales written above to the GPU rig.
-    writePufflingPose(p);
+    // Nearest few only (entities/_poseBand.js); the rest hold their last pose.
+    if (poseBandHas(poseBand, p)) writePufflingPose(p);
 
     // Sparkle motes
     const attuneGlowMult = pDist2 < 64 ? (1.0 + curAttune * 0.8) : 1.0;
@@ -486,6 +492,8 @@ export function updatePuffs(dt, t) {
     const wd2 = g.position.x * g.position.x + g.position.z * g.position.z;
     if (wd2 > (WORLD_R * 0.85) * (WORLD_R * 0.85)) p.wanderAng += Math.PI;
   }
+
+  poseBandEnd(poseBand);
 
   _puffsResult.nearestDist2 = nearestDist2;
   // _puffsResult.nearestPos is already _puffNearestPos (mutated in place)

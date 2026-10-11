@@ -4,6 +4,7 @@
 
 import { applyDetailLod } from '../../entities/_bake.js';
 import { writeDeerPose } from '../../entities/fauna/deerRig.js';
+import { poseBands, poseBandBegin, poseBandOffer, poseBandHas, poseBandEnd } from '../../entities/_poseBand.js';
 import { WORLD_R, DEER_FLEE_R, DEER_FLEE_SPEED_MULT } from '../../constants.js';
 import { getGroundY } from '../../world/terrain.js';
 import { getLocalGlow } from '../../systems/dimming.js';
@@ -61,6 +62,9 @@ export function updateDeers(dt, t) {
   nearestPos.x = 0; nearestPos.z = 0;
   let nearestWanderAng = 0;
 
+  const poseBand = poseBands.deer;
+  poseBandBegin(poseBand);
+
   for (let i = 0; i < deers.length; i++) {
     const d = deers[i], g = d.group;
     const gx = g.position.x, gz = g.position.z;
@@ -70,6 +74,7 @@ export function updateDeers(dt, t) {
     if (pDist2 > 3600) { g.visible = false; continue; }
     g.visible = true;
     applyDetailLod(d, pDist2, 900);
+    poseBandOffer(poseBand, d, pDist2);
 
     // When pitch-locked to deer, track nearest deer regardless of flee state so the player
     // can match headings with a deer that was fleeing but is now calming down.
@@ -453,7 +458,8 @@ export function updateDeers(dt, t) {
     // Every joint angle above is final for this frame: hand them to the GPU rig.
     // (The pivots are plain {rotation} objects now - without this call the deer
     // would hold its last pose on screen while its state kept changing.)
-    writeDeerPose(d);
+    // Only the nearest few are written (entities/_poseBand.js); the rest hold their last pose.
+    if (poseBandHas(poseBand, d)) writeDeerPose(d);
 
     // Emissive
     const deerGlow = getLocalGlow(gx, gz, bioGlow * orbBoost);
@@ -489,6 +495,8 @@ export function updateDeers(dt, t) {
       }
     }
   }
+
+  poseBandEnd(poseBand);
 
   _deersResult.nearestDist2 = nearestDist2;
   _deersResult.nearestWanderAng = nearestWanderAng;

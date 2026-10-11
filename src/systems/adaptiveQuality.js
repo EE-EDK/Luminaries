@@ -41,10 +41,15 @@
 //   • getParticleScale()  → spawnFireflies() far cap (updates/spawning.js).
 //   • getLodScale()       → far LOD/cull multiplier (read where cheap).
 //   • getDensityScale()   → spawn-density multiplier (read where cheap).
+//   • setPoseBandScale()  → pushed here on every notch change: how many of each
+//                           rigged creature type get their pose written per frame
+//                           (entities/_poseBand.js). Creatures outside the band hold
+//                           their last pose; none are hidden.
 //   • getQualityReport()  → LumiDebug.quality().
 // ================================================================
 
 import { bloomPass, bloomEnabled } from '../core/postprocessing.js';
+import { setPoseBandScale, getPoseBandReport } from '../entities/_poseBand.js';
 
 // ----------------------------------------------------------------
 // Notch constants (shared by the pure core + the runtime)
@@ -134,6 +139,7 @@ const _particleScale = [1.0, 0.65, 0.65, 0.65, 0.45]; // far particle cap mult
 const _bloomStrength = [0.6, 0.6, 0.3, 0.0, 0.0];      // UnrealBloomPass.strength
 const _lodScale = [1.0, 1.0, 1.0, 0.85, 0.85];         // far LOD/cull dist mult
 const _densityScale = [1.0, 1.0, 1.0, 1.0, 0.7];       // spawn-density mult
+const _poseBandScale = [1.0, 1.0, 1.0, 0.75, 0.5];     // rig pose-write band size mult
 
 /** @param {number} notch @returns {number} far-particle cap multiplier for a notch. */
 export function particleScaleFor(notch) {
@@ -150,6 +156,11 @@ export function lodScaleFor(notch) {
 /** @param {number} notch @returns {number} spawn-density multiplier for a notch. */
 export function densityScaleFor(notch) {
   return _densityScale[_clampNotch(notch)];
+}
+
+/** @param {number} notch @returns {number} multiplier on how many creatures per type get a pose write. */
+export function poseBandScaleFor(notch) {
+  return _poseBandScale[_clampNotch(notch)];
 }
 
 function _clampNotch(n) {
@@ -216,6 +227,7 @@ export function updateAdaptiveQuality(dt) {
 // Apply the discrete (non-eased) effects of the current notch. Bloom strength
 // is eased separately in _easeBloom; here we only flip the bloom enable flag.
 function _applyNotch() {
+  setPoseBandScale(_poseBandScale[_state.notch]);
   // Bloom enable/disable: BLOOM_OFF and below cut bloom entirely. We keep the
   // pass in the composer chain (cheap) but zero its strength via the ease; the
   // enable flag below lets the renderer skip the pass when it reaches 0.
@@ -311,6 +323,8 @@ export function getQualityReport() {
     bloomStrength: _bloomStrength[n],
     lodScale: _lodScale[n],
     densityScale: _densityScale[n],
+    poseBandScale: _poseBandScale[n],
+    poseBand: getPoseBandReport(),
     maxNotch: _maxNotch,
     thresholds: { downFps: DOWN_FPS, upFps: UP_FPS, downHoldS: DOWN_HOLD_S, upHoldS: UP_HOLD_S },
   };

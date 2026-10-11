@@ -156,6 +156,9 @@ import { getPufflingHouseCollision, updatePufflingHomes, nearestHouse } from './
 import { queueReveal, updateFragments, resetFragments } from './systems/fragments.js';
 import { checkHouseMemory, checkGlyphEcho, humBandType } from './systems/memories.js';
 import { isHumming, getResonance, getResonanceType, isLocked, getLockType } from './systems/spiritHum.js';
+// Sprint 4: notebook, captions, photo moment, light shafts
+import { initFieldwork, stepPhotoMoment } from './systems/fieldwork.js';
+import { markSeen as markNotebook } from './state/notebookState.js';
 
 // ================================================================
 // Entity arrays (centralized in state/entityStore.js)
@@ -437,7 +440,7 @@ function _directorAttunement(dt, t, ctx) {
 
 function _directorSkyWish(dt, t, ctx) {
   const _wish = checkShootingStarWish(pitch, ctx.env.orbsFound);
-  if (_wish) showNarrativePair(_wish, 5.0);
+  if (_wish) { showNarrativePair(_wish, 5.0); markNotebook('sky.wish'); }
 }
 
 function _directorRocks(dt, t, ctx) {
@@ -736,6 +739,7 @@ function animate() {
   }
   camera.rotation.y = finalYaw;
   camera.rotation.x = finalPitch;
+  camera.rotation.y += stepPhotoMoment(dt, cinematicOwns); // Sprint 4 (D4): H held drifts the yaw
 
   // Two small things the camera does on its own, applied after the arbiter so
   // a cutscene pan is never fought over: a lean into a strafe, and a slow
@@ -944,6 +948,8 @@ try {
   initSettingsPanel({
     onClearSave: () => { clearSave(saveStore); autosave.suspend(); autosave.resume(); },
   });
+  // Sprint 4: the notebook (N), sound captions, photo moment (H), dawn/dusk shafts.
+  initFieldwork({ scene, camera, sun: moon });
   // The gear sits where the orb count used to; move the count clear of both it
   // and the dev hamburger.
   const _orbHud = document.getElementById('orb-hud');
@@ -967,7 +973,7 @@ try {
   });
 
   for (const e of [Events.ORB_COLLECTED, Events.QUEST_PHASE, Events.WORLD_TRANSFORMED,
-    Events.DISCOVERY, Events.PERSPECTIVE_CHANGED, Events.CREATURE_ATTUNED]) {
+    Events.DISCOVERY, Events.PERSPECTIVE_CHANGED, Events.CREATURE_ATTUNED, Events.NOTEBOOK_ENTRY]) {
     on(e, () => autosave.request(e));
   }
   // After an orb, the player's light drifts toward the next one for a second.

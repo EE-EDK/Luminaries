@@ -239,11 +239,18 @@ export const WEATHER_STATE_NAMES = Object.freeze(Object.keys(STATES));
  * @return {{cur:string, next:string|null, stateTimer:number, transTimer:number, transDuration:number, blending:boolean}}
  */
 export function getWeatherSnapshot() {
+  // Both timers are left below zero by the machine itself: stateTimer runs
+  // negative for the whole of a blend (it is only reset when the blend ends),
+  // and transTimer is left at its last overshoot once the blend is over. The
+  // save validator refuses negative timers, so unclamped, every autosave
+  // between "the weather started to change" and the next change was thrown
+  // away with a console error — including the one a first sight of that
+  // weather asks for. Zero means the same thing to the restore.
   return {
     cur: curState,
     next: nxtState,
-    stateTimer,
-    transTimer,
+    stateTimer: stateTimer > 0 ? stateTimer : 0,
+    transTimer: transTimer > 0 ? transTimer : 0,
     transDuration,
     blending,
   };

@@ -35,6 +35,9 @@ export const SETTINGS_SCHEMA = Object.freeze({
   qualityFloor:    int(0, 4, 4),
   reducedMotion:   bool(false),
   textSize:        num(0.85, 1.6, 1),
+  // Off by default: a line of text naming every creature call is noise to a
+  // player who can hear them, and a lifeline to one who cannot.
+  soundCaptions:   bool(false),
   rememberProgress: bool(true),
 });
 

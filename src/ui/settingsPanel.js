@@ -82,6 +82,8 @@ export function initSettingsPanel(deps = {}) {
   add(heading('Comfort'));
   add(toggleBtn('Reduced motion', () => getSetting('reducedMotion'),
     () => setSetting('reducedMotion', !getSetting('reducedMotion'))));
+  add(toggleBtn('Sound captions', () => getSetting('soundCaptions'),
+    () => setSetting('soundCaptions', !getSetting('soundCaptions'))));
   add(slider('Text size', {
     min: S('textSize').min, max: S('textSize').max, step: 0.05,
     get: () => getSetting('textSize'), set: (v) => setSetting('textSize', v), fmt: mult,

@@ -50,6 +50,13 @@ import { gustWaveAt, musicDensity } from '../systems/environment.js';
 import { getOrbsFound } from '../quest/questState.js';
 import { ORB_N } from '../constants.js';
 import { getPufflingHouseCollision, getDetailedHouseRoots, nearestHouse } from '../entities/world/pufflingHomes.js';
+import { renderer, scene, camera } from '../core/renderer.js';
+import { restoreWeatherSnapshot, WEATHER_STATE_NAMES } from '../systems/weather.js';
+import { getSeenKeys, pageProgress, NOTEBOOK_PAGES, ALL_ENTRIES } from '../state/notebookState.js';
+import { nearestRecord } from '../systems/notebookFeed.js';
+import { photoReport } from '../systems/fieldwork.js';
+import { lightShaftsReport, getLightShaftsMesh } from '../world/lightShafts.js';
+import { captionsEnabled } from '../ui/soundCaptions.js';
 
 /** @type {number | null} */
 let _seqChainTimer = null;
@@ -547,6 +554,103 @@ export function attachLumiDebugApi() {
     finale() { showFinaleText(); return this.voice(); },
 
     /**
+     * The field notebook: what the ledger holds next to what the page shows.
+     * The two are read separately on purpose — a ledger that fills while the
+     * panel stays blank is the failure, and one number cannot show it.
+     */
+    notebook() {
+      const root = typeof document !== 'undefined' ? document.getElementById('notebook-root') : null;
+      const cells = root ? Array.from(root.querySelectorAll('[data-key]')) : [];
+      const pages = {};
+      for (const p of NOTEBOOK_PAGES) pages[p] = pageProgress(p);
+      return {
+        seen: getSeenKeys(),
+        total: ALL_ENTRIES.length,
+        pages,
+        weatherNames: WEATHER_STATE_NAMES,
+        open: !!root && root.style.display !== 'none',
+        shown: cells.map((c) => ({ key: c.dataset.key, seen: c.dataset.seen === '1', text: c.textContent })),
+      };
+    },
+
+    /**
+     * Make a creature call from a side of the listener, through the same event
+     * the fauna fire. 'left' is the camera's left whichever way it is facing.
+     */
+    vocal(type, side = 'left') {
+      const yaw = camera.rotation.y, c = Math.cos(yaw), s = Math.sin(yaw);
+      const dir = { left: [-c, s], right: [c, -s], ahead: [-s, -c], behind: [s, c] }[side] || [-c, s];
+      const position = { x: player.pos.x + dir[0] * 10, z: player.pos.z + dir[1] * 10 };
+      emit(Events.CREATURE_SOUND, { type, position, playerPos: player.pos });
+      return { type, side, position };
+    },
+
+    /** The caption line as the DOM shows it. */
+    captions() {
+      const el = typeof document !== 'undefined' ? document.getElementById('sound-captions') : null;
+      return {
+        enabled: captionsEnabled(),
+        present: !!el,
+        text: el ? el.textContent : null,
+        side: el ? el.dataset.side || null : null,
+        opacity: el ? el.style.opacity : null,
+      };
+    },
+
+    /** The dawn/dusk shafts, plus the clock and rain that drive them. */
+    shafts() {
+      return { ...lightShaftsReport(), phase: dayPhase, rain: Math.round(getRainRate() * 100) / 100 };
+    },
+
+    /**
+     * Draw calls for the scene alone, measured the only way that is exact: back
+     * to back, in one task, with nothing able to move between the readings.
+     * `renderer.info` after a normal frame describes the LAST pass of the
+     * post-process chain, which is a screen-sized quad. A first render absorbs
+     * any pending shadow-map update, which would otherwise be counted once.
+     */
+    drawCalls() {
+      const count = () => { renderer.info.reset(); renderer.render(scene, camera); return renderer.info.render.calls; };
+      const mesh = getLightShaftsMesh();
+      count();
+      const natural = count();
+      if (!mesh) return { natural };
+      const was = mesh.visible;
+      mesh.visible = false; const hidden = count();
+      mesh.visible = true; const shown = count();
+      mesh.visible = false; const hiddenAgain = count();
+      mesh.visible = was;
+      return { natural, hidden, shown, hiddenAgain, delta: shown - hidden, wasVisible: was };
+    },
+
+    /** Put the weather in a named state (silently, as a restore does). */
+    forceWeather(name) {
+      if (!WEATHER_STATE_NAMES.includes(name)) return null;
+      restoreWeatherSnapshot({ cur: name, next: null, stateTimer: 600, transTimer: 0, transDuration: 0, blending: false });
+      return { state: name };
+    },
+
+    /**
+     * Begin a real change of weather, a fraction of a second from landing.
+     * forceWeather is a restore and is silent on purpose; this one goes through
+     * the weather system's own state machine, so WEATHER_CHANGE fires from the
+     * place it fires from in play and the notebook's feed is tested against
+     * the real event rather than one this console made up.
+     */
+    transitionWeather(to) {
+      if (!WEATHER_STATE_NAMES.includes(to)) return null;
+      const from = WEATHER_STATE_NAMES.find((n) => n !== to) || to;
+      restoreWeatherSnapshot({ cur: from, next: to, stateTimer: 600, transTimer: 0.05, transDuration: 1, blending: true });
+      return { from, to };
+    },
+
+    /** The photo moment: state machine and what the interface is doing. */
+    photo() {
+      const hud = typeof document !== 'undefined' ? document.getElementById('hud') : null;
+      return { ...photoReport(), hudVisibility: hud ? getComputedStyle(hud).visibility : null };
+    },
+
+    /**
      * The hidden layer, read back rather than assumed: how many fragments the
      * orbs entitle the player to (derived), how many lines are still waiting
      * their turn, and the narrative keys on record (house:<n>, echo:<creature>).
@@ -563,7 +667,11 @@ export function attachLumiDebugApi() {
      * What the quiet interactions read: where the player stands, how long they
      * have stood still, the day phase, and the nearest house with its distance from the wall.
      */
-    where() {
+    where(key) {
+      // With a key, the nearest record of that notebook entry's type; with no
+      // key, where the player stands and what the quiet interactions can see.
+      // One name because both gates ask "where", just about different things.
+      if (key !== undefined) return nearestRecord(key, player.pos.x, player.pos.z);
       const p = player.pos;
       const h = nearestHouse(p.x, p.z, 256);
       return {

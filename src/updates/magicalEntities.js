@@ -20,6 +20,7 @@ import { wisps, fairyRings, bubbles, ponds, orbs, crys_data, mush_data, flowers 
 import { getEchoBloomRing, echoBloom } from '../entities/world/energyLines.js';
 import { playFairyBounce, playBubblePop } from '../systems/audio.js';
 import { nearest } from '../systems/registration.js';
+import { pickNotebookGuide } from '../systems/notebookFeed.js';
 
 // Pre-allocated scratch for wisp creature-guide target (no per-frame allocations)
 const _creatureGuidePos = { x: 0, z: 0 };
@@ -67,6 +68,10 @@ export function updateWisps(dt, t) {
       }
     }
   }
+  // After the finale the empty notebook entries are the quest: a player who
+  // has stood still for 8 s gets the wisp leaning toward the nearest unseen one.
+  // Same lean as the orb guide below — a direction, not a marker.
+  if (qp === 'FREE_ROAM') guideOrb = pickNotebookGuide(player.pos.x, player.pos.z, playerIdleTime);
   for (let i = 0; i < wisps.length; i++) {
     const w = wisps[i];
     const orbitAng = t * 0.5 + w.phase + (i / WISP_N) * 6.28;

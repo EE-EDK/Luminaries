@@ -206,3 +206,61 @@ describe('buildSnapshot', () => {
     expect(s.player).toHaveProperty('frequency');
   });
 });
+
+// ---- Sprint 4: the field notebook rides in the save ----------------------
+describe('the notebook in the snapshot', () => {
+  it('buildSnapshot writes the seen keys under narrative.notebook, in page order', async () => {
+    const nb = await import('../notebookState.js');
+    nb.resetNotebook();
+    nb.markSeen('weather.CLEAR');
+    nb.markSeen('creature.deer');
+    expect(buildSnapshot().narrative.notebook).toEqual(['creature.deer', 'weather.CLEAR']);
+    nb.resetNotebook();
+  });
+
+  it('applySnapshot puts a saved book back', async () => {
+    const nb = await import('../notebookState.js');
+    nb.resetNotebook();
+    applySnapshot(snap({ narrative: { ...snap().narrative, notebook: ['flora.fern', 'sky.wish'] } }));
+    expect(nb.isSeen('flora.fern')).toBe(true);
+    expect(nb.isSeen('sky.wish')).toBe(true);
+    nb.resetNotebook();
+  });
+
+  it('a save from before the notebook loads, and does not open a blank book on a player who has met the deer', async () => {
+    const nb = await import('../notebookState.js');
+    nb.resetNotebook();
+    const s = snap();
+    expect('notebook' in s.narrative).toBe(false);
+    expect(() => applySnapshot(s)).not.toThrow();
+    expect(nb.isSeen('creature.deer')).toBe(true);        // narrative.discovered: ['deer']
+    expect(nb.isSeen('sky.constellation1')).toBe(true);   // two orbs collected
+    expect(nb.isSeen('sky.wish')).toBe(true);             // wishes[0]
+    expect(nb.isSeen('weather.CLEAR')).toBe(true);
+    nb.resetNotebook();
+  });
+
+  it('never announces a restored sighting: no NOTEBOOK_ENTRY during apply', async () => {
+    const nb = await import('../notebookState.js');
+    nb.resetNotebook();
+    const fired = [];
+    on(Events.NOTEBOOK_ENTRY, (d) => fired.push(d));
+    try {
+      applySnapshot(snap({ narrative: { ...snap().narrative, notebook: ['flora.fern', 'creature.moth'] } }));
+      expect(fired).toEqual([]);
+    } finally { off(Events.NOTEBOOK_ENTRY); nb.resetNotebook(); }
+  });
+
+  it('replaces the book rather than merging into whatever the boot sky already wrote', async () => {
+    const nb = await import('../notebookState.js');
+    nb.resetNotebook();
+    nb.markSeen('weather.FOG_BANK');
+    applySnapshot(snap({
+      world: { time: 0.7, weather: { cur: 'CLEAR' }, wishes: [false, false, false, false, false] },
+      narrative: { perspective: 'child', truthRevealed: false, wizardDone: false, discovered: [], glyphs: [], notebook: [] },
+      quest: { phase: 'RISING', obeliskY: -15, collected: [] },
+    }));
+    expect(nb.isSeen('weather.FOG_BANK')).toBe(false);
+    nb.resetNotebook();
+  });
+});

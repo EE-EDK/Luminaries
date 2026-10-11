@@ -16,8 +16,13 @@ import { guardedStorage, clearSave, hasSave, SAVE_KEY } from '../state/saveState
 import { SEED_KEY, DEFAULT_SEED, getBootSeed } from '../utils/rng.js';
 import { on, Events } from '../kernel/eventBus.js';
 import { setOpen as setSettingsOpen } from '../ui/settingsPanel.js';
+import { slider, note } from '../ui/panelKit.js';
+import {
+  setImpostorHazeTune, getImpostorHazeTune, IMPOSTOR_HAZE_DEFAULTS, IMPOSTOR_HAZE_LIMITS,
+} from '../entities/flora/trees.js';
 
 const ORB_CREATURES = ['puff', 'jelly', 'deer', 'moth', null];
+const HAZE_KEY = 'lumi.dev.haze';
 const _devStore = guardedStorage(typeof localStorage !== 'undefined' ? localStorage : null);
 let _saveLine = null;
 let _lastWriteAt = 0;
@@ -177,6 +182,19 @@ function typingInField() {
   return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
 }
 
+/**
+ * @brief Re-apply the haze dials the owner left, so a reload keeps the tuning
+ * being judged. Per-browser by design: these are numbers being tuned on one
+ * machine's GPU, not part of the game.
+ */
+function loadHaze() {
+  const raw = _devStore.get(HAZE_KEY);
+  if (!raw) return;
+  try { setImpostorHazeTune(JSON.parse(raw)); } catch (_) { /* a bad blob is just no tuning */ }
+}
+
+function saveHaze() { _devStore.set(HAZE_KEY, JSON.stringify(getImpostorHazeTune())); }
+
 export function initDevSkipPanel() {
   if (typeof document === 'undefined') return;
   // TEMPORARY (owner request 2026-06-07): shown in PRODUCTION builds too, not just dev.
@@ -299,6 +317,42 @@ export function initDevSkipPanel() {
   }));
 
   body.appendChild(btn('Reset seed to 42', () => regenerateWorld(DEFAULT_SEED)));
+
+  body.appendChild(separator());
+
+  // Far-forest haze (C8). The two numbers were picked under a software
+  // rasteriser; these let the owner set them on the real GPU with no rebuild.
+  // The note under them is the pair to copy back into trees.js once chosen.
+  loadHaze();
+  const hazeNote = note('');
+  const showHaze = () => {
+    const h = getImpostorHazeTune();
+    hazeNote.setText(`haze: reach ${h.reachM} m · max ${h.max}`);
+  };
+  const hazeLim = IMPOSTOR_HAZE_LIMITS;
+  const hazeReach = slider('Haze', {
+    min: hazeLim.reachM[0], max: hazeLim.reachM[1], step: 5,
+    get: () => getImpostorHazeTune().reachM,
+    set: (v) => { setImpostorHazeTune({ reachM: v }); saveHaze(); showHaze(); },
+    fmt: (v) => `${v} m`,
+  });
+  const hazeMax = slider('Haze max', {
+    min: hazeLim.max[0], max: hazeLim.max[1], step: 0.01,
+    get: () => getImpostorHazeTune().max,
+    set: (v) => { setImpostorHazeTune({ max: v }); saveHaze(); showHaze(); },
+    fmt: (v) => v.toFixed(2),
+  });
+  body.appendChild(hazeReach);
+  body.appendChild(hazeMax);
+  body.appendChild(hazeNote);
+  body.appendChild(btn('Reset haze', () => {
+    setImpostorHazeTune(IMPOSTOR_HAZE_DEFAULTS);
+    saveHaze();
+    hazeReach.refresh(); hazeMax.refresh(); showHaze();
+  }));
+  showHaze();
+
+  body.appendChild(separator());
 
   body.appendChild(btn('Settings...', () => setSettingsOpen(true)));
 

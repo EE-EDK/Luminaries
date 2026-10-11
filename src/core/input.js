@@ -17,6 +17,7 @@ export function getLookSensitivity() { return _lookSens; }
 /** @brief True when the vertical axis is inverted. */
 export function isInvertY() { return _invertY < 0; }
 import { renderer } from './renderer.js';
+import { isTypingTarget } from '../utils/dom.js';
 
 // ================================================================
 // PHASE 1.5 — Input
@@ -39,6 +40,13 @@ export let touchHumY = 0.5; // normalized 0–1 (0=top/high pitch, 1=bottom/low 
 /** Desktop: F toggles spirit-hum armed; hum runs while armed (Q/E or Q/R adjust pitch). */
 export let humFreqArmed = false;
 export let pointerLocked = false;
+/**
+ * Photo moment: H held. Lives here with the other keys so there is one keydown
+ * listener, but it is NOT read off `keys.KeyH` — that map is filled by every
+ * keydown including ones typed into the debug terminal, and typing "help()"
+ * must not hide the interface.
+ */
+export let photoHeld = false;
 
 let joyTid = null;
 let lookTid = null;
@@ -95,13 +103,22 @@ window.addEventListener('keydown', (e) => {
     humFreqArmed = !humFreqArmed;
   }
   if ('Space ShiftLeft ShiftRight KeyW KeyA KeyS KeyD'.split(' ').indexOf(e.code) >= 0) e.preventDefault();
+  // Only once the player has a world to photograph: on the title card any key
+  // starts the game, and that is all H should do there.
+  if (e.code === 'KeyH' && started && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) photoHeld = true;
   triggerGo();
 });
-window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+  if (e.code === 'KeyH') photoHeld = false;
+});
 window.addEventListener('blur', () => {
   for (const k in keys) keys[k] = false;
   mouseDown = false;
   humFreqArmed = false;
+  // A held key whose keyup lands in another window would otherwise leave the
+  // interface hidden until the next H.
+  photoHeld = false;
 });
 // NOTE: renderer.js and postprocessing.js also listen for 'resize'
 window.addEventListener('resize', () => { screenH = window.innerHeight; });

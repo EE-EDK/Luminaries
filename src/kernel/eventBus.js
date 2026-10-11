@@ -40,6 +40,7 @@ export const Events = {
   DISCOVERY:          'discovery:trigger',
   NARRATIVE_TEXT:      'narrative:text',
   PERSPECTIVE_CHANGED: 'narrative:perspectiveChanged',
+  NOTEBOOK_ENTRY:     'notebook:entry',    // { key } — a field-notebook entry was seen for the first time (never on restore)
 
   // Session plumbing (save / settings / audio readiness)
   AUDIO_READY:        'audio:ready',       // AudioContext created on the first gesture

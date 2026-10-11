@@ -98,3 +98,39 @@ export function breathOffset(idleTime, t, amp, after = 3) {
   const fade = Math.min(1, (idleTime - after) / 2);      // two seconds to arrive
   return (Math.sin(t * 0.9) * 0.7 + Math.sin(t * 1.8) * 0.3) * amp * fade;
 }
+
+/**
+ * Within this fraction of the sound's distance to either side of the line of
+ * sight, a sound reads as straight ahead or straight behind rather than as
+ * left or right. 0.38 is about 22 degrees: wide enough that a call from
+ * "roughly in front" is not announced as a side, narrow enough that a call at
+ * the edge of the view still is.
+ */
+export const CENTRE_BAND = 0.38;
+
+/**
+ * @brief Which side of the listener a sound came from.
+ *
+ * For the sound captions, which have to say "left" for someone who cannot hear
+ * the panner say it. The convention is the camera's own: yaw 0 faces -z, a
+ * positive yaw turns toward -x, and the listener's right hand is
+ * (cos yaw, -sin yaw). That is the same basis input.js moves the player by, so
+ * a caption can never disagree with where W would take you.
+ *
+ * Squared throughout: the comparison against CENTRE_BAND needs no sqrt.
+ *
+ * @param {number} dx sound x minus listener x
+ * @param {number} dz sound z minus listener z
+ * @param {number} yaw listener yaw in radians
+ * @return {'left'|'right'|'ahead'|'behind'|'here'} 'here' only when the sound
+ *   is on top of the listener and has no direction to report
+ */
+export function relativeSide(dx, dz, yaw) {
+  const d2 = dx * dx + dz * dz;
+  if (!(d2 > 1e-6)) return 'here';
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const right = dx * c - dz * s;
+  const fwd = -dx * s - dz * c;
+  if (right * right < CENTRE_BAND * CENTRE_BAND * d2) return fwd >= 0 ? 'ahead' : 'behind';
+  return right > 0 ? 'right' : 'left';
+}

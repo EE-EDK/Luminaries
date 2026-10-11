@@ -716,10 +716,37 @@ export function setImpostorHaze(color) {
 export function getImpostorHaze() {
   return { color: _hazeColor, following: _hazeIsCustom };
 }
-/** Squared distance at which haze reaches full strength (~140 m). */
-const IMPOSTOR_HAZE_FULL_D2 = 19600;
-/** Haze never fully erases the tree. */
-const IMPOSTOR_HAZE_MAX = 0.78;
+/** Where the haze ramp starts (squared): 63 m, the old hard-coded 3969. */
+const IMPOSTOR_HAZE_START_D2 = 3969;
+/** The shipped tuning: haze reaches full strength at 140 m and never erases more than 78% of the tree. */
+export const IMPOSTOR_HAZE_DEFAULTS = Object.freeze({ reachM: 140, max: 0.78 });
+export const IMPOSTOR_HAZE_LIMITS = Object.freeze({ reachM: [80, 260], max: [0.2, 1] });
+// Live copies of the two numbers the dev menu can turn. They were constants
+// chosen under SwiftShader; the owner sets them on the real GPU, and a dial
+// needs no rebuild.
+let _hazeFullD2 = IMPOSTOR_HAZE_DEFAULTS.reachM * IMPOSTOR_HAZE_DEFAULTS.reachM;
+let _hazeMax = IMPOSTOR_HAZE_DEFAULTS.max;
+
+/**
+ * @brief Tune the distant-canopy haze. Out-of-range values are clamped, not refused.
+ * @param {{reachM?:number, max?:number}} t reachM: metres at which haze is at full strength;
+ *   max: the most of the tree it may cover (0..1)
+ * @return {{reachM:number, max:number}} what is in effect
+ */
+export function setImpostorHazeTune(t) {
+  const L = IMPOSTOR_HAZE_LIMITS;
+  if (t && Number.isFinite(t.reachM)) {
+    const m = Math.min(L.reachM[1], Math.max(L.reachM[0], t.reachM));
+    _hazeFullD2 = m * m;
+  }
+  if (t && Number.isFinite(t.max)) _hazeMax = Math.min(L.max[1], Math.max(L.max[0], t.max));
+  return getImpostorHazeTune();
+}
+
+/** @brief The haze tuning in effect. */
+export function getImpostorHazeTune() {
+  return { reachM: Math.round(Math.sqrt(_hazeFullD2) * 10) / 10, max: _hazeMax };
+}
 /** Impostor opacity once the 3D mesh has handed over. Near-solid: the stamp IS the tree now. */
 const IMPOSTOR_OPACITY = 0.92;
 const _slopeUp = new Vector3(0, 1, 0);
@@ -964,8 +991,8 @@ function _applyImpostorCanopyPulse(impostor, posIdx, time, treeDim, bioGlow, lod
   _impColor.setHex(IMPOSTOR_SILHOUETTE).lerp(_impGlow.setHex(pal.glow), lit);
   // Aerial perspective, ramped on squared distance (no sqrt in this loop; the
   // quadratic ramp also matches how haze actually builds — slow near, fast far).
-  const hazeT = Math.min(IMPOSTOR_HAZE_MAX,
-    Math.max(0, (d2 - 3969) / (IMPOSTOR_HAZE_FULL_D2 - 3969)) * IMPOSTOR_HAZE_MAX);
+  const hazeT = Math.min(_hazeMax,
+    Math.max(0, (d2 - IMPOSTOR_HAZE_START_D2) / (_hazeFullD2 - IMPOSTOR_HAZE_START_D2)) * _hazeMax);
   _impColor.lerp(_hazeColor, hazeT);
   impostor.material.color.copy(_impColor);
   // Shape stays solid; only the LOD cross-fade and a slight breathing move it.

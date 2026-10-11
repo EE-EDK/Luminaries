@@ -26,6 +26,7 @@ import {
   getPerspective, isTruthRevealed, getDiscoveredKeys, restoreNarrative,
 } from './narrativeState.js';
 import { getRevealedGlyphs, restoreGlyphs } from '../systems/discoveries.js';
+import { getSeenKeys, restoreNotebook } from './notebookState.js';
 import { isWizardEncounterDone, setWizardEncounterDone } from '../systems/wizardPufflingEvent.js';
 import { getWorldTime, setWorldTime } from '../systems/dayNightCycle.js';
 import { getWeatherSnapshot, restoreWeatherSnapshot, WEATHER_STATE_NAMES } from '../systems/weather.js';
@@ -59,6 +60,7 @@ export function buildSnapshot() {
       wizardDone: isWizardEncounterDone(),
       discovered: getDiscoveredKeys(),
       glyphs: getRevealedGlyphs(),
+      notebook: getSeenKeys(),
     },
     player: {
       x: player.pos.x,
@@ -112,6 +114,17 @@ export function applySnapshot(snap, deps = {}) {
     restoreGlyphs(snap.narrative.glyphs);
     if (snap.narrative.truthRevealed) unlockTruthControlHint();
     if (snap.narrative.wizardDone) setWizardEncounterDone();
+
+    // 6b. The field notebook: set silently, like the glyphs. A save from before
+    // the notebook has no field; whatever else it vouches for — creatures met,
+    // orbs found, a wish spent, the weather it was saved in — fills the book
+    // so a returning player does not open an empty one.
+    restoreNotebook(snap.narrative.notebook, {
+      discovered: snap.narrative.discovered,
+      orbsCollected: snap.quest.collected.length,
+      wishes: snap.world.wishes,
+      weather: snap.world.weather && snap.world.weather.cur,
+    });
 
     // 7. Clock and weather.
     setWorldTime(snap.world.time);

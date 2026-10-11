@@ -17,6 +17,6 @@ export default defineConfig({
   mode: 'test',
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    include: ['src/**/*.test.js', 'scripts/**/*.test.js'],
   },
 });

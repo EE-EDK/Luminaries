@@ -55,9 +55,9 @@ small accent meshes listed in `rec._detail` beyond the stated detail distance.
 | Entity | Count | Cull / Detail | Meshes | File | Builder | States | Audio | Resonance Band |
 |--------|-------|---------------|-------:|------|---------|--------|-------|----------------|
 | Jellies | 35 | 55 m / 30 m | 7 | `entities/fauna/jellies.js` | `makeJelly()` | drift, pulse (tentacles wave on the GPU) | Glass harmonica (360-420Hz) | 390Hz ±40 |
-| Pufflings | 40 | 40 m / 20 m | 10 (13 wizard) | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander; breathe, blink, ear flick | 3-note chirp arpeggio (500-750Hz) | 550Hz ±45 |
-| Deer | 12 | 60 m / 30 m | 17 | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee | Distant horn (100-130Hz) | 120Hz ±30 |
-| Moths | 35 | 45 m / 25 m | 8 | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit); eyespots pulse, tails flutter, antennae quiver | Whisper-flutter (200-280Hz) | 240Hz ±35 |
+| Pufflings | 40 | 40 m / 20 m | 6 (8 wizard; was 10/13 pre-rig) | `entities/fauna/pufflings.js` | `makePuff()` | hop, idle, wander; breathe, blink (GPU scale joint), ear flick (GPU joints) | 3-note chirp arpeggio (500-750Hz) | 550Hz ±45 |
+| Deer | 12 | 60 m / 30 m | 3 (was 17 pre-rig; 14 GPU joints) | `entities/fauna/deer.js` | `makeDeer()` | walk, pause, look, flee, bed, shelter | Distant horn (100-130Hz) | 120Hz ±30 |
+| Moths | 35 | 45 m / 25 m | 3 (was 8 pre-rig; 4 GPU joints) | `entities/fauna/moths.js` | `makeMoth()` | patrol (orbit); eyespots pulse, tails flutter, antennae quiver | Whisper-flutter (200-280Hz) | 240Hz ±35 |
 | Luminids | 5 | — | 17 | `entities/fauna/luminids.js` | `makeLuminid()` | stilt walk (2-bone IK legs) | — | — |
 
 ### Creature Resonance Bands (Spirit Hum)

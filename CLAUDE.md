@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. 29,422 lines across 134 ES module files (measured 2026-09-18: `find src -name '*.js' -not -path '*__tests__*'`). Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
+Luminaries is a first-person 3D bioluminescent forest built with Three.js r172+ / Vite / Web Audio API. 35,182 lines across 166 ES module files (measured 2026-10-11: `find src -name '*.js' -not -path '*__tests__*'`; was 29,422 / 134 on 2026-09-18). Procedurally generated terrain, textures, audio, and music — zero external assets loaded at runtime.
 
 **Live:** https://ee-edk.github.io/Luminaries/
 

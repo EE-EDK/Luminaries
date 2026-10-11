@@ -175,8 +175,9 @@ describe('coverage: no surface types a named term by hand', () => {
 
   it('reads a believable number of player-facing strings', () => {
     // If the extractor silently stopped working, every check below would pass
-    // against an empty list. The audit measured 202 lines across these nine
-    // files; this floor is deliberately well under it and still not zero.
+    // against an empty list. The corrected extractor reads 303 player-facing
+    // strings across these nine files (measured 2026-10-11); this floor is
+    // deliberately well under it and still not zero.
     expect(strings.length).toBeGreaterThan(150);
   });
 

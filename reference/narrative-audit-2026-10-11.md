@@ -24,10 +24,10 @@ is not in here.
 
 | | count |
 |---|---|
-| lines with both voices | 139 |
-| lines with one voice only | 60 |
+| lines with both voices | 148 |
+| lines with one voice only | 8 |
 | pairs missing a half | 1 |
-| lines naming a story term in raw words | 29 |
+| lines naming a story term in raw words | 27 |
 | lines typing a named glossary form by hand | 0 |
 | surfaces examined | 9 |
 
@@ -36,14 +36,14 @@ is not in here.
 | surface | when the player sees it | both voices | one voice only |
 |---|---|---|---|
 | `src/quest/config.js` | quest text: stage hints, discovery labels, creature names, orb narrative | 23 | 0 |
-| `src/systems/discoveries.js` | idle hints and discovery lines, shown while standing still | 23 | 9 |
-| `src/world/sky.js` | wish text, on a shooting star | 5 | 8 |
-| `src/systems/intro/index.js` | the opening cinematic | 0 | 32 |
-| `src/systems/pufflingChat.js` | puffling chatter, on approach | 66 | 1 |
-| `src/updates/spiritHumVisuals.js` | hum lock confirmations | 4 | 3 |
+| `src/systems/discoveries.js` | idle hints and discovery lines, shown while standing still | 27 | 0 |
+| `src/world/sky.js` | wish text, on a shooting star | 5 | 0 |
+| `src/systems/intro/index.js` | the opening cinematic | 3 | 2 |
+| `src/systems/pufflingChat.js` | puffling chatter, on approach | 66 | 0 |
+| `src/updates/spiritHumVisuals.js` | hum lock confirmations | 4 | 2 |
 | `src/updates/attunementVisuals.js` | attunement confirmations | 4 | 0 |
 | `src/systems/wizardPufflingEvent.js` | the wizard encounter | 0 | 4 |
-| `src/narrative/controls.js` | control names, substituted into other lines | 13 | 3 |
+| `src/narrative/controls.js` | control names, substituted into other lines | 15 | 0 |
 
 ## Single-voice lines
 
@@ -51,66 +51,14 @@ These are read by every player regardless of which register they chose.
 
 | surface | line | text | story terms used |
 |---|---|---|---|
-| `src/systems/discoveries.js` | 54 | s catch-all is |  |
-| `src/systems/discoveries.js` | 455 | The {t:orb\|lower} hums quietly... seek a ${want} and hum with it first |  |
-| `src/systems/discoveries.js` | 456 | No carrier frequency — attune to ${want} before approaching | carrier |
-| `src/systems/discoveries.js` | 461 | The {t:orb\|lower} hums quietly... it wants to hear you hum back |  |
-| `src/systems/discoveries.js` | 462 | No carrier frequency detected — initiate spirit hum ({hum}) | carrier |
-| `src/systems/discoveries.js` | 467 | The {t:orb\|lower} doesn't know that voice... it listens for a ${want} |  |
-| `src/systems/discoveries.js` | 468 | Frequency mismatch — ${have} signal rejected; ${want} signature required |  |
-| `src/systems/discoveries.js` | 483 | The {t:orb\|lower} is listening... |  |
-| `src/systems/discoveries.js` | 484 | Node entering receptive state... |  |
-| `src/world/sky.js` | 163 | rgba(${starCols[Math.floor(R() * starCols.length)]},${b}) |  |
-| `src/world/sky.js` | 177 | rgba(${starCols[Math.floor(R() * starCols.length)]},${b}) |  |
-| `src/world/sky.js` | 235 | rgba(255,255,255,${0.25 + R() * 0.6}) |  |
-| `src/world/sky.js` | 553 | rgba(255,244,175,${(rd.b * 0.58).toFixed(3)}) |  |
-| `src/world/sky.js` | 554 | rgba(255,238,155,${(rd.b * 0.22).toFixed(3)}) |  |
-| `src/world/sky.js` | 555 | rgba(255,232,140,${(rd.b * 0.06).toFixed(3)}) |  |
-| `src/world/sky.js` | 650 | rgba(250,253,255,${(a * 0.55).toFixed(2)}) |  |
-| `src/world/sky.js` | 651 | rgba(240,248,255,${(a * 0.15).toFixed(2)}) |  |
-| `src/systems/intro/index.js` | 27 | Once, this forest sang. |  |
-| `src/systems/intro/index.js` | 36 | Every root hummed with light. |  |
-| `src/systems/intro/index.js` | 37 | Every canopy blazed. |  |
-| `src/systems/intro/index.js` | 38 | Then the glow began to dim. |  |
-| `src/systems/intro/index.js` | 39 | The songs grew quiet. |  |
-| `src/systems/intro/index.js` | 40 | Five anchors of light remain, |  |
-| `src/systems/intro/index.js` | 41 | buried beneath the dark. |  |
-| `src/systems/intro/index.js` | 52 | The creatures still remember |  |
-| `src/systems/intro/index.js` | 53 | the old harmony. |  |
-| `src/systems/intro/index.js` | 54 | Listen to them. |  |
-| `src/systems/intro/index.js` | 55 | Move with them. |  |
-| `src/systems/intro/index.js` | 56 | Carry their voice to the light. |  |
-| `src/systems/intro/index.js` | 202 | rgba(100,255,200,.12) 0%, |  |
-| `src/systems/intro/index.js` | 203 | rgba(60,220,160,.06) 30%, |  |
-| `src/systems/intro/index.js` | 204 | rgba(40,180,130,.03) 55%, |  |
-| `src/systems/intro/index.js` | 205 | transparent 80%); |  |
-| `src/systems/intro/index.js` | 216 | text-shadow:0 0 15px rgba(100,255,200,.5),0 0 35px rgba(50,200,150,.25), |  |
-| `src/systems/intro/index.js` | 217 | 0 2px 4px rgba(0,0,0,.6); |  |
-| `src/systems/intro/index.js` | 232 | <span data-i-col=" |  |
 | `src/systems/intro/index.js` | 256 | click to begin |  |
-| `src/systems/intro/index.js` | 266 | box-shadow:0 0 15px #aaffdd,0 0 30px #66eebb,0 0 60px rgba(80,240,170,.4), |  |
-| `src/systems/intro/index.js` | 267 | 0 0 120px rgba(50,220,150,.2),0 0 200px rgba(50,200,130,.08); |  |
-| `src/systems/intro/index.js` | 356 | opacity 2.5s ease |  |
-| `src/systems/intro/index.js` | 358 | opacity 3s ease |  |
-| `src/systems/intro/index.js` | 359 | opacity 2s ease 1s |  |
-| `src/systems/intro/index.js` | 363 | opacity 3.5s ease 0.3s |  |
 | `src/systems/intro/index.js` | 468 | click to begin a new forest |  |
-| `src/systems/intro/index.js` | 530 | clamp(22px, 7vh, 88px) |  |
-| `src/systems/intro/index.js` | 530 | clamp(18px, 5.5vh, 68px) |  |
-| `src/systems/intro/index.js` | 531 | translate(-50%, 0) |  |
-| `src/systems/intro/index.js` | 576 | translate(-50%, 0) |  |
-| `src/systems/intro/index.js` | 657 | opacity 0.5s |  |
-| `src/systems/pufflingChat.js` | 307 | translate(-50%, -100%) |  |
-| `src/updates/spiritHumVisuals.js` | 157 | 0 0 20px 10px rgba(255,255,255,0.8) |  |
 | `src/updates/spiritHumVisuals.js` | 245 | Pitch matches |  |
 | `src/updates/spiritHumVisuals.js` | 245 | — move closer (~ |  |
 | `src/systems/wizardPufflingEvent.js` | 35 | A wizard approaches? |  |
 | `src/systems/wizardPufflingEvent.js` | 37 | Another dead soul |  |
 | `src/systems/wizardPufflingEvent.js` | 38 | NOW you see BOTH worlds at once! |  |
 | `src/systems/wizardPufflingEvent.js` | 474 | Hum to answer it… ({hum}) |  |
-| `src/narrative/controls.js` | 80 | press F, then sweep the pitch with Q or E |  |
-| `src/narrative/controls.js` | 84 | hold the HUM slider, sliding it up and down to find the pitch |  |
-| `src/narrative/controls.js` | 85 | HUM slider: hold, drag to sweep |  |
 
 ## Paired lines
 
@@ -151,11 +99,18 @@ These are read by every player regardless of which register they chose.
 | `src/systems/discoveries.js` | SEEK_HUD_LABELS | Five gold sleeps wait—each yields to a borrowed voice. | Five offline nodes—staged bio-keys required. |  |
 | `src/systems/discoveries.js` | SEEK_HUD_LABELS | Seek five {t:orbs\|lower}; wake them in the grove’s order. | Recover five {t:orbs\|lower} in enforced order. |  |
 | `src/systems/discoveries.js` | SEEK_HUD_LABELS | Find a {creature}—borrow its hum, then touch the orb. | Attune to {creature}, then collect the next orb. | orb |
+| `src/systems/discoveries.js` | have | The {t:orb\|lower} hums quietly... seek a ${want} and hum with it first | No carrier frequency — attune to ${want} before approaching |  |
+| `src/systems/discoveries.js` | have | The {t:orb\|lower} hums quietly... it wants to hear you hum back | No carrier frequency detected — initiate spirit hum ({hum}) |  |
+| `src/systems/discoveries.js` | have | The {t:orb\|lower} doesn't know that voice... it listens for a ${want} | Frequency mismatch — ${have} signal rejected; ${want} signature required |  |
+| `src/systems/discoveries.js` | stageHint | The {t:orb\|lower} is listening... | Node entering receptive state... |  |
 | `src/world/sky.js` | WISH_TEXTS | Make a wish! | \u2026system boot sequence, cycle 1. |  |
 | `src/world/sky.js` | WISH_TEXTS | The stars are listening\u2026 | \u2026I built this place for her\u2026 |  |
 | `src/world/sky.js` | WISH_TEXTS | Someone drew pictures in the sky. | \u2026oscillations matched her heartbeat\u2026 |  |
 | `src/world/sky.js` | WISH_TEXTS | I wonder who lived here before. | \u2026I hope she remembers the fireflies. |  |
 | `src/world/sky.js` | WISH_TEXTS | The stars feel closer tonight. | \u2026time cannot take what has been loved\u2026 |  |
+| `src/systems/intro/index.js` | NARRATION.card0 | Once, this forest sang. | // BIOSENSOR ARRAY v4.2 // Historical luminance baseline detected |  |
+| `src/systems/intro/index.js` | NARRATION.card1 | Every root hummed with light. Every canopy blazed. Then the glow began to dim. The songs grew quiet. Five anchors of light remain, buried beneath the dark. | // Bioluminescent network coverage: 100% // Symbiotic frequency: NOMINAL // WARNING: Sector luminance decay — 73% loss over 2,400 cycles // 5 restoration nodes offline — Awaiting frequency carrier activation |  |
+| `src/systems/intro/index.js` | NARRATION.card2 | The creatures still remember the old harmony. Listen to them. Move with them. Carry their voice to the light. | // Native fauna vocalizations contain encoded frequency patterns // PROTOCOL: Attune to carrier organisms // Transport frequency // Restore nodes |  |
 | `src/systems/pufflingChat.js` | MESSAGES_DIMMED | kelu... kelu vash | Sector status: DEGRADED |  |
 | `src/systems/pufflingChat.js` | MESSAGES_DIMMED | the deep hums forgot | Bioluminescent yield: < 5% |  |
 | `src/systems/pufflingChat.js` | MESSAGES_DIMMED | mori selani dusk | Entropy spike detected |  |
@@ -223,6 +178,8 @@ These are read by every player regardless of which register they chose.
 | `src/systems/pufflingChat.js` | MESSAGES_GENERAL | when crystals ring, the ground feels happy | Local history cache indicates prior high-coherence era | crystal |
 | `src/systems/pufflingChat.js` | MESSAGES_GENERAL | the mushroom circles hum a trick—stand in one, and your head floats | Fairy-ring sites: sporadic g′ depression correlates with closed hyphal topology |  |
 | `src/systems/pufflingChat.js` | MESSAGES_GENERAL | kelu says the old rings eat worry; after that, jumping is easy | Anecdotal: “liminal opcodes” in soil RNA analogs—jump integrator gains spike inside active rings |  |
+| `src/narrative/controls.js` | HUM_INSTRUCTION | press F, then sweep the pitch with Q or E | F: carrier; Q/E: sweep to lock |  |
+| `src/narrative/controls.js` | HUM_INSTRUCTION | hold the HUM slider, sliding it up and down to find the pitch | HUM slider: hold, drag to sweep |  |
 | `src/quest/config.js` | DISCOVERY_LABELS.deer | A Glowing Deer! | Biological Metronome Detected | deer |
 | `src/quest/config.js` | DISCOVERY_LABELS.puffling | A Little Puffling! | Micro-Fauna Cluster Identified | puffling |
 | `src/quest/config.js` | DISCOVERY_LABELS.jelly | A Floating Jelly! | Bioluminescent Drifter Catalogued | jelly |

@@ -54,31 +54,82 @@ const STORY_WORDS = [
  */
 const TERM_TOKEN = /\{t:[A-Za-z]+(?:\|(?:lower|upper))?\}/g;
 
-/** Pull quoted strings out of a line, honouring escapes and all three quotes. */
-function stringsIn(line) {
-  const out = [];
-  const re = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g;
-  let m;
-  while ((m = re.exec(line)) !== null) {
-    const v = m[1] ?? m[2] ?? m[3];
-    if (v !== undefined) out.push(v);
-  }
-  return out;
+/**
+ * A quote- and comment-aware scanner over one line of source.
+ *
+ * Three bugs lived in the regex approach this replaces, and each one bent the
+ * numbers without raising an error:
+ *
+ *   - `//` was stripped to end-of-line without asking whether it was inside a
+ *     string, so the intro's terminal lines — '// BIOSENSOR ARRAY v4.2' and
+ *     seven more — were truncated to nothing and never counted at all. The
+ *     intro's adult layer was invisible to the audit it was written for.
+ *   - Block comments were not stripped, so the apostrophe in a doc comment
+ *     ("the glossary's catch-all") opened a phantom string and its tail was
+ *     reported as a player-facing line.
+ *   - A multi-line template literal (the cssText blocks) was read as code, so
+ *     its CSS fragments — 'rgba(100,255,200,.12) 0%,' and eighteen friends —
+ *     were counted as things a player reads. The intro's headline number was
+ *     32; thirteen of those were real.
+ *
+ * The scanner carries two pieces of state across lines per file: inside a
+ * block comment, and inside a multi-line template literal. A template that
+ * spans lines in these files is markup or CSS by construction, so its content
+ * is skipped; a player-facing line is a single-line string literal, and the
+ * one place that breaks this rule earns a fixture before it earns a rewrite.
+ */
+function makeScanner() {
+  let inBlock = false;
+  let inTpl = false;
+  return function scanLine(raw) {
+    const strings = [];
+    let code = '';
+    let cur = null;      // the quote we are inside, or null
+    let buf = '';
+    let i = 0;
+    while (i < raw.length) {
+      const c = raw[i], n = raw[i + 1];
+      if (inBlock) {
+        if (c === '*' && n === '/') { inBlock = false; i += 2; continue; }
+        i++; continue;
+      }
+      if (inTpl) {
+        if (c === '\\') { i += 2; continue; }
+        if (c === '`') { inTpl = false; code += "''"; i++; continue; }
+        i++; continue;
+      }
+      if (cur) {
+        if (c === '\\') { buf += c + (n ?? ''); i += 2; continue; }
+        if (c === cur) { strings.push(buf); code += "''"; buf = ''; cur = null; i++; continue; }
+        buf += c; i++; continue;
+      }
+      if (c === '/' && n === '*') { inBlock = true; i += 2; continue; }
+      if (c === '/' && n === '/') break;              // a real line comment
+      if (c === "'" || c === '"') { cur = c; i++; continue; }
+      if (c === '`') {
+        // Closed on this line it is an ordinary string; otherwise it is a
+        // cssText/innerHTML block and its content is skipped until it closes.
+        let j = i + 1, closed = -1;
+        while (j < raw.length) {
+          if (raw[j] === '\\') { j += 2; continue; }
+          if (raw[j] === '`') { closed = j; break; }
+          j++;
+        }
+        if (closed === -1) { inTpl = true; i = raw.length; continue; }
+        strings.push(raw.slice(i + 1, closed));
+        code += "''";
+        i = closed + 1; continue;
+      }
+      code += c; i++;
+    }
+    // An unterminated ' or " at end of line is not a string literal we trust —
+    // drop the buffer rather than report half a sentence.
+    return { strings, code };
+  };
 }
 
-/**
- * The line with its string literals taken out, for counting structure.
- *
- * A bracket inside a quoted string is text, not nesting. The depth counter
- * read both, so a line whose text contained an unbalanced brace walked the
- * counter away from the real nesting and closed the voice block early. It was
- * latent for as long as the only braces in player text were balanced control
- * tokens like {hum}; glossary tokens made it bite, and the symptom was not an
- * error but a plausible-looking number — four tokenised lines in
- * quest/config.js came back as seven single-voice rows, and pufflingChat grew
- * fourteen missing halves that do not exist.
- */
-const structural = (s) => s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+// (The brace-in-string depth bug that lived here is now handled by the
+// scanner above, which blanks string contents before the braces are counted.)
 
 /**
  * Is this a string a player reads?
@@ -93,6 +144,19 @@ const structural = (s) => s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`
 function playerFacing(s, inVoice) {
   if (/^\$\{[^}]*\}/.test(s.trim())) return false;        // a template fragment, not a line
   if (!/[a-zA-Z]{3,}/.test(s)) return false;
+  // Code and markup are never player text, whatever block they sit in. These
+  // run before the inVoice early-return on purpose: no voice table legitimately
+  // holds 'rgba(100,255,200,.12) 0%,' — nineteen single-line fragments of
+  // cssText did get counted once, and the opening cinematic's headline read 32
+  // player-facing lines when thirteen were real.
+  // A tag, not a bare angle bracket: the adult register says "Bioluminescent
+  // yield: < 5%", and a rule that rejected every '<' invented a missing half
+  // in MESSAGES_DIMMED on its first run.
+  if (/<\/?[a-z][\w-]*[\s>=]/i.test(s)) return false;                     // markup
+  if (/\);\s*$|^\s*transparent\b/.test(s)) return false;                 // the tail of a css value
+  if (/rgba?\(|hsla?\(|#[0-9a-f]{3,8}\b/i.test(s)) return false;         // css colour
+  if (/\b\d+(\.\d+)?(px|vh|vw|em|rem|deg|ms|s)\b/.test(s)) return false; // css dimension
+  if (/\b(translate|clamp|calc|scale|rotate|linear-gradient|radial-gradient|cubic-bezier|var)\(/.test(s)) return false;
   // Inside a voice table, every string is player text. The css heuristics below
   // must not run here: the adult register writes in clipped technical prose,
   // and "Lattice log: five dormant ignitions; each demands…" was thrown out for
@@ -135,9 +199,19 @@ export function extractFromSource(src, rel = '(fixture)', trigger = '') {
   let depth = 0;
   const counts = { child: 0, adult: 0, single: 0 };
 
+  const scanLine = makeScanner();
+  // The intro is built of cards, each carrying a fantasy layer and a terminal
+  // layer shown together. The pairing unit there is the card, not the line —
+  // card 0 has one fantasy line against two terminal lines, and pairing those
+  // by position invents a missing half on every card.
+  let layer = null;                       // { voice, key, parts, line }
+  const layerCount = { child: 0, adult: 0 };
+  const LAYER_VOICE = { fantasyLines: 'child', terminalLines: 'adult' };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const bare = line.replace(/\/\/.*$/, '');
+    // `strs` are the string literals on the line; `bare` is the line with its
+    // comments removed and string contents blanked, for structure and keys.
+    const { strings: lineStrings, code: bare } = scanLine(line);
 
     const t = bare.match(/^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=/);
     if (t) {
@@ -163,12 +237,12 @@ export function extractFromSource(src, rel = '(fixture)', trigger = '') {
 
     // A voice can be a block (`child: [`) or inline (`child: '...'`).
     const inlinePair = bare.match(/child\s*:\s*(['"`])/) && bare.match(/adult\s*:\s*(['"`])/);
-    const blockVoice = bare.match(/\b(child|adult)\s*:\s*[[{]\s*$/);
+    const blockVoice = bare.match(/\b(child|adult|fantasyLines|terminalLines)\s*:\s*[[{]\s*$/);
 
     if (inlinePair) {
       // One row, both registers, on one line.
       const key = (bare.match(/^\s*([A-Za-z_$][\w$]*)\s*:/) || [, '(row)'])[1];
-      const strs = stringsIn(bare).filter((x) => playerFacing(x, true));
+      const strs = lineStrings.filter((x) => playerFacing(x, true));
       if (strs.length >= 2) {
         out.push({ rel, trigger, table: `${table}.${key}`, child: strs[0], adult: strs[1], line: i + 1 });
         counts.child++; counts.adult++;
@@ -177,9 +251,28 @@ export function extractFromSource(src, rel = '(fixture)', trigger = '') {
     }
 
     if (blockVoice) {
-      voice = blockVoice[1];
+      const layerVoice = LAYER_VOICE[blockVoice[1]];
+      voice = layerVoice || blockVoice[1];
       voiceIsObject = blockVoice[0].trimEnd().endsWith('{');
       depthAtVoice = depth;
+      layer = layerVoice
+        ? { voice: layerVoice, key: `card${layerCount[layerVoice]++}`, parts: [], line: i + 1 }
+        : null;
+      depth += (bare.split(/[[{]/).length - 1) - (bare.split(/[\]}]/).length - 1);
+      continue;
+    }
+
+    // One half on its own line: `child: 'press F, then sweep…',` inside a
+    // larger object. HUM_INSTRUCTION and the reject-hint pairs are written
+    // this way, and without this rule their halves counted as single-voice —
+    // lines that were in fact paired showed up as work still to do.
+    const halfLine = bare.match(/^\s*(child|adult)\s*:\s*['"]/);
+    if (halfLine) {
+      const v = halfLine[1];
+      for (const str of lineStrings.filter((x) => playerFacing(x, true))) {
+        out.push({ rel, trigger, table: `${table}.${v}`, [v]: str, line: i + 1, half: v, key: null });
+        counts[v]++;
+      }
       continue;
     }
 
@@ -190,8 +283,10 @@ export function extractFromSource(src, rel = '(fixture)', trigger = '') {
       ? (bare.match(/^\s*([A-Za-z_$][\w$]*)\s*:/) || [, null])[1]
       : null;
 
-    const strs = stringsIn(bare).filter((x) => playerFacing(x, !!voice));
-    for (const s of strs) {
+    const strs = lineStrings.filter((x) => playerFacing(x, !!voice));
+    if (layer) {
+      layer.parts.push(...strs);
+    } else for (const s of strs) {
       if (voice) {
         out.push({
           rel, trigger, table: `${table}.${voice}`, [voice]: s,
@@ -204,13 +299,24 @@ export function extractFromSource(src, rel = '(fixture)', trigger = '') {
       }
     }
 
-    // Structure only: see `structural` above for what reading the raw line
-    // cost.
-    const struct = structural(bare);
-    depth += (struct.split(/[[{]/).length - 1) - (struct.split(/[\]}]/).length - 1);
+    // `bare` comes out of the scanner with string contents blanked and
+    // comments removed, so these braces are structure and nothing else.
+    depth += (bare.split(/[[{]/).length - 1) - (bare.split(/[\]}]/).length - 1);
     // A constant-named voice runs to the next `const`, which the branch above
     // handles; a key-named one ends with its own bracket.
-    if (!constVoice && voice && depth <= depthAtVoice && /[\]}]/.test(struct)) voice = null;
+    if (!constVoice && voice && depth <= depthAtVoice && /[\]}]/.test(bare)) {
+      if (layer) {
+        if (layer.parts.length) {
+          out.push({
+            rel, trigger, table: `${table}.${layer.voice}`, [layer.voice]: layer.parts.join(' '),
+            line: layer.line, half: layer.voice, key: layer.key,
+          });
+          counts[layer.voice]++;
+        }
+        layer = null;
+      }
+      voice = null;
+    }
   }
   return { rows: out, counts };
 }

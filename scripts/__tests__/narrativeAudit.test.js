@@ -241,3 +241,132 @@ describe('term counting', () => {
     expect(hardcodedIn('What fell from the gray needle as five sleeping coals?')).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bugs 5–8: what a regex cannot see about a line of JavaScript.
+// ---------------------------------------------------------------------------
+// The extractor used to find strings with one regex and strip comments with
+// another. Four things got past that, and each one moved a headline number the
+// project was planning against: the opening cinematic was reported as "32
+// player-facing lines with no register split" when it carries 3 cards, every
+// one of them in both voices.
+describe('reading a line the way JavaScript does', () => {
+  it('keeps a string that starts with // — it is text, not a comment', () => {
+    // The intro's terminal layer is written as '// BIOSENSOR ARRAY v4.2'.
+    // Stripping // to end of line deleted the adult half of every card.
+    const { rows } = extractFromSource(`
+const T = {
+  adult: [
+    '// BIOSENSOR ARRAY v4.2 online',
+  ],
+};
+`, 'f.js', '');
+    expect(rows.map((r) => r.adult)).toEqual(['// BIOSENSOR ARRAY v4.2 online']);
+  });
+
+  it('does not open a phantom string on an apostrophe in a block comment', () => {
+    // "the glossary's catch-all is 'carrier'" was reported as the player line
+    // "s catch-all is".
+    const { rows } = extractFromSource(`
+/**
+ * The glossary's catch-all is 'carrier' because "any" is not a place.
+ */
+const X = 1;
+`, 'f.js', '');
+    expect(rows).toEqual([]);
+  });
+
+  it('skips the inside of a multi-line template and rejects css fragments', () => {
+    const { rows } = extractFromSource(`
+el.style.cssText = \`
+  position:absolute;
+  text-shadow: 0 0 15px rgba(100,255,200,.5);
+\`;
+glow.style.cssText =
+  'background:radial-gradient(ellipse,' +
+    'rgba(100,255,200,.12) 0%,' +
+    'transparent 80%);';
+`, 'f.js', '');
+    expect(rows).toEqual([]);
+  });
+
+  it('keeps an adult line with a bare angle bracket in it', () => {
+    // A rule rejecting every '<' threw out "Bioluminescent yield: < 5%" and
+    // invented a missing half in MESSAGES_DIMMED on its first run.
+    const { rows } = extractFromSource(`
+const M = {
+  child: [
+    'the light is thin here',
+  ],
+  adult: [
+    'Bioluminescent yield: < 5%',
+  ],
+};
+`, 'f.js', '');
+    const paired = pairRows(rows);
+    expect(paired).toHaveLength(1);
+    expect(paired[0].adult).toBe('Bioluminescent yield: < 5%');
+  });
+
+  it('still rejects a real tag', () => {
+    const { rows } = extractFromSource(`const H = '<span data-i-col="x">glow here</span>';\n`, 'f.js', '');
+    expect(rows).toEqual([]);
+  });
+});
+
+describe('the intro is paired by card, not by line', () => {
+  const INTRO = `
+const NARRATION = [
+  {
+    fantasyLines: [
+      'Once, this forest sang.'
+    ],
+    terminalLines: [
+      '// BIOSENSOR ARRAY v4.2',
+      '// Historical luminance baseline detected'
+    ]
+  },
+  {
+    fantasyLines: [
+      'The creatures still remember',
+      'the old harmony.'
+    ],
+    terminalLines: [
+      '// PROTOCOL: Attune to carrier organisms'
+    ]
+  }
+];
+`;
+
+  it('makes one pair per card, both halves present', () => {
+    // One fantasy line against two terminal lines, then two against one:
+    // pairing by position would report a missing half on each card.
+    const paired = pairRows(extractFromSource(INTRO, 'intro.js', '').rows);
+    expect(paired).toHaveLength(2);
+    expect(paired.filter((p) => !p.child || !p.adult)).toEqual([]);
+    expect(paired[0].child).toBe('Once, this forest sang.');
+    expect(paired[0].adult).toBe('// BIOSENSOR ARRAY v4.2 // Historical luminance baseline detected');
+    expect(paired[1].child).toBe('The creatures still remember the old harmony.');
+  });
+
+  it('leaves no single-voice rows behind', () => {
+    expect(extractFromSource(INTRO, 'intro.js', '').rows.filter((r) => r.single)).toEqual([]);
+  });
+});
+
+describe('a half on its own line inside an object', () => {
+  it('counts child: and adult: lines as halves, not singles', () => {
+    // HUM_INSTRUCTION and the orb-reject pairs are written this way; reading
+    // them as singles reported finished work as still to do.
+    const { rows } = extractFromSource(`
+const HUM = {
+  desktop: {
+    child: 'press F, then sweep the pitch',
+    adult: 'F: carrier; Q/E: sweep to lock',
+  },
+};
+`, 'f.js', '');
+    expect(rows.filter((r) => r.single)).toEqual([]);
+    expect(rows.filter((r) => r.half)).toHaveLength(2);
+  });
+});

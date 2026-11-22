@@ -15,6 +15,11 @@ import { resolve, dirname } from 'node:path';
 
 const SRC = resolve(import.meta.dirname, '../..');
 
+/** Repo-relative path with forward slashes. Node path APIs use backslashes on Windows. */
+function relFromSrc(file) {
+  return file.slice(SRC.length + 1).replaceAll('\\', '/');
+}
+
 function importsOf(file) {
   const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   const out = [];
@@ -52,19 +57,19 @@ describe('the entry point', () => {
 
   it('has no import cycle anywhere under it', () => {
     const { cycle } = findCycle(resolve(SRC, 'main.js'));
-    expect(cycle && cycle.map((f) => f.slice(SRC.length + 1)).join(' -> ')).toBeNull();
+    expect(cycle && cycle.map(relFromSrc).join(' -> ')).toBeNull();
   });
 
   it('is a thin sequencer: it imports the pieces and runs them, nothing more', () => {
     const lines = readFileSync(resolve(SRC, 'main.js'), 'utf8').split('\n');
     expect(lines.length).toBeLessThan(60);
-    const imports = importsOf(resolve(SRC, 'main.js')).map((f) => f.slice(SRC.length + 1));
+    const imports = importsOf(resolve(SRC, 'main.js')).map(relFromSrc);
     expect(imports).toEqual(['core/boot.js', 'core/loop.js', 'debug/debugWiring.js']);
   });
 
   it('is never imported back by the pieces it sequences', () => {
     for (const rel of ['core/boot.js', 'core/loop.js', 'core/director.js', 'debug/debugWiring.js']) {
-      const deps = importsOf(resolve(SRC, rel)).map((f) => f.slice(SRC.length + 1));
+      const deps = importsOf(resolve(SRC, rel)).map(relFromSrc);
       expect(deps, rel).not.toContain('main.js');
     }
   });

@@ -14,6 +14,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join, relative } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
+
+/** Repo-relative path with forward slashes. relative() uses backslashes on Windows. */
+function relPosix(file) {
+  return relative(ROOT, file).replaceAll('\\', '/');
+}
+
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
 const EDGE_PX = /(?<![-\w])(top|right|bottom|left)\s*:\s*([1-9]\d*(?:\.\d+)?)px/g;
 
@@ -71,14 +77,14 @@ describe('script-built fixed elements', () => {
     for (const f of files) {
       const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
       if (!/position\s*:\s*fixed/.test(src)) continue;
-      for (const m of src.matchAll(EDGE_PX)) offenders.push(`${relative(ROOT, f)}: ${m[1]}:${m[2]}px`);
+      for (const m of src.matchAll(EDGE_PX)) offenders.push(`${relPosix(f)}: ${m[1]}:${m[2]}px`);
     }
     expect(offenders, 'use safeInset(edge, px) from utils/dom.js').toEqual([]);
   });
 
   it('finds the elements it is meant to police', () => {
     const fixed = files.filter((f) => /position\s*:\s*fixed/.test(readFileSync(f, 'utf8')));
-    const names = fixed.map((f) => relative(ROOT, f));
+    const names = fixed.map(relPosix);
     expect(names).toContain('src/ui/settingsPanel.js');
     expect(names).toContain('src/debug/devSkipPanel.js');
     expect(names).toContain('src/ui/soundCaptions.js');
